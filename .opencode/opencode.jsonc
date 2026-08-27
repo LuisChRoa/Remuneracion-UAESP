@@ -1,0 +1,19 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "remuneracion-architect": {
+      "permission": {
+        "task": {
+          "*": "allow",
+          "sdd-planner": "allow",
+          "implementer": "allow",
+          "code-reviewer": "allow",
+          "debug-agent": "allow",
+          "ui-ux-specialist": "allow",
+          "explore": "allow",
+          "general": "allow"
+        }
+      }
+    }
+  }
+}
