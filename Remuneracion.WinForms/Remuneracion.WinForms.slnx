@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Remuneracion.WinForms.csproj" />
+  <Project Path="..\Remuneracion.Core\Remuneracion.Core.csproj" />
+  <Project Path="..\Remuneracion.Infrastructure\Remuneracion.Infrastructure.csproj" />
+</Solution>

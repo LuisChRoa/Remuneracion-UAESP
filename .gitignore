@@ -1,0 +1,37 @@
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+bin/
+obj/
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# .NET / Rider
+*.swp
+*.slnx.bak
+project.lock.json
+
+# Logs
+*.log
+remuneracion_log.txt
+
+# Windows / OneDrive temp
+*~$*
+*.tmp
+Thumbs.db
+Desktop.ini
+
+# JetBrains Rider
+.idea/
+
+# NuGet
+*.nupkg
+nuget-packages/
