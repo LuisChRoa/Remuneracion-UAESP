@@ -32,7 +32,6 @@ public class ExcelDataReaderRecaudoReader : IRecaudoReader
             throw new CalculoInvalidoException(
                 $"El archivo '{Path.GetFileName(rutaArchivo)}' no contiene datos.");
 
-        // Buscar TotalOportuno: fila donde A=="Componente" y B=="Total" (case-insensitive)
         var filaTotal = filas.FirstOrDefault(f =>
             CeldaTexto(f.ElementAtOrDefault(0)).Equals("Componente", StringComparison.OrdinalIgnoreCase) &&
             CeldaTexto(f.ElementAtOrDefault(1)).Equals("Total", StringComparison.OrdinalIgnoreCase))
@@ -40,16 +39,60 @@ public class ExcelDataReaderRecaudoReader : IRecaudoReader
                 $"No se encontró la fila con A='Componente' y B='Total' en '{Path.GetFileName(rutaArchivo)}'. " +
                 $"Filas leídas: {filas.Count}");
 
-        var totalOportuno = CeldaNumero(filaTotal.ElementAtOrDefault(5)); // Columna F (index 5)
-
-        // Buscar Extemporaneo: primera fila donde B=="Mes" (case-insensitive)
         var filaMes = filas.FirstOrDefault(f =>
+            CeldaTexto(f.ElementAtOrDefault(0)).Equals("Mes", StringComparison.OrdinalIgnoreCase) ||
             CeldaTexto(f.ElementAtOrDefault(1)).Equals("Mes", StringComparison.OrdinalIgnoreCase))
             ?? throw new CalculoInvalidoException(
-                $"No se encontró la fila con B='Mes' (Extemporáneo) en '{Path.GetFileName(rutaArchivo)}'. " +
+                $"No se encontró la fila con 'Mes' en '{Path.GetFileName(rutaArchivo)}'. " +
                 $"Filas leídas: {filas.Count}");
 
-        var extemporaneo = CeldaNumero(filaMes.ElementAtOrDefault(5)); // Columna F (index 5)
+        var totalOportuno = CeldaNumero(filaTotal.ElementAtOrDefault(5));
+        var extemporaneo = CeldaNumero(filaMes.ElementAtOrDefault(5));
+
+        var filaCabecera = filas
+            .Where(f => f.Any(c => CeldaTexto(c).Equals("Componente TDF", StringComparison.OrdinalIgnoreCase)))
+            .FirstOrDefault()
+            ?? throw new CalculoInvalidoException(
+                $"No se encontró la fila de encabezado del detalle por componente en '{Path.GetFileName(rutaArchivo)}'.");
+
+        var detallePorComponente = new List<RecaudoComponenteR1.ComponenteR1>();
+        var nombresComponentes = filaCabecera
+            .Select((valor, index) => (valor, index))
+            .Where(x => !string.IsNullOrWhiteSpace(CeldaTexto(x.valor)))
+            .Select(x => new { x.index, Nombre = CeldaTexto(x.valor) })
+            .ToList();
+
+        foreach (var item in nombresComponentes)
+        {
+            if (string.Equals(item.Nombre, "Componente TDF", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(item.Nombre, "Total", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (item.index >= filaTotal.Length)
+            {
+                continue;
+            }
+
+            var valorTexto = CeldaTexto(filaTotal.ElementAtOrDefault(item.index));
+            if (string.IsNullOrWhiteSpace(valorTexto) ||
+                string.Equals(valorTexto, "Total", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!decimal.TryParse(valorTexto, NumberStyles.Any, CultureInfo.InvariantCulture, out var valorComponente))
+            {
+                continue;
+            }
+
+            detallePorComponente.Add(new RecaudoComponenteR1.ComponenteR1
+            {
+                Nombre = item.Nombre,
+                Valor = valorComponente
+            });
+        }
 
         var nombreAse = ObtenerNombreAse(rutaArchivo);
 
@@ -57,7 +100,8 @@ public class ExcelDataReaderRecaudoReader : IRecaudoReader
         {
             NombreAse = nombreAse,
             TotalOportuno = totalOportuno,
-            Extemporaneo = extemporaneo
+            Extemporaneo = extemporaneo,
+            DetallePorComponente = detallePorComponente
         };
     }
 

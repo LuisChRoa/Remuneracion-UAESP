@@ -2,6 +2,7 @@
 name: ui-ux-specialist
 description: "Subagente de remuneracion-architect para diseño premium, UX y accesibilidad en WinForms (.NET 10). Traduce el Visual Design Intent del plan SDD a código. Detecta AI Slop."
 mode: subagent
+model: github-copilot/gemini-3.7-flash
 hidden: true
 permission:
   edit: allow

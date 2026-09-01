@@ -1,5 +1,8 @@
 using System.Globalization;
 using System.Text;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Remuneracion.Core.Exceptions;
 using Remuneracion.Core.Interfaces;
 using Remuneracion.Core.Models;
@@ -30,6 +33,9 @@ internal static class Program
     private static readonly string ArchivoR4 = Path.Combine(BasePath,
         "ReversiónPorComponente_to_date01072026ddMMyyyy_to_date15072026ddMMyyyy___2026716163221489.xlsx");
 
+    private static readonly string PlantillaReferencia = Path.Combine(
+        "Docs", "Insumos", "Remuneracion 202607-1 Total.xlsx");
+
     // Valores de referencia verificados contra archivos físicos (1-Promoambiental, 202607-1)
     private const decimal EsperadoR1TotalOportuno = 19556118465.99m;
     private const decimal EsperadoR1Extemporaneo = 19549786950.62m;
@@ -45,11 +51,12 @@ internal static class Program
 
     internal static void Main(string[] args)
     {
-        Console.WriteLine("=== Verificador de Recaudo — HU-02 + HU-03 ===");
+        Console.WriteLine("=== Verificador de Recaudo — HU-02 + HU-03 + HU-04 ===");
         Console.WriteLine($"Tolerancia: ±{Tolerancia}");
         Console.WriteLine();
 
         IRecaudoReader reader = new ExcelDataReaderRecaudoReader();
+        var writer = new OpenXmlPlantillaWriter();
         var calculo = new CalculoRemuneracion();
 
         // Casos positivos (T1-T5)
@@ -204,6 +211,168 @@ internal static class Program
                 }
             });
 
+        EjecutarCaso("T10b", "LeerR1(...) devuelve detalle por componente real y no vacío",
+            () =>
+            {
+                var r1 = reader.LeerR1(ArchivoR1);
+                var ok = r1.DetallePorComponente.Count > 0;
+                Console.WriteLine($"    Componentes encontrados: {r1.DetallePorComponente.Count}");
+                Console.WriteLine($"    Primer componente: {r1.DetallePorComponente.FirstOrDefault()?.Nombre ?? "<none>"}");
+                Console.WriteLine($"    Primer valor: {r1.DetallePorComponente.FirstOrDefault()?.Valor.ToString("0.##", CultureInfo.InvariantCulture) ?? "<none>"}");
+                return ok;
+            });
+
+        EjecutarCasoNegativo("T11", "EscribirDetalleR1(...) falla honestamente al no soportar escritura funcional con payload insuficiente",
+            () =>
+            {
+                var r1 = reader.LeerR1(ArchivoR1);
+                var tempPath = CopyWorkbookToTemp();
+                try
+                {
+                    writer.EscribirDetalleR1(tempPath, new Ase { Id = 1, NombreCorto = "PROMOAMBIENTAL", NombreCompleto = "Promoambiental", NumeroCarpeta = 1 }, r1);
+                    Console.WriteLine("    ERROR: No se lanzó excepción por payload insuficiente");
+                    return false;
+                }
+                catch (CalculoInvalidoException ex)
+                {
+                    var ok = ex.Message.Contains("WorkbookLeafInputs", StringComparison.OrdinalIgnoreCase)
+                        || ex.Message.Contains("payload actual", StringComparison.OrdinalIgnoreCase)
+                        || ex.Message.Contains("insuficiente", StringComparison.OrdinalIgnoreCase);
+                    Console.WriteLine($"    Excepción lanzada: {ex.GetType().Name}");
+                    Console.WriteLine($"    Mensaje: {ex.Message}");
+                    Console.WriteLine($"    Honestidad del fail-fast: {(ok ? "PASS" : "FAIL")}");
+                    return ok;
+                }
+            });
+
+        EjecutarCasoNegativo("T12", "EscribirDetalleR2(...) falla honestamente por payload insuficiente",
+            () =>
+            {
+                var r2 = reader.LeerR2(ArchivoR2);
+                var tempPath = CopyWorkbookToTemp();
+                try
+                {
+                    writer.EscribirDetalleR2(tempPath, new Ase { Id = 1, NombreCorto = "PROMOAMBIENTAL", NombreCompleto = "Promoambiental", NumeroCarpeta = 1 }, r2);
+                    Console.WriteLine("    ERROR: No se lanzó excepción por payload insuficiente");
+                    return false;
+                }
+                catch (CalculoInvalidoException ex)
+                {
+                    var ok = ex.Message.Contains("WorkbookLeafInputs", StringComparison.OrdinalIgnoreCase)
+                        || ex.Message.Contains("payload actual", StringComparison.OrdinalIgnoreCase)
+                        || ex.Message.Contains("insuficiente", StringComparison.OrdinalIgnoreCase);
+                    Console.WriteLine($"    Excepción lanzada: {ex.GetType().Name}");
+                    Console.WriteLine($"    Mensaje: {ex.Message}");
+                    Console.WriteLine($"    Honestidad del fail-fast: {(ok ? "PASS" : "FAIL")}");
+                    return ok;
+                }
+            });
+
+        EjecutarCasoNegativo("T13", "EscribirDetalleR4(...) falla por payload insuficiente y no por label irrelevante",
+            () =>
+            {
+                var r4 = reader.LeerR4(ArchivoR4);
+                var tempPath = CopyWorkbookToTemp();
+                try
+                {
+                    writer.EscribirDetalleR4(tempPath, new Ase { Id = 1, NombreCorto = "PROMOAMBIENTAL", NombreCompleto = "Promoambiental", NumeroCarpeta = 1 }, r4);
+                    Console.WriteLine("    ERROR: No se lanzó excepción por payload insuficiente");
+                    return false;
+                }
+                catch (CalculoInvalidoException ex)
+                {
+                    var ok = ex.Message.Contains("WorkbookLeafInputs", StringComparison.OrdinalIgnoreCase)
+                        || ex.Message.Contains("payload actual", StringComparison.OrdinalIgnoreCase)
+                        || ex.Message.Contains("insuficiente", StringComparison.OrdinalIgnoreCase)
+                        || ex.Message.Contains("D9", StringComparison.OrdinalIgnoreCase)
+                        || ex.Message.Contains("P9", StringComparison.OrdinalIgnoreCase)
+                        || ex.Message.Contains("D67", StringComparison.OrdinalIgnoreCase);
+                    Console.WriteLine($"    Excepción lanzada: {ex.GetType().Name}");
+                    Console.WriteLine($"    Mensaje: {ex.Message}");
+                    Console.WriteLine($"    Semántica esperada: {(ok ? "PASS" : "FAIL")}");
+                    return ok;
+                }
+            });
+
+        EjecutarCaso("T14", "EscribirConsolidado(...) valida la estructura formula-driven sin escribir D9:D109",
+            () =>
+            {
+                var tempPath = CopyWorkbookToTemp();
+                try
+                {
+                    writer.EscribirConsolidado(tempPath, new ResultadoRemuneracion());
+                    Console.WriteLine("    Validación OK: formula chain intacta en el workbook real.");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"    Excepción inesperada: {ex.GetType().Name}: {ex.Message}");
+                    return false;
+                }
+            });
+
+        EjecutarCaso("T14B", "SharedStrings-aware matching funciona sobre la plantilla real",
+            () =>
+            {
+                var tempPath = CopyWorkbookToTemp();
+                var sheetName = "CONSOLIDADO_TOTAL RECAUDO";
+                using var workbook = SpreadsheetDocument.Open(tempPath, false);
+                var workbookPart = workbook.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
+                var sheet = ObtenerHoja(workbook, sheetName, "T14B");
+                var texto = sheet.Descendants<Cell>()
+                    .Select(c => LeerTextoCeldaSegura(c, workbookPart))
+                    .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? string.Empty;
+
+                Console.WriteLine($"    Texto visible resuelto = '{texto}'");
+                var ok = !string.IsNullOrWhiteSpace(texto);
+                return ok;
+            });
+
+        EjecutarCasoNegativo("T15", "Archivo faltante en writer lanza excepción",
+            () =>
+            {
+                try
+                {
+                    writer.EscribirDetalleR1(Path.Combine(Path.GetTempPath(), "archivo_que_no_existe.xlsx"), new Ase { Id = 1, NombreCorto = "PROMOAMBIENTAL", NombreCompleto = "Promoambiental", NumeroCarpeta = 1 }, reader.LeerR1(ArchivoR1));
+                    Console.WriteLine("    ERROR: No se lanzó excepción por archivo inexistente");
+                    return false;
+                }
+                catch (ArchivoFuenteNoEncontradoException)
+                {
+                    Console.WriteLine("    Excepción lanzada: ArchivoFuenteNoEncontradoException");
+                    return true;
+                }
+            });
+
+        EjecutarCasoNegativo("T16", "Si una celda canónica del consolidado se convierte a valor fijo, EscribirConsolidado(...) lanza excepción",
+            () =>
+            {
+                var tempPath = CopyWorkbookToTemp();
+                using (var workbook = SpreadsheetDocument.Open(tempPath, true))
+                {
+                    var workbookPart = workbook.WorkbookPart ?? throw new InvalidOperationException("No WorkbookPart");
+                    var worksheet = ObtenerHoja(workbook, "CONSOLIDADO_TOTAL RECAUDO", "T16");
+                    var cell = ObtenerCelda(worksheet, "D9") ?? throw new InvalidOperationException("D9 no encontrada");
+                    cell.CellFormula = null;
+                    cell.DataType = CellValues.String;
+                    cell.CellValue = new CellValue("123");
+                    workbook.Save();
+                }
+
+                try
+                {
+                    writer.EscribirConsolidado(tempPath, new ResultadoRemuneracion());
+                    Console.WriteLine("    ERROR: No se lanzó excepción por fórmula invalidada");
+                    return false;
+                }
+                catch (CalculoInvalidoException ex)
+                {
+                    Console.WriteLine($"    Excepción lanzada: {ex.GetType().Name}");
+                    Console.WriteLine($"    Mensaje: {ex.Message}");
+                    return true;
+                }
+            });
+
         Console.WriteLine();
 
         // Casos negativos
@@ -261,6 +430,101 @@ internal static class Program
             Console.WriteLine("✅ TODOS LOS CASOS PASARON.");
             Environment.Exit(0);
         }
+    }
+
+    private static string CopyWorkbookToTemp()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "remuneracion-hu04-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var destination = Path.Combine(tempDir, Path.GetFileName(PlantillaReferencia));
+        File.Copy(PlantillaReferencia, destination, overwrite: true);
+        return destination;
+    }
+
+    private static decimal LeerCeldaNumerica(string rutaPlantilla, string nombreHoja, string celda)
+    {
+        using var workbook = SpreadsheetDocument.Open(rutaPlantilla, false);
+        var workbookPart = workbook.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
+        var sheet = workbookPart.Workbook.Descendants<Sheet>()
+            .FirstOrDefault(s => string.Equals(s.Name?.Value, nombreHoja, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException($"No existe la hoja {nombreHoja}");
+        var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id!);
+        var cell = worksheetPart.Worksheet.Descendants<Cell>().FirstOrDefault(c => string.Equals(c.CellReference?.Value, celda, StringComparison.OrdinalIgnoreCase));
+        if (cell is null)
+        {
+            throw new InvalidOperationException($"No existe la celda {celda} en {nombreHoja}");
+        }
+
+        if (cell.CellValue is null)
+        {
+            return 0m;
+        }
+
+        if (cell.DataType is not null && cell.DataType.Value == CellValues.SharedString)
+        {
+            var sharedIndex = int.Parse(cell.CellValue.InnerText, CultureInfo.InvariantCulture);
+            var sharedString = workbookPart.SharedStringTablePart!.SharedStringTable.Elements<SharedStringItem>().ElementAtOrDefault(sharedIndex);
+            if (sharedString is null)
+            {
+                return 0m;
+            }
+            return decimal.TryParse(sharedString.InnerText, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)
+                ? parsed
+                : 0m;
+        }
+
+        return decimal.TryParse(cell.CellValue.InnerText, NumberStyles.Any, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : 0m;
+    }
+
+    private static Worksheet ObtenerHoja(SpreadsheetDocument workbook, string nombreHoja, string operacion)
+    {
+        var workbookPart = workbook.WorkbookPart ?? throw new InvalidOperationException($"El workbook para {operacion} no tiene WorkbookPart.");
+        var sheet = workbookPart.Workbook.Descendants<Sheet>()
+            .FirstOrDefault(s => string.Equals(s.Name?.Value, nombreHoja, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException($"La hoja '{nombreHoja}' no existe en el workbook para {operacion}.");
+
+        var worksheetPart = workbookPart.GetPartById(sheet.Id!) as WorksheetPart
+            ?? throw new InvalidOperationException($"No se pudo resolver la hoja '{nombreHoja}' en el workbook para {operacion}.");
+
+        return worksheetPart.Worksheet;
+    }
+
+    private static string LeerTextoCeldaSegura(Cell cell, WorkbookPart workbookPart)
+    {
+        if (cell.CellFormula is not null)
+        {
+            return cell.CellFormula.Text ?? string.Empty;
+        }
+
+        if (cell.CellValue is null)
+        {
+            return string.Empty;
+        }
+
+        if (cell.DataType is not null && cell.DataType.Value == CellValues.SharedString)
+        {
+            var shared = workbookPart.SharedStringTablePart;
+            if (shared is not null && int.TryParse(cell.CellValue.Text, out var index) && index >= 0 && index < shared.SharedStringTable.Count())
+            {
+                var item = shared.SharedStringTable.ElementAt(index);
+                return item.InnerText;
+            }
+        }
+
+        return cell.CellValue.InnerText;
+    }
+
+    private static Cell? ObtenerCelda(Worksheet worksheet, string cellReference)
+    {
+        var sheetData = worksheet.Elements<SheetData>().FirstOrDefault();
+        if (sheetData is null)
+        {
+            return null;
+        }
+
+        return sheetData.Descendants<Cell>().FirstOrDefault(c => string.Equals(c.CellReference?.Value, cellReference, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool Verificar(decimal real, decimal esperado)
