@@ -2,6 +2,7 @@
 name: implementer
 description: "Subagente de remuneracion-architect para implementación siguiendo el plan SDD aprobado. Contract-first, traza cada cambio a un requisito del plan de plans/. TDD cuando aplique."
 mode: subagent
+model: opencode/mimo-v2.5-free
 hidden: true
 permission:
   edit: allow
