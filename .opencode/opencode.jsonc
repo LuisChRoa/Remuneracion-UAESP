@@ -3,9 +3,10 @@
   "default_agent": "remuneracion-architect",
   "agent": {
     "remuneracion-architect": {
-		"mode": "primary",
-		"model": "opencode/big-pickle",
-		"prompt": "{file:agents/remuneracion-architect.md}",
+      "mode": "primary",
+      "model": "github-copilot/gpt-5.4",
+      "prompt": "{file:agents/remuneracion-architect.md}",
+
       "permission": {
         "task": {
           "*": "allow",

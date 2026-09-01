@@ -1,6 +1,10 @@
 using System.Globalization;
+using System.Text;
 using Remuneracion.Core.Exceptions;
 using Remuneracion.Core.Interfaces;
+using Remuneracion.Core.Models;
+using Remuneracion.Core.Rules;
+using Remuneracion.Core.Services;
 using Remuneracion.Infrastructure.Excel;
 
 namespace Herramientas.VerificadorRecaudo;
@@ -41,11 +45,12 @@ internal static class Program
 
     internal static void Main(string[] args)
     {
-        Console.WriteLine("=== Verificador de Recaudo — HU-02 ===");
+        Console.WriteLine("=== Verificador de Recaudo — HU-02 + HU-03 ===");
         Console.WriteLine($"Tolerancia: ±{Tolerancia}");
         Console.WriteLine();
 
         IRecaudoReader reader = new ExcelDataReaderRecaudoReader();
+        var calculo = new CalculoRemuneracion();
 
         // Casos positivos (T1-T5)
         EjecutarCaso("T1", "R1 TotalOportuno (A=Componente∧B=Total→colF)",
@@ -69,6 +74,135 @@ internal static class Program
 
         EjecutarCaso("T5", "R4 TotalReversiones (A=Total∧B=vacío→colD, negativo)",
             () => Verificar(reader.LeerR4(ArchivoR4).TotalReversiones, EsperadoR4TotalReversiones));
+
+        // Casos HU-03 (T6-T10)
+        EjecutarCaso("T6", "Calcular(...) retorna consolidado esperado para Promoambiental 202607-1",
+            () =>
+            {
+                var r1 = reader.LeerR1(ArchivoR1);
+                var r2 = reader.LeerR2(ArchivoR2);
+                var r4 = reader.LeerR4(ArchivoR4);
+                var ase = new Ase { Id = 1, NombreCorto = "PROMOAMBIENTAL", NombreCompleto = "Promoambiental", NumeroCarpeta = 1 };
+
+                var consolidado = calculo.Calcular(ase, r1, r2, r4);
+
+                var ok = true;
+                ok &= consolidado.TotOpt == 19556118465.99m;
+                ok &= consolidado.R2TotalOportuno == 54216385.68m;
+                ok &= consolidado.Extemp == 19549786950.62m;
+                ok &= consolidado.ReversionR4 == -12054255.65m;
+                ok &= consolidado.AjustesSfT == 0m;
+                ok &= consolidado.TotalAse == 39148067546.64m;
+
+                Console.WriteLine($"    TotOpt: {consolidado.TotOpt}");
+                Console.WriteLine($"    R2TotalOportuno: {consolidado.R2TotalOportuno}");
+                Console.WriteLine($"    Extemp: {consolidado.Extemp}");
+                Console.WriteLine($"    ReversionR4: {consolidado.ReversionR4}");
+                Console.WriteLine($"    AjustesSfT: {consolidado.AjustesSfT}");
+                Console.WriteLine($"    TotalAse: {consolidado.TotalAse}");
+                Console.WriteLine($"    Resultado: {(ok ? "PASS" : "FAIL")}");
+                return ok;
+            });
+
+        EjecutarCaso("T7", "CalcularConsolidado(...) con 1 ASE retorna GranTotal, Exitoso=true y Mensajes vacíos",
+            () =>
+            {
+                var r1 = reader.LeerR1(ArchivoR1);
+                var r2 = reader.LeerR2(ArchivoR2);
+                var r4 = reader.LeerR4(ArchivoR4);
+                var ase = new Ase { Id = 1, NombreCorto = "PROMOAMBIENTAL", NombreCompleto = "Promoambiental", NumeroCarpeta = 1 };
+                var periodo = new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 1 };
+
+                var resultado = calculo.CalcularConsolidado(periodo, [(ase, r1, r2, r4)]);
+                var ok = resultado.Exitoso && resultado.Mensajes.Count == 0;
+                ok &= resultado.GranTotal == 39148067546.64m;
+                Console.WriteLine($"    GranTotal: {resultado.GranTotal}");
+                Console.WriteLine($"    Consolidados.Count = {resultado.Consolidados.Count}");
+                Console.WriteLine($"    Exitoso = {resultado.Exitoso}");
+                Console.WriteLine($"    Mensajes.Count = {resultado.Mensajes.Count}");
+                Console.WriteLine($"    Resultado: {(ok ? "PASS" : "FAIL")}");
+                return ok;
+            });
+
+        EjecutarCaso("T8", "DetRetriRounder.Round(...) usa semántica Excel ROUND(valor,0)",
+            () =>
+            {
+                var valor = DetRetriRounder.Round(39148067546.64m);
+                Console.WriteLine($"    Valor redondeado: {valor}");
+                return valor == 39148067547m;
+            });
+
+        EjecutarCasoNegativo("T9", "CalcularConsolidado(...) con quincena 2 falla explícitamente con mensaje de alcance no soportado",
+            () =>
+            {
+                try
+                {
+                    var r1 = reader.LeerR1(ArchivoR1);
+                    var r2 = reader.LeerR2(ArchivoR2);
+                    var r4 = reader.LeerR4(ArchivoR4);
+                    var ase = new Ase { Id = 1, NombreCorto = "PROMOAMBIENTAL", NombreCompleto = "Promoambiental", NumeroCarpeta = 1 };
+                    var periodo = new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 };
+
+                    calculo.CalcularConsolidado(periodo, [(ase, r1, r2, r4)]);
+                    Console.WriteLine("    ERROR: No se lanzó excepción");
+                    return false;
+                }
+                catch (CalculoInvalidoException ex)
+                {
+                    var mensaje = ex.Message;
+                    var ok = mensaje.Contains("SALDOS POR NOTA", StringComparison.OrdinalIgnoreCase)
+                        || mensaje.Contains("RETRIBUCIÓN NEGATIVA", StringComparison.OrdinalIgnoreCase)
+                        || mensaje.Contains("RETRIBUCION NEGATIVA", StringComparison.OrdinalIgnoreCase);
+
+                    Console.WriteLine($"    Excepción lanzada: {ex.GetType().Name}");
+                    Console.WriteLine($"    Mensaje: {ex.Message}");
+                    Console.WriteLine($"    Semántica del mensaje: {(ok ? "PASS" : "FAIL")}");
+                    return ok;
+                }
+            });
+
+        EjecutarCasoNegativo("T10A", "CalcularConsolidado(...) con lista vacía falla explícitamente",
+            () =>
+            {
+                var periodo = new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 1 };
+
+                try
+                {
+                    calculo.CalcularConsolidado(periodo, []);
+                    Console.WriteLine("    ERROR: No se lanzó excepción por lista vacía");
+                    return false;
+                }
+                catch (CalculoInvalidoException ex)
+                {
+                    Console.WriteLine($"    Excepción lanzada: {ex.GetType().Name}");
+                    Console.WriteLine($"    Mensaje: {ex.Message}");
+                    return true;
+                }
+            });
+
+        EjecutarCasoNegativo("T10B", "CalcularConsolidado(...) con ASE duplicado falla explícitamente",
+            () =>
+            {
+                var periodo = new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 1 };
+                var r1 = reader.LeerR1(ArchivoR1);
+                var r2 = reader.LeerR2(ArchivoR2);
+                var r4 = reader.LeerR4(ArchivoR4);
+                var ase1 = new Ase { Id = 1, NombreCorto = "PROMOAMBIENTAL", NombreCompleto = "Promoambiental", NumeroCarpeta = 1 };
+                var ase2 = new Ase { Id = 1, NombreCorto = "PROMOAMBIENTAL", NombreCompleto = "Promoambiental", NumeroCarpeta = 1 };
+
+                try
+                {
+                    calculo.CalcularConsolidado(periodo, [(ase1, r1, r2, r4), (ase2, r1, r2, r4)]);
+                    Console.WriteLine("    ERROR: No se lanzó excepción por duplicado");
+                    return false;
+                }
+                catch (CalculoInvalidoException ex)
+                {
+                    Console.WriteLine($"    Excepción lanzada: {ex.GetType().Name}");
+                    Console.WriteLine($"    Mensaje: {ex.Message}");
+                    return true;
+                }
+            });
 
         Console.WriteLine();
 
@@ -95,7 +229,6 @@ internal static class Program
             });
 
         // Caso negativo 2: archivo con estructura inesperada → CalculoInvalidoException
-        // Usamos el archivo R4 como entrada a LeerR1: R4 no tiene la fila "Componente"/"Total" que R1 busca
         EjecutarCasoNegativo("N2", "Archivo R4 leído como R1 (sin fila Componente/Total) → CalculoInvalidoException",
             () =>
             {
