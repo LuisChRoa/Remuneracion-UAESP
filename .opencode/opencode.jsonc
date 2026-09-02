@@ -4,7 +4,7 @@
   "agent": {
     "remuneracion-architect": {
       "mode": "primary",
-      "model": "github-copilot/gpt-5.4",
+      "model": "github-copilot/grok-4.6",
       "prompt": "{file:agents/remuneracion-architect.md}",
 
       "permission": {

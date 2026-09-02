@@ -42,6 +42,9 @@
         private System.Windows.Forms.Label lblPlantilla;
         private System.Windows.Forms.TextBox txtPlantilla;
         private System.Windows.Forms.Button btnSeleccionarPlantilla;
+        private System.Windows.Forms.Label lblCarpetaSalida = new System.Windows.Forms.Label();
+        private System.Windows.Forms.TextBox txtCarpetaSalida = new System.Windows.Forms.TextBox();
+        private System.Windows.Forms.Button btnSeleccionarSalida = new System.Windows.Forms.Button();
 
         // --- Ejecución ---
         private System.Windows.Forms.Label lblAse;
@@ -191,9 +194,12 @@
             grpArchivos.Controls.Add(lblPlantilla);
             grpArchivos.Controls.Add(txtPlantilla);
             grpArchivos.Controls.Add(btnSeleccionarPlantilla);
+            grpArchivos.Controls.Add(lblCarpetaSalida);
+            grpArchivos.Controls.Add(txtCarpetaSalida);
+            grpArchivos.Controls.Add(btnSeleccionarSalida);
             grpArchivos.Location = new System.Drawing.Point(12, 74);
             grpArchivos.Name = "grpArchivos";
-            grpArchivos.Size = new System.Drawing.Size(676, 72);
+            grpArchivos.Size = new System.Drawing.Size(676, 102);
             grpArchivos.TabIndex = 1;
             grpArchivos.TabStop = false;
             grpArchivos.Text = "Archivos";
@@ -249,6 +255,32 @@
             btnSeleccionarPlantilla.Text = "Seleccionar...";
             btnSeleccionarPlantilla.UseVisualStyleBackColor = true;
             btnSeleccionarPlantilla.Click += new System.EventHandler(btnSeleccionarPlantilla_Click);
+            //
+            // lblCarpetaSalida
+            //
+            lblCarpetaSalida.AutoSize = true;
+            lblCarpetaSalida.Location = new System.Drawing.Point(15, 82);
+            lblCarpetaSalida.Name = "lblCarpetaSalida";
+            lblCarpetaSalida.Size = new System.Drawing.Size(94, 15);
+            lblCarpetaSalida.Text = "Carpeta salida:";
+            //
+            // txtCarpetaSalida
+            //
+            txtCarpetaSalida.Location = new System.Drawing.Point(105, 79);
+            txtCarpetaSalida.Name = "txtCarpetaSalida";
+            txtCarpetaSalida.ReadOnly = true;
+            txtCarpetaSalida.Size = new System.Drawing.Size(420, 23);
+            txtCarpetaSalida.TabIndex = 4;
+            //
+            // btnSeleccionarSalida
+            //
+            btnSeleccionarSalida.Location = new System.Drawing.Point(535, 78);
+            btnSeleccionarSalida.Name = "btnSeleccionarSalida";
+            btnSeleccionarSalida.Size = new System.Drawing.Size(110, 28);
+            btnSeleccionarSalida.TabIndex = 5;
+            btnSeleccionarSalida.Text = "Seleccionar...";
+            btnSeleccionarSalida.UseVisualStyleBackColor = true;
+            btnSeleccionarSalida.Click += new System.EventHandler(btnSeleccionarSalida_Click);
 
             // ============================
             // grpEjecucion
@@ -257,7 +289,7 @@
             grpEjecucion.Controls.Add(cmbAse);
             grpEjecucion.Controls.Add(btnEjecutar);
             grpEjecucion.Controls.Add(progressBar);
-            grpEjecucion.Location = new System.Drawing.Point(12, 154);
+            grpEjecucion.Location = new System.Drawing.Point(12, 184);
             grpEjecucion.Name = "grpEjecucion";
             grpEjecucion.Size = new System.Drawing.Size(676, 60);
             grpEjecucion.TabIndex = 2;
@@ -296,7 +328,7 @@
             progressBar.Location = new System.Drawing.Point(15, 48);
             progressBar.Name = "progressBar";
             progressBar.Size = new System.Drawing.Size(646, 8);
-            progressBar.Style = System.Windows.Forms.ProgressBarStyle.Marquee;
+            progressBar.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
             progressBar.TabIndex = 2;
             progressBar.Visible = false;
 
@@ -306,12 +338,12 @@
             txtLog.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
             | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
-            txtLog.Location = new System.Drawing.Point(12, 222);
+            txtLog.Location = new System.Drawing.Point(12, 252);
             txtLog.Multiline = true;
             txtLog.Name = "txtLog";
             txtLog.ReadOnly = true;
             txtLog.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            txtLog.Size = new System.Drawing.Size(676, 332);
+            txtLog.Size = new System.Drawing.Size(676, 302);
             txtLog.TabIndex = 3;
 
             // ============================

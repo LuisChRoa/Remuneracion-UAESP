@@ -82,7 +82,8 @@ public sealed class CalculoRemuneracion : ICalculoRemuneracion
 
         if (periodo.NumeroQuincena == 2)
         {
-            throw new CalculoInvalidoException("HU-03 no soporta quincena 2 porque aún no se modelan SALDOS POR NOTA ni RETRIBUCIÓN NEGATIVA.");
+            throw new CalculoInvalidoException(
+                "El cálculo para quincena 2 no está soportado en esta fase: requiere modelar SALDOS POR NOTA y RETRIBUCIÓN NEGATIVA antes de continuar.");
         }
 
         var consolidados = datos

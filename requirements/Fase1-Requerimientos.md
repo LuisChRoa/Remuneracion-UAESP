@@ -112,7 +112,9 @@ Sin estos insumos no es posible verificar la Fase 1. Estado actual del repositor
   - Se ignora `Informe AFaseo Recaudo`.
 - **Trazabilidad:** *Prompt Maestro* Part II (detalle por hoja); *Propuesta* §7 (Escritura).
 
-### HU-05 — Validación, UI y pruebas golden (1 ASE)
+> **Rebase 2026-09-02:** la HU-05 vigente de implementación es `plans/05 - HU-05 WorkbookLeafInputs y escritura real.md` (leaf inputs + escritura real). La historia original de validación/UI/golden queda como **HU-06** y se ejecuta después de certificar la escritura leaf.
+
+### HU-05 legado — Validación, UI y pruebas golden (1 ASE) — ahora HU-06
 - **Alcance:** Aplicación de escritorio ejecutable (WinForms) con selección de período/carpeta/plantilla, barra de progreso y registro de auditoría, acompañada de una prueba automatizada (xUnit) que contrasta la salida del sistema contra el consolidado real pre-diligenciado para certificar que coinciden dentro de la tolerancia.
 - **Entregable:** La aplicación de escritorio ejecutable (WinForms) con selección de período/carpeta/plantilla, barra de progreso y registro de auditoría, acompañada de una prueba automatizada (xUnit) que contrasta la salida del sistema contra el consolidado real pre-diligenciado para certificar que coinciden dentro de la tolerancia.
 - **Insumos / Dependencias:** Consolidado ya diligenciado del mismo período (**golden, CRÍTICO, falta**). Dep: HU-04.

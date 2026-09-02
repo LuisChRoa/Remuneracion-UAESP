@@ -51,11 +51,12 @@ internal static class Program
 
     internal static void Main(string[] args)
     {
-        Console.WriteLine("=== Verificador de Recaudo — HU-02 + HU-03 + HU-04 ===");
+        Console.WriteLine("=== Verificador de Recaudo — HU-02 + HU-03 + HU-04 + HU-05 ===");
         Console.WriteLine($"Tolerancia: ±{Tolerancia}");
         Console.WriteLine();
 
         IRecaudoReader reader = new ExcelDataReaderRecaudoReader();
+        IWorkbookLeafInputReader leafReader = new ExcelDataReaderWorkbookLeafInputReader();
         var writer = new OpenXmlPlantillaWriter();
         var calculo = new CalculoRemuneracion();
 
@@ -344,6 +345,94 @@ internal static class Program
                 }
             });
 
+        EjecutarCaso("T17", "LeerLeafInputs(...) produce leaf no vacíos y coherentes para Promoambiental 202607-1",
+            () =>
+            {
+                var ase = CrearAsePromoambiental();
+                var periodo = new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 1 };
+                var leaf = leafReader.LeerLeafInputs(ase, periodo, ArchivoR1, ArchivoR2, ArchivoR4);
+                var r1 = reader.LeerR1(ArchivoR1);
+                var r2 = reader.LeerR2(ArchivoR2);
+                var r4 = reader.LeerR4(ArchivoR4);
+
+                var ok = leaf.R1.F25 != 0m && leaf.R2.E15 != 0m && leaf.R4.D9 != 0m;
+                ok &= Verificar(leaf.R1.F25, r1.Extemporaneo);
+                ok &= Verificar(leaf.R2.TotalOportunoEsperado, r2.TotalOportuno);
+                ok &= Verificar(leaf.R4.TotalReversionEsperada, r4.TotalReversiones);
+                ok &= Verificar(leaf.R1.TotalOportunoEsperado, 16704332434.57m);
+                ok &= Verificar(leaf.R1.ExtemporaneoEsperado, 11673020m);
+                Console.WriteLine($"    F25={leaf.R1.F25} F41={leaf.R1.F41} L25={leaf.R1.L25}");
+                Console.WriteLine($"    F30={leaf.R1.F30} F10={leaf.R1.F10} L10={leaf.R1.L10}");
+                Console.WriteLine($"    E15={leaf.R2.E15} E26={leaf.R2.E26} K15={leaf.R2.K15}");
+                Console.WriteLine($"    D9={leaf.R4.D9} P9={leaf.R4.P9}");
+                return ok;
+            });
+
+        EjecutarCaso("T18", "GenerarWorkbook(...) copia plantilla, escribe solo leaf y preserva fórmulas protegidas",
+            () =>
+            {
+                var ase = CrearAsePromoambiental();
+                var periodo = new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 1 };
+                var r1 = reader.LeerR1(ArchivoR1);
+                var r2 = reader.LeerR2(ArchivoR2);
+                var r4 = reader.LeerR4(ArchivoR4);
+                var resultado = calculo.CalcularConsolidado(periodo, [(ase, r1, r2, r4)]);
+                var leaf = leafReader.LeerLeafInputs(ase, periodo, ArchivoR1, ArchivoR2, ArchivoR4);
+                var origenHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(PlantillaReferencia)));
+                var salida = Path.Combine(Path.GetTempPath(), "remuneracion-hu05-" + Guid.NewGuid().ToString("N"), "salida.xlsx");
+
+                writer.GenerarWorkbook(PlantillaReferencia, salida, resultado, leaf);
+
+                var origenHashDespues = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(PlantillaReferencia)));
+                var ok = origenHash == origenHashDespues;
+                ok &= File.Exists(salida);
+                ok &= CeldaEsFormula(salida, "Reporte Componentes R1", "F46");
+                ok &= CeldaEsFormula(salida, "Reporte Componentes R1", "F48");
+                ok &= CeldaEsFormula(salida, "Rem. Anticipos R2", "E41");
+                ok &= CeldaEsFormula(salida, "Reversion Pagos R4", "D67");
+                ok &= CeldaEsFormula(salida, "CONSOLIDADO_TOTAL RECAUDO", "D9");
+                ok &= CeldaEsFormula(salida, "CONSOLIDADO_TOTAL RECAUDO", "D28");
+                ok &= CeldaEsFormula(salida, "CONSOLIDADO_TOTAL RECAUDO", "D47");
+                ok &= CeldaEsFormula(salida, "CONSOLIDADO_TOTAL RECAUDO", "D66");
+                ok &= CeldaEsFormula(salida, "CONSOLIDADO_TOTAL RECAUDO", "D104");
+                ok &= CeldaEsFormula(salida, "CONSOLIDADO_TOTAL RECAUDO", "D109");
+                ok &= Verificar(LeerCeldaNumerica(salida, "Reporte Componentes R1", "F25"), leaf.R1.F25);
+                ok &= Verificar(LeerCeldaNumerica(salida, "Rem. Anticipos R2", "E15"), leaf.R2.E15);
+                ok &= Verificar(LeerCeldaNumerica(salida, "Reversion Pagos R4", "D9"), leaf.R4.D9);
+                Console.WriteLine($"    Plantilla original intacta: {origenHash == origenHashDespues}");
+                Console.WriteLine($"    Salida: {salida}");
+                return ok;
+            });
+
+        EjecutarCasoNegativo("T19", "GenerarWorkbook(...) falla si leaf y agregado divergen por encima de ±0.5",
+            () =>
+            {
+                var ase = CrearAsePromoambiental();
+                var periodo = new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 1 };
+                var r1 = reader.LeerR1(ArchivoR1);
+                var r2 = reader.LeerR2(ArchivoR2);
+                var r4 = reader.LeerR4(ArchivoR4);
+                var resultado = calculo.CalcularConsolidado(periodo, [(ase, r1, r2, r4)]);
+                var leaf = leafReader.LeerLeafInputs(ase, periodo, ArchivoR1, ArchivoR2, ArchivoR4);
+                leaf.R2.E15 += 10m;
+                var salida = Path.Combine(Path.GetTempPath(), "remuneracion-hu05-fail-" + Guid.NewGuid().ToString("N"), "salida.xlsx");
+
+                try
+                {
+                    writer.GenerarWorkbook(PlantillaReferencia, salida, resultado, leaf);
+                    Console.WriteLine("    ERROR: No se lanzó excepción por mismatch leaf vs agregado");
+                    return false;
+                }
+                catch (CalculoInvalidoException ex)
+                {
+                    var noCertificado = !File.Exists(salida);
+                    Console.WriteLine($"    Excepción lanzada: {ex.GetType().Name}");
+                    Console.WriteLine($"    Mensaje: {ex.Message}");
+                    Console.WriteLine($"    Archivo certificado ausente: {noCertificado}");
+                    return noCertificado;
+                }
+            });
+
         EjecutarCasoNegativo("T16", "Si una celda canónica del consolidado se convierte a valor fijo, EscribirConsolidado(...) lanza excepción",
             () =>
             {
@@ -430,6 +519,17 @@ internal static class Program
             Console.WriteLine("✅ TODOS LOS CASOS PASARON.");
             Environment.Exit(0);
         }
+    }
+
+    private static Ase CrearAsePromoambiental() =>
+        new() { Id = 1, NombreCorto = "PROMOAMBIENTAL", NombreCompleto = "Promoambiental", NumeroCarpeta = 1 };
+
+    private static bool CeldaEsFormula(string rutaPlantilla, string nombreHoja, string celda)
+    {
+        using var workbook = SpreadsheetDocument.Open(rutaPlantilla, false);
+        var worksheet = ObtenerHoja(workbook, nombreHoja, "CeldaEsFormula");
+        var cell = ObtenerCelda(worksheet, celda);
+        return cell?.CellFormula is not null && !string.IsNullOrWhiteSpace(cell.CellFormula.Text);
     }
 
     private static string CopyWorkbookToTemp()

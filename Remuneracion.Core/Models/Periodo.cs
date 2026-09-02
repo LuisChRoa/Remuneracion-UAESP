@@ -35,4 +35,29 @@ public class Periodo
     /// Nombre sugerido para el archivo de salida de la remuneración total.
     /// </summary>
     public string NombreArchivo => $"Remuneración {CodigoAAAAMM}-{NumeroQuincena} Total.xlsx";
+
+    /// <summary>
+    /// Constructor útil para parsear el código de periodo del formulario: "2026071" → AAAAMM=202607, quincena=1.
+    /// </summary>
+    public static Periodo Parse(string codigoCompleto)
+    {
+        if (string.IsNullOrWhiteSpace(codigoCompleto) || codigoCompleto.Length < 7)
+        {
+            throw new ArgumentException("El código de periodo debe incluir AAAAMM + quincena.", nameof(codigoCompleto));
+        }
+
+        var codigoAaaamm = codigoCompleto.Substring(0, 6);
+        var quincena = codigoCompleto[^1..];
+
+        if (!int.TryParse(quincena, out var numeroQuincena) || (numeroQuincena is not 1 and not 2))
+        {
+            throw new ArgumentException("La quincena debe ser 1 o 2.", nameof(codigoCompleto));
+        }
+
+        return new Periodo
+        {
+            CodigoAAAAMM = codigoAaaamm,
+            NumeroQuincena = numeroQuincena
+        };
+    }
 }

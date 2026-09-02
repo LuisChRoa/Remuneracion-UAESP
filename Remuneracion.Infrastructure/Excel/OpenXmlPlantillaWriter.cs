@@ -10,16 +10,16 @@ using Remuneracion.Core.Models;
 namespace Remuneracion.Infrastructure.Excel;
 
 /// <summary>
-/// Validador OpenXML no destructivo para la plantilla real.
-/// HU-04 queda reducida a validación estructural y fail-fast; no se escriben valores funcionales
-/// en el consolidado ni en las primeras celdas derivadas del workbook formula-driven.
+/// Writer OpenXML de la plantilla real.
+/// HU-04: validación estructural no destructiva (<see cref="IPlantillaWriter"/>).
+/// HU-05: escritura real de celdas leaf sobre una copia (<see cref="IWorkbookLeafWriter"/>).
 /// </summary>
-public class OpenXmlPlantillaWriter : IPlantillaWriter
+public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 {
-    private const string HojaConsolidado = "CONSOLIDADO_TOTAL RECAUDO";
-    private const string HojaR1 = "Reporte Componentes R1";
-    private const string HojaR2 = "Rem. Anticipos R2";
-    private const string HojaR4 = "Reversion Pagos R4";
+    private const string HojaConsolidado = WorkbookLeafCellMap.HojaConsolidado;
+    private const string HojaR1 = WorkbookLeafCellMap.HojaR1;
+    private const string HojaR2 = WorkbookLeafCellMap.HojaR2;
+    private const string HojaR4 = WorkbookLeafCellMap.HojaR4;
 
     public void EscribirConsolidado(string rutaPlantilla, ResultadoRemuneracion resultado)
     {
@@ -89,6 +89,66 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter
 
         LanzarPayloadInsuficiente(nameof(EscribirDetalleR4), HojaR4,
             "Se requiere un contrato de WorkbookLeafInputs que exponga los inputs reales detrás de D9 y P9; el modelo actual solo expone TotalReversiones agregado.");
+    }
+
+    /// <inheritdoc />
+    public void GenerarWorkbook(string rutaPlantillaOrigen, string rutaSalida, ResultadoRemuneracion resultado, WorkbookLeafInputs leafInputs)
+    {
+        ArgumentNullException.ThrowIfNull(rutaPlantillaOrigen);
+        ArgumentNullException.ThrowIfNull(rutaSalida);
+        ArgumentNullException.ThrowIfNull(resultado);
+        ArgumentNullException.ThrowIfNull(leafInputs);
+
+        var origen = ValidarArchivo(rutaPlantillaOrigen, nameof(GenerarWorkbook));
+        if (string.IsNullOrWhiteSpace(rutaSalida))
+        {
+            throw new ArchivoFuenteNoEncontradoException("La ruta de salida del workbook es requerida.");
+        }
+
+        if (string.Equals(Path.GetFullPath(origen), Path.GetFullPath(rutaSalida), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new CalculoInvalidoException("La escritura real no puede mutar la plantilla original in-place. Use una ruta de salida distinta.");
+        }
+
+        WorkbookLeafCoherence.ValidarContraResultado(leafInputs, resultado);
+
+        var directorioSalida = Path.GetDirectoryName(rutaSalida);
+        if (!string.IsNullOrWhiteSpace(directorioSalida))
+        {
+            Directory.CreateDirectory(directorioSalida);
+        }
+
+        File.Copy(origen, rutaSalida, overwrite: true);
+
+        try
+        {
+            using (var workbook = SpreadsheetDocument.Open(rutaSalida, true))
+            {
+                var workbookPart = workbook.WorkbookPart
+                    ?? throw new CalculoInvalidoException("El workbook abierto no tiene WorkbookPart válido.");
+                ValidarFormulasProtegidas(workbookPart, nameof(GenerarWorkbook));
+                EscribirCeldasLeaf(workbookPart, leafInputs);
+                var workbookXml = workbookPart.Workbook
+                    ?? throw new CalculoInvalidoException("El workbook abierto no tiene metadata Workbook válida.");
+                workbookXml.Save();
+            }
+
+            using (var workbook = SpreadsheetDocument.Open(rutaSalida, false))
+            {
+                var workbookPart = workbook.WorkbookPart
+                    ?? throw new CalculoInvalidoException("El workbook generado no tiene WorkbookPart válido.");
+                ValidarFormulasProtegidas(workbookPart, nameof(GenerarWorkbook));
+            }
+        }
+        catch
+        {
+            if (File.Exists(rutaSalida))
+            {
+                File.Delete(rutaSalida);
+            }
+
+            throw;
+        }
     }
 
     private static void ValidarConsolidadoFormulario(WorkbookPart workbookPart, Worksheet worksheet)
@@ -275,5 +335,128 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter
         value = value.Replace(" ", string.Empty, StringComparison.Ordinal);
         value = value.Replace("_xlfn.", string.Empty, StringComparison.OrdinalIgnoreCase);
         return value;
+    }
+
+    private static void ValidarFormulasProtegidas(WorkbookPart workbookPart, string operacion)
+    {
+        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMap.ProtectedFormulas)
+        {
+            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
+        }
+    }
+
+    private static void EscribirCeldasLeaf(WorkbookPart workbookPart, WorkbookLeafInputs leafInputs)
+    {
+        var valores = new Dictionary<(string Hoja, string Celda), decimal>(new LeafCellComparer())
+        {
+            [(WorkbookLeafCellMap.HojaR1, "F25")] = leafInputs.R1.F25,
+            [(WorkbookLeafCellMap.HojaR1, "F41")] = leafInputs.R1.F41,
+            [(WorkbookLeafCellMap.HojaR1, "L25")] = leafInputs.R1.L25,
+            [(WorkbookLeafCellMap.HojaR1, "F30")] = leafInputs.R1.F30,
+            [(WorkbookLeafCellMap.HojaR1, "F10")] = leafInputs.R1.F10,
+            [(WorkbookLeafCellMap.HojaR1, "L10")] = leafInputs.R1.L10,
+            [(WorkbookLeafCellMap.HojaR2, "E15")] = leafInputs.R2.E15,
+            [(WorkbookLeafCellMap.HojaR2, "E26")] = leafInputs.R2.E26,
+            [(WorkbookLeafCellMap.HojaR2, "K15")] = leafInputs.R2.K15,
+            [(WorkbookLeafCellMap.HojaR4, "D9")] = leafInputs.R4.D9,
+            [(WorkbookLeafCellMap.HojaR4, "P9")] = leafInputs.R4.P9
+        };
+
+        foreach (var (hoja, celda, nombre) in WorkbookLeafCellMap.EditableLeafCells)
+        {
+            if (WorkbookLeafCellMap.ProtectedFormulas.Any(p =>
+                    string.Equals(p.Hoja, hoja, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(p.Celda, celda, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new CalculoInvalidoException(
+                    $"El cell-map intentó escribir '{nombre}' sobre la fórmula protegida {hoja}!{celda}.");
+            }
+
+            if (!valores.TryGetValue((hoja, celda), out var valor))
+            {
+                throw new CalculoInvalidoException($"No hay valor leaf mapeado para {nombre} ({hoja}!{celda}).");
+            }
+
+            EscribirValorNumerico(workbookPart, hoja, celda, valor, nombre);
+        }
+    }
+
+    private static void EscribirValorNumerico(WorkbookPart workbookPart, string hoja, string celda, decimal valor, string nombre)
+    {
+        var worksheet = ObtenerHoja(workbookPart, hoja, nameof(GenerarWorkbook));
+        var cell = ObtenerOCrearCelda(worksheet, celda);
+
+        if (cell.CellFormula is not null)
+        {
+            throw new CalculoInvalidoException(
+                $"La celda leaf {nombre} ({hoja}!{celda}) es fórmula en la plantilla. HU-05 no puede sobrescribir fórmulas.");
+        }
+
+        cell.DataType = CellValues.Number;
+        cell.CellValue = new CellValue(valor.ToString(CultureInfo.InvariantCulture));
+    }
+
+    private static Cell ObtenerOCrearCelda(Worksheet worksheet, string cellReference)
+    {
+        var existente = ObtenerCelda(worksheet, cellReference);
+        if (existente is not null)
+        {
+            return existente;
+        }
+
+        var sheetData = worksheet.Elements<SheetData>().FirstOrDefault()
+            ?? throw new CalculoInvalidoException($"La hoja no tiene SheetData para crear la celda '{cellReference}'.");
+
+        var (_, filaNumero) = ParsearReferencia(cellReference);
+        var row = sheetData.Elements<Row>().FirstOrDefault(r => r.RowIndex?.Value == filaNumero);
+        if (row is null)
+        {
+            row = new Row { RowIndex = filaNumero };
+            var siguientes = sheetData.Elements<Row>().FirstOrDefault(r => r.RowIndex?.Value > filaNumero);
+            if (siguientes is null)
+            {
+                sheetData.Append(row);
+            }
+            else
+            {
+                sheetData.InsertBefore(row, siguientes);
+            }
+        }
+
+        var nueva = new Cell { CellReference = cellReference };
+        var siguienteCelda = row.Elements<Cell>().FirstOrDefault(c =>
+            string.Compare(c.CellReference?.Value, cellReference, StringComparison.OrdinalIgnoreCase) > 0);
+        if (siguienteCelda is null)
+        {
+            row.Append(nueva);
+        }
+        else
+        {
+            row.InsertBefore(nueva, siguienteCelda);
+        }
+
+        return nueva;
+    }
+
+    private static (string Columna, uint Fila) ParsearReferencia(string cellReference)
+    {
+        var match = Regex.Match(cellReference, @"^(?<col>[A-Za-z]+)(?<row>\d+)$");
+        if (!match.Success)
+        {
+            throw new CalculoInvalidoException($"Referencia de celda inválida: '{cellReference}'.");
+        }
+
+        return (match.Groups["col"].Value.ToUpperInvariant(), uint.Parse(match.Groups["row"].Value, CultureInfo.InvariantCulture));
+    }
+
+    private sealed class LeafCellComparer : IEqualityComparer<(string Hoja, string Celda)>
+    {
+        public bool Equals((string Hoja, string Celda) x, (string Hoja, string Celda) y) =>
+            string.Equals(x.Hoja, y.Hoja, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(x.Celda, y.Celda, StringComparison.OrdinalIgnoreCase);
+
+        public int GetHashCode((string Hoja, string Celda) obj) =>
+            HashCode.Combine(obj.Hoja.ToUpperInvariant(), obj.Celda.ToUpperInvariant());
     }
 }

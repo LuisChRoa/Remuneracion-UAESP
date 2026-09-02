@@ -1,17 +1,31 @@
+using Remuneracion.Core.Interfaces;
+using Remuneracion.Core.Services;
+using Remuneracion.Infrastructure.Excel;
+using Remuneracion.Infrastructure.FileSystem;
+
 namespace Remuneracion.WinForms
 {
     internal static class Program
     {
-        /// <summary>
-        ///  The main entry point for the application.
-        /// </summary>
         [STAThread]
         static void Main()
         {
-            // To customize application configuration such as set high DPI settings or default font,
-            // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
-            Application.Run(new Form1());
+
+            var lectorR1R2R4 = new ExcelDataReaderRecaudoReader();
+            var hojaLeafReader = new ExcelDataReaderWorkbookLeafInputReader();
+            var calculo = new CalculoRemuneracion();
+            var validador = new ValidadorBasico();
+            var writer = new OpenXmlPlantillaWriter();
+            IProcesadorRemuneracion procesador = new ProcesadorRemuneracion(
+                lectorR1R2R4,
+                hojaLeafReader,
+                calculo,
+                validador,
+                writer);
+
+            var locator = new ArchivoFuenteLocator();
+            Application.Run(new Form1(procesador, locator));
         }
     }
 }

@@ -2,7 +2,7 @@
 name: code-reviewer
 description: "Subagente de remuneracion-architect para revisión de calidad y spec compliance contra el plan SDD de plans/. Prioridad del proyecto: calidad senior."
 mode: subagent
-model: github-copilot/gpt-5.3-codex
+model: github-copilot/gpt-5.4-mini
 hidden: true
 permission:
   edit: deny
