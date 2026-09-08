@@ -77,6 +77,40 @@ internal static class WorkbookLeafCoherence
         }
     }
 
+    /// <summary>
+    /// HU-08 (2.2): gate Σ empresas = visible de bloque por ASE y hoja (R1/R2/R4), tolerancia
+    /// ±0.5, ceros legítimos (EAAB-CL todo 0 en Q1 es válido). Lista vacía = HU-07 puro.
+    /// </summary>
+    internal static void ValidarSigmaEmpresas(
+        IReadOnlyList<ConciliacionEmpresaInputs> conciliacion,
+        WorkbookLeafInputs leaf)
+    {
+        ArgumentNullException.ThrowIfNull(conciliacion);
+        ArgumentNullException.ThrowIfNull(leaf);
+
+        if (conciliacion.Count == 0)
+        {
+            return;
+        }
+
+        var sumaR1 = conciliacion.Sum(c => c.VisibleR1);
+        var sumaR2 = conciliacion.Sum(c => c.VisibleR2);
+        var sumaR4 = conciliacion.Sum(c => c.VisibleR4);
+
+        AsegurarDentroDeTolerancia(
+            $"ASE {leaf.Ase.Id} R1: Σ empresas vs visible de bloque (TOT_OPT)",
+            sumaR1,
+            leaf.R1.TotalOportunoEsperadoPorAse);
+        AsegurarDentroDeTolerancia(
+            $"ASE {leaf.Ase.Id} R2: Σ empresas vs visible de bloque",
+            sumaR2,
+            leaf.R2.TotalOportunoEsperado);
+        AsegurarDentroDeTolerancia(
+            $"ASE {leaf.Ase.Id} R4: Σ empresas vs visible de bloque",
+            sumaR4,
+            leaf.R4.TotalReversionEsperada);
+    }
+
     internal static void AsegurarDentroDeTolerancia(string etiqueta, decimal leaf, decimal agregado)
     {
         var diferencia = Math.Abs(leaf - agregado);

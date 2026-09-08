@@ -286,6 +286,30 @@ namespace Remuneracion.WinForms
                 Log.Information("ASE {AseId}: {Linea}", leaf.Ase.Id, linea);
             }
 
+            // HU-08 (2.2): resumen por empresa de facturación (esperado post-Excel) + Σ vs bloque.
+            foreach (var leaf in resultadoProceso.Leafs.OrderBy(l => l.Ase.Id))
+            {
+                foreach (var conc in leaf.Conciliacion.OrderBy(c => c.Empresa.Id))
+                {
+                    var lineaEmpresa = $"  ASE {leaf.Ase.Id} · {conc.Empresa.Nombre}: R1={conc.VisibleR1:0.##}; R2={conc.VisibleR2:0.##}; R4={conc.VisibleR4:0.##}";
+                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaEmpresa}{Environment.NewLine}");
+                    Log.Information("ASE {AseId} empresa {Empresa}: {Linea}", leaf.Ase.Id, conc.Empresa.Nombre, lineaEmpresa);
+                }
+            }
+
+            // HU-08 (2.2): hojas Recaudo * (valores de las conciliaciones por empresa).
+            var primerLeaf = resultadoProceso.Leafs.FirstOrDefault();
+            if (primerLeaf is not null && primerLeaf.Recaudos.Count > 0)
+            {
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Recaudo por empresa (hojas Recaudo *):{Environment.NewLine}");
+                foreach (var recaudo in primerLeaf.Recaudos.OrderBy(r => r.Empresa.Id))
+                {
+                    var lineaRecaudo = $"  {recaudo.Empresa.Nombre}: OPORTUNO={recaudo.TotalOportuno:0.##}; EXTEMP={recaudo.TotalExtemporaneo:0.##}; TOTAL={recaudo.Total:0.##}";
+                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaRecaudo}{Environment.NewLine}");
+                    Log.Information("Empresa {Empresa}: {Linea}", recaudo.Empresa.Nombre, lineaRecaudo);
+                }
+            }
+
             // GranTotal honesto post-Excel = Σ visibles leaf por ASE (nunca agregados HU-02 como
             // valores CONSOLIDADO; A5).
             var granTotal = resultadoProceso.Leafs.Sum(l =>

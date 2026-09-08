@@ -128,6 +128,10 @@ public sealed class ValidadorBasico : IValidador
             }
 
             ValidarGatesPorAse(errores, leaf, consolidado);
+
+            // §2.5 regla 2.2 (HU-08): gate Σ empresas = visible de bloque por ASE y hoja
+            // (R1/R2/R4), tolerancia ±0.5, ceros legítimos. Lista vacía = comportamiento HU-07.
+            ValidarSigmaEmpresasPorAse(errores, leaf);
         }
 
         // §2.5 regla 5: GranTotal == Σ TotalAse (±0.5) + TotalAse aritmético por ASE.
@@ -177,4 +181,38 @@ public sealed class ValidadorBasico : IValidador
             errores.Add($"ASE {leaf.Ase.Id}: la hoja R4 TotalReversionEsperada ({leaf.R4.TotalReversionEsperada}) no coincide con ReversionR4 del consolidado ({consolidado.ReversionR4}).");
         }
     }
+
+    /// <summary>
+    /// HU-08 (§2.5): Σ visibles-empresa == visible de bloque por hoja (R1/R2/R4) ±0.5.
+    /// Ceros legítimos: EAAB-CL todo 0 en Q1 es válido (V8). El error nombra ASE + empresa.
+    /// Lista vacía = HU-07 puro.
+    /// </summary>
+    private static void ValidarSigmaEmpresasPorAse(List<string> errores, WorkbookLeafInputs leaf)
+    {
+        if (leaf.Conciliacion.Count == 0)
+        {
+            return;
+        }
+
+        var sumaR1 = leaf.Conciliacion.Sum(c => c.VisibleR1);
+        if (Math.Abs(sumaR1 - leaf.R1.TotalOportunoEsperadoPorAse) > Tolerancia)
+        {
+            errores.Add($"ASE {leaf.Ase.Id}: Σ visibles de empresas en R1 ({sumaR1}) no coincide con el visible de bloque ({leaf.R1.TotalOportunoEsperadoPorAse}). Detalle: {DetalleEmpresas(leaf, c => c.VisibleR1)}");
+        }
+
+        var sumaR2 = leaf.Conciliacion.Sum(c => c.VisibleR2);
+        if (Math.Abs(sumaR2 - leaf.R2.TotalOportunoEsperado) > Tolerancia)
+        {
+            errores.Add($"ASE {leaf.Ase.Id}: Σ visibles de empresas en R2 ({sumaR2}) no coincide con el visible de bloque ({leaf.R2.TotalOportunoEsperado}). Detalle: {DetalleEmpresas(leaf, c => c.VisibleR2)}");
+        }
+
+        var sumaR4 = leaf.Conciliacion.Sum(c => c.VisibleR4);
+        if (Math.Abs(sumaR4 - leaf.R4.TotalReversionEsperada) > Tolerancia)
+        {
+            errores.Add($"ASE {leaf.Ase.Id}: Σ visibles de empresas en R4 ({sumaR4}) no coincide con el visible de bloque ({leaf.R4.TotalReversionEsperada}). Detalle: {DetalleEmpresas(leaf, c => c.VisibleR4)}");
+        }
+    }
+
+    private static string DetalleEmpresas(WorkbookLeafInputs leaf, Func<ConciliacionEmpresaInputs, decimal> selector) =>
+        string.Join(", ", leaf.Conciliacion.Select(c => $"{c.Empresa.Nombre}={selector(c)}"));
 }

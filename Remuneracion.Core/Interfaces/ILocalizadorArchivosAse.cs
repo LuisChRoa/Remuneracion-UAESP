@@ -21,4 +21,13 @@ public interface ILocalizadorArchivosAse
     /// <param name="prefijo">Prefijo (case-insensitive) del nombre del archivo.</param>
     /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
     string? BuscarArchivo(string carpeta, string prefijo);
+
+    /// <summary>
+    /// HU-08 (2.2, T0-0.6): localiza el archivo de conciliación por empresa dentro de
+    /// <c>{carpetaPeriodo}/Consolidado/Conciliaciones/</c>.
+    /// </summary>
+    /// <param name="carpetaPeriodo">Carpeta del período quincenal.</param>
+    /// <param name="prefijo">Prefijo del nombre del archivo de conciliación.</param>
+    /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
+    string? BuscarConciliacion(string carpetaPeriodo, string prefijo);
 }

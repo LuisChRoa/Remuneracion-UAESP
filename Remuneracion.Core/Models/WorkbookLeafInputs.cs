@@ -30,4 +30,15 @@ public sealed class WorkbookLeafInputs
     /// Inputs leaf de la hoja <c>Reversion Pagos R4</c>.
     /// </summary>
     public WorkbookLeafInputsR4 R4 { get; set; } = new();
+
+    /// <summary>
+    /// HU-08 (2.2): conciliación por empresa de facturación para este ASE
+    /// (operandos R1/R2/R4 + visibles esperados). Lista vacía = comportamiento HU-07 puro.
+    /// </summary>
+    public IReadOnlyList<ConciliacionEmpresaInputs> Conciliacion { get; set; } = [];
+
+    /// <summary>
+    /// HU-08 (2.2): hojas <c>Recaudo *</c> en valores (5 empresas). Lista vacía = HU-07 puro.
+    /// </summary>
+    public IReadOnlyList<RecaudoEmpresaInputs> Recaudos { get; set; } = [];
 }

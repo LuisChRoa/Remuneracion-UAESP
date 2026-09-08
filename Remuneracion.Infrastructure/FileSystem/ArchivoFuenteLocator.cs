@@ -49,4 +49,28 @@ public class ArchivoFuenteLocator : ILocalizadorArchivosAse
             .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f)
                 .StartsWith(prefijo, StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>
+    /// HU-08 (2.2, T0-0.6): localiza el archivo de conciliación por empresa dentro de
+    /// <c>{carpetaPeriodo}/Consolidado/Conciliaciones/</c> (p. ej. "Conjunta ENEL",
+    /// "Directa", "Conjunta Otros"). Devuelve <c>null</c> si no existe.
+    /// </summary>
+    /// <param name="carpetaPeriodo">Carpeta del período quincenal.</param>
+    /// <param name="prefijo">Prefijo del nombre del archivo de conciliación.</param>
+    /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
+    public string? BuscarConciliacion(string carpetaPeriodo, string prefijo)
+    {
+        ArgumentNullException.ThrowIfNull(carpetaPeriodo);
+        ArgumentNullException.ThrowIfNull(prefijo);
+
+        var carpetaConciliaciones = Path.Combine(carpetaPeriodo, "Consolidado", "Conciliaciones");
+        if (!Directory.Exists(carpetaConciliaciones))
+        {
+            return null;
+        }
+
+        return Directory.EnumerateFiles(carpetaConciliaciones, "*.xlsx", SearchOption.TopDirectoryOnly)
+            .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f)
+                .StartsWith(prefijo, StringComparison.OrdinalIgnoreCase));
+    }
 }

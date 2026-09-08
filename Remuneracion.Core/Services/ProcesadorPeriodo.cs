@@ -90,8 +90,22 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             progreso?.Report($"ASE {idAse}: leyendo inputs leaf del workbook...");
             var leaf = _leafReader.LeerLeafInputs(ase, solicitud.Periodo, rutaR1, rutaR2, rutaR4);
 
+            // HU-08 (2.2): conciliación por empresa de facturación de este ASE (fail-fast ASE+empresa).
+            progreso?.Report($"ASE {idAse}: leyendo conciliación por empresa (R1/R2/R4)...");
+            leaf.Conciliacion = _leafReader.LeerConciliacionEmpresas(ase, solicitud.Periodo, rutaR1, rutaR2, rutaR4);
+
             datos.Add((ase, r1, r2, r4));
             leafs.Add(leaf);
+        }
+
+        // HU-08 (2.2): hojas Recaudo * ← Consolidado/Conciliaciones (T0-0.6). Se leen una vez
+        // y se comparten en los 5 leafs; fail-fast nombra la empresa si falta su archivo.
+        progreso?.Report("Leyendo hojas Recaudo * desde las conciliaciones por empresa...");
+        var recaudos = _leafReader.LeerRecaudosEmpresa(
+            empresa => _localizador.BuscarConciliacion(solicitud.CarpetaPeriodo, empresa.PrefijoConciliacion));
+        foreach (var leaf in leafs)
+        {
+            leaf.Recaudos = recaudos;
         }
 
         progreso?.Report("Calculando consolidados de los 5 ASE...");

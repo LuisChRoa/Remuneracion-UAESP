@@ -163,6 +163,12 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 
         WorkbookLeafCoherence.ValidarContraResultadoMultiAse(leafInputs, resultado);
 
+        // HU-08 (2.2): gate Σ empresas = visible de bloque por ASE antes de escribir (D4/G5).
+        foreach (var leaf in leafInputs)
+        {
+            WorkbookLeafCoherence.ValidarSigmaEmpresas(leaf.Conciliacion, leaf);
+        }
+
         var directorioSalida = Path.GetDirectoryName(rutaSalida);
         if (!string.IsNullOrWhiteSpace(directorioSalida))
         {
@@ -181,6 +187,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
                 foreach (var leaf in leafInputs.OrderBy(l => l.Ase.Id))
                 {
                     EscribirCeldasLeafPorAse(workbookPart, leaf);
+                    EscribirCeldasEmpresa(workbookPart, leaf);
                 }
 
                 var workbookXml = workbookPart.Workbook
@@ -423,7 +430,9 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 
     /// <summary>
     /// Valida el mapa ampliado: visibles de cada bloque ASE (R1/R2/R4) + filas CONSOLIDADO
-    /// D9:D13/D28:D32/D47:D51/D66:D70/D85:D89/D104:D108/D109 con shared-formula awareness.
+    /// D9:D13/D28:D32/D47:D51/D66:D70/D85:D89/D104:D108/D109 con shared-formula awareness,
+    /// + mapa 2.2 (HU-08): <c>REMUNERACION_*</c>, <c>VALIDACION_*</c>, <c>GERENTES_*</c>,
+    /// <c>Recaudo *</c> fila 29+ (D6).
     /// </summary>
     private static void ValidarFormulasProtegidasMultiAse(WorkbookPart workbookPart, string operacion)
     {
@@ -443,6 +452,12 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
         }
 
         foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapPorAseProtectedConsolidado)
+        {
+            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
+        }
+
+        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapPorEmpresa.ProtectedFormulasPorEmpresa)
         {
             var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
             ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
@@ -563,6 +578,69 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
         }
 
         return valor;
+    }
+
+    /// <summary>
+    /// HU-08 (2.2): escribe en la MISMA pasada los operandos por empresa (R1/R2/R4) y las hojas
+    /// <c>Recaudo *</c> en valores. Solo celdas del mapa congelado; el guard de fórmulas
+    /// (<see cref="EscribirValorNumerico"/>) impide tocar cualquier celda con <c>&lt;f&gt;</c>.
+    /// </summary>
+    private static void EscribirCeldasEmpresa(WorkbookPart workbookPart, WorkbookLeafInputs leaf)
+    {
+        foreach (var conc in leaf.Conciliacion)
+        {
+            EscribirCeldasConciliacion(workbookPart, leaf.Ase.Id, conc);
+        }
+
+        foreach (var recaudo in leaf.Recaudos)
+        {
+            foreach (var (celda, valor) in recaudo.Celdas)
+            {
+                EscribirValorNumerico(workbookPart, recaudo.HojaRecaudo, celda, valor, $"Recaudo.{recaudo.Empresa.Nombre}.{celda}");
+            }
+        }
+    }
+
+    private static void EscribirCeldasConciliacion(WorkbookPart workbookPart, int aseId, ConciliacionEmpresaInputs conc)
+    {
+        if (WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa.TryGetValue((conc.Empresa.Id, aseId), out var r1))
+        {
+            foreach (var (celda, _) in r1)
+            {
+                if (!conc.CeldasR1.TryGetValue(celda, out var valor))
+                {
+                    throw new CalculoInvalidoException($"No hay valor R1 por empresa para {conc.Empresa.Nombre} ({HojaR1}!{celda}) del ASE {aseId}.");
+                }
+
+                EscribirValorNumerico(workbookPart, HojaR1, celda, valor, $"R1.{conc.Empresa.Nombre}.{celda}");
+            }
+        }
+
+        if (WorkbookLeafCellMapPorEmpresa.EditablesR2PorEmpresa.TryGetValue((conc.Empresa.Id, aseId), out var r2))
+        {
+            foreach (var (celda, _) in r2)
+            {
+                if (!conc.CeldasR2.TryGetValue(celda, out var valor))
+                {
+                    throw new CalculoInvalidoException($"No hay valor R2 por empresa para {conc.Empresa.Nombre} ({HojaR2}!{celda}) del ASE {aseId}.");
+                }
+
+                EscribirValorNumerico(workbookPart, HojaR2, celda, valor, $"R2.{conc.Empresa.Nombre}.{celda}");
+            }
+        }
+
+        if (WorkbookLeafCellMapPorEmpresa.EditablesR4PorEmpresa.TryGetValue((conc.Empresa.Id, aseId), out var r4))
+        {
+            foreach (var (celda, _) in r4)
+            {
+                if (!conc.CeldasR4.TryGetValue(celda, out var valor))
+                {
+                    throw new CalculoInvalidoException($"No hay valor R4 por empresa para {conc.Empresa.Nombre} ({HojaR4}!{celda}) del ASE {aseId}.");
+                }
+
+                EscribirValorNumerico(workbookPart, HojaR4, celda, valor, $"R4.{conc.Empresa.Nombre}.{celda}");
+            }
+        }
     }
 
     private static void EscribirValorNumerico(WorkbookPart workbookPart, string hoja, string celda, decimal valor, string nombre)

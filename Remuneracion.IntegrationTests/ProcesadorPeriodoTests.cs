@@ -58,6 +58,13 @@ public sealed class ProcesadorPeriodoTests
         Assert.Equal(5, resultado.Leafs.Count);
         Assert.Equal([1, 2, 3, 4, 5], resultado.Leafs.OrderBy(l => l.Ase.Id).Select(l => l.Ase.Id).ToArray());
 
+        // HU-08 (2.2): cada leaf trae las 5 empresas de facturación y las 5 hojas Recaudo *.
+        foreach (var leaf in resultado.Leafs)
+        {
+            Assert.Equal(5, leaf.Conciliacion.Count);
+            Assert.Equal(5, leaf.Recaudos.Count);
+        }
+
         // GranTotal de dominio = suma de TotalAse (±0.5) — §2.5 regla 5 (invariante interno).
         Assert.InRange(
             resultado.Resultado.GranTotal - resultado.Resultado.Consolidados.Sum(c => c.TotalAse),
@@ -71,6 +78,48 @@ public sealed class ProcesadorPeriodoTests
             + l.R1.ExtemporaneoEsperadoPorAse
             + l.R4.TotalReversionEsperada);
         Assert.InRange(granTotalPostExcel - 58210094820.50m, -0.5m, 0.5m);
+    }
+
+    [Fact]
+    public void Ejecutar_FaltaConciliacionDeEnerbit_FallaNombrandoEmpresaYSinSalida()
+    {
+        // HU-08 (2.2): si falta el archivo de conciliación de una empresa, fail-fast nombra la
+        // empresa y NO hay salida certificada (T0-0.6: Recaudo * ← Consolidado/Conciliaciones).
+        var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-failconc-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(salidaDir);
+        var salida = Path.Combine(salidaDir, Insumos.Periodo().NombreArchivo);
+
+        var carpetaPeriodo = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-conc-" + Guid.NewGuid().ToString("N"));
+        CopiarArbol(Insumos.CarpetaPeriodo, carpetaPeriodo);
+        var conciliaciones = Path.Combine(carpetaPeriodo, "Consolidado", "Conciliaciones");
+        var enerbit = Directory.EnumerateFiles(conciliaciones, "*.xlsx", SearchOption.TopDirectoryOnly)
+            .First(f => Path.GetFileNameWithoutExtension(f).StartsWith("Conjunta ENERBIT", StringComparison.OrdinalIgnoreCase));
+        File.Delete(enerbit);
+
+        var procesador = CrearProcesador();
+        var ex = Assert.Throws<ArchivoFuenteNoEncontradoException>(() =>
+            procesador.Ejecutar(new SolicitudProcesoPeriodo
+            {
+                Periodo = Insumos.Periodo(),
+                CarpetaPeriodo = carpetaPeriodo,
+                RutaPlantilla = Insumos.Plantilla,
+                RutaSalida = salida
+            }));
+
+        Assert.Contains("Enerbit", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(salida), "No debe existir salida certificada ante fallo.");
+    }
+
+    private static void CopiarArbol(string origen, string destino)
+    {
+        Directory.CreateDirectory(destino);
+        foreach (var archivo in Directory.EnumerateFiles(origen, "*.xlsx", SearchOption.AllDirectories))
+        {
+            var relativo = Path.GetRelativePath(origen, archivo);
+            var destinoArchivo = Path.Combine(destino, relativo);
+            Directory.CreateDirectory(Path.GetDirectoryName(destinoArchivo)!);
+            File.Copy(archivo, destinoArchivo);
+        }
     }
 
     [Fact]

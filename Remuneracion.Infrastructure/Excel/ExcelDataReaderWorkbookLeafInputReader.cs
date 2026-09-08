@@ -49,6 +49,129 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         return leaf;
     }
 
+    /// <inheritdoc />
+    public IReadOnlyList<ConciliacionEmpresaInputs> LeerConciliacionEmpresas(
+        Ase ase, Periodo periodo, string rutaR1, string rutaR2, string rutaR4)
+    {
+        ArgumentNullException.ThrowIfNull(ase);
+        ArgumentNullException.ThrowIfNull(periodo);
+        ArgumentNullException.ThrowIfNull(rutaR1);
+        ArgumentNullException.ThrowIfNull(rutaR2);
+        ArgumentNullException.ThrowIfNull(rutaR4);
+
+        var filasR1 = ExcelWorksheetNavigator.LeerFilas(rutaR1);
+        var filasR2 = ExcelWorksheetNavigator.LeerFilas(rutaR2);
+        var filasR4 = ExcelWorksheetNavigator.LeerFilas(rutaR4);
+
+        var resultado = new List<ConciliacionEmpresaInputs>();
+        foreach (var empresa in EmpresaFacturacion.Catalogo)
+        {
+            var inputs = new ConciliacionEmpresaInputs
+            {
+                Empresa = empresa,
+                Ase = ase,
+                CeldasR1 = ExtraerCeldasR1(ase, empresa, filasR1),
+                CeldasR2 = ExtraerCeldasR2(ase, empresa, filasR2),
+                CeldasR4 = ExtraerCeldasR4(ase, empresa, filasR4)
+            };
+
+            inputs.VisibleR1 = CalcularVisibleR1(ase.Id, empresa.Id, inputs.CeldasR1);
+            inputs.VisibleR2 = CalcularVisibleR2(inputs.CeldasR2);
+            inputs.VisibleR4 = CalcularVisibleR4(inputs.CeldasR4);
+
+            resultado.Add(inputs);
+        }
+
+        return resultado;
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<RecaudoEmpresaInputs> LeerRecaudosEmpresa(
+        Func<EmpresaFacturacion, string?> rutaConciliacionPorEmpresa)
+    {
+        ArgumentNullException.ThrowIfNull(rutaConciliacionPorEmpresa);
+
+        var resultado = new List<RecaudoEmpresaInputs>();
+        foreach (var empresa in EmpresaFacturacion.Catalogo)
+        {
+            var ruta = rutaConciliacionPorEmpresa(empresa)
+                ?? throw new ArchivoFuenteNoEncontradoException(
+                    $"No se encontró el archivo de conciliación de {empresa.Nombre} (prefijo '{empresa.PrefijoConciliacion}') en Consolidado/Conciliaciones.");
+
+            resultado.Add(LeerRecaudoEmpresa(empresa, ruta));
+        }
+
+        return resultado;
+    }
+
+    private static RecaudoEmpresaInputs LeerRecaudoEmpresa(EmpresaFacturacion empresa, string rutaConciliacion)
+    {
+        // T0-0.6: los archivos Conjunta * tienen UNA sola hoja (RESUMEN MES); LeerFilas lee la primera.
+        // La estructura de bloques es uniforme (ASE1..5 + X + total) aunque los encabezados varíen
+        // ("OPORTUNO"/"EXTEMP."/"TOTAL" en ENEL vs "Ciudad Limpia - Prestador"/"EAAB - Prestador"
+        // en Otros). Se detectan los bloques por la corrida de filas con ASE 1..5 (col C).
+        var filas = ExcelWorksheetNavigator.LeerFilas(rutaConciliacion);
+        var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+
+        bool EsAse(object?[]? fila, int esperado)
+        {
+            if (fila is null)
+            {
+                return false;
+            }
+
+            var texto = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(2));
+            return decimal.TryParse(texto, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var valor)
+                && Math.Abs(valor - esperado) < 0.01m;
+        }
+
+        var inicioBloques = new List<int>();
+        for (var i = 0; i + 4 < filas.Count; i++)
+        {
+            if (EsAse(filas[i], 1) && EsAse(filas[i + 1], 2) && EsAse(filas[i + 2], 3)
+                && EsAse(filas[i + 3], 4) && EsAse(filas[i + 4], 5))
+            {
+                inicioBloques.Add(i);
+                i += 6; // salta los 5 ASE + la fila X
+            }
+        }
+
+        if (inicioBloques.Count < 3)
+        {
+            throw new CalculoInvalidoException(
+                $"No se encontraron los 3 bloques (ASE 1..5) en el RESUMEN MES de {empresa.Nombre} ({rutaConciliacion}).");
+        }
+
+        // Bloques → Recaudo: OPORTUNO D3:D9, EXTEMP D12:D18, TOTAL D21:D27 (D = valor, E = n° reg).
+        var filasInicio = new[] { 3, 12, 21 };
+        for (var b = 0; b < 3; b++)
+        {
+            for (var i = 0; i < 7; i++)
+            {
+                var fila = filas.ElementAtOrDefault(inicioBloques[b] + i);
+                var valor = fila?.ElementAtOrDefault(3);
+                var registros = fila?.ElementAtOrDefault(4);
+                if (valor is null && registros is null)
+                {
+                    continue; // fila "X" sin datos
+                }
+
+                celdas[$"D{filasInicio[b] + i}"] = ExcelWorksheetNavigator.CeldaNumero(valor);
+                celdas[$"E{filasInicio[b] + i}"] = ExcelWorksheetNavigator.CeldaNumero(registros);
+            }
+        }
+
+        return new RecaudoEmpresaInputs
+        {
+            Empresa = empresa,
+            HojaRecaudo = empresa.HojaRecaudo,
+            Celdas = celdas,
+            TotalOportuno = celdas.GetValueOrDefault("D9"),
+            TotalExtemporaneo = celdas.GetValueOrDefault("D18"),
+            Total = celdas.GetValueOrDefault("D27")
+        };
+    }
+
     private static WorkbookLeafInputsR1 MapearR1(Ase ase, List<object?[]> filas)
     {
         var indiceEspeciales = ExcelWorksheetNavigator.IndiceColumnaPorEncabezado(filas, "SERVICIO ESPECIALES");
@@ -218,6 +341,260 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             TotalOportunoEsperadoPorAse = totOpt,
             ExtemporaneoEsperadoPorAse = extemp
         };
+    }
+
+    /// <summary>
+    /// Extrae los operandos R1 por empresa según <see cref="WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa"/>.
+    /// Fail-fast: si la fuente no trae la fila Total/Subs de una empresa con operando declarado,
+    /// lanza <c>CalculoInvalidoException</c> que nombra ASE y empresa (nunca valor inventado).
+    /// </summary>
+    private static IReadOnlyDictionary<string, decimal> ExtraerCeldasR1(
+        Ase ase, EmpresaFacturacion empresa, List<object?[]> filas)
+    {
+        var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        if (!WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa.TryGetValue((empresa.Id, ase.Id), out var mapa))
+        {
+            return celdas; // empresa sin detalle no-estático en este ASE (visible 0)
+        }
+
+        var label = ObtenerLabelFuente(empresa.Id, ase.Id);
+
+        // Zonas de la fuente R1: la fila "Componente" (col A) separa el bloque de Componente
+        // (filas Total por empresa) del bloque de Subsidio(-)/Contribucion(+).
+        var indiceComponente = filas.FindIndex(f =>
+            ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(0)).Equals("Componente", StringComparison.OrdinalIgnoreCase));
+        if (indiceComponente < 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: no se encontró la fila 'Componente' en la fuente R1 para localizar los bloques por empresa.");
+        }
+
+        bool EsFilaEmpresa(object?[] f) =>
+            ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(2)).Equals(label, StringComparison.OrdinalIgnoreCase)
+            && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(3)).Equals("Total", StringComparison.OrdinalIgnoreCase);
+
+        var filasTotal = filas
+            .Select((fila, indice) => (fila, indice))
+            .Where(t => t.indice < indiceComponente && EsFilaEmpresa(t.fila))
+            .Select(t => t.fila)
+            .OrderByDescending(f => Math.Abs(ExcelWorksheetNavigator.CeldaNumero(f.ElementAtOrDefault(5))))
+            .ToList();
+
+        var filasSubs = filas
+            .Select((fila, indice) => (fila, indice))
+            .Where(t => t.indice > indiceComponente && EsFilaEmpresa(t.fila))
+            .Select(t => t.fila)
+            .OrderByDescending(f => Math.Abs(ExcelWorksheetNavigator.CeldaNumero(f.ElementAtOrDefault(5))))
+            .ToList();
+
+        decimal Bloque5Total() =>
+            filas
+                .Where(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(3)).Equals("5", StringComparison.OrdinalIgnoreCase)
+                    && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(4)).Equals("Total", StringComparison.OrdinalIgnoreCase))
+                .Select(f => ExcelWorksheetNavigator.CeldaNumero(f.ElementAtOrDefault(5)))
+                .FirstOrDefault();
+
+        foreach (var (celda, fuente) in mapa)
+        {
+            decimal valor = fuente switch
+            {
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.TotalMain => ValorDe(filasTotal, 0, ase.Id, empresa.Nombre, "Total"),
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.EspecialesMain => EspecialesDe(filasTotal, 0, ase.Id, empresa.Nombre),
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.SubsMain => ValorDe(filasSubs, 0, ase.Id, empresa.Nombre, "Subsidio/Contribución"),
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.TotalMenor => ValorDe(filasTotal, filasTotal.Count - 1, ase.Id, empresa.Nombre, "Total (bloque menor)"),
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.EspecialesMenor => EspecialesDe(filasTotal, filasTotal.Count - 1, ase.Id, empresa.Nombre),
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.SubsMenor => ValorDe(filasSubs, filasSubs.Count - 1, ase.Id, empresa.Nombre, "Subsidio/Contribución (bloque menor)"),
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.TotalMedio => ValorDe(filasTotal, 1, ase.Id, empresa.Nombre, "Total (bloque medio)"),
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.EspecialesMedio => EspecialesDe(filasTotal, 1, ase.Id, empresa.Nombre),
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.Block5Total => Bloque5Total(),
+                _ => 0m
+            };
+
+            celdas[celda] = valor;
+        }
+
+        return celdas;
+    }
+
+    private static IReadOnlyDictionary<string, decimal> ExtraerCeldasR2(
+        Ase ase, EmpresaFacturacion empresa, List<object?[]> filas)
+    {
+        var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        if (!WorkbookLeafCellMapPorEmpresa.EditablesR2PorEmpresa.TryGetValue((empresa.Id, ase.Id), out var mapa))
+        {
+            return celdas;
+        }
+
+        // R2 fuente: filas con col B = label y col C = "Total". Total = mayor |E|; SubsCont = menor |E|.
+        // La columna de Especiales se localiza por encabezado; si no existe (ASE2/ASE4, análogo a
+        // ASE4 sin Especiales), el valor es 0 (ServEspK).
+        var indiceEspeciales = ExcelWorksheetNavigator.IndiceColumnaPorEncabezado(filas, "Especiales");
+        var filasEmpresa = filas
+            .Where(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)).Equals(ObtenerLabelFuente(empresa.Id, ase.Id), StringComparison.OrdinalIgnoreCase)
+                && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(2)).Equals("Total", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(f => Math.Abs(ExcelWorksheetNavigator.CeldaNumero(f.ElementAtOrDefault(4))))
+            .ToList();
+
+        foreach (var (celda, fuente) in mapa)
+        {
+            decimal valor = fuente switch
+            {
+                WorkbookLeafCellMapPorEmpresa.FuenteR2.Total => ValorDe(filasEmpresa, 0, ase.Id, empresa.Nombre, "Total", columna: 4),
+                WorkbookLeafCellMapPorEmpresa.FuenteR2.SubsCont => ValorDe(filasEmpresa, filasEmpresa.Count - 1, ase.Id, empresa.Nombre, "Subs/Cont", columna: 4),
+                WorkbookLeafCellMapPorEmpresa.FuenteR2.Especiales => indiceEspeciales >= 0
+                    ? EspecialesDe(filasEmpresa, 0, ase.Id, empresa.Nombre, columna: indiceEspeciales)
+                    : 0m,
+                _ => 0m
+            };
+
+            celdas[celda] = valor;
+        }
+
+        return celdas;
+    }
+
+    private static IReadOnlyDictionary<string, decimal> ExtraerCeldasR4(
+        Ase ase, EmpresaFacturacion empresa, List<object?[]> filas)
+    {
+        var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        if (!WorkbookLeafCellMapPorEmpresa.EditablesR4PorEmpresa.TryGetValue((empresa.Id, ase.Id), out var mapa))
+        {
+            return celdas;
+        }
+
+        // R4 fuente: fila con col A = label y col B = "Total"; valor en col D (negativo).
+        var filaTotal = filas.FirstOrDefault(f =>
+                ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(0)).Equals(ObtenerLabelFuente(empresa.Id, ase.Id), StringComparison.OrdinalIgnoreCase)
+                && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)).Equals("Total", StringComparison.OrdinalIgnoreCase))
+            ?? throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: no se encontró la fila Total de la empresa {empresa.Nombre} en la fuente R4.");
+
+        var total = ExcelWorksheetNavigator.CeldaNumero(filaTotal.ElementAtOrDefault(3));
+        foreach (var (celda, fuente) in mapa)
+        {
+            celdas[celda] = fuente switch
+            {
+                WorkbookLeafCellMapPorEmpresa.FuenteR4.Total => total,
+                WorkbookLeafCellMapPorEmpresa.FuenteR4.P => 0m,
+                _ => 0m
+            };
+        }
+
+        return celdas;
+    }
+
+    /// <summary>
+    /// Label de la empresa en las fuentes R1/R2/R4. RECIPROCIDAD usa "NUEVO ESQUEMA" en ASE2/ASE4 (T0-0.1/0.4).
+    /// </summary>
+    private static string ObtenerLabelFuente(int empresaId, int aseId) =>
+        empresaId == 1 && aseId is 2 or 4
+            ? "NUEVO ESQUEMA"
+            : EmpresaFacturacion.Obtener(empresaId).LabelTemplate;
+
+    private static decimal ValorDe(List<object?[]> filas, int indice, int aseId, string empresa, string concepto, int columna = 5)
+    {
+        var fila = filas.ElementAtOrDefault(indice)
+            ?? throw new CalculoInvalidoException(
+                $"ASE {aseId}: no se encontró la fila {concepto} de la empresa {empresa} en la fuente.");
+        return ExcelWorksheetNavigator.CeldaNumero(fila.ElementAtOrDefault(columna));
+    }
+
+    private static decimal EspecialesDe(List<object?[]> filas, int indice, int aseId, string empresa, int columna = 11)
+    {
+        var fila = filas.ElementAtOrDefault(indice)
+            ?? throw new CalculoInvalidoException(
+                $"ASE {aseId}: no se encontró la fila Total de la empresa {empresa} en la fuente para sus Especiales.");
+        return ExcelWorksheetNavigator.CeldaNumero(fila.ElementAtOrDefault(columna));
+    }
+
+    /// <summary>
+    /// Visible R1 por empresa según la cadena T0 por ASE (OPORTUNO; los operandos EXTEMP no participan del gate Σ).
+    /// </summary>
+    private static decimal CalcularVisibleR1(int aseId, int empresaId, IReadOnlyDictionary<string, decimal> celdas)
+    {
+        if (celdas.Count == 0)
+        {
+            return 0m;
+        }
+
+        decimal totalMain = 0m, especialesMain = 0m, subsMain = 0m, totalMenor = 0m, block5 = 0m;
+        foreach (var (celda, fuente) in WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa[(empresaId, aseId)])
+        {
+            var valor = celdas.GetValueOrDefault(celda);
+            switch (fuente)
+            {
+                case WorkbookLeafCellMapPorEmpresa.FuenteR1.TotalMain: totalMain = valor; break;
+                case WorkbookLeafCellMapPorEmpresa.FuenteR1.EspecialesMain: especialesMain = valor; break;
+                case WorkbookLeafCellMapPorEmpresa.FuenteR1.SubsMain: subsMain = valor; break;
+                case WorkbookLeafCellMapPorEmpresa.FuenteR1.TotalMenor: totalMenor = valor; break;
+                case WorkbookLeafCellMapPorEmpresa.FuenteR1.Block5Total: block5 = valor; break;
+            }
+        }
+
+        // Cadena T0 por ASE: ASE1/ASE4-RECIP = 3 términos; resto = 5 términos; ASE2-RECIP suma bloque "5".
+        return aseId switch
+        {
+            1 => totalMain + subsMain - especialesMain,
+            2 when empresaId == 1 => totalMain + subsMain + block5,
+            2 => totalMain + subsMain + totalMenor - especialesMain,
+            3 => totalMain + subsMain + totalMenor - especialesMain,
+            4 when empresaId == 1 => totalMain + subsMain - especialesMain,
+            4 => totalMain + subsMain + totalMenor - especialesMain,
+            5 => totalMain + subsMain + totalMenor - especialesMain,
+            _ => 0m
+        };
+    }
+
+    private static decimal CalcularVisibleR2(IReadOnlyDictionary<string, decimal> celdas)
+    {
+        if (celdas.Count == 0)
+        {
+            return 0m;
+        }
+
+        // Uniforme en los 5 bloques: visible = Total + SubsCont − Especiales.
+        decimal total = 0m, subs = 0m, especiales = 0m;
+        foreach (var (celda, fuente) in WorkbookLeafCellMapPorEmpresa.EditablesR2PorEmpresa.SelectMany(kv => kv.Value))
+        {
+            if (!celdas.ContainsKey(celda))
+            {
+                continue;
+            }
+
+            switch (fuente)
+            {
+                case WorkbookLeafCellMapPorEmpresa.FuenteR2.Total: total = celdas[celda]; break;
+                case WorkbookLeafCellMapPorEmpresa.FuenteR2.SubsCont: subs = celdas[celda]; break;
+                case WorkbookLeafCellMapPorEmpresa.FuenteR2.Especiales: especiales = celdas[celda]; break;
+            }
+        }
+
+        return total + subs - especiales;
+    }
+
+    private static decimal CalcularVisibleR4(IReadOnlyDictionary<string, decimal> celdas)
+    {
+        if (celdas.Count == 0)
+        {
+            return 0m;
+        }
+
+        decimal total = 0m, p = 0m;
+        foreach (var (celda, fuente) in WorkbookLeafCellMapPorEmpresa.EditablesR4PorEmpresa.SelectMany(kv => kv.Value))
+        {
+            if (!celdas.ContainsKey(celda))
+            {
+                continue;
+            }
+
+            switch (fuente)
+            {
+                case WorkbookLeafCellMapPorEmpresa.FuenteR4.Total: total = celdas[celda]; break;
+                case WorkbookLeafCellMapPorEmpresa.FuenteR4.P: p = celdas[celda]; break;
+            }
+        }
+
+        return total - p;
     }
 
     private static WorkbookLeafInputsR2 MapearR2(Ase ase, List<object?[]> filas)
