@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Los 3 hacen lo mismo, de forma diferente — Flujo UAESP</title>
+<style>
+  :root{
+    --bg:#f1f4f6;
+    --surface:#ffffff;
+    --ink:#1f2a33;
+    --muted:#5c6b76;
+    --line:#c9d2d9;
+    --brand:#0e4a5a;
+    --brand-deep:#0a3440;
+    --person:#64748b;
+    --ai:#1f6fd1;
+    --app:#0e7c86;
+    --app-dark:#0b5f66;
+    --risk-bg:#fdecea;
+    --risk-ink:#8c2f28;
+    --risk-line:#d9a5a0;
+    --ok-bg:#e9f4ec;
+    --ok-ink:#20603a;
+    --ok-line:#a9cdb4;
+    --warn-bg:#fdf3e3;
+    --warn-ink:#8a5a13;
+    --warn-line:#e3c98f;
+    --radius:12px;
+    --max:1200px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-size:16px; line-height:1.5;
+  }
+  .wrap{max-width:var(--max); margin:0 auto; padding:0 16px 48px;}
+  /* Héroe */
+  header.hero{background:var(--brand-deep); color:#fff; padding:32px 16px;}
+  header.hero .wrap{padding-bottom:0}
+  .hero-grid{display:flex; flex-wrap:wrap; gap:24px; align-items:center; justify-content:space-between;}
+  .eyebrow{
+    display:inline-block; font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+    border:1px solid rgba(255,255,255,.4); border-radius:6px; padding:2px 10px; margin-bottom:12px;
+    color:#bfe3e6;
+  }
+  h1{font-size:clamp(26px,4vw,38px); line-height:1.15; letter-spacing:-.02em; margin:0 0 8px;}
+  .subtitle{margin:0; font-size:clamp(14px,1.8vw,17px); color:#cfe0e2; max-width:62ch;}
+  .subtitle strong{color:#fff;}
+  .legend-card{
+    background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16);
+    border-radius:12px; padding:14px 18px; min-width:280px;
+  }
+  .legend-card b{display:block; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#9fc3cd; margin-bottom:10px;}
+  .legend-card .row{display:flex; gap:16px; font-size:13px; font-weight:600;}
+  .legend-card span{display:inline-flex; align-items:center; gap:8px;}
+  .legend-card i{width:14px; height:14px; border-radius:50%; border:3px solid;}
+  .legend-card .lp i{border-color:#94a3b8;}
+  .legend-card .li i{border-color:#7db4f0;}
+  .legend-card .la i{border-color:#5fd0d8;}
+  /* Pestañas */
+  nav.cases{max-width:var(--max); margin:-22px auto 0; padding:0 16px; position:sticky; top:0; z-index:5;}
+  nav.cases .bar{
+    display:flex; gap:8px; background:var(--surface); border:2px solid var(--line);
+    border-radius:12px; padding:8px; box-shadow:0 2px 4px rgba(31,42,51,.1);
+  }
+  nav.cases .tab{
+    flex:1; border:0; border-radius:8px; background:transparent; font:inherit;
+    color:var(--ink); font-weight:700; font-size:14px;
+    text-align:center; padding:10px 8px; line-height:1.3; cursor:pointer;
+  }
+  nav.cases .tab b{display:block;}
+  nav.cases .tab span{display:block; font-weight:400; color:var(--muted); font-size:12px;}
+  nav.cases .tab[aria-selected="true"]{background:var(--brand); color:#fff;}
+  nav.cases .tab[aria-selected="true"] span{color:rgba(255,255,255,.85);}
+  nav.cases .tab:hover{background:#eef3f6;}
+  nav.cases .tab[aria-selected="true"]:hover{background:var(--brand);}
+  nav.cases .tab:focus-visible{outline:3px solid var(--brand); outline-offset:2px;}
+  /* Caso */
+  section.case{
+    background:var(--surface); border:2px solid var(--line); border-radius:12px;
+    margin-top:24px; padding:28px; scroll-margin-top:90px;
+  }
+  section.case[hidden]{display:none}
+  .case-head{display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; justify-content:space-between; margin-bottom:4px;}
+  .case-title{display:flex; gap:12px; align-items:flex-start;}
+  .case-num{
+    flex:0 0 40px; width:40px; height:40px; border-radius:10px; background:var(--brand);
+    color:#fff; font-weight:700; font-size:20px; display:flex; align-items:center; justify-content:center;
+  }
+  section.case h2{font-size:clamp(22px,3vw,28px); line-height:1.2; letter-spacing:-.015em; margin:0;}
+  .status{
+    display:inline-block; font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    border-radius:999px; padding:4px 14px; border:1px solid; white-space:nowrap; margin-top:4px;
+  }
+  .status.before{background:#eef1f4; color:#475569; border-color:#cbd5e1;}
+  .status.mid{background:var(--warn-bg); color:var(--warn-ink); border-color:var(--warn-line);}
+  .status.after{background:var(--ok-bg); color:var(--ok-ink); border-color:var(--ok-line);}
+  .lead{font-size:16px; margin:0 0 4px; max-width:70ch; color:var(--muted);}
+  .lead strong{color:var(--ink);}
+  .takeaway{
+    display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:700;
+    border-radius:8px; padding:6px 14px; border:1px solid; margin:12px 0 24px;
+  }
+  .takeaway.before{background:#eef1f4; color:#475569; border-color:#cbd5e1;}
+  .takeaway.mid{background:var(--warn-bg); color:var(--warn-ink); border-color:var(--warn-line);}
+  .takeaway.after{background:var(--ok-bg); color:var(--ok-ink); border-color:var(--ok-line);}
+  /* Stepper infográfico */
+  .tl{position:relative; display:flex; margin:0; padding:0; list-style:none;}
+  .tl::before{
+    content:""; position:absolute; top:36px; left:10%; right:10%; height:2px;
+    background:var(--line); z-index:0;
+  }
+  .tnode{position:relative; z-index:1; flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; text-align:center; padding:0 8px;}
+  .ball{
+    position:relative; width:72px; height:72px; border-radius:50%;
+    background:#fff; border:4px solid var(--person); color:var(--person);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 8px rgba(31,42,51,.15);
+  }
+  .ball svg{width:30px; height:30px;}
+  .tnode.ai .ball{border-color:var(--ai); color:var(--ai);}
+  .tnode.app .ball{border-color:var(--app); color:var(--app);}
+  /* Avance */
+  .tnode.ok .ball{border-color:var(--ok-ink); color:var(--ok-ink);}
+  .tnode.wip .ball{border-color:var(--warn-ink); color:var(--warn-ink);}
+  .nbn{
+    position:absolute; top:-6px; right:-6px; width:26px; height:26px; border-radius:50%;
+    background:var(--brand); color:#fff; font-weight:700; font-size:13px;
+    display:flex; align-items:center; justify-content:center; border:2px solid #fff;
+    box-shadow:0 2px 4px rgba(31,42,51,.25);
+  }
+  .card{
+    margin-top:20px; width:100%; flex:1; display:flex; flex-direction:column;
+    background:#fff; border:2px solid var(--line); border-radius:12px; padding:14px;
+    text-align:left;
+  }
+  .tnode.ai .card{border-color:#bcd7f5;}
+  .tnode.app .card{border-color:#a9dfe2;}
+  .card .et{font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+  .tnode.ai .card .et{color:var(--ai);}
+  .tnode.app .card .et{color:var(--app-dark);}
+  .card h4{margin:2px 0 4px; font-size:16px; line-height:1.3;}
+  .card p{margin:0; font-size:13px; color:var(--ink);}
+  .cost{color:var(--risk-ink); font-weight:700;}
+  .card-foot{margin-top:12px; padding-top:10px; border-top:1px solid var(--line); display:flex; justify-content:center;}
+  .card > .card-foot:last-child{margin-top:auto;}
+  .card-foot{margin-top:auto;}
+  .actor{
+    display:inline-block; font-size:12px; font-weight:700; border-radius:999px;
+    padding:1px 10px; border:2px solid; background:#fff;
+  }
+  .actor.person{border-color:var(--person); color:var(--person);}
+  .actor.ai{border-color:var(--ai); color:var(--ai);}
+  .actor.app{border-color:var(--app); color:var(--app-dark);}
+  .fork{margin-top:8px; display:flex; flex-direction:column; gap:6px;}
+  .fork div{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    border-radius:8px; padding:6px 10px; font-size:12px; border:1px solid;
+  }
+  .fork .no{background:var(--risk-bg); border-color:var(--risk-line); color:var(--ink);}
+  .fork .no b{background:#fff; color:var(--risk-ink); border:1px solid var(--risk-line); border-radius:4px; padding:0 8px; font-size:12px;}
+  .fork .yes{background:var(--ok-bg); border-color:var(--ok-line); color:var(--ink);}
+  .fork .yes b{background:#fff; color:var(--ok-ink); border:1px solid var(--ok-line); border-radius:4px; padding:0 8px; font-size:12px;}
+  /* Grupo aplicación */
+  .appbox{position:relative; flex:3; display:flex; margin:0;}
+  .appbox > .tnode{flex:1; min-width:0;}
+  .appbox-frame{
+    position:absolute; inset:-14px -6px -8px; border:2px dashed var(--app);
+    border-radius:16px; background:rgba(14,124,134,.05); pointer-events:none;
+  }
+  .appbox-label{
+    position:absolute; top:-28px; left:50%; transform:translateX(-50%);
+    background:var(--app); color:#fff; font-size:12px; font-weight:700; letter-spacing:.04em;
+    border-radius:999px; padding:3px 14px; white-space:nowrap;
+    box-shadow:0 2px 4px rgba(31,42,51,.2);
+  }
+  /* Veredicto eliminado */
+  footer.doc{color:var(--muted); font-size:12px; margin-top:16px;}
+  @media (max-width:899px){
+    .tl{flex-direction:column;}
+    .tl::before{top:20px; bottom:20px; left:35px; right:auto; width:2px; height:auto;}
+    .tnode{flex-direction:row; text-align:left; align-items:flex-start; gap:16px; padding:10px 0;}
+    .appbox{flex-direction:column;}
+    .appbox-frame{inset:-8px -6px;}
+    .appbox-label{top:-24px;}
+    .card{margin-top:0; flex:1;}
+  }
+  @media (max-width:560px){
+    nav.cases .tab{font-size:13px;}
+    section.case{padding:20px;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.01ms !important; transition-duration:.01ms !important;}
+  }
+  @media print{
+    nav.cases{display:none}
+    section.case{break-inside:avoid;}
+    .case[hidden]{display:block;}
+    header.hero{background:#fff; color:#000; border-bottom:2px solid #000;}
+    header.hero .eyebrow{border-color:#000; color:#000;}
+    h1,.subtitle{color:#000;}
+    .legend-card{border-color:#000; color:#000;}
+    .legend-card b,.legend-card span{color:#000;}
+    .tl::before{background:#999;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <span class="eyebrow">Remuneración quincenal · UAESP</span>
+        <h1>Los 3 hacen lo mismo, de forma diferente</h1>
+        <p class="subtitle">Las mismas 5 etapas en los 3 diagramas</p>
+      </div>
+      <div class="legend-card" aria-label="Leyenda: el color del anillo indica el responsable">
+        <b>El anillo indica quién ejecuta</b>
+        <div class="row">
+          <span class="lp"><i></i>Persona</span>
+          <span class="li"><i></i>IA</span>
+          <span class="la"><i></i>Aplicación</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="cases" aria-label="Casos">
+    <div class="bar" role="tablist" aria-label="Casos">
+      <button class="tab" role="tab" id="tab-1" aria-controls="caso-1" aria-selected="true"><b>1 · Todo a mano</b></button>
+      <button class="tab" role="tab" id="tab-2" aria-controls="caso-2" aria-selected="false" tabindex="-1"><b>2 · Con chat de IA</b></button>
+      <button class="tab" role="tab" id="tab-3" aria-controls="caso-3" aria-selected="false" tabindex="-1"><b>3 · Con la aplicación</b></button>
+      <button class="tab" role="tab" id="tab-4" aria-controls="avance" aria-selected="false" tabindex="-1"><b>4 · Avance</b></button>
+    </div>
+  </nav>
+
+  <main>
+    <!-- CASO 1 -->
+    <section class="case" role="tabpanel" id="caso-1" aria-labelledby="tab-1" tabindex="0">
+      <div class="case-head">
+        <div class="case-title"><span class="case-num">1</span><h2>Todo a mano</h2></div>
+        <span class="status before">Antes · 100% manual</span>
+      </div>
+      <p class="lead"><strong>Una sola responsable:</strong> la persona ejecuta las 5 etapas, quincena tras quincena.</p>
+      <span class="takeaway before">Todo depende del cuidado manual de cada quincena</span>
+      <ol class="tl">
+        <li class="tnode">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="nbn">1</span></div>
+          <div class="card"><span class="et">Etapa 1 de 5</span><h4>Preparar insumos</h4><p>De 15 a 40 archivos de 5 operadores + plantilla.</p><div class="card-foot"><span class="actor person">Persona</span></div></div>
+        </li>
+        <li class="tnode">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M10 10v9"/></svg><span class="nbn">2</span></div>
+          <div class="card"><span class="et">Etapa 2 de 5</span><h4>Producir el Excel</h4><p>Lo pega a mano en ~20 hojas × 5 operadores.</p><div class="card-foot"><span class="actor person">Persona</span></div></div>
+        </li>
+        <li class="tnode">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.5"/></svg><span class="nbn">3</span></div>
+          <div class="card"><span class="et">Etapa 3 de 5</span><h4>Revisar</h4><p>Revisa a ojo lo pegado.</p><div class="card-foot"><span class="actor person">Persona</span></div></div>
+        </li>
+        <li class="tnode">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M9.5 9.3a2.5 2.5 0 1 1 3.4 2.3c-.8.3-.9 1-.9 1.6"/><circle cx="12" cy="16.8" r=".5" fill="currentColor"/></svg><span class="nbn">4</span></div>
+          <div class="card"><span class="et">Etapa 4 de 5</span><h4>Decidir: ¿cuadra?</h4>
+            <div class="fork">
+              <div class="no"><b>No</b><span>Retrabajo manual: vuelve a la 2.</span></div>
+              <div class="yes"><b>Sí</b><span>Avanza a la 5.</span></div>
+            </div>
+            <div class="card-foot"><span class="actor person">Persona</span></div>
+          </div>
+        </li>
+        <li class="tnode">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12.5l2.5 2.5 5-5.5"/></svg><span class="nbn">5</span></div>
+          <div class="card"><span class="et">Etapa 5 de 5</span><h4>Entregar</h4><p>1 archivo final de ~20 hojas. Nada queda registrado (quién, cuándo, qué valores).</p><div class="card-foot"><span class="actor person">Persona</span></div></div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- CASO 2 -->
+    <section class="case" role="tabpanel" id="caso-2" aria-labelledby="tab-2" tabindex="0" hidden>
+      <div class="case-head">
+        <div class="case-title"><span class="case-num">2</span><h2>Con chat de IA</h2></div>
+        <span class="status mid">Intermedio · se paga por intento</span>
+      </div>
+      <p class="lead"><strong>La IA produce, la persona revisa</strong> y responde por el resultado.</p>
+      <span class="takeaway mid">Cada corrida cuesta — y el reproceso cuesta doble</span>
+      <ol class="tl">
+        <li class="tnode">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="nbn">1</span></div>
+          <div class="card"><span class="et">Etapa 1 de 5</span><h4>Preparar insumos</h4><p>3 manuales + reglas + de 15 a 40 archivos + plantilla.</p><div class="card-foot"><span class="actor person">Persona</span></div></div>
+        </li>
+        <li class="tnode ai">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v4h4M9.5 13h5M9.5 16.5h5"/></svg><span class="nbn">2</span></div>
+          <div class="card"><span class="et">Etapa 2 de 5</span><h4>Producir el Excel</h4><p>La IA interpreta todo y genera los Excel. <span class="cost">Cada intento se paga caro (Tokens IA).</span></p><div class="card-foot"><span class="actor ai">IA</span></div></div>
+        </li>
+        <li class="tnode">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.5"/></svg><span class="nbn">3</span></div>
+          <div class="card"><span class="et">Etapa 3 de 5</span><h4>Revisar</h4><p>Cifra por cifra contra los reportes.</p><div class="card-foot"><span class="actor person">Persona</span></div></div>
+        </li>
+        <li class="tnode">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M9.5 9.3a2.5 2.5 0 1 1 3.4 2.3c-.8.3-.9 1-.9 1.6"/><circle cx="12" cy="16.8" r=".5" fill="currentColor"/></svg><span class="nbn">4</span></div>
+          <div class="card"><span class="et">Etapa 4 de 5</span><h4>Decidir: ¿validación OK?</h4>
+            <div class="fork">
+              <div class="no"><b>No</b><span>Se reprocesa: nuevo intento que se paga de nuevo ↺2.</span></div>
+              <div class="yes"><b>Sí</b><span>Avanza a la 5.</span></div>
+            </div>
+            <div class="card-foot"><span class="actor person">Persona</span></div>
+          </div>
+        </li>
+        <li class="tnode">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12.5l2.5 2.5 5-5.5"/></svg><span class="nbn">5</span></div>
+          <div class="card"><span class="et">Etapa 5 de 5</span><h4>Entregar</h4><p>1 archivo final de ~20 hojas, sin registro de lo intentado.</p><div class="card-foot"><span class="actor person">Persona</span></div></div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- CASO 3 -->
+    <section class="case" role="tabpanel" id="caso-3" aria-labelledby="tab-3" tabindex="0" hidden>
+      <div class="case-head">
+        <div class="case-title"><span class="case-num">3</span><h2>Con la aplicación</h2></div>
+        <span class="status after">Propuesta · determinístico</span>
+      </div>
+      <p class="lead"><strong>La aplicación ejecuta;</strong> la persona elige y entrega. La IA trabajó una sola vez: al construirla.</p>
+      <span class="takeaway after">La IA se pagó una vez — cada quincena cuesta minutos</span>
+      <div class="tl" role="list">
+        <div class="tnode" role="listitem">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="nbn">1</span></div>
+          <div class="card"><span class="et">Etapa 1 de 5</span><h4>Preparar insumos</h4><p>De 15 a 40 archivos + plantilla. Un clic.</p><div class="card-foot"><span class="actor person">Persona</span></div></div>
+        </div>
+        <div class="appbox" role="group" aria-label="Etapas 2 a 4: las ejecuta la aplicación, construida con IA">
+          <span class="appbox-frame" aria-hidden="true"></span>
+          <span class="appbox-label">Aplicación · construida con IA</span>
+          <div class="tnode app" role="listitem">
+            <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 2v3M14 2v3M10 19v3M14 19v3M2 10h3M2 14h3M19 10h3M19 14h3"/></svg><span class="nbn">2</span></div>
+            <div class="card"><span class="et">Etapa 2 de 5</span><h4>Producir el Excel</h4><p>Lee reportes, calcula y escribe solo valores.</p><div class="card-foot"><span class="actor app">Aplicación</span></div></div>
+          </div>
+          <div class="tnode app" role="listitem">
+            <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9.5 12l2 2 3.5-4"/></svg><span class="nbn">3</span></div>
+            <div class="card"><span class="et">Etapa 3 de 5</span><h4>Revisar</h4><p>Valida todo y deja registro.</p><div class="card-foot"><span class="actor app">Aplicación</span></div></div>
+          </div>
+          <div class="tnode app" role="listitem">
+            <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M9.5 9.3a2.5 2.5 0 1 1 3.4 2.3c-.8.3-.9 1-.9 1.6"/><circle cx="12" cy="16.8" r=".5" fill="currentColor"/></svg><span class="nbn">4</span></div>
+            <div class="card"><span class="et">Etapa 4 de 5</span><h4>Decidir: ¿validaciones OK?</h4>
+              <div class="fork">
+                <div class="no"><b>No</b><span>Se revisan insumos — sin pagar IA.</span></div>
+                <div class="yes"><b>Sí</b><span>Avanza a la 5.</span></div>
+              </div>
+              <div class="card-foot"><span class="actor app">Aplicación</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="tnode" role="listitem">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12.5l2.5 2.5 5-5.5"/></svg><span class="nbn">5</span></div>
+          <div class="card"><span class="et">Etapa 5 de 5</span><h4>Entregar</h4><p>1 archivo final de ~20 hojas + registro.</p><div class="card-foot"><span class="actor person">Persona</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AVANCE -->
+    <section class="case" role="tabpanel" id="avance" aria-labelledby="tab-4" tabindex="0" hidden>
+      <div class="case-head">
+        <div class="case-title"><span class="case-num">4</span><h2>Avance del desarrollo</h2></div>
+        <span class="status mid">Fase 5 · en curso</span>
+      </div>
+      <p class="lead"><strong>Lo construido hasta hoy,</strong> verificado en el código.</p>
+      <span class="takeaway after">4 de 5 piezas terminadas</span>
+      <ol class="tl">
+        <li class="tnode ok">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M8.5 12.5l2.5 2.5 5-5.5"/></svg><span class="nbn">1</span></div>
+          <div class="card"><span class="et">HU-01</span><h4>Andamiaje y dominio</h4><p>Tres capas .NET + localizador de fuentes.</p><div class="card-foot"><span class="status after">✓ Completado</span></div></div>
+        </li>
+        <li class="tnode ok">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M8.5 12.5l2.5 2.5 5-5.5"/></svg><span class="nbn">2</span></div>
+          <div class="card"><span class="et">HU-02</span><h4>Lectura de fuentes</h4><p>Abre los Excel y extrae valores por ASE.</p><div class="card-foot"><span class="status after">✓ Completado</span></div></div>
+        </li>
+        <li class="tnode ok">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M8.5 12.5l2.5 2.5 5-5.5"/></svg><span class="nbn">3</span></div>
+          <div class="card"><span class="et">HU-03</span><h4>Motor de cálculo</h4><p>Calcula CONSOLIDADO y totales.</p><div class="card-foot"><span class="status after">✓ Completado</span></div></div>
+        </li>
+        <li class="tnode ok">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M8.5 12.5l2.5 2.5 5-5.5"/></svg><span class="nbn">4</span></div>
+          <div class="card"><span class="et">HU-04</span><h4>Escritura de plantilla</h4><p>Escribe valores sin romper fórmulas.</p><div class="card-foot"><span class="status after">✓ Completado</span></div></div>
+        </li>
+        <li class="tnode wip">
+          <div class="ball" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 3"/></svg><span class="nbn">5</span></div>
+          <div class="card"><span class="et">HU-05</span><h4>Validación, UI y pruebas</h4><p>App ejecutable + prueba dorada.</p><div class="card-foot"><span class="status mid">… En proceso</span></div></div>
+        </li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="doc">Flujo por responsables · Sin tecnicismos · Fuente: manuales del proceso (detalle de plantilla, proceso de recaudo, prompt maestro) · Septiembre 2026.</footer>
+</div>
+
+<script>
+(function(){
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
+  function select(tab, focus){
+    tabs.forEach(function(t){
+      var on = (t === tab);
+      t.setAttribute("aria-selected", on ? "true" : "false");
+      t.tabIndex = on ? 0 : -1;
+      var p = document.getElementById(t.getAttribute("aria-controls"));
+      if (p) { if (on) { p.removeAttribute("hidden"); } else { p.setAttribute("hidden", ""); } }
+    });
+    if (focus) { tab.focus(); }
+    var map = {"tab-1": "caso-1", "tab-2": "caso-2", "tab-3": "caso-3", "tab-4": "avance"};
+    try { history.replaceState(null, "", "#" + map[tab.id]); } catch (e) {}
+  }
+  tabs.forEach(function(tab, i){
+    tab.addEventListener("click", function(){ select(tab, false); });
+    tab.addEventListener("keydown", function(e){
+      var next = null;
+      if (e.key === "ArrowRight") { next = tabs[(i + 1) % tabs.length]; }
+      else if (e.key === "ArrowLeft") { next = tabs[(i - 1 + tabs.length) % tabs.length]; }
+      else if (e.key === "Home") { next = tabs[0]; }
+      else if (e.key === "End") { next = tabs[tabs.length - 1]; }
+      if (next) { e.preventDefault(); select(next, true); }
+    });
+  });
+  var h = location.hash.replace("#", "");
+  var at = {"caso-1": 0, "caso-2": 1, "caso-3": 2, "avance": 3}[h];
+  if (at) { select(tabs[at], false); }
+})();
+</script>
+
+</body>
+</html>
