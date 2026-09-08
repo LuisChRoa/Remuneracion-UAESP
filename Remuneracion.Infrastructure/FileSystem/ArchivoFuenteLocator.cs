@@ -73,4 +73,28 @@ public class ArchivoFuenteLocator : ILocalizadorArchivosAse
             .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f)
                 .StartsWith(prefijo, StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>
+    /// HU-09 (2.3, V13): localiza el <c>ReportePagosxBanco_*.xlsx</c> dentro de la carpeta del
+    /// ASE (mismo patrón prefix-based de R1/R2/R4; naming verificado en disco por T0).
+    /// </summary>
+    /// <param name="carpetaAse">Carpeta del ASE (p. ej. "1-Promoambiental").</param>
+    /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
+    public string? BuscarReporteBanco(string carpetaAse) =>
+        BuscarArchivo(carpetaAse, "ReportePagosxBanco");
+
+    /// <summary>
+    /// HU-10 (2.4, V8): localiza el <c>R4-BalanceSubsidioyContribuciones_*.xlsx</c> dentro de la
+    /// carpeta del ASE con los DOS prefijos verificados en disco: base
+    /// <c>R4-BalanceSubsidioyContribuciones_</c> primero (el guion bajo excluye la variante
+    /// <c>-Optimizado_</c> por prefijo), y la variante <c>R4-BalanceSubsidioyContribuciones-Optimizado_</c>
+    /// como fallback (ASE5 en Q2). El archivo <c>Reca_BalanceSubsidiosyContribuciones_*</c> de
+    /// ASE5-Q1 es otro reporte (layout por componentes, sin "Total General") y NO matchea ninguno
+    /// de los dos prefijos.
+    /// </summary>
+    /// <param name="carpetaAse">Carpeta del ASE.</param>
+    /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
+    public string? BuscarBalance(string carpetaAse) =>
+        BuscarArchivo(carpetaAse, "R4-BalanceSubsidioyContribuciones_")
+        ?? BuscarArchivo(carpetaAse, "R4-BalanceSubsidioyContribuciones-Optimizado_");
 }

@@ -121,6 +121,61 @@ internal static class WorkbookLeafCoherence
         }
     }
 
+    /// <summary>
+    /// HU-09 (2.3, §2.5 gate D5-i): verifica que el bloque banco del ASE sea EXACTO contra el
+    /// "Resumen Recaudo Aplicado Por Servicio" de la fuente (Σ conceptos == Total de la fila
+    /// "Total" de la fuente, ±0.5). Fail-fast nombra ASE y empresa-columna. Es la coherencia
+    /// "bloque template == resumen fuente" antes de escribir.
+    /// </summary>
+    internal static void ValidarContraFuentesBanco(
+        ReporteBancoAseInputs bloque,
+        IReadOnlyList<ReporteBancoEmpresaInputs> empresas)
+    {
+        ArgumentNullException.ThrowIfNull(bloque);
+        ArgumentNullException.ThrowIfNull(empresas);
+
+        foreach (var empresa in empresas)
+        {
+            AsegurarDentroDeTolerancia(
+                $"ASE {bloque.Ase.Id} · {empresa.Empresa}: bloque banco vs resumen fuente (fila Total)",
+                empresa.Total,
+                empresa.TotalFuente);
+        }
+    }
+
+    /// <summary>
+    /// HU-09 (2.3): Σ consolidado 1–7 por empresa a través de los 5 leafs (aritmética de
+    /// dominio). Se usa en la Capa A y en el log/UI para verificar que las filas 1–7 (fórmulas
+    /// protegidas, D2(b)) computan Σ bloques por empresa.
+    /// </summary>
+    internal static IReadOnlyDictionary<string, decimal> SumaConsolidadoPorEmpresa(
+        IReadOnlyList<WorkbookLeafInputs> leafs)
+    {
+        ArgumentNullException.ThrowIfNull(leafs);
+
+        return leafs
+            .Where(l => l.ReporteBanco is not null)
+            .SelectMany(l => l.ReporteBanco!.Ases)
+            .SelectMany(b => b.Empresas)
+            .GroupBy(e => e.Empresa, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Sum(e => e.Total), StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// HU-10 (2.4, §2.5 gate D5-i): verifica que la fila del balance del ASE sea EXACTA contra
+    /// la fila "Total General" de la fuente (TotalBsc = Contribucion + Subsidio == TotalFuente,
+    /// ±0.5). Fail-fast nombra el ASE. Es la coherencia "BCE = fuente" antes de escribir.
+    /// </summary>
+    internal static void ValidarContraFuentesBalanceSc(BalanceScAseInputs bloque)
+    {
+        ArgumentNullException.ThrowIfNull(bloque);
+
+        AsegurarDentroDeTolerancia(
+            $"ASE {bloque.Ase.Id}: Total BSC (Contribucion+Subsidio) vs Total General fuente (col G)",
+            bloque.TotalBsc,
+            bloque.TotalFuente);
+    }
+
     private static void ValidarContraConsolidado(WorkbookLeafInputs leaf, ConsolidadoAse consolidado)
     {
         AsegurarDentroDeTolerancia(

@@ -154,7 +154,144 @@ public sealed class ValidadorBasico : IValidador
             }
         }
 
+        // HU-09 (2.3, §2.5 reglas 2-4): gates D5 del reporte por banco.
+        ValidarReporteBanco(errores, leafs);
+
+        // HU-10 (2.4, §2.5 reglas 2-4): gates D5 del balance de subsidios y contribuciones.
+        ValidarBalanceSc(errores, leafs);
+
         return errores;
+    }
+
+    /// <summary>
+    /// HU-10 (2.4, §2.5): gates D5 del balance SC.
+    /// (i) Por ASE: Total BSC (Contribucion+Subsidio) == Total General fuente (col G) ±0.5;
+    ///     fail-fast nombra el ASE.
+    /// (ii) Σ fila 11 en dominio: Σ Total BSC a través de los 5 ASE == Σ TotalFuente ±0.5
+    ///     (las celdas D11/E11/F11 del template son fórmulas protegidas; la aritmética de
+    ///     dominio verifica que la suma cierra).
+    /// (iii) H≈F solo cuando el desenlace T0 es D2(a) (<see cref="BalanceScAseInputs.Sistema"/>
+    ///     no nulo): redondeo a entero (AwayFromZero). En Q1 el veredicto es D2(b) (H es
+    ///     fórmula → Sistema null) y H≈F se verifica contra el caché golden en Capa A (G7).
+    /// Todos los leafs con <c>BalanceSc == null</c> = comportamiento HU-09 puro (sin gates 2.4).
+    /// </summary>
+    private static void ValidarBalanceSc(List<string> errores, IReadOnlyList<WorkbookLeafInputs> leafs)
+    {
+        var conBalance = leafs.Where(l => l.BalanceSc is not null).ToList();
+        if (conBalance.Count == 0)
+        {
+            return; // HU-09 puro: sin gates 2.4
+        }
+
+        foreach (var leaf in conBalance)
+        {
+            var balance = leaf.BalanceSc!;
+            var bloque = balance.Ases.SingleOrDefault(b => b.Ase.Id == leaf.Ase.Id);
+            if (bloque is null)
+            {
+                errores.Add($"El leaf del ASE {leaf.Ase.Id} no trae su fila de balance SC para validar.");
+                continue;
+            }
+
+            // Gate (i): BCE = fuente ±0.5 (TotalBsc vs TotalFuente; col G del Total General).
+            var diferencia = Math.Abs(bloque.TotalBsc - bloque.TotalFuente);
+            if (diferencia > Tolerancia)
+            {
+                errores.Add($"ASE {leaf.Ase.Id}: Total BSC ({bloque.TotalBsc}) != Total General fuente ({bloque.TotalFuente}). Diferencia={diferencia} > ±{Tolerancia}.");
+            }
+
+            // Gate (iii): H≈F con redondeo a entero SOLO en desenlace D2(a); en D2(b) (Q1)
+            // Sistema es null y H≈F se verifica en Capa A contra el caché golden.
+            if (bloque.Sistema is not null)
+            {
+                var redondeado = Math.Round(bloque.TotalBsc, MidpointRounding.AwayFromZero);
+                if (Math.Abs(bloque.Sistema.Value - redondeado) > Tolerancia)
+                {
+                    errores.Add($"ASE {leaf.Ase.Id}: H (SISTEMA) {bloque.Sistema.Value} no coincide con ROUND(F,0)={redondeado}.");
+                }
+            }
+        }
+
+        // Gate (ii): sumas fila 11 en dominio — Σ Total BSC == Σ TotalFuente ±0.5.
+        var sumaBsc = conBalance.Sum(l => l.BalanceSc!.Ases.Sum(b => b.TotalBsc));
+        var sumaFuente = conBalance.Sum(l => l.BalanceSc!.Ases.Sum(b => b.TotalFuente));
+        if (Math.Abs(sumaBsc - sumaFuente) > Tolerancia)
+        {
+            errores.Add($"Σ Total BSC ({sumaBsc}) != Σ Total General fuente ({sumaFuente}). Diferencia={Math.Abs(sumaBsc - sumaFuente)} > ±{Tolerancia}.");
+        }
+    }
+
+    /// <summary>
+    /// HU-09 (2.3, §2.5): gates D5 del reporte por banco.
+    /// (i) Por ASE y empresa: bloque (Σ conceptos) == resumen fuente (<see cref="ReporteBancoEmpresaInputs.TotalFuente"/>)
+    ///     ±0.5; fail-fast nombra ASE y empresa-columna.
+    /// (ii) Consolidado 1–7 == Σ bloques por empresa ±0.5: si el dominio trae
+    ///     <see cref="ReporteBancoInputs.Consolidado"/> se compara y falla si difiere; en el
+    ///     desenlace T0 D2(b) (filas 1–7 son fórmulas) el campo es null y la verificación Σ
+    ///     contra el caché golden vive en la Capa A (G3: "solo se verifica Σ").
+    /// (iii) C59 (<see cref="ReporteBancoInputs.Quincena"/>) == <see cref="Periodo.NumeroQuincena"/>.
+    /// Todos los leafs con <c>ReporteBanco == null</c> = comportamiento HU-08 puro (sin gates 2.3).
+    /// </summary>
+    private static void ValidarReporteBanco(List<string> errores, IReadOnlyList<WorkbookLeafInputs> leafs)
+    {
+        var conBanco = leafs.Where(l => l.ReporteBanco is not null).ToList();
+        if (conBanco.Count == 0)
+        {
+            return; // HU-08 puro: sin gates 2.3
+        }
+
+        foreach (var leaf in conBanco)
+        {
+            var banco = leaf.ReporteBanco!;
+
+            // Gate (iii): C59 == quincena (dominio, nunca fuente).
+            if (banco.Quincena != leaf.Periodo.NumeroQuincena)
+            {
+                errores.Add($"ASE {leaf.Ase.Id}: C59 del reporte por banco ({banco.Quincena}) no coincide con la quincena del período ({leaf.Periodo.NumeroQuincena}).");
+            }
+
+            // Gate (i): bloque = resumen fuente por empresa ±0.5 (fail-fast nombra ASE + empresa).
+            foreach (var bloque in banco.Ases)
+            {
+                foreach (var empresa in bloque.Empresas)
+                {
+                    var diferencia = Math.Abs(empresa.Total - empresa.TotalFuente);
+                    if (diferencia > Tolerancia)
+                    {
+                        errores.Add($"ASE {leaf.Ase.Id} · {empresa.Empresa}: bloque banco ({empresa.Total}) != resumen fuente ({empresa.TotalFuente}). Diferencia={diferencia} > ±{Tolerancia}.");
+                    }
+                }
+            }
+        }
+
+        // Gate (ii): consolidado 1–7 == Σ bloques por empresa ±0.5. En D2(b) el Consolidado
+        // del dominio es null (filas 1–7 son fórmulas): la Σ se verifica contra el caché
+        // golden en Capa A y se expone en el log/UI, nunca como error aquí.
+        var consolidado = conBanco.Select(l => l.ReporteBanco!.Consolidado).FirstOrDefault(c => c is not null);
+        if (consolidado is null)
+        {
+            return;
+        }
+
+        var sumaPorEmpresa = conBanco
+            .SelectMany(l => l.ReporteBanco!.Ases)
+            .SelectMany(b => b.Empresas)
+            .GroupBy(e => e.Empresa, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Sum(e => e.Total), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (empresa, esperado) in consolidado)
+        {
+            if (!sumaPorEmpresa.TryGetValue(empresa, out var suma))
+            {
+                errores.Add($"Consolidado banco declara la empresa '{empresa}' pero no hay bloques con esa empresa en los leafs.");
+                continue;
+            }
+
+            if (Math.Abs(suma - esperado) > Tolerancia)
+            {
+                errores.Add($"Consolidado 1–7 de '{empresa}' ({esperado}) no coincide con Σ bloques por empresa ({suma}).");
+            }
+        }
     }
 
     private static void ValidarGatesPorAse(

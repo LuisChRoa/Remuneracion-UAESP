@@ -104,6 +104,238 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         return resultado;
     }
 
+    /// <inheritdoc />
+    public ReporteBancoInputs LeerReporteBanco(Ase ase, Periodo periodo, string rutaReportePagosxBanco)
+    {
+        ArgumentNullException.ThrowIfNull(ase);
+        ArgumentNullException.ThrowIfNull(periodo);
+        ArgumentNullException.ThrowIfNull(rutaReportePagosxBanco);
+
+        // HU-09 (2.3, D1): búsqueda dinámica del Resumen desde el FINAL del Sheet1. Prohibida
+        // fila fija: el conteo de filas diarias varía por ASE (V4/V6).
+        var filas = ExcelWorksheetNavigator.LeerFilas(rutaReportePagosxBanco);
+        var indiceResumen = BuscarEtiquetaDesdeElFinal(filas, WorkbookLeafCellMapReporteBanco.PrefijoEtiquetaResumen);
+        if (indiceResumen < 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: no se encontró la etiqueta 'Resumen Recaudo Aplicado Por Servicio' en el ReportePagosxBanco.");
+        }
+
+        var filaHeaders = filas.ElementAtOrDefault(indiceResumen + 1)
+            ?? throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: no se encontró la fila de encabezados de empresas después del Resumen en el ReportePagosxBanco.");
+
+        // Mapa de columnas fuente por ASE (T0-0.3, V10): empresa → índice de columna (1-based).
+        // Fail-fast: si la columna esperada no trae el header exacto, falla nombrando ASE+empresa-columna.
+        var columnas = WorkbookLeafCellMapReporteBanco.ColumnasFuentePorAse[ase.Id];
+        var indicesEmpresa = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (empresa, indice) in columnas)
+        {
+            var header = ExcelWorksheetNavigator.CeldaTexto(filaHeaders.ElementAtOrDefault(indice));
+            if (!header.Equals(empresa, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new CalculoInvalidoException(
+                    $"ASE {ase.Id}: la columna fuente {indice} del Resumen debería ser '{empresa}' pero dice '{header}'. Mapa T0-0.3 no coincide con la fuente.");
+            }
+
+            indicesEmpresa[empresa] = indice;
+        }
+
+        // Filas de concepto (1/2/3/7) + fila Total, por prefijo normalizado (T0-0.4).
+        // Fila ausente = 0 demostrable: el Total de la fuente lo confirma (Riesgo 3 mitigado).
+        var conceptosPorEmpresa = indicesEmpresa.Keys.ToDictionary(e => e, _ => new decimal[4], StringComparer.OrdinalIgnoreCase);
+        var totalesFuente = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+
+        for (var i = indiceResumen + 2; i < filas.Count; i++)
+        {
+            var fila = filas[i];
+            if (fila is null)
+            {
+                continue;
+            }
+
+            var etiqueta = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(0));
+            if (string.IsNullOrWhiteSpace(etiqueta))
+            {
+                continue;
+            }
+
+            var normalizada = NormalizarEtiqueta(etiqueta);
+
+            // Fila "Total" del Resumen: cierra los conceptos y aporta el Total por empresa
+            // (gate D5-i: Σ conceptos == Total fuente).
+            if (normalizada == "total")
+            {
+                foreach (var (empresa, indice) in indicesEmpresa)
+                {
+                    totalesFuente[empresa] = ExcelWorksheetNavigator.CeldaNumero(fila.ElementAtOrDefault(indice));
+                }
+
+                break;
+            }
+
+            foreach (var (indiceConcepto, prefijo) in WorkbookLeafCellMapReporteBanco.Conceptos)
+            {
+                if (!normalizada.StartsWith(prefijo, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                foreach (var (empresa, indice) in indicesEmpresa)
+                {
+                    conceptosPorEmpresa[empresa][indiceConcepto] = ExcelWorksheetNavigator.CeldaNumero(fila.ElementAtOrDefault(indice));
+                }
+
+                break;
+            }
+        }
+
+        // Los conceptos ausentes quedaron en 0 (fila ausente = 0 demostrable).
+        var empresas = indicesEmpresa.Keys
+            .OrderBy(e => indicesEmpresa[e])
+            .Select(empresa => new ReporteBancoEmpresaInputs
+            {
+                Empresa = empresa,
+                AplicadosFacturacion = conceptosPorEmpresa[empresa][0],
+                SaldosFavorGenerados = conceptosPorEmpresa[empresa][1],
+                FinanciacionesNuevas = conceptosPorEmpresa[empresa][2],
+                RecibosServEspeciales = conceptosPorEmpresa[empresa][3],
+                TotalFuente = totalesFuente.GetValueOrDefault(empresa)
+            })
+            .ToList();
+
+        // Gate D5-i (coherencia): bloque == resumen fuente antes de devolver (fail-fast ASE+empresa).
+        WorkbookLeafCoherence.ValidarContraFuentesBanco(new ReporteBancoAseInputs { Ase = ase, Empresas = empresas }, empresas);
+
+        return new ReporteBancoInputs
+        {
+            Ases = [new ReporteBancoAseInputs { Ase = ase, Empresas = empresas }],
+            Quincena = periodo.NumeroQuincena,
+            Consolidado = null // D2(b): filas 1–7 son fórmulas (T0-0.1); se protegen, no se escriben.
+        };
+    }
+
+    /// <summary>
+    /// HU-09 (2.3): busca la fila del Resumen desde el final del <c>Sheet1</c> por prefijo
+    /// normalizado (case-insensitive, sin espacios). Nunca fila fija (V4/V6).
+    /// </summary>
+    private static int BuscarEtiquetaDesdeElFinal(List<object?[]> filas, string prefijoNormalizado)
+    {
+        for (var i = filas.Count - 1; i >= 0; i--)
+        {
+            var fila = filas[i];
+            if (fila is null)
+            {
+                continue;
+            }
+
+            for (var j = 0; j < fila.Length; j++)
+            {
+                var texto = ExcelWorksheetNavigator.CeldaTexto(fila[j]);
+                if (!string.IsNullOrWhiteSpace(texto)
+                    && NormalizarEtiqueta(texto).StartsWith(prefijoNormalizado, StringComparison.Ordinal))
+                {
+                    return i;
+                }
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// HU-09 (2.3): normaliza una etiqueta para el match por prefijo (T0-0.4): minúsculas,
+    /// sin espacios, sin signos de puntuación. "3-APLICADOS A FINANCIACIONES NUEVAS" y
+    /// "3-APLICADOS A FINANCIACIONES" matchean el mismo prefijo.
+    /// </summary>
+    private static string NormalizarEtiqueta(string texto)
+    {
+        var sb = new System.Text.StringBuilder(texto.Length);
+        foreach (var ch in texto)
+        {
+            if (char.IsLetterOrDigit(ch) || ch == '-')
+            {
+                sb.Append(char.ToLowerInvariant(ch));
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    /// <inheritdoc />
+    public BalanceScInputs LeerBalanceSc(Ase ase, Periodo periodo, string rutaBalance)
+    {
+        ArgumentNullException.ThrowIfNull(ase);
+        ArgumentNullException.ThrowIfNull(periodo);
+        ArgumentNullException.ThrowIfNull(rutaBalance);
+
+        // HU-10 (2.4, D1): búsqueda dinámica de la etiqueta "Total General" desde el FINAL del
+        // Sheet1. Prohibida fila fija: la posición varía por ASE (V6: R118/R110/R38/R42/R28).
+        var filas = ExcelWorksheetNavigator.LeerFilas(rutaBalance);
+        var indiceTotalGeneral = BuscarTotalGeneralDesdeElFinal(filas);
+        if (indiceTotalGeneral < 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: no se encontró la etiqueta 'Total General' en el Balance de subsidios y contribuciones ({Path.GetFileName(rutaBalance)}).");
+        }
+
+        var fila = filas[indiceTotalGeneral];
+
+        // Veredicto T0-0.2 (hipótesis líder PROBADA en los 5 ASE Q1): template-D (CONTRIBUCION,
+        // positivo) ← columna F-fuente; template-E (SUBSIDIO, negativo) ← columna E-fuente.
+        // Columna G-fuente (Valor) = contraparte del gate D5(i) BCE = fuente.
+        var subsidio = ExcelWorksheetNavigator.CeldaNumero(fila.ElementAtOrDefault(WorkbookLeafCellMapBalanceSc.ColumnaSubsidioFuente));
+        var contribucion = ExcelWorksheetNavigator.CeldaNumero(fila.ElementAtOrDefault(WorkbookLeafCellMapBalanceSc.ColumnaContribucionFuente));
+        var totalFuente = ExcelWorksheetNavigator.CeldaNumero(fila.ElementAtOrDefault(WorkbookLeafCellMapBalanceSc.ColumnaTotalFuente));
+
+        var bloque = new BalanceScAseInputs
+        {
+            Ase = ase,
+            Contribucion = contribucion,
+            Subsidio = subsidio,
+            TotalFuente = totalFuente,
+            Sistema = null // D2(b): H es fórmula en el template (T0-0.6); se protege, no se escribe.
+        };
+
+        // Gate D5-i (coherencia): TotalBsc (E+F) == Total General fuente (col G) antes de
+        // devolver (fail-fast nombra ASE). Mismo patrón que ValidarContraFuentesBanco (HU-09).
+        WorkbookLeafCoherence.ValidarContraFuentesBalanceSc(bloque);
+
+        return new BalanceScInputs
+        {
+            Ases = [bloque]
+        };
+    }
+
+    /// <summary>
+    /// HU-10 (2.4): busca la fila "Total General" desde el final del <c>Sheet1</c> por match
+    /// NORMALIZADO EXACTO (minúsculas, sin espacios — T0-0.4). Nunca fila fija (V6). Las filas
+    /// "Total" de cada localidad NO matchean (match exacto, no por prefijo).
+    /// </summary>
+    private static int BuscarTotalGeneralDesdeElFinal(List<object?[]> filas)
+    {
+        for (var i = filas.Count - 1; i >= 0; i--)
+        {
+            var fila = filas[i];
+            if (fila is null)
+            {
+                continue;
+            }
+
+            for (var j = 0; j < fila.Length; j++)
+            {
+                var texto = ExcelWorksheetNavigator.CeldaTexto(fila[j]);
+                if (!string.IsNullOrWhiteSpace(texto)
+                    && string.Equals(NormalizarEtiqueta(texto), WorkbookLeafCellMapBalanceSc.EtiquetaTotalGeneral, StringComparison.Ordinal))
+                {
+                    return i;
+                }
+            }
+        }
+
+        return -1;
+    }
+
     private static RecaudoEmpresaInputs LeerRecaudoEmpresa(EmpresaFacturacion empresa, string rutaConciliacion)
     {
         // T0-0.6: los archivos Conjunta * tienen UNA sola hoja (RESUMEN MES); LeerFilas lee la primera.

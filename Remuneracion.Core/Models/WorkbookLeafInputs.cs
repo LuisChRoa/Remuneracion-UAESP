@@ -41,4 +41,19 @@ public sealed class WorkbookLeafInputs
     /// HU-08 (2.2): hojas <c>Recaudo *</c> en valores (5 empresas). Lista vacía = HU-07 puro.
     /// </summary>
     public IReadOnlyList<RecaudoEmpresaInputs> Recaudos { get; set; } = [];
+
+    /// <summary>
+    /// HU-09 (2.3): inputs de la hoja <c>REPORTE RECAUDO x BANCO</c> para este ASE (bloque en
+    /// valores desde el Resumen del <c>ReportePagosxBanco_*</c> + C59). <c>null</c> =
+    /// comportamiento HU-08 puro (compatibilidad hacia atrás por construcción, plan §0.3 G4).
+    /// </summary>
+    public ReporteBancoInputs? ReporteBanco { get; set; }
+
+    /// <summary>
+    /// HU-10 (2.4): inputs de la hoja <c>BCE SC POR FACT.</c> para este ASE (Contribución +
+    /// Subsidio desde el "Total General" del <c>R4-BalanceSubsidioyContribuciones_*</c>).
+    /// <c>null</c> = comportamiento HU-09 puro (compatibilidad hacia atrás por construcción,
+    /// plan §0.4 G6 / §8).
+    /// </summary>
+    public BalanceScInputs? BalanceSc { get; set; }
 }

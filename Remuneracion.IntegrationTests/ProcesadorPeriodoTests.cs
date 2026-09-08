@@ -65,6 +65,27 @@ public sealed class ProcesadorPeriodoTests
             Assert.Equal(5, leaf.Recaudos.Count);
         }
 
+        // HU-09 (2.3): cada leaf trae su bloque banco (mapa T0-0.7) con C59 = quincena.
+        foreach (var leaf in resultado.Leafs)
+        {
+            Assert.NotNull(leaf.ReporteBanco);
+            Assert.Single(leaf.ReporteBanco!.Ases);
+            Assert.Equal(leaf.Ase.Id, leaf.ReporteBanco.Ases[0].Ase.Id);
+            Assert.Equal(1, leaf.ReporteBanco.Quincena);
+        }
+
+        // HU-10 (2.4): cada leaf trae su fila de balance SC (TotalBsc == TotalFuente; H D2(b)).
+        foreach (var leaf in resultado.Leafs)
+        {
+            Assert.NotNull(leaf.BalanceSc);
+            Assert.Single(leaf.BalanceSc!.Ases);
+            Assert.Equal(leaf.Ase.Id, leaf.BalanceSc.Ases[0].Ase.Id);
+            Assert.Null(leaf.BalanceSc.Ases[0].Sistema);
+            Assert.InRange(
+                leaf.BalanceSc.Ases[0].TotalBsc - leaf.BalanceSc.Ases[0].TotalFuente,
+                -0.5m, 0.5m);
+        }
+
         // GranTotal de dominio = suma de TotalAse (±0.5) — §2.5 regla 5 (invariante interno).
         Assert.InRange(
             resultado.Resultado.GranTotal - resultado.Resultado.Consolidados.Sum(c => c.TotalAse),
@@ -158,6 +179,72 @@ public sealed class ProcesadorPeriodoTests
     }
 
     [Fact]
+    public void Ejecutar_FaltaEtiquetaResumenEnAse3_FallaNombrandoAseYSinSalida()
+    {
+        // HU-09 (2.3, Requirement 1 / §4.3): si la fuente banco del ASE3 no trae la etiqueta
+        // del Resumen, fail-fast nombra el ASE y NO hay salida certificada.
+        var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-banco-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(salidaDir);
+        var salida = Path.Combine(salidaDir, Insumos.Periodo().NombreArchivo);
+
+        var carpetaPeriodo = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-banco-carpeta-" + Guid.NewGuid().ToString("N"));
+        CopiarArbol(Insumos.CarpetaPeriodo, carpetaPeriodo);
+
+        // Reemplaza el ReportePagosxBanco de ASE3 por un archivo que no trae la etiqueta
+        // (usa el R1 de ASE3 renombrado: mantiene el prefijo para que el locator lo encuentre).
+        var carpetaAse3 = Path.Combine(carpetaPeriodo, "3-Ciudad Limpia");
+        var bancoAse3 = Directory.EnumerateFiles(carpetaAse3, "*.xlsx", SearchOption.TopDirectoryOnly)
+            .First(f => Path.GetFileNameWithoutExtension(f).StartsWith("ReportePagosxBanco", StringComparison.OrdinalIgnoreCase));
+        File.Delete(bancoAse3);
+        File.Copy(Insumos.R1(3), Path.Combine(carpetaAse3, "ReportePagosxBanco_sin_resumen.xlsx"));
+
+        var procesador = CrearProcesador();
+        var ex = Assert.Throws<CalculoInvalidoException>(() =>
+            procesador.Ejecutar(new SolicitudProcesoPeriodo
+            {
+                Periodo = Insumos.Periodo(),
+                CarpetaPeriodo = carpetaPeriodo,
+                RutaPlantilla = Insumos.Plantilla,
+                RutaSalida = salida
+            }));
+
+        Assert.Contains("ASE 3", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Resumen Recaudo Aplicado Por Servicio", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(salida), "No debe existir salida certificada ante fallo.");
+    }
+
+    [Fact]
+    public void Ejecutar_FaltaFuenteBancoEnAse2_FallaNombrandoAseYSinSalida()
+    {
+        // HU-09 (2.3, V13): si falta el ReportePagosxBanco de un ASE, fail-fast nombra el ASE.
+        var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-bancorf-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(salidaDir);
+        var salida = Path.Combine(salidaDir, Insumos.Periodo().NombreArchivo);
+
+        var carpetaPeriodo = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-bancorf-carpeta-" + Guid.NewGuid().ToString("N"));
+        CopiarArbol(Insumos.CarpetaPeriodo, carpetaPeriodo);
+
+        var carpetaAse2 = Path.Combine(carpetaPeriodo, "2-Lime");
+        var bancoAse2 = Directory.EnumerateFiles(carpetaAse2, "*.xlsx", SearchOption.TopDirectoryOnly)
+            .First(f => Path.GetFileNameWithoutExtension(f).StartsWith("ReportePagosxBanco", StringComparison.OrdinalIgnoreCase));
+        File.Delete(bancoAse2);
+
+        var procesador = CrearProcesador();
+        var ex = Assert.Throws<ArchivoFuenteNoEncontradoException>(() =>
+            procesador.Ejecutar(new SolicitudProcesoPeriodo
+            {
+                Periodo = Insumos.Periodo(),
+                CarpetaPeriodo = carpetaPeriodo,
+                RutaPlantilla = Insumos.Plantilla,
+                RutaSalida = salida
+            }));
+
+        Assert.Contains("ReportePagosxBanco", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ASE 2", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(salida), "No debe existir salida certificada ante fallo.");
+    }
+
+    [Fact]
     public void Ejecutar_FaltaR4EnAse4_FallaNombrandoElAseYSinSalida()
     {
         var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-failr4-" + Guid.NewGuid().ToString("N"));
@@ -197,6 +284,73 @@ public sealed class ProcesadorPeriodoTests
 
         Assert.Contains("R4", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("ASE 4", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(salida), "No debe existir salida certificada ante fallo.");
+    }
+
+    [Fact]
+    public void Ejecutar_FaltaTotalGeneralEnFuenteAse3_FallaNombrandoAseYSinSalida()
+    {
+        // HU-10 (2.4, Requirement 1 / §4.3): si la fuente Balance del ASE3 no trae la etiqueta
+        // "Total General", fail-fast nombra el ASE y NO hay salida certificada.
+        var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-bce-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(salidaDir);
+        var salida = Path.Combine(salidaDir, Insumos.Periodo().NombreArchivo);
+
+        var carpetaPeriodo = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-bce-carpeta-" + Guid.NewGuid().ToString("N"));
+        CopiarArbol(Insumos.CarpetaPeriodo, carpetaPeriodo);
+
+        // Reemplaza el Balance de ASE3 por un archivo que no trae "Total General" (usa el R1 de
+        // ASE3 renombrado: mantiene el prefijo para que el locator lo encuentre).
+        var carpetaAse3 = Path.Combine(carpetaPeriodo, "3-Ciudad Limpia");
+        var balanceAse3 = Directory.EnumerateFiles(carpetaAse3, "*.xlsx", SearchOption.TopDirectoryOnly)
+            .First(f => Path.GetFileNameWithoutExtension(f).StartsWith("R4-BalanceSubsidioyContribuciones", StringComparison.OrdinalIgnoreCase));
+        File.Delete(balanceAse3);
+        File.Copy(Insumos.R1(3), Path.Combine(carpetaAse3, "R4-BalanceSubsidioyContribuciones_sin_total_general.xlsx"));
+
+        var procesador = CrearProcesador();
+        var ex = Assert.Throws<CalculoInvalidoException>(() =>
+            procesador.Ejecutar(new SolicitudProcesoPeriodo
+            {
+                Periodo = Insumos.Periodo(),
+                CarpetaPeriodo = carpetaPeriodo,
+                RutaPlantilla = Insumos.Plantilla,
+                RutaSalida = salida
+            }));
+
+        Assert.Contains("ASE 3", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Total General", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(salida), "No debe existir salida certificada ante fallo.");
+    }
+
+    [Fact]
+    public void Ejecutar_FaltaFuenteBalanceEnAse2_FallaNombrandoAseYSinSalida()
+    {
+        // HU-10 (2.4, V8): si falta el R4-BalanceSubsidioyContribuciones de un ASE, fail-fast
+        // nombra el ASE y NO hay salida certificada.
+        var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-bcerf-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(salidaDir);
+        var salida = Path.Combine(salidaDir, Insumos.Periodo().NombreArchivo);
+
+        var carpetaPeriodo = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-bcerf-carpeta-" + Guid.NewGuid().ToString("N"));
+        CopiarArbol(Insumos.CarpetaPeriodo, carpetaPeriodo);
+
+        var carpetaAse2 = Path.Combine(carpetaPeriodo, "2-Lime");
+        var balanceAse2 = Directory.EnumerateFiles(carpetaAse2, "*.xlsx", SearchOption.TopDirectoryOnly)
+            .First(f => Path.GetFileNameWithoutExtension(f).StartsWith("R4-BalanceSubsidioyContribuciones", StringComparison.OrdinalIgnoreCase));
+        File.Delete(balanceAse2);
+
+        var procesador = CrearProcesador();
+        var ex = Assert.Throws<ArchivoFuenteNoEncontradoException>(() =>
+            procesador.Ejecutar(new SolicitudProcesoPeriodo
+            {
+                Periodo = Insumos.Periodo(),
+                CarpetaPeriodo = carpetaPeriodo,
+                RutaPlantilla = Insumos.Plantilla,
+                RutaSalida = salida
+            }));
+
+        Assert.Contains("R4-BalanceSubsidioyContribuciones", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ASE 2", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(File.Exists(salida), "No debe existir salida certificada ante fallo.");
     }
 

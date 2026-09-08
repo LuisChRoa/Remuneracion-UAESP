@@ -22,6 +22,8 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
     private const string HojaR1 = WorkbookLeafCellMap.HojaR1;
     private const string HojaR2 = WorkbookLeafCellMap.HojaR2;
     private const string HojaR4 = WorkbookLeafCellMap.HojaR4;
+    private const string HojaBanco = WorkbookLeafCellMapReporteBanco.HojaBanco;
+    private const string HojaBce = WorkbookLeafCellMapBalanceSc.HojaBce;
 
     public void EscribirConsolidado(string rutaPlantilla, ResultadoRemuneracion resultado)
     {
@@ -188,6 +190,8 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
                 {
                     EscribirCeldasLeafPorAse(workbookPart, leaf);
                     EscribirCeldasEmpresa(workbookPart, leaf);
+                    EscribirCeldasBanco(workbookPart, leaf);
+                    EscribirCeldasBalanceSc(workbookPart, leaf);
                 }
 
                 var workbookXml = workbookPart.Workbook
@@ -462,6 +466,22 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
             var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
             ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
         }
+
+        // HU-09 (2.3, D6): mapa de fórmulas protegidas del reporte por banco (consolidado 1–7,
+        // Total de bloque, verificación I/J, validación 59–80 y TOTAL RECAUDO). Nunca se escriben.
+        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapReporteBanco.Protegidas)
+        {
+            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
+        }
+
+        // HU-10 (2.4, D6): mapa de fórmulas protegidas 2.4 (BCE F/I/H + filas 9/10/11/12/13 +
+        // bloque 18–24 + CONSOLIDADO J/K/M + refs DetRetri/DetValiRetri). Jamás se escriben.
+        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapBalanceSc.Protegidas)
+        {
+            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
+        }
     }
 
     /// <summary>
@@ -641,6 +661,69 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
                 EscribirValorNumerico(workbookPart, HojaR4, celda, valor, $"R4.{conc.Empresa.Nombre}.{celda}");
             }
         }
+    }
+
+    /// <summary>
+    /// HU-09 (2.3): escribe SOLO las celdas del mapa banco del ASE (bloques 9–58 en valores
+    /// + C59 = quincena) en la MISMA pasada atómica HU-07/HU-08 (G4/D3). <c>ReporteBanco == null</c>
+    /// = comportamiento HU-08 puro. El guard de <see cref="EscribirValorNumerico"/> impide tocar
+    /// cualquier celda con &lt;f&gt; (filas 1–7, Total de bloque, 59–80 y TOTAL quedan intactos).
+    /// </summary>
+    private static void EscribirCeldasBanco(WorkbookPart workbookPart, WorkbookLeafInputs leaf)
+    {
+        if (leaf.ReporteBanco is null)
+        {
+            return; // HU-08 puro (lista 2.3 vacía = comportamiento existente intacto).
+        }
+
+        var bloque = leaf.ReporteBanco.Ases.SingleOrDefault(b => b.Ase.Id == leaf.Ase.Id)
+            ?? throw new CalculoInvalidoException(
+                $"El leaf del ASE {leaf.Ase.Id} no trae su bloque de reporte banco para escribir.");
+
+        var editables = WorkbookLeafCellMapReporteBanco.ObtenerEditables(leaf.Ase.Id);
+
+        foreach (var empresa in bloque.Empresas)
+        {
+            if (!editables.TryGetValue(empresa.Empresa, out var celdas))
+            {
+                throw new CalculoInvalidoException(
+                    $"El bloque banco del ASE {leaf.Ase.Id} trae la empresa '{empresa.Empresa}' pero el mapa T0-0.7 no la declara para ese ASE.");
+            }
+
+            var valores = new[] { empresa.AplicadosFacturacion, empresa.SaldosFavorGenerados, empresa.FinanciacionesNuevas, empresa.RecibosServEspeciales };
+            for (var i = 0; i < celdas.Length && i < valores.Length; i++)
+            {
+                EscribirValorNumerico(workbookPart, HojaBanco, celdas[i], valores[i], $"Banco.{empresa.Empresa}.{celdas[i]}");
+            }
+        }
+
+        // C59 = quincena (dominio, nunca fuente; Requirement 4).
+        EscribirValorNumerico(workbookPart, HojaBanco, "C59", leaf.ReporteBanco.Quincena, "Banco.C59");
+    }
+
+    /// <summary>
+    /// HU-10 (2.4): escribe SOLO las celdas D/E de la hoja <c>BCE SC POR FACT.</c> del ASE
+    /// (Contribución → D, Subsidio → E según veredicto T0-0.2) en la MISMA pasada atómica
+    /// HU-07/HU-08/HU-09 (G5/D3). <c>BalanceSc == null</c> = comportamiento HU-09 puro. La
+    /// columna H es fórmula (D2(b), T0-0.6) → nunca se escribe; F/I/filas 9/11/18–24 y los
+    /// downstream J/K/M/DetRetri/DetValiRetri quedan protegidos por
+    /// <see cref="WorkbookLeafCellMapBalanceSc.Protegidas"/> y el guard de
+    /// <see cref="EscribirValorNumerico"/> impide tocar cualquier celda con &lt;f&gt;.
+    /// </summary>
+    private static void EscribirCeldasBalanceSc(WorkbookPart workbookPart, WorkbookLeafInputs leaf)
+    {
+        if (leaf.BalanceSc is null)
+        {
+            return; // HU-09 puro (lista 2.4 vacía = comportamiento existente intacto).
+        }
+
+        var bloque = leaf.BalanceSc.Ases.SingleOrDefault(b => b.Ase.Id == leaf.Ase.Id)
+            ?? throw new CalculoInvalidoException(
+                $"El leaf del ASE {leaf.Ase.Id} no trae su fila de balance SC para escribir.");
+
+        var editables = WorkbookLeafCellMapBalanceSc.ObtenerEditables(leaf.Ase.Id);
+        EscribirValorNumerico(workbookPart, HojaBce, editables.Contribucion, bloque.Contribucion, $"BCE.Contribucion.ASE{leaf.Ase.Id}");
+        EscribirValorNumerico(workbookPart, HojaBce, editables.Subsidio, bloque.Subsidio, $"BCE.Subsidio.ASE{leaf.Ase.Id}");
     }
 
     private static void EscribirValorNumerico(WorkbookPart workbookPart, string hoja, string celda, decimal valor, string nombre)

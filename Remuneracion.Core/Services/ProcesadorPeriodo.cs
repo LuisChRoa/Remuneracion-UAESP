@@ -94,6 +94,22 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             progreso?.Report($"ASE {idAse}: leyendo conciliación por empresa (R1/R2/R4)...");
             leaf.Conciliacion = _leafReader.LeerConciliacionEmpresas(ase, solicitud.Periodo, rutaR1, rutaR2, rutaR4);
 
+            // HU-09 (2.3): reporte de recaudo por banco de este ASE (fail-fast ASE+empresa-columna).
+            var rutaBanco = _localizador.BuscarReporteBanco(carpetaAse)
+                ?? throw new ArchivoFuenteNoEncontradoException(
+                    $"No se encontró ReportePagosxBanco del ASE {idAse} en {carpetaAse}.");
+            progreso?.Report($"ASE {idAse}: leyendo resumen de recaudo por banco...");
+            leaf.ReporteBanco = _leafReader.LeerReporteBanco(ase, solicitud.Periodo, rutaBanco);
+
+            // HU-10 (2.4): balance de subsidios y contribuciones de este ASE (fail-fast ASE).
+            // Dos prefijos del locator: base R4-BalanceSubsidioyContribuciones_ + variante
+            // -Optimizado_ (V8/T0-0.3); Q2 sigue bloqueada aguas arriba (sin cambios).
+            var rutaBalance = _localizador.BuscarBalance(carpetaAse)
+                ?? throw new ArchivoFuenteNoEncontradoException(
+                    $"No se encontró R4-BalanceSubsidioyContribuciones del ASE {idAse} en {carpetaAse}.");
+            progreso?.Report($"ASE {idAse}: leyendo balance de subsidios y contribuciones...");
+            leaf.BalanceSc = _leafReader.LeerBalanceSc(ase, solicitud.Periodo, rutaBalance);
+
             datos.Add((ase, r1, r2, r4));
             leafs.Add(leaf);
         }

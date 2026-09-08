@@ -310,8 +310,68 @@ namespace Remuneracion.WinForms
                 }
             }
 
-            // GranTotal honesto post-Excel = Σ visibles leaf por ASE (nunca agregados HU-02 como
-            // valores CONSOLIDADO; A5).
+            // HU-09 (2.3, §2.6): reporte por banco — por ASE × empresa (4 conceptos + Total,
+            // "esperado post-Excel") + C59 + nota 59–80 informativa. Delta mínimo, sin restyle.
+            if (resultadoProceso.Leafs.Any(l => l.ReporteBanco is not null))
+            {
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] REPORTE RECAUDO x BANCO (esperado post-Excel):{Environment.NewLine}");
+                Log.Information("REPORTE RECAUDO x BANCO: esperados post-Excel por ASE y empresa.");
+                foreach (var leaf in resultadoProceso.Leafs.OrderBy(l => l.Ase.Id))
+                {
+                    if (leaf.ReporteBanco is null)
+                    {
+                        continue;
+                    }
+
+                    foreach (var bloque in leaf.ReporteBanco.Ases)
+                    {
+                        foreach (var empresa in bloque.Empresas.OrderBy(e => e.Empresa))
+                        {
+                            var lineaBanco = $"  ASE {leaf.Ase.Id} · {empresa.Empresa}: FACT={empresa.AplicadosFacturacion:0.##}; SALDOS={empresa.SaldosFavorGenerados:0.##}; FINANC={empresa.FinanciacionesNuevas:0.##}; ESPEC={empresa.RecibosServEspeciales:0.##}; TOTAL={empresa.Total:0.##}";
+                            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaBanco}{Environment.NewLine}");
+                            Log.ForContext("Hoja", "REPORTE RECAUDO x BANCO")
+                                .Information("ASE {AseId} · {Empresa}: {Linea}", leaf.Ase.Id, empresa.Empresa, lineaBanco);
+                        }
+                    }
+                }
+
+                var quincena = resultadoProceso.Leafs.First(l => l.ReporteBanco is not null).ReporteBanco!.Quincena;
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}]  C59 (quincena) = {quincena}; diferencias filas 59–80 informativas (anulado/reversado misma quincena, esperadas ≠ 0).{Environment.NewLine}");
+                Log.ForContext("Hoja", "REPORTE RECAUDO x BANCO")
+                    .Information("C59 = {Quincena}; diferencias 59-80 informativas (anulado/reversado).", quincena);
+            }
+
+            // HU-10 (2.4, §2.6): balance de subsidios y contribuciones — por ASE (Subsidio E /
+            // Contribución D / Total BSC F, "esperado post-Excel") + veredicto D/E citado +
+            // nota J9:J13 y K/M calculan por fórmulas (Capa B). Delta mínimo, sin restyle.
+            if (resultadoProceso.Leafs.Any(l => l.BalanceSc is not null))
+            {
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] BCE SC POR FACT. (esperado post-Excel; asignación D/E = veredicto T0: D←Contribución F-fuente, E←Subsidio E-fuente):{Environment.NewLine}");
+                Log.ForContext("Hoja", "BCE SC POR FACT.")
+                    .Information("BCE SC POR FACT.: esperados post-Excel por ASE (veredicto D/E T0 hipótesis líder).");
+                foreach (var leaf in resultadoProceso.Leafs.OrderBy(l => l.Ase.Id))
+                {
+                    if (leaf.BalanceSc is null)
+                    {
+                        continue;
+                    }
+
+                    foreach (var bloque in leaf.BalanceSc.Ases)
+                    {
+                        var lineaBce = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: CONTRIBUCION(D)={bloque.Contribucion:0.##}; SUBSIDIO(E)={bloque.Subsidio:0.##}; TOTAL BSC(F)={bloque.TotalBsc:0.##}; H≈F por fórmula (DetRetri J{8 + leaf.Ase.Id})";
+                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaBce}{Environment.NewLine}");
+                        Log.ForContext("Hoja", "BCE SC POR FACT.")
+                            .Information("ASE {AseId}: {Linea}", leaf.Ase.Id, lineaBce);
+                    }
+                }
+
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}]  CONSOLIDADO J9:J13 y K/M calculan por fórmulas desde BCE F3:F7 (verificar post-Excel en Capa B).{Environment.NewLine}");
+                Log.ForContext("Hoja", "BCE SC POR FACT.")
+                    .Information("CONSOLIDADO J9:J13 y K/M calculan por fórmulas desde BCE F3:F7 (Capa B).");
+            }
+
+                // GranTotal honesto post-Excel = Σ visibles leaf por ASE (nunca agregados HU-02 como
+                // valores CONSOLIDADO; A5).
             var granTotal = resultadoProceso.Leafs.Sum(l =>
                 l.R1.TotalOportunoEsperadoPorAse
                 + l.R2.TotalOportunoEsperado

@@ -30,4 +30,24 @@ public interface ILocalizadorArchivosAse
     /// <param name="prefijo">Prefijo del nombre del archivo de conciliación.</param>
     /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
     string? BuscarConciliacion(string carpetaPeriodo, string prefijo);
+
+    /// <summary>
+    /// HU-09 (2.3, V13): localiza el <c>ReportePagosxBanco_*.xlsx</c> dentro de la carpeta del
+    /// ASE (prefijo nuevo del locator; naming verificado en disco por T0).
+    /// </summary>
+    /// <param name="carpetaAse">Carpeta del ASE (p. ej. "1-Promoambiental").</param>
+    /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
+    string? BuscarReporteBanco(string carpetaAse);
+
+    /// <summary>
+    /// HU-10 (2.4, V8): localiza el <c>R4-BalanceSubsidioyContribuciones_*.xlsx</c> dentro de la
+    /// carpeta del ASE. Acepta los DOS prefijos verificados en disco: el base
+    /// <c>R4-BalanceSubsidioyContribuciones_</c> (ASE1..5 Q1) y la variante
+    /// <c>R4-BalanceSubsidioyContribuciones-Optimizado_</c> (ASE5 en Q2). Base primero; el
+    /// archivo <c>Reca_BalanceSubsidiosyContribuciones_*</c> de ASE5-Q1 es OTRO reporte (layout
+    /// por componentes, sin "Total General") y NO debe resolverse por ninguno de los dos prefijos.
+    /// </summary>
+    /// <param name="carpetaAse">Carpeta del ASE.</param>
+    /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
+    string? BuscarBalance(string carpetaAse);
 }

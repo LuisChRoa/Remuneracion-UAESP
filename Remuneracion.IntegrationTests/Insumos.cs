@@ -55,6 +55,30 @@ internal static class Insumos
         return r4 ?? throw new FileNotFoundException($"No se encontró R4 ASE{aseId} en {carpeta}.");
     }
 
+    /// <summary>
+    /// HU-09 (2.3, V13): ruta del <c>ReportePagosxBanco_*.xlsx</c> del ASE (naming verificado por T0).
+    /// </summary>
+    public static string ReporteBanco(int aseId) => Buscar(CarpetasAse[aseId - 1], "ReportePagosxBanco", $"ReportePagosxBanco ASE{aseId}");
+
+    /// <summary>
+    /// HU-10 (2.4, V8): ruta del <c>R4-BalanceSubsidioyContribuciones_*.xlsx</c> del ASE.
+    /// Mismo criterio del locator: prefijo base (con guion bajo, excluye la variante
+    /// <c>-Optimizado_</c>) primero y variante <c>R4-BalanceSubsidioyContribuciones-Optimizado_</c>
+    /// como fallback. El archivo <c>Reca_BalanceSubsidiosyContribuciones_*</c> de ASE5-Q1 es otro
+    /// reporte y NO matchea ninguno de los dos prefijos.
+    /// </summary>
+    public static string Balance(int aseId)
+    {
+        var carpeta = CarpetasAse[aseId - 1];
+        Assert.True(Directory.Exists(carpeta), $"Falta carpeta: {carpeta}");
+        var archivo = Directory.EnumerateFiles(carpeta, "*.xlsx", SearchOption.TopDirectoryOnly)
+            .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).StartsWith("R4-BalanceSubsidioyContribuciones_", StringComparison.OrdinalIgnoreCase))
+            ?? Directory.EnumerateFiles(carpeta, "*.xlsx", SearchOption.TopDirectoryOnly)
+                .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).StartsWith("R4-BalanceSubsidioyContribuciones-Optimizado_", StringComparison.OrdinalIgnoreCase));
+        Assert.True(archivo is not null, $"Falta Balance ASE{aseId} en {carpeta}");
+        return archivo!;
+    }
+
     public static Ase Ase(int id)
     {
         var nombres = new[] { "Promoambiental", "Lime", "Ciudad Limpia", "Bogotá Limpia", "Área Limpia" };
