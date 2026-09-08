@@ -49,6 +49,7 @@
         // --- Ejecución ---
         private System.Windows.Forms.Label lblAse;
         private System.Windows.Forms.ComboBox cmbAse;
+        private System.Windows.Forms.CheckBox chkCincoAse;
         private System.Windows.Forms.Button btnEjecutar;
         private System.Windows.Forms.ProgressBar progressBar;
 
@@ -96,6 +97,7 @@
             // === Ejecución ===
             lblAse = new System.Windows.Forms.Label();
             cmbAse = new System.Windows.Forms.ComboBox();
+            chkCincoAse = new System.Windows.Forms.CheckBox();
             btnEjecutar = new System.Windows.Forms.Button();
             progressBar = new System.Windows.Forms.ProgressBar();
 
@@ -287,6 +289,7 @@
             // ============================
             grpEjecucion.Controls.Add(lblAse);
             grpEjecucion.Controls.Add(cmbAse);
+            grpEjecucion.Controls.Add(chkCincoAse);
             grpEjecucion.Controls.Add(btnEjecutar);
             grpEjecucion.Controls.Add(progressBar);
             grpEjecucion.Location = new System.Drawing.Point(12, 184);
@@ -310,12 +313,23 @@
             cmbAse.FormattingEnabled = true;
             cmbAse.Location = new System.Drawing.Point(50, 19);
             cmbAse.Name = "cmbAse";
-            cmbAse.Size = new System.Drawing.Size(200, 23);
+            cmbAse.Size = new System.Drawing.Size(150, 23);
             cmbAse.TabIndex = 0;
+            //
+            // chkCincoAse
+            //
+            chkCincoAse.AutoSize = true;
+            chkCincoAse.Location = new System.Drawing.Point(210, 22);
+            chkCincoAse.Name = "chkCincoAse";
+            chkCincoAse.Size = new System.Drawing.Size(127, 19);
+            chkCincoAse.TabIndex = 3;
+            chkCincoAse.Text = "Procesar los 5 ASE";
+            chkCincoAse.UseVisualStyleBackColor = true;
+            chkCincoAse.CheckedChanged += new System.EventHandler(chkCincoAse_CheckedChanged);
             //
             // btnEjecutar
             //
-            btnEjecutar.Location = new System.Drawing.Point(270, 18);
+            btnEjecutar.Location = new System.Drawing.Point(350, 18);
             btnEjecutar.Name = "btnEjecutar";
             btnEjecutar.Size = new System.Drawing.Size(130, 28);
             btnEjecutar.TabIndex = 1;
@@ -386,7 +400,7 @@
             MinimumSize = new System.Drawing.Size(650, 500);
             Name = "Form1";
             StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            Text = "Remuneración Quincenal UAESP \u2014 Fase 1";
+            Text = "Remuneración Quincenal UAESP \u2014 Fase 2";
 
             statusStrip.ResumeLayout(false);
             statusStrip.PerformLayout();

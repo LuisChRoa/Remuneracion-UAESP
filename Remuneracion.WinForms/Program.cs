@@ -17,6 +17,8 @@ namespace Remuneracion.WinForms
             var calculo = new CalculoRemuneracion();
             var validador = new ValidadorBasico();
             var writer = new OpenXmlPlantillaWriter();
+            var locator = new ArchivoFuenteLocator();
+
             IProcesadorRemuneracion procesador = new ProcesadorRemuneracion(
                 lectorR1R2R4,
                 hojaLeafReader,
@@ -24,8 +26,15 @@ namespace Remuneracion.WinForms
                 validador,
                 writer);
 
-            var locator = new ArchivoFuenteLocator();
-            Application.Run(new Form1(procesador, locator));
+            IProcesadorPeriodo procesadorPeriodo = new ProcesadorPeriodo(
+                lectorR1R2R4,
+                hojaLeafReader,
+                calculo,
+                validador,
+                writer,
+                locator);
+
+            Application.Run(new Form1(procesador, procesadorPeriodo, locator));
         }
     }
 }

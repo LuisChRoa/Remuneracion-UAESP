@@ -16,4 +16,14 @@ public interface IWorkbookLeafWriter
     /// <param name="resultado">Resultado agregado del cálculo para la validación de coherencia.</param>
     /// <param name="leafInputs">Inputs leaf que alimentan las fórmulas del workbook.</param>
     void GenerarWorkbook(string rutaPlantillaOrigen, string rutaSalida, ResultadoRemuneracion resultado, WorkbookLeafInputs leafInputs);
+
+    /// <summary>
+    /// Genera un workbook multi-ASE (modo período) en UNA sola llamada de escritura: una copia,
+    /// una validación pre/post con el mapa ampliado y la escritura de cada bloque por ASE.
+    /// </summary>
+    /// <param name="rutaPlantillaOrigen">Ruta de la plantilla de origen.</param>
+    /// <param name="rutaSalida">Ruta del archivo generado (carpeta + <see cref="Periodo.NombreArchivo"/>).</param>
+    /// <param name="resultado">Resultado con los consolidados por ASE.</param>
+    /// <param name="leafInputs">Inputs leaf, uno por ASE (5 en modo período).</param>
+    void GenerarWorkbook(string rutaPlantillaOrigen, string rutaSalida, ResultadoRemuneracion resultado, IReadOnlyList<WorkbookLeafInputs> leafInputs);
 }

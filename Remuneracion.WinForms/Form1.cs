@@ -17,11 +17,16 @@ namespace Remuneracion.WinForms
         ];
 
         private readonly IProcesadorRemuneracion _procesadorRemuneracion;
+        private readonly IProcesadorPeriodo _procesadorPeriodo;
         private readonly ArchivoFuenteLocator _archivoFuenteLocator;
 
-        public Form1(IProcesadorRemuneracion procesadorRemuneracion, ArchivoFuenteLocator archivoFuenteLocator)
+        public Form1(
+            IProcesadorRemuneracion procesadorRemuneracion,
+            IProcesadorPeriodo procesadorPeriodo,
+            ArchivoFuenteLocator archivoFuenteLocator)
         {
             _procesadorRemuneracion = procesadorRemuneracion ?? throw new ArgumentNullException(nameof(procesadorRemuneracion));
+            _procesadorPeriodo = procesadorPeriodo ?? throw new ArgumentNullException(nameof(procesadorPeriodo));
             _archivoFuenteLocator = archivoFuenteLocator ?? throw new ArgumentNullException(nameof(archivoFuenteLocator));
 
             InitializeComponent();
@@ -38,6 +43,13 @@ namespace Remuneracion.WinForms
                     new Remuneracion.Core.Services.CalculoRemuneracion(),
                     new Remuneracion.Core.Services.ValidadorBasico(),
                     new Remuneracion.Infrastructure.Excel.OpenXmlPlantillaWriter()),
+                new Remuneracion.Core.Services.ProcesadorPeriodo(
+                    new Remuneracion.Infrastructure.Excel.ExcelDataReaderRecaudoReader(),
+                    new Remuneracion.Infrastructure.Excel.ExcelDataReaderWorkbookLeafInputReader(),
+                    new Remuneracion.Core.Services.CalculoRemuneracion(),
+                    new Remuneracion.Core.Services.ValidadorBasico(),
+                    new Remuneracion.Infrastructure.Excel.OpenXmlPlantillaWriter(),
+                    new ArchivoFuenteLocator()),
                 new ArchivoFuenteLocator())
         {
         }
@@ -98,6 +110,12 @@ namespace Remuneracion.WinForms
             cmbAse.EndUpdate();
         }
 
+        private void chkCincoAse_CheckedChanged(object? sender, EventArgs e)
+        {
+            // En modo 5 ASE el combo conserva la selección para modo single, pero se deshabilita.
+            cmbAse.Enabled = !chkCincoAse.Checked;
+        }
+
         private void btnSeleccionarCarpeta_Click(object? sender, EventArgs e)
         {
             if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
@@ -136,11 +154,14 @@ namespace Remuneracion.WinForms
                 return;
             }
 
+            var modoCincoAse = chkCincoAse.Checked;
+            var maxProgreso = modoCincoAse ? 42 : 8; // hitos × 5 + escritura en modo período
+
             SetControlesHabilitados(false);
             progressBar.Visible = true;
             progressBar.Style = ProgressBarStyle.Continuous;
             progressBar.Minimum = 0;
-            progressBar.Maximum = 8;
+            progressBar.Maximum = maxProgreso;
             progressBar.Value = 0;
             toolStripStatusLabel.Text = "Procesando...";
 
@@ -148,8 +169,9 @@ namespace Remuneracion.WinForms
             var aseSeleccionada = cmbAse.Text;
             var rutaSalida = Path.Combine(txtCarpetaSalida.Text, periodo.NombreArchivo);
 
-            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Iniciando proceso — Período: {PeriodoSeleccionado}, ASE: {aseSeleccionada}{Environment.NewLine}");
-            Log.Information("Iniciando proceso de remuneración quincenal. Período: {Periodo}, ASE: {Ase}", PeriodoSeleccionado, aseSeleccionada);
+            var modoTexto = modoCincoAse ? "5 ASE" : $"ASE {aseSeleccionada}";
+            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Iniciando proceso — Período: {PeriodoSeleccionado}, Modo: {modoTexto}{Environment.NewLine}");
+            Log.Information("Iniciando proceso de remuneración quincenal. Período: {Periodo}, Modo: {Modo}", PeriodoSeleccionado, modoTexto);
 
             if (string.Equals(Path.GetFullPath(txtPlantilla.Text), Path.GetFullPath(rutaSalida), StringComparison.OrdinalIgnoreCase))
             {
@@ -179,20 +201,6 @@ namespace Remuneracion.WinForms
 
             try
             {
-                var ase = ParseAse(cmbAse.Text);
-                var carpetaAse = ObtenerCarpetaAse(ase.Id);
-
-                var solicitud = new SolicitudProcesoAse
-                {
-                    Ase = ase,
-                    Periodo = periodo,
-                    RutaR1 = _archivoFuenteLocator.BuscarArchivo(carpetaAse, "Recaudoporcomponente") ?? throw new ArchivoFuenteNoEncontradoException($"No se encontró R1 en {carpetaAse}."),
-                    RutaR2 = _archivoFuenteLocator.BuscarArchivo(carpetaAse, "RerpoteDetalleSaldosaFavor") ?? throw new ArchivoFuenteNoEncontradoException($"No se encontró R2 en {carpetaAse}."),
-                    RutaR4 = _archivoFuenteLocator.BuscarArchivo(carpetaAse, "ReversiónPorComponente") ?? _archivoFuenteLocator.BuscarArchivo(carpetaAse, "ReversionPorComponente") ?? throw new ArchivoFuenteNoEncontradoException($"No se encontró R4 en {carpetaAse}."),
-                    RutaPlantilla = txtPlantilla.Text,
-                    RutaSalida = rutaSalida
-                };
-
                 var progreso = new Progress<string>(mensaje =>
                 {
                     txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {mensaje}{Environment.NewLine}");
@@ -200,19 +208,16 @@ namespace Remuneracion.WinForms
                     progressBar.Value = Math.Min(progressBar.Value + 1, progressBar.Maximum);
                 });
 
-                var resultadoProceso = await Task.Run(() => _procesadorRemuneracion.Ejecutar(solicitud, progreso));
+                if (modoCincoAse)
+                {
+                    await EjecutarModoCincoAse(periodo, rutaSalida, progreso);
+                }
+                else
+                {
+                    await EjecutarModoUnAse(periodo, rutaSalida, progreso);
+                }
+
                 progressBar.Value = progressBar.Maximum;
-
-                var leaf = resultadoProceso.Leaf;
-                var valorD9Esperado = leaf.R1.TotalOportunoEsperado;
-                var valorF48Esperado = leaf.R1.ExtemporaneoEsperado;
-                var valorE41Esperado = leaf.R2.TotalOportunoEsperado;
-                var valorD67Esperado = leaf.R4.TotalReversionEsperada;
-
-                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Resumen final: F46/D9 esperado post-Excel = {valorD9Esperado:0.##}; F48/D47 esperado = {valorF48Esperado:0.##}; E41/D28 esperado = {valorE41Esperado:0.##}; D67/D66 esperado = {valorD67Esperado:0.##}; salida = {rutaSalida}{Environment.NewLine}");
-                Log.Information("Resumen final: F46/D9 esperado post-Excel = {D9}; F48/D47 esperado = {D47}; E41/D28 esperado = {D28}; D67/D66 esperado = {D66}; salida = {Salida}",
-                    valorD9Esperado, valorF48Esperado, valorE41Esperado, valorD67Esperado, rutaSalida);
-
                 toolStripStatusLabel.Text = "Completado";
             }
             catch (Exception ex)
@@ -227,6 +232,69 @@ namespace Remuneracion.WinForms
                 progressBar.Visible = false;
                 SetControlesHabilitados(true);
             }
+        }
+
+        private async Task EjecutarModoUnAse(Periodo periodo, string rutaSalida, IProgress<string> progreso)
+        {
+            var ase = ParseAse(cmbAse.Text);
+            var carpetaAse = ObtenerCarpetaAse(ase.Id);
+
+            var solicitud = new SolicitudProcesoAse
+            {
+                Ase = ase,
+                Periodo = periodo,
+                RutaR1 = _archivoFuenteLocator.BuscarArchivo(carpetaAse, "Recaudoporcomponente") ?? throw new ArchivoFuenteNoEncontradoException($"No se encontró R1 en {carpetaAse}."),
+                RutaR2 = _archivoFuenteLocator.BuscarArchivo(carpetaAse, "RerpoteDetalleSaldosaFavor") ?? throw new ArchivoFuenteNoEncontradoException($"No se encontró R2 en {carpetaAse}."),
+                RutaR4 = _archivoFuenteLocator.BuscarArchivo(carpetaAse, "ReversiónPorComponente") ?? _archivoFuenteLocator.BuscarArchivo(carpetaAse, "ReversionPorComponente") ?? throw new ArchivoFuenteNoEncontradoException($"No se encontró R4 en {carpetaAse}."),
+                RutaPlantilla = txtPlantilla.Text,
+                RutaSalida = rutaSalida
+            };
+
+            var resultadoProceso = await Task.Run(() => _procesadorRemuneracion.Ejecutar(solicitud, progreso));
+
+            var leaf = resultadoProceso.Leaf;
+            var valorD9Esperado = leaf.R1.TotalOportunoEsperado;
+            var valorF48Esperado = leaf.R1.ExtemporaneoEsperado;
+            var valorE41Esperado = leaf.R2.TotalOportunoEsperado;
+            var valorD67Esperado = leaf.R4.TotalReversionEsperada;
+
+            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Resumen final: F46/D9 esperado post-Excel = {valorD9Esperado:0.##}; F48/D47 esperado = {valorF48Esperado:0.##}; E41/D28 esperado = {valorE41Esperado:0.##}; D67/D66 esperado = {valorD67Esperado:0.##}; salida = {rutaSalida}{Environment.NewLine}");
+            Log.Information("Resumen final: F46/D9 esperado post-Excel = {D9}; F48/D47 esperado = {D47}; E41/D28 esperado = {D28}; D67/D66 esperado = {D66}; salida = {Salida}",
+                valorD9Esperado, valorF48Esperado, valorE41Esperado, valorD67Esperado, rutaSalida);
+        }
+
+        private async Task EjecutarModoCincoAse(Periodo periodo, string rutaSalida, IProgress<string> progreso)
+        {
+            var solicitud = new SolicitudProcesoPeriodo
+            {
+                Periodo = periodo,
+                CarpetaPeriodo = txtCarpetaFuentes.Text,
+                RutaPlantilla = txtPlantilla.Text,
+                RutaSalida = rutaSalida
+            };
+
+            var resultadoProceso = await Task.Run(() => _procesadorPeriodo.Ejecutar(solicitud, progreso));
+
+            // Resumen honesto por ASE: visibles esperados post-Excel (nunca agregados HU-02 como
+            // valores CONSOLIDADO) + GranTotal.
+            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Resumen por ASE (esperado post-Excel):{Environment.NewLine}");
+            Log.Information("Resumen multi-ASE: esperados post-Excel por ASE.");
+            foreach (var leaf in resultadoProceso.Leafs.OrderBy(l => l.Ase.Id))
+            {
+                var linea = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: TOT_OPT={leaf.R1.TotalOportunoEsperadoPorAse:0.##}; R2={leaf.R2.TotalOportunoEsperado:0.##}; EXTEMP={leaf.R1.ExtemporaneoEsperadoPorAse:0.##}; R4={leaf.R4.TotalReversionEsperada:0.##}";
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {linea}{Environment.NewLine}");
+                Log.Information("ASE {AseId}: {Linea}", leaf.Ase.Id, linea);
+            }
+
+            // GranTotal honesto post-Excel = Σ visibles leaf por ASE (nunca agregados HU-02 como
+            // valores CONSOLIDADO; A5).
+            var granTotal = resultadoProceso.Leafs.Sum(l =>
+                l.R1.TotalOportunoEsperadoPorAse
+                + l.R2.TotalOportunoEsperado
+                + l.R1.ExtemporaneoEsperadoPorAse
+                + l.R4.TotalReversionEsperada);
+            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] GranTotal CONSOLIDADO (Σ visibles post-Excel) = {granTotal:0.##}; salida = {rutaSalida}{Environment.NewLine}");
+            Log.Information("GranTotal CONSOLIDADO (Σ visibles post-Excel) = {GranTotal}; salida = {Salida}", granTotal, rutaSalida);
         }
 
         private string ObtenerCarpetaAse(int idAse)
@@ -267,7 +335,8 @@ namespace Remuneracion.WinForms
             btnSeleccionarPlantilla.Enabled = habilitados;
             txtCarpetaSalida.Enabled = habilitados;
             btnSeleccionarSalida.Enabled = habilitados;
-            cmbAse.Enabled = habilitados;
+            cmbAse.Enabled = habilitados && !chkCincoAse.Checked;
+            chkCincoAse.Enabled = habilitados;
             btnEjecutar.Enabled = habilitados;
         }
 

@@ -10,6 +10,9 @@ namespace Remuneracion.Infrastructure.Excel;
 /// <see cref="RecaudoComponenteR1.TotalOportuno"/>: en el workbook real F46 = F25+F41-L25
 /// (TOT_OPT visible del consolidado) y el agregado HU-02 es la fila Componente/Total, otra cantidad.
 /// Sí se compara F25 contra Extemporáneo HU-02 (primera fila Mes/Total col F).
+///
+/// HU-07: matcheo ESTRICTO por <see cref="Ase.Id"/> — se elimina el fallback a
+/// <see cref="Enumerable.FirstOrDefault"/> (plan G5/D4).
 /// </summary>
 internal static class WorkbookLeafCoherence
 {
@@ -45,11 +48,47 @@ internal static class WorkbookLeafCoherence
         ArgumentNullException.ThrowIfNull(leaf);
         ArgumentNullException.ThrowIfNull(resultado);
 
-        var consolidado = resultado.Consolidados.FirstOrDefault(c => c.Ase.Id == leaf.Ase.Id)
-            ?? resultado.Consolidados.FirstOrDefault()
+        // HU-07: matcheo estricto — nunca fallback a otro consolidado.
+        var consolidado = resultado.Consolidados.SingleOrDefault(c => c.Ase.Id == leaf.Ase.Id)
             ?? throw new CalculoInvalidoException(
-                "No hay consolidado en ResultadoRemuneracion para validar coherencia leaf vs agregado antes de escribir.");
+                $"No hay consolidado del ASE {leaf.Ase.Id} en ResultadoRemuneracion para validar coherencia leaf vs agregado antes de escribir.");
 
+        ValidarContraConsolidado(leaf, consolidado);
+    }
+
+    /// <summary>
+    /// Gate multi-ASE: valida cada leaf contra su consolidado con matcheo estricto por Ase.Id.
+    /// </summary>
+    internal static void ValidarContraResultadoMultiAse(
+        IReadOnlyList<WorkbookLeafInputs> leafs,
+        ResultadoRemuneracion resultado)
+    {
+        ArgumentNullException.ThrowIfNull(leafs);
+        ArgumentNullException.ThrowIfNull(resultado);
+
+        if (leafs.Count == 0)
+        {
+            throw new CalculoInvalidoException("La lista de leafs del período está vacía; no hay nada que certificar.");
+        }
+
+        foreach (var leaf in leafs)
+        {
+            ValidarContraResultado(leaf, resultado);
+        }
+    }
+
+    internal static void AsegurarDentroDeTolerancia(string etiqueta, decimal leaf, decimal agregado)
+    {
+        var diferencia = Math.Abs(leaf - agregado);
+        if (diferencia > Tolerancia)
+        {
+            throw new CalculoInvalidoException(
+                $"La coherencia '{etiqueta}' no se cumple: leaf={leaf} vs agregado={agregado}. Diferencia={diferencia} > ±{Tolerancia}.");
+        }
+    }
+
+    private static void ValidarContraConsolidado(WorkbookLeafInputs leaf, ConsolidadoAse consolidado)
+    {
         AsegurarDentroDeTolerancia(
             "R1.F25 vs ConsolidadoAse.Extemp",
             leaf.R1.F25,
@@ -62,15 +101,5 @@ internal static class WorkbookLeafCoherence
             "R4.TotalReversionEsperada vs ConsolidadoAse.ReversionR4",
             leaf.R4.TotalReversionEsperada,
             consolidado.ReversionR4);
-    }
-
-    internal static void AsegurarDentroDeTolerancia(string etiqueta, decimal leaf, decimal agregado)
-    {
-        var diferencia = Math.Abs(leaf - agregado);
-        if (diferencia > Tolerancia)
-        {
-            throw new CalculoInvalidoException(
-                $"La coherencia '{etiqueta}' no se cumple: leaf={leaf} vs agregado={agregado}. Diferencia={diferencia} > ±{Tolerancia}.");
-        }
     }
 }

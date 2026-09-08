@@ -1,12 +1,13 @@
 using System.IO;
 using Remuneracion.Core.Constants;
+using Remuneracion.Core.Interfaces;
 
 namespace Remuneracion.Infrastructure.FileSystem;
 
 /// <summary>
 /// Localiza los archivos fuente de los ASE dentro de la estructura de carpetas del periodo.
 /// </summary>
-public class ArchivoFuenteLocator
+public class ArchivoFuenteLocator : ILocalizadorArchivosAse
 {
     /// <summary>
     /// Obtiene los subdirectorios de ASE que existen dentro de la carpeta del periodo,

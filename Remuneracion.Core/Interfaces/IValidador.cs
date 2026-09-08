@@ -21,4 +21,13 @@ public interface IValidador
     /// <param name="leaf">Inputs leaf asociados a la salida que se quiere certificar.</param>
     /// <returns>Lista de mensajes de validación (vacía si no hay problemas).</returns>
     List<string> Validar(ResultadoRemuneracion resultado, WorkbookLeafInputs leaf);
+
+    /// <summary>
+    /// Valida un resultado multi-ASE (modo período) contra la lista completa de inputs leaf,
+    /// con matcheo estricto por <see cref="Ase.Id"/> y gates por bloque.
+    /// </summary>
+    /// <param name="resultado">Resultado con los consolidados por ASE.</param>
+    /// <param name="leafs">Inputs leaf, uno por ASE (5 en modo período).</param>
+    /// <returns>Lista de mensajes de validación (vacía si no hay problemas).</returns>
+    List<string> Validar(ResultadoRemuneracion resultado, IReadOnlyList<WorkbookLeafInputs> leafs);
 }

@@ -13,6 +13,8 @@ namespace Remuneracion.Infrastructure.Excel;
 /// Writer OpenXML de la plantilla real.
 /// HU-04: validación estructural no destructiva (<see cref="IPlantillaWriter"/>).
 /// HU-05: escritura real de celdas leaf sobre una copia (<see cref="IWorkbookLeafWriter"/>).
+/// HU-07: overload multi-ASE con mapa por bloque (<see cref="WorkbookLeafCellMapPorAse"/>),
+/// una sola copia, validación pre/post ampliada y borrado de parcial ante fallo.
 /// </summary>
 public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 {
@@ -83,8 +85,6 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
         var workbookPart = workbook.WorkbookPart ?? throw new CalculoInvalidoException("El workbook abierto no tiene WorkbookPart válido.");
         var worksheet = ObtenerHoja(workbook, HojaR4, nameof(EscribirDetalleR4));
 
-        // La hoja real puede usar semántica textual con variaciones de acento/label; la validación real
-        // de R4 está en la fórmula D67 y no en un gate de labels irrelevante para la cadena derivada.
         ValidarCeldaTieneFormula(workbookPart, worksheet, "D67", ["D9", "P9"], HojaR4, nameof(EscribirDetalleR4));
 
         LanzarPayloadInsuficiente(nameof(EscribirDetalleR4), HojaR4,
@@ -100,15 +100,8 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
         ArgumentNullException.ThrowIfNull(leafInputs);
 
         var origen = ValidarArchivo(rutaPlantillaOrigen, nameof(GenerarWorkbook));
-        if (string.IsNullOrWhiteSpace(rutaSalida))
-        {
-            throw new ArchivoFuenteNoEncontradoException("La ruta de salida del workbook es requerida.");
-        }
-
-        if (string.Equals(Path.GetFullPath(origen), Path.GetFullPath(rutaSalida), StringComparison.OrdinalIgnoreCase))
-        {
-            throw new CalculoInvalidoException("La escritura real no puede mutar la plantilla original in-place. Use una ruta de salida distinta.");
-        }
+        ValidarRutaSalida(rutaSalida);
+        ValidarNoInPlace(origen, rutaSalida);
 
         WorkbookLeafCoherence.ValidarContraResultado(leafInputs, resultado);
 
@@ -138,6 +131,68 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
                 var workbookPart = workbook.WorkbookPart
                     ?? throw new CalculoInvalidoException("El workbook generado no tiene WorkbookPart válido.");
                 ValidarFormulasProtegidas(workbookPart, nameof(GenerarWorkbook));
+            }
+        }
+        catch
+        {
+            if (File.Exists(rutaSalida))
+            {
+                File.Delete(rutaSalida);
+            }
+
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public void GenerarWorkbook(string rutaPlantillaOrigen, string rutaSalida, ResultadoRemuneracion resultado, IReadOnlyList<WorkbookLeafInputs> leafInputs)
+    {
+        ArgumentNullException.ThrowIfNull(rutaPlantillaOrigen);
+        ArgumentNullException.ThrowIfNull(rutaSalida);
+        ArgumentNullException.ThrowIfNull(resultado);
+        ArgumentNullException.ThrowIfNull(leafInputs);
+
+        if (leafInputs.Count == 0)
+        {
+            throw new CalculoInvalidoException("La lista de leafs del período está vacía; no hay nada que escribir.");
+        }
+
+        var origen = ValidarArchivo(rutaPlantillaOrigen, nameof(GenerarWorkbook));
+        ValidarRutaSalida(rutaSalida);
+        ValidarNoInPlace(origen, rutaSalida);
+
+        WorkbookLeafCoherence.ValidarContraResultadoMultiAse(leafInputs, resultado);
+
+        var directorioSalida = Path.GetDirectoryName(rutaSalida);
+        if (!string.IsNullOrWhiteSpace(directorioSalida))
+        {
+            Directory.CreateDirectory(directorioSalida);
+        }
+
+        File.Copy(origen, rutaSalida, overwrite: true);
+
+        try
+        {
+            using (var workbook = SpreadsheetDocument.Open(rutaSalida, true))
+            {
+                var workbookPart = workbook.WorkbookPart
+                    ?? throw new CalculoInvalidoException("El workbook abierto no tiene WorkbookPart válido.");
+                ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook));
+                foreach (var leaf in leafInputs.OrderBy(l => l.Ase.Id))
+                {
+                    EscribirCeldasLeafPorAse(workbookPart, leaf);
+                }
+
+                var workbookXml = workbookPart.Workbook
+                    ?? throw new CalculoInvalidoException("El workbook abierto no tiene metadata Workbook válida.");
+                workbookXml.Save();
+            }
+
+            using (var workbook = SpreadsheetDocument.Open(rutaSalida, false))
+            {
+                var workbookPart = workbook.WorkbookPart
+                    ?? throw new CalculoInvalidoException("El workbook generado no tiene WorkbookPart válido.");
+                ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook));
             }
         }
         catch
@@ -216,12 +271,16 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
         }
 
         var formula = NormalizarFormula(LeerTextoCelda(cell, workbookPart));
-        if (string.IsNullOrWhiteSpace(formula))
+
+        // Shared-formula awareness (HU-07 task 2.3): un follower con SharedIndex y texto vacío
+        // es una réplica del maestro; se valida por presencia de fórmula, no por fragmentos.
+        var esSharedFollower = string.IsNullOrWhiteSpace(formula) && cell.CellFormula.SharedIndex is not null;
+        if (string.IsNullOrWhiteSpace(formula) && !esSharedFollower)
         {
             throw new CalculoInvalidoException($"La celda '{celda}' de '{hoja}' no tiene una fórmula resoluble por OpenXML.");
         }
 
-        if (fragmentosEsperados.Length > 0)
+        if (fragmentosEsperados.Length > 0 && !esSharedFollower)
         {
             var formulaNormalizada = NormalizarFormula(formula);
             var faltan = fragmentosEsperados
@@ -253,6 +312,22 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
         }
 
         return rutaPlantilla;
+    }
+
+    private static void ValidarRutaSalida(string rutaSalida)
+    {
+        if (string.IsNullOrWhiteSpace(rutaSalida))
+        {
+            throw new ArchivoFuenteNoEncontradoException("La ruta de salida del workbook es requerida.");
+        }
+    }
+
+    private static void ValidarNoInPlace(string origen, string rutaSalida)
+    {
+        if (string.Equals(Path.GetFullPath(origen), Path.GetFullPath(rutaSalida), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new CalculoInvalidoException("La escritura real no puede mutar la plantilla original in-place. Use una ruta de salida distinta.");
+        }
     }
 
     private static Worksheet ObtenerHoja(WorkbookPart workbookPart, string nombreHoja, string operacion)
@@ -346,6 +421,73 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
         }
     }
 
+    /// <summary>
+    /// Valida el mapa ampliado: visibles de cada bloque ASE (R1/R2/R4) + filas CONSOLIDADO
+    /// D9:D13/D28:D32/D47:D51/D66:D70/D85:D89/D104:D108/D109 con shared-formula awareness.
+    /// </summary>
+    private static void ValidarFormulasProtegidasMultiAse(WorkbookPart workbookPart, string operacion)
+    {
+        foreach (var aseId in WorkbookLeafCellMapPorAse.EditableLeafCellsPorAse.Keys.OrderBy(k => k))
+        {
+            var bloque = WorkbookLeafCellMapPorAse.ProtectedFormulasPorAse[aseId];
+            foreach (var (hoja, celda, fragmentos) in bloque)
+            {
+                if (string.Equals(hoja, HojaConsolidado, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue; // las filas CONSOLIDADO se validan una sola vez abajo
+                }
+
+                var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+                ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
+            }
+        }
+
+        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapPorAseProtectedConsolidado)
+        {
+            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
+        }
+    }
+
+    /// <summary>
+    /// Filas CONSOLIDADO del mapa ampliado multi-ASE (plan §2.3): D9:D13, D28:D32, D47:D51,
+    /// D66:D70, D85:D89, D104:D108 (maestro + réplicas shared), D109. Fórmulas jamás se escriben.
+    /// </summary>
+    private static readonly (string Hoja, string Celda, string[] Fragmentos)[] WorkbookLeafCellMapPorAseProtectedConsolidado =
+    [
+        (HojaConsolidado, "D9", ["F46", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D10", ["F176", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D11", ["F316", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D12", ["F437", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D13", ["F519", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D28", ["E41", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D29", ["E135", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D30", ["E247", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D31", ["E343", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D32", ["E413", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D47", ["F48", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D48", ["F178", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D49", ["F318", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D50", ["F439", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D51", ["F521", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D66", ["D67", "Reversion Pagos R4"]),
+        (HojaConsolidado, "D67", ["D161", "Reversion Pagos R4"]),
+        (HojaConsolidado, "D68", ["D198", "Reversion Pagos R4"]),
+        (HojaConsolidado, "D69", ["D312", "Reversion Pagos R4"]),
+        (HojaConsolidado, "D70", ["D347", "Reversion Pagos R4"]),
+        (HojaConsolidado, "D85", ["D47", "AJUSTES"]),
+        (HojaConsolidado, "D86", ["D48", "AJUSTES"]),
+        (HojaConsolidado, "D87", ["D49", "AJUSTES"]),
+        (HojaConsolidado, "D88", ["D50", "AJUSTES"]),
+        (HojaConsolidado, "D89", ["D51", "AJUSTES"]),
+        (HojaConsolidado, "D104", ["D9", "D28", "D47", "D66", "D85"]),
+        (HojaConsolidado, "D105", ["D10", "D29", "D48", "D67", "D86"]),
+        (HojaConsolidado, "D106", []), // shared follower del maestro D104
+        (HojaConsolidado, "D107", ["D12", "D31", "D50", "D69", "D88"]),
+        (HojaConsolidado, "D108", ["D13", "D32", "D51", "D70", "D89"]),
+        (HojaConsolidado, "D109", ["D104", "D108", "SUM"])
+    ];
+
     private static void EscribirCeldasLeaf(WorkbookPart workbookPart, WorkbookLeafInputs leafInputs)
     {
         var valores = new Dictionary<(string Hoja, string Celda), decimal>(new LeafCellComparer())
@@ -380,6 +522,47 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 
             EscribirValorNumerico(workbookPart, hoja, celda, valor, nombre);
         }
+    }
+
+    /// <summary>
+    /// Escribe SOLO las celdas del bloque del ASE (mapa por ASE congelado por T0).
+    /// Los valores provienen de <see cref="WorkbookLeafInputs"/> (CeldasPorAse por hoja).
+    /// </summary>
+    private static void EscribirCeldasLeafPorAse(WorkbookPart workbookPart, WorkbookLeafInputs leaf)
+    {
+        var editables = WorkbookLeafCellMapPorAse.ObtenerEditables(leaf.Ase.Id);
+
+        foreach (var (hoja, celda, nombre) in editables)
+        {
+            if (WorkbookLeafCellMapPorAse.ProtectedFormulasPorAse[leaf.Ase.Id].Any(p =>
+                    string.Equals(p.Hoja, hoja, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(p.Celda, celda, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new CalculoInvalidoException(
+                    $"El cell-map del ASE {leaf.Ase.Id} intentó escribir '{nombre}' sobre la fórmula protegida {hoja}!{celda}.");
+            }
+
+            var valor = ObtenerValorLeaf(leaf, hoja, celda, nombre);
+            EscribirValorNumerico(workbookPart, hoja, celda, valor, nombre);
+        }
+    }
+
+    private static decimal ObtenerValorLeaf(WorkbookLeafInputs leaf, string hoja, string celda, string nombre)
+    {
+        IReadOnlyDictionary<string, decimal> celdas = hoja switch
+        {
+            _ when string.Equals(hoja, HojaR1, StringComparison.OrdinalIgnoreCase) => leaf.R1.CeldasPorAse,
+            _ when string.Equals(hoja, HojaR2, StringComparison.OrdinalIgnoreCase) => leaf.R2.CeldasPorAse,
+            _ when string.Equals(hoja, HojaR4, StringComparison.OrdinalIgnoreCase) => leaf.R4.CeldasPorAse,
+            _ => throw new CalculoInvalidoException($"Hoja '{hoja}' no tiene valores leaf mapeados para '{nombre}'.")
+        };
+
+        if (!celdas.TryGetValue(celda, out var valor))
+        {
+            throw new CalculoInvalidoException($"No hay valor leaf mapeado para {nombre} ({hoja}!{celda}) del ASE {leaf.Ase.Id}.");
+        }
+
+        return valor;
     }
 
     private static void EscribirValorNumerico(WorkbookPart workbookPart, string hoja, string celda, decimal valor, string nombre)
