@@ -2,6 +2,7 @@
 name: sdd-planner
 description: "Subagente de remuneracion-architect para planificación SDD formal. Ejecuta PROPOSE → DESIGN → SPEC → TASKS y genera documento física en plans/. Prioridad del proyecto: calidad senior."
 mode: subagent
+model: opencode/muse-spark-1.3-contributor-free
 hidden: true
 permission:
   edit: allow

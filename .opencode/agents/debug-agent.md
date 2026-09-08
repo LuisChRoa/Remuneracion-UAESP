@@ -2,6 +2,7 @@
 name: debug-agent
 description: "Subagente de remuneracion-architect para análisis sistemático de causa raíz. NO arregla sin investigar primero. Prioridad: calidad senior."
 mode: subagent
+model: opencode/mimo-v2.5-free
 hidden: true
 permission:
   edit: deny
