@@ -119,4 +119,43 @@ public sealed class CatalogoErroresTests
         Assert.Equal(4, CodigosSalida.Inesperado);
         Assert.Equal(5, CodigosSalida.CanceladoPorUsuario);
     }
+
+    // ── HU-15 (D6): CodigoDe — código de una excepción sin UI (Form1 delega; CLI consume) ──
+
+    [Fact]
+    public void CodigoDe_ArchivoFuenteConCodigoExplicito_DevuelveElCodigo()
+    {
+        var ex = new ArchivoFuenteNoEncontradoException(CodigoError.Plantilla, "plantilla ausente");
+        Assert.Equal(CodigoError.Plantilla, CatalogoErrores.CodigoDe(ex));
+    }
+
+    [Fact]
+    public void CodigoDe_CalculoInvalidoConCodigoExplicito_DevuelveElCodigo()
+    {
+        var ex = new CalculoInvalidoException(CodigoError.Escritura, "fallo de escritura");
+        Assert.Equal(CodigoError.Escritura, CatalogoErrores.CodigoDe(ex));
+    }
+
+    [Fact]
+    public void CodigoDe_ExcepcionDeDominioSinCodigo_DevuelveElDefault()
+    {
+        Assert.Equal(CodigoError.FuenteNoEncontrada, CatalogoErrores.CodigoDe(new ArchivoFuenteNoEncontradoException("mensaje")));
+        Assert.Equal(CodigoError.Validacion, CatalogoErrores.CodigoDe(new CalculoInvalidoException("mensaje")));
+    }
+
+    [Fact]
+    public void CodigoDe_ExcepcionGenerica_DevuelveInesperado()
+    {
+        Assert.Equal(CodigoError.Inesperado, CatalogoErrores.CodigoDe(new InvalidOperationException("boom")));
+    }
+
+    [Fact]
+    public void CodigoDe_MapaACodigoDeSalida_Contrato0_5()
+    {
+        // La cadena completa que usa el CLI: excepción → código → salida.
+        Assert.Equal(CodigosSalida.Validacion, CatalogoErrores.CodigoSalidaPara(CatalogoErrores.CodigoDe(new CalculoInvalidoException(CodigoError.Validacion, "gate"))));
+        Assert.Equal(CodigosSalida.FuenteOPlantilla, CatalogoErrores.CodigoSalidaPara(CatalogoErrores.CodigoDe(new ArchivoFuenteNoEncontradoException(CodigoError.FuenteNoEncontrada, "fuente"))));
+        Assert.Equal(CodigosSalida.Escritura, CatalogoErrores.CodigoSalidaPara(CatalogoErrores.CodigoDe(new CalculoInvalidoException(CodigoError.Escritura, "escritura"))));
+        Assert.Equal(CodigosSalida.Inesperado, CatalogoErrores.CodigoSalidaPara(CatalogoErrores.CodigoDe(new InvalidOperationException("boom"))));
+    }
 }

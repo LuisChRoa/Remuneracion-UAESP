@@ -416,5 +416,6 @@ Parseo O(args) + una ejecución idéntica a la UI; un `Guid` y un flush extra. I
 6. `--salida` siempre carpeta (G5); errores de uso → 4 sin códigos nuevos (G6); sin args → ayuda + 0.
 7. `Environment.Exit` solo en `Main` del CLI con flush previo (D1); tests in-process (D3); sin runner compartido UI↔CLI (D7); Serilog duplicado documentado (D8).
 8. PRs encadenados 0→3 (§4); regresión 208/208 + 24/24 como red; build 0 warnings; CRLF; sin commits.
+9. **Fe de erratas de cierre (2026-09-09, orquestador):** paridad Q2 1-ASE inviable literal — `ProcesadorRemuneracion` fail-fastea en Q2 por diseño HU-11 (red de seguridad), único overload que consume el modo 1-ASE en UI y CLI por igual; se implementó paridad Q2 **5-ASE** (cubre AJUSTES-SF-T + DetRetri sin golden) + test de **paridad de fallo** 1-ASE Q2 → 1. W-1 (`--help` gana, early-return) y W-2 (prefijo redundante en `ProcesadorRemuneracion.cs:85`) cerrados como micro-fix post-revisión con test dedicado. W-3 (rolling log sin gitignore), S-1 (Main sin catch externo), S-2 (sin dispose tras ConfigurarSerilog), S-3 (`temp/head_program.cs` tracked) → registro HU-17.
 
 **Listo para aprobación del Ingeniero. No implementar hasta OK.**

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- Consola, NO -windows: testeable y desatendida (HU-15 §2.6). -->
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Remuneracion.Cli</RootNamespace>
+    <AssemblyName>Remuneracion.Cli</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Remuneracion.Core\Remuneracion.Core.csproj" />
+    <ProjectReference Include="..\Remuneracion.Infrastructure\Remuneracion.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Mismas versiones del árbol (HU-15 D2: sin paquetes nuevos) -->
+    <PackageReference Include="Serilog" Version="4.4.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- HU-15 (D3): los tests corren EjecutorCli in-process (sin subproceso ni Environment.Exit). -->
+    <InternalsVisibleTo Include="Remuneracion.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

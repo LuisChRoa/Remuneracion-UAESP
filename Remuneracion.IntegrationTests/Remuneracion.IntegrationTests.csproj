@@ -22,6 +22,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Remuneracion.Core\Remuneracion.Core.csproj" />
     <ProjectReference Include="..\Remuneracion.Infrastructure\Remuneracion.Infrastructure.csproj" />
+    <!-- HU-15 (D3): los tests del CLI corren EjecutorCli in-process (sin subproceso ni Exit). -->
+    <ProjectReference Include="..\Remuneracion.Cli\Remuneracion.Cli.csproj" />
   </ItemGroup>
 
 </Project>

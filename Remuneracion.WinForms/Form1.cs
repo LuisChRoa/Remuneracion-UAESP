@@ -196,7 +196,10 @@ namespace Remuneracion.WinForms
             if (string.Equals(Path.GetFullPath(txtPlantilla.Text), Path.GetFullPath(rutaSalida), StringComparison.OrdinalIgnoreCase))
             {
                 // HU-14 (3.1): ERR-PLANTILLA con UX por catálogo (título + guía + código).
+                // HU-15 (W-2.4): la denegación salida==plantilla emite Log.Error con el código
+                // (CA-6: toda negativa auditable por RunId), además del box/status intactos.
                 UltimoCodigoSalida = CodigosSalida.FuenteOPlantilla;
+                Log.Error("[{Codigo}] La ruta de salida coincide con la plantilla: {Salida}. Use una ruta de salida distinta a la plantilla.", CodigoError.Plantilla, rutaSalida);
                 MostrarErrorUx(CodigoError.Plantilla, null);
                 toolStripStatusLabel.Text = $"Error {CodigoError.Plantilla} (salida {UltimoCodigoSalida})";
                 SetControlesHabilitados(true);
@@ -238,11 +241,11 @@ namespace Remuneracion.WinForms
 
                 if (modoCincoAse)
                 {
-                    await EjecutarModoCincoAse(periodo, rutaSalida, progreso);
+                    await EjecutarModoCincoAse(periodo, rutaSalida, progreso, runId);
                 }
                 else
                 {
-                    await EjecutarModoUnAse(periodo, rutaSalida, progreso);
+                    await EjecutarModoUnAse(periodo, rutaSalida, progreso, runId);
                 }
 
                 progressBar.Value = progressBar.Maximum;
@@ -269,15 +272,10 @@ namespace Remuneracion.WinForms
         }
 
         /// <summary>
-        /// HU-14 (3.1): código del catálogo para una excepción. Las 2 excepciones de dominio
-        /// portan <c>Codigo</c> (D1); cualquier otra = <see cref="CodigoError.Inesperado"/>.
+        /// HU-14 (3.1): código del catálogo para una excepción. HU-15 (D6): delega en
+        /// <see cref="CatalogoErrores.CodigoDe"/> (una sola fuente del mapeo, compartida con el CLI).
         /// </summary>
-        private static string ObtenerCodigoError(Exception ex) => ex switch
-        {
-            ArchivoFuenteNoEncontradoException archivo => archivo.Codigo,
-            CalculoInvalidoException calculo => calculo.Codigo,
-            _ => CodigoError.Inesperado
-        };
+        private static string ObtenerCodigoError(Exception ex) => CatalogoErrores.CodigoDe(ex);
 
         /// <summary>
         /// HU-14 (3.1, D2): MessageBox con título + guía accionable del catálogo y el código
@@ -290,7 +288,7 @@ namespace Remuneracion.WinForms
             MessageBox.Show($"{guia} Código: {codigo}.", titulo, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
-        private async Task EjecutarModoUnAse(Periodo periodo, string rutaSalida, IProgress<string> progreso)
+        private async Task EjecutarModoUnAse(Periodo periodo, string rutaSalida, IProgress<string> progreso, Guid runId)
         {
             var ase = ParseAse(cmbAse.Text);
             var carpetaAse = ObtenerCarpetaAse(ase.Id);
@@ -299,6 +297,9 @@ namespace Remuneracion.WinForms
             {
                 Ase = ase,
                 Periodo = periodo,
+                // HU-15 (W-2.1): el RunId de ESTA ejecución (hilo UI) se inyecta para que el
+                // procesador NO genere otro Guid: un solo RunId correlaciona UI → procesador → writer.
+                RunId = runId,
                 RutaR1 = _archivoFuenteLocator.BuscarArchivo(carpetaAse, "Recaudoporcomponente") ?? throw new ArchivoFuenteNoEncontradoException($"No se encontró R1 en {carpetaAse}."),
                 RutaR2 = _archivoFuenteLocator.BuscarArchivo(carpetaAse, "RerpoteDetalleSaldosaFavor") ?? throw new ArchivoFuenteNoEncontradoException($"No se encontró R2 en {carpetaAse}."),
                 RutaR4 = _archivoFuenteLocator.BuscarArchivo(carpetaAse, "ReversiónPorComponente") ?? _archivoFuenteLocator.BuscarArchivo(carpetaAse, "ReversionPorComponente") ?? throw new ArchivoFuenteNoEncontradoException($"No se encontró R4 en {carpetaAse}."),
@@ -319,14 +320,17 @@ namespace Remuneracion.WinForms
                 valorD9Esperado, valorF48Esperado, valorE41Esperado, valorD67Esperado, rutaSalida);
         }
 
-        private async Task EjecutarModoCincoAse(Periodo periodo, string rutaSalida, IProgress<string> progreso)
+        private async Task EjecutarModoCincoAse(Periodo periodo, string rutaSalida, IProgress<string> progreso, Guid runId)
         {
             var solicitud = new SolicitudProcesoPeriodo
             {
                 Periodo = periodo,
                 CarpetaPeriodo = txtCarpetaFuentes.Text,
                 RutaPlantilla = txtPlantilla.Text,
-                RutaSalida = rutaSalida
+                RutaSalida = rutaSalida,
+                // HU-15 (W-2.1): el RunId de ESTA ejecución (hilo UI) se inyecta para que el
+                // procesador NO genere otro Guid: un solo RunId correlaciona UI → procesador → writer.
+                RunId = runId
             };
 
             var resultadoProceso = await Task.Run(() => _procesadorPeriodo.Ejecutar(solicitud, progreso));
@@ -597,8 +601,11 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
         {
             // HU-14 (3.2, D6): rolling diario (mismo prefijo ./remuneracion_log_*, 30 días),
             // MinimumLevel.Debug y template estructurado con las propiedades buscables
-            // (RunId/Periodo/AseId/Hoja/Validacion). El detalle Debug va SOLO al archivo; el
-            // txtLog conserva los hitos (D4).
+            // (RunId/Periodo/AseId/Hoja/Validacion).
+            // HU-15 (S-3): se agrega {Properties} al template para que TODA propiedad estructurada
+            // (Quincena, Modo, Empresa, Codigo, …) quede registrada y filtrable en el archivo
+            // (no solo la lista explícita). El detalle Debug va SOLO al archivo; el txtLog
+            // conserva los hitos (D4). Plantilla CANÓNICA — el CLI (HU-15, D8) la replica.
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
                 .Enrich.FromLogContext() // D5: LogContext (RunId/Periodo/Modo) adjunta las propiedades a cada evento
@@ -606,7 +613,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
                     "remuneracion_log_.txt",
                     rollingInterval: RollingInterval.Day,
                     retainedFileCountLimit: 30,
-                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] (RunId={RunId} Periodo={Periodo} AseId={AseId} Hoja={Hoja} Validacion={Validacion}) {Message:lj}{NewLine}{Exception}")
+                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] (RunId={RunId} Periodo={Periodo} AseId={AseId} Hoja={Hoja} Validacion={Validacion}) {Message:lj}{NewLine}{Exception}{Properties}{NewLine}")
                 .CreateLogger();
         }
     }

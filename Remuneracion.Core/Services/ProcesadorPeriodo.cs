@@ -53,7 +53,9 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         // HU-14 (3.2, D5): RunId por ejecución correlaciona todos los eventos de ESTE procesador
         // (ambos modos). LogContext es Serilog core; las propiedades Periodo/Quincena/Modo
         // acompañan al RunId para filtrar el log (CA-6).
-        var runId = Guid.NewGuid();
+        // HU-15 (W-2.1, D4): si el frontend (UI/CLI) inyectó un RunId en la solicitud, se respeta
+        // (un solo Guid correlaciona UI → procesador → writer); null = genera uno (compat HU-14).
+        var runId = solicitud.RunId ?? Guid.NewGuid();
         using var _runIdScope = Serilog.Context.LogContext.PushProperty("RunId", runId);
         using var _periodoScope = Serilog.Context.LogContext.PushProperty("Periodo", solicitud.Periodo.CodigoCompleto);
         using var _quincenaScope = Serilog.Context.LogContext.PushProperty("Quincena", solicitud.Periodo.NumeroQuincena);
@@ -231,7 +233,10 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         if (errores.Count > 0)
         {
             var detalle = string.Join("; ", errores);
-            throw new CalculoInvalidoException(CodigoError.Validacion, $"[{CodigoError.Validacion}] La validación multi-ASE falló: {detalle}");
+            // HU-15 (S-2): sin prefijo [CÓDIGO] redundante — el código viaja en la excepción
+            // (Codigo) y cada error del validador ya lo porta (AgregarError). El catch del
+            // frontend agrega [{Codigo}] una sola vez (antes quedaba doble/triple en el log).
+            throw new CalculoInvalidoException(CodigoError.Validacion, $"La validación multi-ASE falló: {detalle}");
         }
 
         progreso?.Report("Generando workbook de salida (una sola escritura)...");
@@ -266,7 +271,8 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             if (erroresValidacion.Count > 0)
             {
                 var detalleValidacion = string.Join("; ", erroresValidacion);
-                throw new CalculoInvalidoException(CodigoError.Validacion, $"[{CodigoError.Validacion}] La validación cruzada (2.7) falló: {detalleValidacion}");
+                // HU-15 (S-2): sin prefijo [CÓDIGO] redundante (ver nota de validación multi-ASE).
+                throw new CalculoInvalidoException(CodigoError.Validacion, $"La validación cruzada (2.7) falló: {detalleValidacion}");
             }
 
             // Veredictos por ASE (bloque VALIDACIONES del log/UI, §2.6). Honestidad: se lee el

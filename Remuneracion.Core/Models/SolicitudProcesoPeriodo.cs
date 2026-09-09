@@ -24,4 +24,11 @@ public sealed class SolicitudProcesoPeriodo
     /// Ruta de salida (carpeta + <see cref="Periodo.NombreArchivo"/>; igual que HU-06).
     /// </summary>
     public string RutaSalida { get; set; } = string.Empty;
+
+    /// <summary>
+    /// HU-15 (W-2.1, D4): RunId inyectado por el frontend (UI/CLI) para correlacionar TODOS
+    /// los eventos de la ejecución (UI → procesador → writer) en el log. <c>null</c> = el
+    /// procesador genera uno (compat HU-14: <c>Guid.NewGuid()</c>).
+    /// </summary>
+    public Guid? RunId { get; set; }
 }

@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using Remuneracion.Core.Errors;
 using Remuneracion.Core.Exceptions;
 using Remuneracion.Core.Interfaces;
 using Remuneracion.Core.Models;
@@ -46,7 +47,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 
         var workbookPath = ValidarArchivo(rutaPlantilla, nameof(EscribirConsolidado));
         using var workbook = SpreadsheetDocument.Open(workbookPath, false);
-        var workbookPart = workbook.WorkbookPart ?? throw new CalculoInvalidoException("El workbook abierto no tiene WorkbookPart válido.");
+        var workbookPart = workbook.WorkbookPart ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene WorkbookPart válido.");
         var worksheet = ObtenerHoja(workbook, HojaConsolidado, nameof(EscribirConsolidado));
 
         ValidarConsolidadoFormulario(workbookPart, worksheet);
@@ -61,7 +62,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 
         var workbookPath = ValidarArchivo(rutaPlantilla, nameof(EscribirDetalleR1));
         using var workbook = SpreadsheetDocument.Open(workbookPath, false);
-        var workbookPart = workbook.WorkbookPart ?? throw new CalculoInvalidoException("El workbook abierto no tiene WorkbookPart válido.");
+        var workbookPart = workbook.WorkbookPart ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene WorkbookPart válido.");
         var worksheet = ObtenerHoja(workbook, HojaR1, nameof(EscribirDetalleR1));
 
         ValidarHojaConLabelsEsperados(workbookPart, HojaR1, ["Componente", "Total", "Mes"]);
@@ -80,7 +81,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 
         var workbookPath = ValidarArchivo(rutaPlantilla, nameof(EscribirDetalleR2));
         using var workbook = SpreadsheetDocument.Open(workbookPath, false);
-        var workbookPart = workbook.WorkbookPart ?? throw new CalculoInvalidoException("El workbook abierto no tiene WorkbookPart válido.");
+        var workbookPart = workbook.WorkbookPart ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene WorkbookPart válido.");
         var worksheet = ObtenerHoja(workbook, HojaR2, nameof(EscribirDetalleR2));
 
         ValidarHojaConLabelsEsperados(workbookPart, HojaR2, ["Total", "Componente TDF"]);
@@ -98,7 +99,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 
         var workbookPath = ValidarArchivo(rutaPlantilla, nameof(EscribirDetalleR4));
         using var workbook = SpreadsheetDocument.Open(workbookPath, false);
-        var workbookPart = workbook.WorkbookPart ?? throw new CalculoInvalidoException("El workbook abierto no tiene WorkbookPart válido.");
+        var workbookPart = workbook.WorkbookPart ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene WorkbookPart válido.");
         var worksheet = ObtenerHoja(workbook, HojaR4, nameof(EscribirDetalleR4));
 
         ValidarCeldaTieneFormula(workbookPart, worksheet, "D67", ["D9", "P9"], HojaR4, nameof(EscribirDetalleR4));
@@ -121,42 +122,63 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 
         WorkbookLeafCoherence.ValidarContraResultado(leafInputs, resultado);
 
-        var directorioSalida = Path.GetDirectoryName(rutaSalida);
-        if (!string.IsNullOrWhiteSpace(directorioSalida))
-        {
-            Directory.CreateDirectory(directorioSalida);
-        }
-
-        File.Copy(origen, rutaSalida, overwrite: true);
-
+        // HU-15 (W-2.3, D5): copia + escritura dentro del try de atomicidad — un fallo de I/O
+        // (IOException) se envuelve en ERR-ESCRITURA con InnerException preservada y el parcial
+        // se borra. Las excepciones de dominio (ERR-PLANTILLA de estructura, ERR-VALIDACION de
+        // coherencia) se re-lanzan tal cual tras borrar el parcial.
         try
         {
+            var directorioSalida = Path.GetDirectoryName(rutaSalida);
+            if (!string.IsNullOrWhiteSpace(directorioSalida))
+            {
+                Directory.CreateDirectory(directorioSalida);
+            }
+
+            File.Copy(origen, rutaSalida, overwrite: true);
+
             using (var workbook = SpreadsheetDocument.Open(rutaSalida, true))
             {
                 var workbookPart = workbook.WorkbookPart
-                    ?? throw new CalculoInvalidoException("El workbook abierto no tiene WorkbookPart válido.");
+                    ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene WorkbookPart válido.");
                 ValidarFormulasProtegidas(workbookPart, nameof(GenerarWorkbook));
                 EscribirCeldasLeaf(workbookPart, leafInputs);
                 var workbookXml = workbookPart.Workbook
-                    ?? throw new CalculoInvalidoException("El workbook abierto no tiene metadata Workbook válida.");
+                    ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene metadata Workbook válida.");
                 workbookXml.Save();
             }
 
             using (var workbook = SpreadsheetDocument.Open(rutaSalida, false))
             {
                 var workbookPart = workbook.WorkbookPart
-                    ?? throw new CalculoInvalidoException("El workbook generado no tiene WorkbookPart válido.");
+                    ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook generado no tiene WorkbookPart válido.");
                 ValidarFormulasProtegidas(workbookPart, nameof(GenerarWorkbook));
             }
         }
-        catch
+        catch (Exception ex)
         {
-            if (File.Exists(rutaSalida))
+            // HU-15 (W-2.3, D5): atomicidad intacta (borrar parcial) + causa preservada.
+            try
             {
-                File.Delete(rutaSalida);
+                if (File.Exists(rutaSalida))
+                {
+                    File.Delete(rutaSalida);
+                }
+            }
+            catch
+            {
+                // Best-effort: si el archivo quedó bloqueado (antivirus/handle), no enmascarar
+                // la causa real con un error de borrado.
             }
 
-            throw;
+            if (ex is ArchivoFuenteNoEncontradoException or CalculoInvalidoException)
+            {
+                throw;
+            }
+
+            throw new CalculoInvalidoException(
+                CodigoError.Escritura,
+                $"No se pudo generar el workbook de salida: {ex.Message}",
+                ex);
         }
     }
 
@@ -189,20 +211,24 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
         // Q1 = 2026071 (mapa HU-10 intacto); Q2 = 2026072 (mapa parametrizado + mapa 2.5).
         var esQuincena2 = leafInputs.Any(l => l.Periodo.NumeroQuincena == 2);
 
-        var directorioSalida = Path.GetDirectoryName(rutaSalida);
-        if (!string.IsNullOrWhiteSpace(directorioSalida))
-        {
-            Directory.CreateDirectory(directorioSalida);
-        }
-
-        File.Copy(origen, rutaSalida, overwrite: true);
-
+        // HU-15 (W-2.3, D5): copia + escritura dentro del try de atomicidad — un fallo de I/O
+        // (IOException) se envuelve en ERR-ESCRITURA con InnerException preservada y el parcial
+        // se borra. Las excepciones de dominio (ERR-PLANTILLA de estructura, ERR-VALIDACION de
+        // coherencia) se re-lanzan tal cual tras borrar el parcial.
         try
         {
+            var directorioSalida = Path.GetDirectoryName(rutaSalida);
+            if (!string.IsNullOrWhiteSpace(directorioSalida))
+            {
+                Directory.CreateDirectory(directorioSalida);
+            }
+
+            File.Copy(origen, rutaSalida, overwrite: true);
+
             using (var workbook = SpreadsheetDocument.Open(rutaSalida, true))
             {
                 var workbookPart = workbook.WorkbookPart
-                    ?? throw new CalculoInvalidoException("El workbook abierto no tiene WorkbookPart válido.");
+                    ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene WorkbookPart válido.");
                 ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook), esQuincena2);
                 foreach (var leaf in leafInputs.OrderBy(l => l.Ase.Id))
                 {
@@ -217,25 +243,42 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
                 EscribirCeldasDetRetriQ2(workbookPart, leafInputs);
 
                 var workbookXml = workbookPart.Workbook
-                    ?? throw new CalculoInvalidoException("El workbook abierto no tiene metadata Workbook válida.");
+                    ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene metadata Workbook válida.");
                 workbookXml.Save();
             }
 
             using (var workbook = SpreadsheetDocument.Open(rutaSalida, false))
             {
                 var workbookPart = workbook.WorkbookPart
-                    ?? throw new CalculoInvalidoException("El workbook generado no tiene WorkbookPart válido.");
+                    ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook generado no tiene WorkbookPart válido.");
                 ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook), esQuincena2);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            if (File.Exists(rutaSalida))
+            // HU-15 (W-2.3, D5): atomicidad intacta (borrar parcial) + causa preservada.
+            try
             {
-                File.Delete(rutaSalida);
+                if (File.Exists(rutaSalida))
+                {
+                    File.Delete(rutaSalida);
+                }
+            }
+            catch
+            {
+                // Best-effort: si el archivo quedó bloqueado (antivirus/handle), no enmascarar
+                // la causa real con un error de borrado.
             }
 
-            throw;
+            if (ex is ArchivoFuenteNoEncontradoException or CalculoInvalidoException)
+            {
+                throw;
+            }
+
+            throw new CalculoInvalidoException(
+                CodigoError.Escritura,
+                $"No se pudo generar el workbook de salida: {ex.Message}",
+                ex);
         }
     }
 
@@ -257,7 +300,8 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
             var formula = ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, HojaConsolidado, nameof(EscribirConsolidado));
             if (string.IsNullOrWhiteSpace(formula))
             {
-                throw new CalculoInvalidoException($"La celda '{celda}' de '{HojaConsolidado}' no contiene una fórmula válida.");
+                // HU-15 (W-2.3, D5): estructura de plantilla = ERR-PLANTILLA.
+                throw new CalculoInvalidoException(CodigoError.Plantilla, $"La celda '{celda}' de '{HojaConsolidado}' no contiene una fórmula válida.");
             }
         }
     }
@@ -288,19 +332,22 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
             var coincidencia = textos.Any(t => t.Contains(label, StringComparison.OrdinalIgnoreCase));
             if (!coincidencia)
             {
-                throw new CalculoInvalidoException($"La hoja '{hoja}' no incluye el label esperado '{label}' y no es compatible con la semántica actual del workbook.");
+                // HU-15 (W-2.3, D5): plantilla sin el label esperado = ERR-PLANTILLA.
+                throw new CalculoInvalidoException(CodigoError.Plantilla, $"La hoja '{hoja}' no incluye el label esperado '{label}' y no es compatible con la semántica actual del workbook.");
             }
         }
     }
 
     private static string ValidarCeldaTieneFormula(WorkbookPart workbookPart, Worksheet worksheet, string celda, string[] fragmentosEsperados, string hoja, string operacion)
     {
+        // HU-15 (W-2.3, D5): estructura de plantilla (celda ausente / valor fijo / fórmula no
+        // resoluble / referencias faltantes) = ERR-PLANTILLA, nunca ERR-VALIDACION.
         var cell = ObtenerCelda(worksheet, celda)
-            ?? throw new CalculoInvalidoException($"La celda '{celda}' no existe en la hoja '{hoja}' para {operacion}. El workbook no es compatible con la estructura esperada.");
+            ?? throw new CalculoInvalidoException(CodigoError.Plantilla, $"La celda '{celda}' no existe en la hoja '{hoja}' para {operacion}. El workbook no es compatible con la estructura esperada.");
 
         if (cell.CellFormula is null)
         {
-            throw new CalculoInvalidoException($"La celda '{celda}' de '{hoja}' debería seguir siendo fórmula; se detectó un valor fijo. No se puede continuar con la validación del workbook derivado.");
+            throw new CalculoInvalidoException(CodigoError.Plantilla, $"La celda '{celda}' de '{hoja}' debería seguir siendo fórmula; se detectó un valor fijo. No se puede continuar con la validación del workbook derivado.");
         }
 
         var formula = NormalizarFormula(LeerTextoCelda(cell, workbookPart));
@@ -310,7 +357,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
         var esSharedFollower = string.IsNullOrWhiteSpace(formula) && cell.CellFormula.SharedIndex is not null;
         if (string.IsNullOrWhiteSpace(formula) && !esSharedFollower)
         {
-            throw new CalculoInvalidoException($"La celda '{celda}' de '{hoja}' no tiene una fórmula resoluble por OpenXML.");
+            throw new CalculoInvalidoException(CodigoError.Plantilla, $"La celda '{celda}' de '{hoja}' no tiene una fórmula resoluble por OpenXML.");
         }
 
         if (fragmentosEsperados.Length > 0 && !esSharedFollower)
@@ -325,7 +372,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
             if (faltan.Length > 0)
             {
                 var texto = cell.CellFormula.Text ?? formula;
-                throw new CalculoInvalidoException($"La celda '{celda}' de '{hoja}' no mantiene todas las referencias esperadas: faltan [{string.Join(", ", faltan)}]. Fórmula actual: '{texto}'.");
+                throw new CalculoInvalidoException(CodigoError.Plantilla, $"La celda '{celda}' de '{hoja}' no mantiene todas las referencias esperadas: faltan [{string.Join(", ", faltan)}]. Fórmula actual: '{texto}'.");
             }
         }
 
@@ -334,14 +381,17 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 
     private static string ValidarArchivo(string rutaPlantilla, string operacion)
     {
+        // HU-15 (W-2.3, D5): plantilla ausente = problema de PLANTILLA (ERR-PLANTILLA → salida 2),
+        // no de fuente (antes default ERR-FUENTE-NO-ENCONTRADA, mismo código de salida pero
+        // semántica incorrecta).
         if (string.IsNullOrWhiteSpace(rutaPlantilla))
         {
-            throw new ArchivoFuenteNoEncontradoException($"La ruta de plantilla para {operacion} es requerida.");
+            throw new ArchivoFuenteNoEncontradoException(CodigoError.Plantilla, $"La ruta de plantilla para {operacion} es requerida.");
         }
 
         if (!File.Exists(rutaPlantilla))
         {
-            throw new ArchivoFuenteNoEncontradoException($"No se encontró la plantilla para {operacion}: '{rutaPlantilla}'.");
+            throw new ArchivoFuenteNoEncontradoException(CodigoError.Plantilla, $"No se encontró la plantilla para {operacion}: '{rutaPlantilla}'.");
         }
 
         return rutaPlantilla;
@@ -351,7 +401,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
     {
         if (string.IsNullOrWhiteSpace(rutaSalida))
         {
-            throw new ArchivoFuenteNoEncontradoException("La ruta de salida del workbook es requerida.");
+            throw new ArchivoFuenteNoEncontradoException(CodigoError.Plantilla, "La ruta de salida del workbook es requerida.");
         }
     }
 
@@ -359,26 +409,29 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
     {
         if (string.Equals(Path.GetFullPath(origen), Path.GetFullPath(rutaSalida), StringComparison.OrdinalIgnoreCase))
         {
-            throw new CalculoInvalidoException("La escritura real no puede mutar la plantilla original in-place. Use una ruta de salida distinta.");
+            // HU-15 (W-2.3, D5): salida == plantilla es problema de PLANTILLA → ERR-PLANTILLA
+            // (antes default ERR-VALIDACION → salida 1, errónea; ahora salida 2).
+            throw new CalculoInvalidoException(CodigoError.Plantilla, "La escritura real no puede mutar la plantilla original in-place. Use una ruta de salida distinta.");
         }
     }
 
     private static Worksheet ObtenerHoja(WorkbookPart workbookPart, string nombreHoja, string operacion)
     {
-        var workbook = workbookPart.Workbook ?? throw new CalculoInvalidoException($"El workbook para {operacion} no tiene metadata Workbook válida.");
+        // HU-15 (W-2.3, D5): estructura de plantilla (metadata/hoja ausente) = ERR-PLANTILLA.
+        var workbook = workbookPart.Workbook ?? throw new CalculoInvalidoException(CodigoError.Plantilla, $"El workbook para {operacion} no tiene metadata Workbook válida.");
         var sheet = workbook.Descendants<Sheet>()
             .FirstOrDefault(s => string.Equals(s.Name?.Value, nombreHoja, StringComparison.OrdinalIgnoreCase))
-            ?? throw new CalculoInvalidoException($"La hoja '{nombreHoja}' no existe en el workbook para {operacion}.");
+            ?? throw new CalculoInvalidoException(CodigoError.Plantilla, $"La hoja '{nombreHoja}' no existe en el workbook para {operacion}.");
 
         var worksheetPart = workbookPart.GetPartById(sheet.Id!) as WorksheetPart
-            ?? throw new CalculoInvalidoException($"No se pudo resolver la hoja '{nombreHoja}' en el workbook para {operacion}.");
+            ?? throw new CalculoInvalidoException(CodigoError.Plantilla, $"No se pudo resolver la hoja '{nombreHoja}' en el workbook para {operacion}.");
 
-        return worksheetPart.Worksheet ?? throw new CalculoInvalidoException($"La hoja '{nombreHoja}' no tiene Worksheet válido.");
+        return worksheetPart.Worksheet ?? throw new CalculoInvalidoException(CodigoError.Plantilla, $"La hoja '{nombreHoja}' no tiene Worksheet válido.");
     }
 
     private static Worksheet ObtenerHoja(SpreadsheetDocument workbook, string nombreHoja, string operacion)
     {
-        var workbookPart = workbook.WorkbookPart ?? throw new CalculoInvalidoException($"El workbook para {operacion} no tiene WorkbookPart.");
+        var workbookPart = workbook.WorkbookPart ?? throw new CalculoInvalidoException(CodigoError.Plantilla, $"El workbook para {operacion} no tiene WorkbookPart.");
         return ObtenerHoja(workbookPart, nombreHoja, operacion);
     }
 
@@ -1016,7 +1069,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 
         if (cell.CellFormula is not null)
         {
+            // HU-15 (W-2.3, D5): una celda editable del mapa que es fórmula en la plantilla =
+            // plantilla incompatible (nunca sobrescribir fórmulas) → ERR-PLANTILLA.
             throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
                 $"La celda leaf {nombre} ({hoja}!{celda}) es fórmula en la plantilla. HU-05 no puede sobrescribir fórmulas.");
         }
 

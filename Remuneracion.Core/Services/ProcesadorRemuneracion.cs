@@ -39,7 +39,9 @@ public sealed class ProcesadorRemuneracion : IProcesadorRemuneracion
         ArgumentNullException.ThrowIfNull(solicitud);
 
         // HU-14 (3.2, D5): RunId por ejecución correlaciona todos los eventos del procesador.
-        var runId = Guid.NewGuid();
+        // HU-15 (W-2.1, D4): si el frontend (UI/CLI) inyectó un RunId en la solicitud, se respeta
+        // (un solo Guid correlaciona UI → procesador → writer); null = genera uno (compat HU-14).
+        var runId = solicitud.RunId ?? Guid.NewGuid();
         using var _runIdScope = Serilog.Context.LogContext.PushProperty("RunId", runId);
         using var _periodoScope = Serilog.Context.LogContext.PushProperty("Periodo", solicitud.Periodo.CodigoCompleto);
         using var _quincenaScope = Serilog.Context.LogContext.PushProperty("Quincena", solicitud.Periodo.NumeroQuincena);
@@ -80,7 +82,7 @@ public sealed class ProcesadorRemuneracion : IProcesadorRemuneracion
         if (errores.Count > 0)
         {
             var detalle = string.Join("; ", errores);
-            throw new CalculoInvalidoException(CodigoError.Validacion, $"[{CodigoError.Validacion}] La validación básica falló: {detalle}");
+            throw new CalculoInvalidoException(CodigoError.Validacion, $"La validación básica falló: {detalle}");
         }
 
         progreso?.Report("Generando workbook de salida...");

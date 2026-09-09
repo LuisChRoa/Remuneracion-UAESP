@@ -1,3 +1,5 @@
+using Remuneracion.Core.Exceptions;
+
 namespace Remuneracion.Core.Errors;
 
 /// <summary>
@@ -51,5 +53,18 @@ public static class CatalogoErrores
         CodigoError.Escritura => CodigosSalida.Escritura,
         CodigoError.CanceladoPorUsuario => CodigosSalida.CanceladoPorUsuario,
         _ => CodigosSalida.Inesperado
+    };
+
+    /// <summary>
+    /// HU-15 (D6): código del catálogo para una excepción, sin UI. Las 2 excepciones de dominio
+    /// portan <c>Codigo</c> (D1); cualquier otra = <see cref="CodigoError.Inesperado"/>.
+    /// <c>Form1.ObtenerCodigoError</c> delega aquí y el CLI consume el mismo mapeo (una sola
+    /// fuente; testeable in-memory).
+    /// </summary>
+    public static string CodigoDe(Exception ex) => ex switch
+    {
+        ArchivoFuenteNoEncontradoException archivo => archivo.Codigo,
+        CalculoInvalidoException calculo => calculo.Codigo,
+        _ => CodigoError.Inesperado
     };
 }
