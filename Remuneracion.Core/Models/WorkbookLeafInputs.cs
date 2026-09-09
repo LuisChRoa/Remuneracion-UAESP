@@ -1,5 +1,7 @@
 namespace Remuneracion.Core.Models;
 
+using Remuneracion.Core.Rules;
+
 /// <summary>
 /// Modelo raíz para los inputs leaf del workbook que alimentan las fórmulas reales del libro.
 /// Este contrato representa los datos editables reales en R1, R2 y R4 sin depender del agregado final.
@@ -63,4 +65,11 @@ public sealed class WorkbookLeafInputs
     /// HU-10 puro (Q1, plan §2.4 G3); en Q2 el proceso SIEMPRE lo puebla (fail-fast si falta).
     /// </summary>
     public AjustesSfTInputs? AjustesSfT { get; set; }
+
+    /// <summary>
+    /// HU-12 (2.6 ampliada, V0.4): DetRetri-Q2 por ASE (<c>Detalle = ROUND(D104:D108,0)</c> vía
+    /// <see cref="DetRetriRounder"/>). <c>null</c> = comportamiento HU-11 puro (Q1); en Q2 el
+    /// proceso SIEMPRE lo puebla (fail-fast si falta, §2.5 regla 2).
+    /// </summary>
+    public DetRetriQ2Inputs? DetRetriQ2 { get; set; }
 }

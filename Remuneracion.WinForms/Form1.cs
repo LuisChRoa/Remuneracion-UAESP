@@ -392,6 +392,41 @@ namespace Remuneracion.WinForms
                 }
             }
 
+            // HU-12 (2.6 ampliada, §2.6): DetRetri-Q2 por ASE (entero ROUND(D104:D108,0) escrito
+            // en DetRetri2026072 D9:D13; D14 = total) — solo en Q2 (leaf.DetRetriQ2 != null).
+            if (resultadoProceso.Leafs.Any(l => l.DetRetriQ2 is not null))
+            {
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] DetRetri Q2 (esperado post-Excel; entero ROUND(D104:D108,0) escrito en valores):{Environment.NewLine}");
+                Log.ForContext("Hoja", "DetRetri2026072")
+                    .Information("DetRetri Q2: esperados post-Excel por ASE (composición V0.4).");
+                foreach (var leaf in resultadoProceso.Leafs.OrderBy(l => l.Ase.Id))
+                {
+                    if (leaf.DetRetriQ2 is null)
+                    {
+                        continue;
+                    }
+
+                    var detalle = leaf.DetRetriQ2;
+                    var lineaDetRetri = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: D104:D108={detalle.TotalD104:0.##}; DetRetri-D(D{8 + leaf.Ase.Id})={detalle.Detalle:0}";
+                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaDetRetri}{Environment.NewLine}");
+                    Log.ForContext("Hoja", "DetRetri2026072")
+                        .Information("ASE {AseId}: {Linea}", leaf.Ase.Id, lineaDetRetri);
+                }
+            }
+
+            // HU-13 (2.7, §2.6): bloque VALIDACIONES por ASE (veredictos del oráculo de lectura).
+            // Solo cuando el procesador trae el lector-oráculo (UI); regresión = lista vacía.
+            if (resultadoProceso.Validaciones.Count > 0)
+            {
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] VALIDACIONES (oráculo read-only; verificación post-Excel = Capa B manual):{Environment.NewLine}");
+                foreach (var linea in resultadoProceso.Validaciones)
+                {
+                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {linea}{Environment.NewLine}");
+                    Log.ForContext("Validacion", "cruzada")
+                        .Information("{Linea}", linea);
+                }
+            }
+
             // GranTotal honesto post-Excel = Σ visibles leaf por ASE (nunca agregados HU-02 como
             // valores CONSOLIDADO; A5).
             var granTotal = resultadoProceso.Leafs.Sum(l =>

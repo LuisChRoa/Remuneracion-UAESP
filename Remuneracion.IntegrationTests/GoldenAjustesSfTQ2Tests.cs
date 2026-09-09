@@ -25,6 +25,11 @@ namespace Remuneracion.IntegrationTests;
 /// TotalAse (A6) se certifica para ASE1-4 (R1/R2/R4 Q2 legibles); ASE5 queda declarado no
 /// certificable en CI (Capa B manual residual) — NUNCA se inventa su valor.
 ///
+/// NOTA HU-12 (2.6 ampliada): este recorte quedó LEVANTADO — el dispatch Q2 del reader
+/// (mapa <see cref="WorkbookLeafCellMapQ2"/> con variante ASE5 de 2 filas V0.3) hace certificable
+/// el procesador Q2 5/5 y la matriz Capa A COMPLETA (incl. A6 y M1) vive en
+/// <see cref="GoldenDetRetriQ2Tests"/>. Este archivo conserva la certificación de la cadena 2.5.
+///
 /// Honestidad HU-06..HU-10 (A5): nunca se compara caché de fórmula de la salida vs golden
 /// (OpenXML no recalcula); se comparan leafs/dominio contra el caché golden.
 /// </summary>
@@ -94,11 +99,10 @@ public sealed class GoldenAjustesSfTQ2Tests
             Assert.InRange(totalAjustes - GoldenAjustes[i], -Tolerancia, Tolerancia);
         }
 
-        // A6 (RECORTE HONESTO T0-0.6): TotalAse/GranTotal post-Excel NO se certifican en CI.
-        // Dependen de R1/R2/R4-Q2, y el R1-Q2 del TEMPLATE diverge del mapa HU-07 (F513/F519/F521
-        // son VALORES en Q2, no la cadena F513+F498+F478 de Q1) + el R1 de ASE5-Q2 trae solo 2
-        // filas Mes/Total. El plan §0.2 prohíbe reescribir HU-07 → D104:D109 quedan a Capa B
-        // manual (protocolo §5.3), NUNCA se inventan. La cadena 2.5 (A1/A2) queda certificada.
+        // A6 (RECORTE HONESTO T0-0.6 de HU-11 — LEVANTADO por HU-12): TotalAse/GranTotal Q2 se
+        // certifican en <see cref="GoldenDetRetriQ2Tests.CapaA_Q2_A4CanonicoNoMutadoY_A6TotalAseGranTotalVsGoldenCache"/>
+        // contra el caché golden D104:D109 (dispatch Q2 + variante ASE5). Aquí solo se re-afirma
+        // que la cadena 2.5 (A1/A2) queda certificada.
     }
 
     [Fact]

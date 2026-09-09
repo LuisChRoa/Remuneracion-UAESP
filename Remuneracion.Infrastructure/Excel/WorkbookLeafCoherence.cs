@@ -1,5 +1,6 @@
 using Remuneracion.Core.Exceptions;
 using Remuneracion.Core.Models;
+using Remuneracion.Core.Rules;
 
 namespace Remuneracion.Infrastructure.Excel;
 
@@ -199,6 +200,22 @@ internal static class WorkbookLeafCoherence
                 $"ASE {leaf.Ase.Id} AJUSTES-SF-T: TotalAjustes (composición T0-0.3) vs ConsolidadoAse.AjustesSfT",
                 leaf.AjustesSfT.TotalAjustes,
                 consolidado.AjustesSfT);
+        }
+
+        // HU-12 (2.6 ampliada, §2.5 regla 2): coherencia DetRetri-Q2 con matcheo estricto por
+        // Ase.Id. DetRetriQ2 == null = comportamiento HU-11 puro (Q1) — sin gate. La composición
+        // V0.4 es CONGELADA (Detalle = ROUND(D104:D108,0) vía DetRetriRounder); el writer falla
+        // si el leaf declara un Detalle incoherente con su TotalD104.
+        //
+        // HU-13 (2.7, hallazgo T0): NO se agrega coherencia TotalD104 vs ConsolidadoAse.TotalAse —
+        // en Q2 son cantidades distintas (TotalD104 replica CONSOLIDADO D104:D108 = RECAUDO TOTAL
+        // del ASE; ConsolidadoAse.TotalAse es la REMUNERACIÓN total). Prohibido cruzarlas (A5).
+        if (leaf.DetRetriQ2 is not null)
+        {
+            AsegurarDentroDeTolerancia(
+                $"ASE {leaf.Ase.Id} DetRetri-Q2: Detalle vs ROUND(D104:D108,0)",
+                leaf.DetRetriQ2.Detalle,
+                DetRetriRounder.Round(leaf.DetRetriQ2.TotalD104));
         }
     }
 }

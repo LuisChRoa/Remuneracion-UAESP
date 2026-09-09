@@ -36,13 +36,18 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         var filasR2 = ExcelWorksheetNavigator.LeerFilas(rutaR2);
         var filasR4 = ExcelWorksheetNavigator.LeerFilas(rutaR4);
 
+        // HU-12 (2.6 ampliada, D1/G2): dispatch por período. Q2 usa el mapa hermano
+        // (<see cref="WorkbookLeafCellMapQ2"/>) con la variante ASE5 de 2 filas Mes/Total (V0.3);
+        // Q1 queda bit-a-bit intacto (G5).
+        var esQuincena2 = periodo.NumeroQuincena == 2;
+
         var leaf = new WorkbookLeafInputs
         {
             Ase = ase,
             Periodo = periodo,
-            R1 = MapearR1(ase, filasR1),
-            R2 = MapearR2(ase, filasR2),
-            R4 = MapearR4(ase, filasR4)
+            R1 = esQuincena2 ? MapearR1Q2(ase, filasR1) : MapearR1(ase, filasR1),
+            R2 = esQuincena2 ? MapearR2Q2(ase, filasR2) : MapearR2(ase, filasR2),
+            R4 = esQuincena2 ? MapearR4Q2(ase, filasR4) : MapearR4(ase, filasR4)
         };
 
         WorkbookLeafCoherence.ValidarContraFuentes(leaf, r1, r2, r4);
@@ -671,6 +676,195 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             TotalOportuno = celdas.GetValueOrDefault("D9"),
             TotalExtemporaneo = celdas.GetValueOrDefault("D18"),
             Total = celdas.GetValueOrDefault("D27")
+        };
+    }
+
+    /// <summary>
+    /// HU-12 (2.6 ampliada, T0-0.2/0.3): mapeo R1-Q2 por roles de fila congelados en
+    /// <see cref="WorkbookLeafCellMapQ2.R1Q2EditablesPorAse"/>. La variante ASE5 usa 2 filas
+    /// Mes/Total (V0.3: F558=F552+F531-L531 = 12033011685.71 = D13 golden); ASE1-4 usan 3.
+    /// Fail-fast: si falta un rol esperado (fila Mes/Total, Subsidio o Aplicación) lanza
+    /// <c>CalculoInvalidoException</c> que nombra el ASE y el reporte (nunca 0 silencioso;
+    /// distinguir "leído 0" de "slot ausente", Riesgo 6).
+    /// </summary>
+    private static WorkbookLeafInputsR1 MapearR1Q2(Ase ase, List<object?[]> filas)
+    {
+        var indiceEspeciales = ExcelWorksheetNavigator.IndiceColumnaPorEncabezado(filas, "SERVICIO ESPECIALES");
+
+        var filasMes = filas
+            .Where(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)).Equals("Mes", StringComparison.OrdinalIgnoreCase)
+                && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(2)).Equals("Total", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var filasAplicacion = filas
+            .Where(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1))
+                .Contains("Aplicacion nuevos x reversion", StringComparison.OrdinalIgnoreCase)
+                && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(2)).Equals("Total", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var filasSubsidio = filas
+            .Where(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(4))
+                .Contains("Subsidio(-)/Contribucion(+)", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        decimal Esp(object?[]? fila) =>
+            indiceEspeciales >= 0
+                ? ExcelWorksheetNavigator.CeldaNumero(fila?.ElementAtOrDefault(indiceEspeciales))
+                : 0m;
+
+        decimal F(object?[]? fila) => ExcelWorksheetNavigator.CeldaNumero(fila?.ElementAtOrDefault(5));
+
+        object?[]? RolFila(WorkbookLeafCellMapQ2.R1Q2Fuente rol) => rol switch
+        {
+            WorkbookLeafCellMapQ2.R1Q2Fuente.Mes0 => filasMes.ElementAtOrDefault(0),
+            WorkbookLeafCellMapQ2.R1Q2Fuente.Mes1 => filasMes.ElementAtOrDefault(1),
+            WorkbookLeafCellMapQ2.R1Q2Fuente.Mes2 => filasMes.ElementAtOrDefault(2),
+            WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes0 => filasMes.ElementAtOrDefault(0),
+            WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes1 => filasMes.ElementAtOrDefault(1),
+            WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes2 => filasMes.ElementAtOrDefault(2),
+            WorkbookLeafCellMapQ2.R1Q2Fuente.Subs0 => filasSubsidio.ElementAtOrDefault(0),
+            WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic0 => filasAplicacion.ElementAtOrDefault(0),
+            WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic1 => filasAplicacion.ElementAtOrDefault(1),
+            WorkbookLeafCellMapQ2.R1Q2Fuente.LAplic0 => filasAplicacion.ElementAtOrDefault(0),
+            _ => null
+        };
+
+        // Fail-fast por rol ausente (slot ausente ≠ leído 0): nombra ASE + reporte.
+        foreach (var (celda, fuente) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(ase.Id))
+        {
+            if (RolFila(fuente) is null)
+            {
+                throw new CalculoInvalidoException(
+                    $"ASE {ase.Id}: la fuente R1-Q2 no trae la fila del rol {fuente} requerida por el mapa T0 para la celda {celda} (reporte Recaudoporcomponente).");
+            }
+        }
+
+        var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        decimal totOpt = 0m;
+        decimal extemp = 0m;
+        foreach (var (celda, fuente) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(ase.Id))
+        {
+            var fila = RolFila(fuente)!;
+            var valor = fuente switch
+            {
+                WorkbookLeafCellMapQ2.R1Q2Fuente.Mes0 or WorkbookLeafCellMapQ2.R1Q2Fuente.Mes1
+                    or WorkbookLeafCellMapQ2.R1Q2Fuente.Mes2 or WorkbookLeafCellMapQ2.R1Q2Fuente.Subs0
+                    or WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic0 or WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic1 => F(fila),
+                _ => Esp(fila)
+            };
+
+            celdas[celda] = valor;
+            switch (fuente)
+            {
+                case WorkbookLeafCellMapQ2.R1Q2Fuente.Mes0:
+                case WorkbookLeafCellMapQ2.R1Q2Fuente.Mes1:
+                case WorkbookLeafCellMapQ2.R1Q2Fuente.Mes2:
+                    totOpt += valor;
+                    break;
+                case WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes0:
+                case WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes1:
+                case WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes2:
+                    totOpt -= valor;
+                    break;
+                case WorkbookLeafCellMapQ2.R1Q2Fuente.Subs0:
+                case WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic0:
+                case WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic1:
+                    extemp += valor;
+                    break;
+                case WorkbookLeafCellMapQ2.R1Q2Fuente.LAplic0:
+                    extemp -= valor;
+                    break;
+            }
+        }
+
+        // F25/F41/L25 conservan la semántica Q1 (primera/segunda fila Mes/Total) para el gate
+        // R1-F25 vs Extemporáneo HU-02 (Q1 intacto por construcción, G5).
+        var filaMes0 = filasMes.ElementAtOrDefault(0);
+        var filaMes1 = filasMes.ElementAtOrDefault(1);
+
+        return new WorkbookLeafInputsR1
+        {
+            F25 = F(filaMes0),
+            F41 = F(filaMes1),
+            L25 = Esp(filaMes0),
+            F30 = 0m,
+            F10 = 0m,
+            L10 = 0m,
+            CeldasPorAse = celdas,
+            TotalOportunoEsperadoPorAse = totOpt,
+            ExtemporaneoEsperadoPorAse = extemp
+        };
+    }
+
+    /// <summary>
+    /// HU-12 (2.6 ampliada, T0-0.2/0.3): mapeo R2-Q2 por labels (Componente/Total,
+    /// Subs/Cont/Total, Especiales opcional) con las direcciones del template Q2 congeladas
+    /// (E43=E17+E28-K17, E139=E89+E107-K89, …, E438=E410+E396-K396). Misma semántica que Q1.
+    /// </summary>
+    private static WorkbookLeafInputsR2 MapearR2Q2(Ase ase, List<object?[]> filas)
+    {
+        var indiceEspeciales = ExcelWorksheetNavigator.IndiceColumnaPorEncabezado(filas, "Especiales");
+
+        var filaComponente = filas.FirstOrDefault(f =>
+            ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(0)).Equals("Componente", StringComparison.OrdinalIgnoreCase)
+            && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)).Equals("Total", StringComparison.OrdinalIgnoreCase))
+            ?? throw new CalculoInvalidoException($"ASE {ase.Id}: no se encontró la fila Componente/Total del R2-Q2 para el mapa T0.");
+
+        var filaSubsCont = filas.FirstOrDefault(f =>
+            ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(0)).Equals("Subs/Cont", StringComparison.OrdinalIgnoreCase)
+            && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)).Equals("Total", StringComparison.OrdinalIgnoreCase))
+            ?? throw new CalculoInvalidoException($"ASE {ase.Id}: no se encontró la fila Subs/Cont/Total del R2-Q2 para el mapa T0.");
+
+        var e15 = ExcelWorksheetNavigator.CeldaNumero(filaComponente.ElementAtOrDefault(4));
+        var e26 = ExcelWorksheetNavigator.CeldaNumero(filaSubsCont.ElementAtOrDefault(4));
+        var k15 = indiceEspeciales >= 0
+            ? ExcelWorksheetNavigator.CeldaNumero(filaComponente.ElementAtOrDefault(indiceEspeciales))
+            : 0m;
+
+        var celdasMap = WorkbookLeafCellMapQ2.ObtenerR2Q2Editables(ase.Id);
+        var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
+        {
+            [celdasMap.Componente] = e15,
+            [celdasMap.SubsCont] = e26,
+            [celdasMap.Especiales] = k15
+        };
+
+        return new WorkbookLeafInputsR2
+        {
+            E15 = e15,
+            E26 = e26,
+            K15 = k15,
+            CeldasPorAse = celdas
+        };
+    }
+
+    /// <summary>
+    /// HU-12 (2.6 ampliada, T0-0.2/0.3): mapeo R4-Q2 por labels (fila A='Total' con B vacío)
+    /// con las direcciones del template Q2 congeladas (D73=D15-P15, …, D355=D352-P352).
+    /// P = 0 (sin análogo en la fuente, patrón Q1).
+    /// </summary>
+    private static WorkbookLeafInputsR4 MapearR4Q2(Ase ase, List<object?[]> filas)
+    {
+        var filaTotal = filas.FirstOrDefault(f =>
+            ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(0)).Equals("Total", StringComparison.OrdinalIgnoreCase)
+            && string.IsNullOrWhiteSpace(ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1))))
+            ?? throw new CalculoInvalidoException($"ASE {ase.Id}: no se encontró la fila Total (B vacío) del R4-Q2 para el mapa T0.");
+
+        var d9 = ExcelWorksheetNavigator.CeldaNumero(filaTotal.ElementAtOrDefault(3));
+        var p9 = 0m;
+
+        var celdasMap = WorkbookLeafCellMapQ2.ObtenerR4Q2Editables(ase.Id);
+        var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
+        {
+            [celdasMap.Total] = d9,
+            [celdasMap.P] = p9
+        };
+
+        return new WorkbookLeafInputsR4
+        {
+            D9 = d9,
+            P9 = p9,
+            CeldasPorAse = celdas
         };
     }
 

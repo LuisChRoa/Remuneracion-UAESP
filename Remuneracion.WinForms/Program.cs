@@ -19,6 +19,10 @@ namespace Remuneracion.WinForms
             var writer = new OpenXmlPlantillaWriter();
             var locator = new ArchivoFuenteLocator();
 
+            // HU-13 (2.7): oráculo de LECTURA de validaciones cruzadas (read-only). La UI lo
+            // inyecta; la regresión corre sin él (= HU-12 puro, D3).
+            var validacionOracleReader = new ValidacionOracleReader();
+
             IProcesadorRemuneracion procesador = new ProcesadorRemuneracion(
                 lectorR1R2R4,
                 hojaLeafReader,
@@ -32,7 +36,8 @@ namespace Remuneracion.WinForms
                 calculo,
                 validador,
                 writer,
-                locator);
+                locator,
+                validacionOracleReader);
 
             Application.Run(new Form1(procesador, procesadorPeriodo, locator));
         }

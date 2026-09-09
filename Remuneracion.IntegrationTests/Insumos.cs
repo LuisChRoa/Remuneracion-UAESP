@@ -133,6 +133,12 @@ internal static class Insumos
     public static string R1Q2(int aseId) => Buscar(CarpetasAseQ2[aseId - 1], "Recaudoporcomponente", $"R1 Q2 ASE{aseId}");
 
     /// <summary>
+    /// HU-12 (2.6 ampliada, V0.3): ruta del R1-Q2 de ASE5 (variante 2 filas Mes/Total — el
+    /// dispatch Q2 del reader la soporta). Alias explícito para los tests de la variante.
+    /// </summary>
+    public static string R1Q2Ase5() => R1Q2(5);
+
+    /// <summary>
     /// HU-11 (2.5): ruta del <c>RerpoteDetalleSaldosaFavor_*.xlsx</c> del ASE Q2.
     /// </summary>
     public static string R2Q2(int aseId) => Buscar(CarpetasAseQ2[aseId - 1], "RerpoteDetalleSaldosaFavor", $"R2 Q2 ASE{aseId}");

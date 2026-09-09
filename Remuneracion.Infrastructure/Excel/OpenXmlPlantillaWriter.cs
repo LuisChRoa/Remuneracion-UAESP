@@ -6,6 +6,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using Remuneracion.Core.Exceptions;
 using Remuneracion.Core.Interfaces;
 using Remuneracion.Core.Models;
+using Remuneracion.Core.Rules;
 
 namespace Remuneracion.Infrastructure.Excel;
 
@@ -19,6 +20,11 @@ namespace Remuneracion.Infrastructure.Excel;
 /// en la MISMA pasada atómica (D2a: T0-0.7 demostró bloques de valores editables) y amplía la
 /// validación protegida a la cadena AJUSTES-SF-T (mapa <see cref="WorkbookLeafCellMapAjustesSfT"/>
 /// + HU-10 parametrizado al sufijo de hoja 2026072).
+/// HU-12 (2.6 ampliada): en Q2 escribe los leafs R1/R2/R4-Q2 (mapa <see cref="WorkbookLeafCellMapQ2"/>,
+/// con variante ASE5 de 2 filas V0.3) + DetRetri-Q2 (V0.4: ROUND(D104:D108,0) vía
+/// <see cref="DetRetriRounder"/>) en la MISMA pasada; la validación protegida se parametriza por
+/// período (D5): Q1 exige las fórmulas HU-07, Q2 exige el mapa T0 (F53…, D73…, DetValiRetri/
+/// VALIDACION_*/INTERVENTORIA/ANT EXT-REV protegidas) y M1 queda ejercitado contra el canónico.
 /// </summary>
 public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 {
@@ -200,12 +206,15 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
                 ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook), esQuincena2);
                 foreach (var leaf in leafInputs.OrderBy(l => l.Ase.Id))
                 {
-                    EscribirCeldasLeafPorAse(workbookPart, leaf);
+                    EscribirCeldasLeafPorAse(workbookPart, leaf, esQuincena2);
                     EscribirCeldasEmpresa(workbookPart, leaf);
                     EscribirCeldasBanco(workbookPart, leaf);
                     EscribirCeldasBalanceSc(workbookPart, leaf);
                     EscribirCeldasAjustesSfT(workbookPart, leaf);
                 }
+
+                // HU-12 (2.6 ampliada, V0.4): DetRetri-Q2 (enteros por ASE + total) en la MISMA pasada.
+                EscribirCeldasDetRetriQ2(workbookPart, leafInputs);
 
                 var workbookXml = workbookPart.Workbook
                     ?? throw new CalculoInvalidoException("El workbook abierto no tiene metadata Workbook válida.");
@@ -451,9 +460,18 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
     /// + mapa 2.2 (HU-08): <c>REMUNERACION_*</c>, <c>VALIDACION_*</c>, <c>GERENTES_*</c>,
     /// <c>Recaudo *</c> fila 29+ (D6) + HU-09 (banco) + HU-10 (BCE, parametrizado al período).
     /// HU-11 (2.5): en Q2 además valida la cadena AJUSTES-SF-T (<see cref="WorkbookLeafCellMapAjustesSfT.Protegidas"/>).
+    /// HU-12 (2.6 ampliada, D5): validación PROTEGIDA parametrizada por período — Q1 exige las
+    /// fórmulas HU-07 (F46/F176/…/D67, invariante Q1); Q2 exige el mapa T0 (<see cref="WorkbookLeafCellMapQ2"/>:
+    /// F53…, E43…, D73…, DetValiRetri/VALIDACION_*/INTERVENTORIA/ANT EXT-REV siempre protegidas).
     /// </summary>
     private static void ValidarFormulasProtegidasMultiAse(WorkbookPart workbookPart, string operacion, bool esQuincena2)
     {
+        if (esQuincena2)
+        {
+            ValidarFormulasProtegidasMultiAseQ2(workbookPart, operacion);
+            return;
+        }
+
         foreach (var aseId in WorkbookLeafCellMapPorAse.EditableLeafCellsPorAse.Keys.OrderBy(k => k))
         {
             var bloque = WorkbookLeafCellMapPorAse.ProtectedFormulasPorAse[aseId];
@@ -508,6 +526,100 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
                 var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
                 ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
             }
+        }
+
+        // HU-13 (2.7, Requirement 4/D4): mapa protegido extendido de TODAS las hojas de
+        // validación (VALIDACION_*, VALIDACION_TOTAL, DetRetri/DetValiRetri col D, Valida -*,
+        // GERENTES_*). El writer falla si alguna deja de ser fórmula donde T0 lo exige.
+        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapValidaciones.ProtegidasValidacionesParaPeriodo(esQuincena2 ? 2 : 1))
+        {
+            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
+        }
+    }
+
+    /// <summary>
+    /// HU-12 (2.6 ampliada, D5): validación protegida Q2 contra el mapa T0 congelado
+    /// (<see cref="WorkbookLeafCellMapQ2"/>). Q1 NO se valida aquí (rama por período): las celdas
+    /// F46/F48/F519/F521 del mapa HU-07 son VALORES en Q2 (V0.2) y quedan EXCLUIDAS de
+    /// protegidas-fórmula. Incluye: visibles R1/R2/R4-Q2 por ASE, CONSOLIDADO Q2, banco HU-09,
+    /// BCE parametrizado 2026072 (M1), cadena AJUSTES-SF-T, DetRetri/DetValiRetri Q2 y las
+    /// protegidas adicionales (REMUNERACION_* genéricas + VALIDACION_*/GERENTES_*/INTERVENTORIA/
+    /// ANT EXT-REV — Requirement 5). El writer falla si alguna deja de ser fórmula.
+    /// </summary>
+    private static void ValidarFormulasProtegidasMultiAseQ2(WorkbookPart workbookPart, string operacion)
+    {
+        foreach (var aseId in WorkbookLeafCellMapQ2.R1Q2EditablesPorAse.Keys.OrderBy(k => k))
+        {
+            foreach (var (celda, fragmentos) in WorkbookLeafCellMapQ2.ObtenerR1Q2Protegidos(aseId))
+            {
+                var worksheet = ObtenerHoja(workbookPart, HojaR1, operacion);
+                ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, HojaR1, operacion);
+            }
+
+            foreach (var (celda, fragmentos) in WorkbookLeafCellMapQ2.ObtenerR2Q2Protegidos(aseId))
+            {
+                var worksheet = ObtenerHoja(workbookPart, HojaR2, operacion);
+                ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, HojaR2, operacion);
+            }
+
+            foreach (var (celda, fragmentos) in WorkbookLeafCellMapQ2.ObtenerR4Q2Protegidos(aseId))
+            {
+                var worksheet = ObtenerHoja(workbookPart, HojaR4, operacion);
+                ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, HojaR4, operacion);
+            }
+        }
+
+        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapQ2.ConsolidadoProtected)
+        {
+            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
+        }
+
+        // HU-09 (2.3): mapa banco parametrizado al período — el Q2 excluye el TOTAL RECAUDO fila 81
+        // (C81/D81) que no existe en el template Q2 (T0-0.5; la hoja termina en la fila 79).
+        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapQ2.BancoProtegidasQ2)
+        {
+            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
+        }
+
+        // HU-10 (2.4): BCE parametrizado al sufijo 2026072 (M1: matchea hojas/celdas reales,
+        // incl. DetRetri2026072/DetValiRetri2026072).
+        foreach (var (hoja, celda, fragmentos) in ProtegidasBceParaPeriodo(true))
+        {
+            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
+        }
+
+        // HU-11 (2.5): cadena AJUSTES-SF-T (Q2).
+        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapAjustesSfT.Protegidas)
+        {
+            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
+        }
+
+        // HU-12 (2.6 ampliada, Requirement 5): DetRetri/DetValiRetri Q2 (T0-0.4) + protegidas
+        // adicionales (REMUNERACION_* genéricas, VALIDACION_*, GERENTES_*, INTERVENTORIA, ANT EXT-REV).
+        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapQ2.DetRetriProtected)
+        {
+            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
+        }
+
+        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapQ2.ProtegidasAdicionalesQ2)
+        {
+            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
+        }
+
+        // HU-13 (2.7, Requirement 4/D4): mapa protegido extendido 2.7 en Q2 (VALIDACION_* O/P
+        // filas 3..7, VALIDACION_TOTAL O/P, Valida -*, GERENTES_* SUM). DetRetri/DetValiRetri Q2
+        // ya cubiertos por WorkbookLeafCellMapQ2.DetRetriProtected (no se duplica).
+        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapValidaciones.ProtegidasValidacionesParaPeriodo(2))
+        {
+            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
         }
     }
 
@@ -611,9 +723,17 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
     /// <summary>
     /// Escribe SOLO las celdas del bloque del ASE (mapa por ASE congelado por T0).
     /// Los valores provienen de <see cref="WorkbookLeafInputs"/> (CeldasPorAse por hoja).
+    /// HU-12 (2.6 ampliada, D1/G2): en Q2 escribe el mapa hermano <see cref="WorkbookLeafCellMapQ2"/>
+    /// (R1/R2/R4-Q2 por ASE, incluida la variante ASE5 de 2 filas V0.3); Q1 queda intacto.
     /// </summary>
-    private static void EscribirCeldasLeafPorAse(WorkbookPart workbookPart, WorkbookLeafInputs leaf)
+    private static void EscribirCeldasLeafPorAse(WorkbookPart workbookPart, WorkbookLeafInputs leaf, bool esQuincena2)
     {
+        if (esQuincena2)
+        {
+            EscribirCeldasLeafPorAseQ2(workbookPart, leaf);
+            return;
+        }
+
         var editables = WorkbookLeafCellMapPorAse.ObtenerEditables(leaf.Ase.Id);
 
         foreach (var (hoja, celda, nombre) in editables)
@@ -647,6 +767,93 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
         }
 
         return valor;
+    }
+
+    /// <summary>
+    /// HU-12 (2.6 ampliada, T0-0.2/0.3): escribe SOLO las celdas Q2 del bloque del ASE
+    /// (R1/R2/R4 del mapa <see cref="WorkbookLeafCellMapQ2"/>), incluida la variante ASE5 de 2
+    /// filas (V0.3). Fail-fast si falta un valor mapeado (nombra ASE + hoja + celda; nunca 0
+    /// silencioso). El guard de <see cref="EscribirValorNumerico"/> impide tocar fórmulas.
+    /// </summary>
+    private static void EscribirCeldasLeafPorAseQ2(WorkbookPart workbookPart, WorkbookLeafInputs leaf)
+    {
+        foreach (var (celda, _) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(leaf.Ase.Id))
+        {
+            if (!leaf.R1.CeldasPorAse.TryGetValue(celda, out var valorR1))
+            {
+                throw new CalculoInvalidoException($"No hay valor leaf R1-Q2 mapeado para {celda} del ASE {leaf.Ase.Id}.");
+            }
+
+            EscribirValorNumerico(workbookPart, HojaR1, celda, valorR1, $"R1-Q2.ASE{leaf.Ase.Id}.{celda}");
+        }
+
+        var r2 = WorkbookLeafCellMapQ2.ObtenerR2Q2Editables(leaf.Ase.Id);
+        foreach (var celda in new[] { r2.Componente, r2.SubsCont, r2.Especiales })
+        {
+            if (!leaf.R2.CeldasPorAse.TryGetValue(celda, out var valorR2))
+            {
+                throw new CalculoInvalidoException($"No hay valor leaf R2-Q2 mapeado para {celda} del ASE {leaf.Ase.Id}.");
+            }
+
+            EscribirValorNumerico(workbookPart, HojaR2, celda, valorR2, $"R2-Q2.ASE{leaf.Ase.Id}.{celda}");
+        }
+
+        var r4 = WorkbookLeafCellMapQ2.ObtenerR4Q2Editables(leaf.Ase.Id);
+        foreach (var celda in new[] { r4.Total, r4.P })
+        {
+            if (!leaf.R4.CeldasPorAse.TryGetValue(celda, out var valorR4))
+            {
+                throw new CalculoInvalidoException($"No hay valor leaf R4-Q2 mapeado para {celda} del ASE {leaf.Ase.Id}.");
+            }
+
+            EscribirValorNumerico(workbookPart, HojaR4, celda, valorR4, $"R4-Q2.ASE{leaf.Ase.Id}.{celda}");
+        }
+    }
+
+    /// <summary>
+    /// HU-12 (2.6 ampliada, V0.4): escribe DetRetri-Q2 (hoja <c>DetRetri2026072</c>) en la MISMA
+    /// pasada atómica: D9:D13 = ROUND(D104:D108) por ASE (vía <see cref="DetRetriRounder"/>, única
+    /// regla) y D14 = ROUND(Σ D104:D108). <c>leaf.DetRetriQ2 == null</c> para todos = Q1 (no-op).
+    /// La composición está CONGELADA (probada 5/5 contra el golden, V0.4); nunca se inventa.
+    /// </summary>
+    private static void EscribirCeldasDetRetriQ2(WorkbookPart workbookPart, IReadOnlyList<WorkbookLeafInputs> leafInputs)
+    {
+        var conDetalle = leafInputs
+            .Where(l => l.DetRetriQ2 is not null)
+            .OrderBy(l => l.Ase.Id)
+            .ToList();
+        if (conDetalle.Count == 0)
+        {
+            return; // Q1 puro: sin escrituras 2.6.
+        }
+
+        foreach (var leaf in conDetalle)
+        {
+            var celda = WorkbookLeafCellMapQ2.ObtenerDetRetriDestino(leaf.Ase.Id);
+            EscribirValorNumericoEnCeldaExistente(workbookPart, WorkbookLeafCellMapQ2.HojaDetRetri, celda, leaf.DetRetriQ2!.Detalle, $"DetRetri-Q2.ASE{leaf.Ase.Id}.{celda}");
+        }
+
+        var totalD104 = conDetalle.Sum(l => l.DetRetriQ2!.TotalD104);
+        EscribirValorNumericoEnCeldaExistente(workbookPart, WorkbookLeafCellMapQ2.HojaDetRetri, WorkbookLeafCellMapQ2.DetRetriTotal, DetRetriRounder.Round(totalD104), "DetRetri-Q2.D14");
+    }
+
+    /// <summary>
+    /// HU-13 (2.7, W1-guarda D8): escribe un valor SOLO si la celda destino YA EXISTE en la
+    /// plantilla (nunca crea filas ni celdas: si una plantilla futura trae más/menos filas ASE en
+    /// DetRetri D9:D14, el fail-fast NOMBRA la hoja; jamás truncado silencioso ni insert/delete).
+    /// Usado por la escritura DetRetri-Q2 (V0.4: D9:D14 son VALORES editables del template).
+    /// </summary>
+    private static void EscribirValorNumericoEnCeldaExistente(WorkbookPart workbookPart, string hoja, string celda, decimal valor, string nombre)
+    {
+        var worksheet = ObtenerHoja(workbookPart, hoja, nameof(GenerarWorkbook));
+
+        if (ObtenerCelda(worksheet, celda) is null)
+        {
+            throw new CalculoInvalidoException(
+                $"Guarda de capacidad: la celda '{hoja}!{celda}' no existe en la plantilla para escribir '{nombre}'. La plantilla futura cambió la capacidad D9:D14 del ASE — fail-fast, nunca truncado silencioso.");
+        }
+
+        EscribirValorNumerico(workbookPart, hoja, celda, valor, nombre);
     }
 
     /// <summary>

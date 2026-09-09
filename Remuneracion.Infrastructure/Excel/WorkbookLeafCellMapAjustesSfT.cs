@@ -229,7 +229,10 @@ public static class WorkbookLeafCellMapAjustesSfT
         (HojaInterventoria, "M31", ["SUM", "M26", "M30"]),
         (HojaInterventoria, "N31", ["SUM", "N26", "N30"]),
         // ANT EXT-REV: totales por bloque en fórmula (nunca se escriben; Requirement 7).
-        ("ANT EXT-REV", "C3", ["SUM", "C11", "C19", "C27", "C35", "C43"]),
+        // NOTA HU-12 (bug blocker Q2): C3 = C11+C19+C27+C35+C43 (suma aritmética, NO SUM()).
+        // El fragmento "SUM" declarado en HU-11 nunca se ejercitó (writer Q2 bloqueado por el
+        // recorte T0-0.6); la fórmula real del canónico no lo contiene → se corrige el fragmento.
+        ("ANT EXT-REV", "C3", ["C11", "C19", "C27", "C35", "C43"]),
         ("ANT EXT-REV", "M3", ["C3", "E3", "G3", "I3", "K3"]),
         ("ANT EXT-REV", "N3", ["D3", "F3", "H3", "J3", "L3"]),
         ("ANT EXT-REV", "C5", ["SUM", "C3", "C4"])

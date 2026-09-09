@@ -19,4 +19,11 @@ public sealed class ResultadoProcesoPeriodo
     /// Ruta del archivo de salida generado.
     /// </summary>
     public string RutaSalida { get; set; } = string.Empty;
+
+    /// <summary>
+    /// HU-13 (2.7): veredictos de validaciones cruzadas por ASE (bloque VALIDACIONES del log/UI).
+    /// Cada entrada es una línea ya formateada (cierra / diverge documentada). Lista vacía =
+    /// sin gates 2.7 (reader ausente o snapshot ausente → HU-12 puro).
+    /// </summary>
+    public IReadOnlyList<string> Validaciones { get; set; } = [];
 }

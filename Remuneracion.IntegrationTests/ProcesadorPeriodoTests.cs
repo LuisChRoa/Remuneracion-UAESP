@@ -387,34 +387,34 @@ public sealed class ProcesadorPeriodoTests
         Assert.False(File.Exists(salida), "No debe existir salida certificada ante gate roto.");
     }
 
-    // ── HU-11 (2.5): Q2 ─────────────────────────────────────────────────────────────────────
+    // ── HU-11 (2.5) / HU-12 (2.6 ampliada): Q2 ─────────────────────────────────────────────────
 
     [Fact]
-    public void Ejecutar_Periodo2026072_FailFastHonestoPorR1Ase5Divergente()
+    public void Ejecutar_Periodo2026072_SalidaCertificada5De5_ConDetRetri()
     {
-        // RECORTE HONESTO T0-0.6 (Riesgo 5): el R1-Q2 de ASE5 DIVERGE del Q1 — el reader leaf
-        // HU-07 exige 3 filas Mes/Total y la fuente Q2 de ASE5 trae solo 2 (y el template Q2
-        // tiene F519/F521 como valores, no la fórmula F513+F498+F478 del mapa HU-07). El plan
-        // §0.2 prohíbe reescribir HU-07 → el path completo del procesador Q2 NO es certificable
-        // end-to-end: fail-fast honesto que nombra el ASE y el reporte, sin salida certificada.
-        // La cadena 2.5 (readers + composición + golden A1/A2) SÍ se certifica en los 5 ASE
-        // (ver AjustesSfTTests / GoldenAjustesSfTQ2Tests).
-        var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-q2-recorte-" + Guid.NewGuid().ToString("N"));
+        // HU-12 (2.6 ampliada, §4.4): el dispatch Q2 del reader (mapa <see cref="WorkbookLeafCellMapQ2"/>
+        // con variante ASE5 de 2 filas Mes/Total, V0.3) LEVANTA el recorte T0-0.6 de HU-11: el
+        // procesador Q2 es certificable 5/5 end-to-end (R1/R2/R4-Q2 por ASE + DetRetri-Q2 en la
+        // misma pasada). A8/M1: el path Q2 del writer se ejercita contra el canónico real.
+        var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-q2-5de5-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(salidaDir);
         var salida = Path.Combine(salidaDir, Insumos.PeriodoQ2().NombreArchivo);
 
         var procesador = CrearProcesador();
-        var ex = Assert.Throws<CalculoInvalidoException>(() =>
-            procesador.Ejecutar(new SolicitudProcesoPeriodo
-            {
-                Periodo = Insumos.PeriodoQ2(),
-                CarpetaPeriodo = Insumos.CarpetaPeriodoQ2,
-                RutaPlantilla = Insumos.PlantillaQ2,
-                RutaSalida = salida
-            }));
+        var resultado = procesador.Ejecutar(new SolicitudProcesoPeriodo
+        {
+            Periodo = Insumos.PeriodoQ2(),
+            CarpetaPeriodo = Insumos.CarpetaPeriodoQ2,
+            RutaPlantilla = Insumos.PlantillaQ2,
+            RutaSalida = salida
+        });
 
-        Assert.Contains("ASE 5", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.False(File.Exists(salida), "No debe existir salida certificada ante el recorte T0-0.6.");
+        Assert.True(File.Exists(salida), "Debe existir la salida certificada Q2.");
+        Assert.Equal(5, resultado.Resultado.Consolidados.Count);
+        Assert.Equal(5, resultado.Leafs.Count);
+        Assert.All(resultado.Leafs, l => Assert.NotNull(l.DetRetriQ2));
+        Assert.All(resultado.Leafs, l => Assert.NotNull(l.AjustesSfT));
+        Assert.All(resultado.Leafs, l => Assert.Empty(l.Conciliacion)); // recorte 1 HU-11 (V0.6)
     }
 
     [Fact]
@@ -482,6 +482,53 @@ public sealed class ProcesadorPeriodoTests
         Assert.False(File.Exists(salida), "No debe existir salida certificada ante fallo.");
     }
 
+    [Fact]
+    public void Ejecutar_Periodo2026071_ConLectorOracle_VeredictosValidacionesNoVacios()
+    {
+        // HU-13 (2.7, §4 Fase 3 — Unidad 3): con lector-oráculo, el procesador lee el snapshot de
+        // la salida (read-only) y evalúa los gates 2.7. Q1 plantilla == canónico con caché real →
+        // veredictos por ASE sin errores.
+        var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-oracle-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(salidaDir);
+        var salida = Path.Combine(salidaDir, Insumos.Periodo().NombreArchivo);
+
+        var procesador = CrearProcesadorConOracle();
+        var resultado = procesador.Ejecutar(new SolicitudProcesoPeriodo
+        {
+            Periodo = Insumos.Periodo(),
+            CarpetaPeriodo = Insumos.CarpetaPeriodo,
+            RutaPlantilla = Insumos.Plantilla,
+            RutaSalida = salida
+        });
+
+        Assert.True(File.Exists(salida), "Debe existir la salida certificada.");
+        Assert.NotEmpty(resultado.Validaciones);
+        Assert.Contains(resultado.Validaciones, l => l.Contains("ASE 1 VALIDACIONES", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Ejecutar_Periodo2026072_ConLectorOracle_VeredictosValidacionesNoVacios()
+    {
+        // HU-13 (2.7): Q2 end-to-end con lector-oráculo (plantilla canónica "8 agos" con caché 0).
+        // Los gates 2.7 leen caché visible (ceros legítimos de plantilla); veredictos por ASE.
+        var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-oracle-q2-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(salidaDir);
+        var salida = Path.Combine(salidaDir, Insumos.PeriodoQ2().NombreArchivo);
+
+        var procesador = CrearProcesadorConOracle();
+        var resultado = procesador.Ejecutar(new SolicitudProcesoPeriodo
+        {
+            Periodo = Insumos.PeriodoQ2(),
+            CarpetaPeriodo = Insumos.CarpetaPeriodoQ2,
+            RutaPlantilla = Insumos.PlantillaQ2,
+            RutaSalida = salida
+        });
+
+        Assert.True(File.Exists(salida), "Debe existir la salida certificada.");
+        Assert.NotEmpty(resultado.Validaciones);
+        Assert.Equal(5, resultado.Validaciones.Count(l => l.Contains("VALIDACIONES:", StringComparison.Ordinal)));
+    }
+
     private static ProcesadorPeriodo CrearProcesador() =>
         new(
             new ExcelDataReaderRecaudoReader(),
@@ -490,4 +537,14 @@ public sealed class ProcesadorPeriodoTests
             new ValidadorBasico(),
             new OpenXmlPlantillaWriter(),
             new ArchivoFuenteLocator());
+
+    private static ProcesadorPeriodo CrearProcesadorConOracle() =>
+        new(
+            new ExcelDataReaderRecaudoReader(),
+            new ExcelDataReaderWorkbookLeafInputReader(),
+            new CalculoRemuneracion(),
+            new ValidadorBasico(),
+            new OpenXmlPlantillaWriter(),
+            new ArchivoFuenteLocator(),
+            new ValidacionOracleReader());
 }

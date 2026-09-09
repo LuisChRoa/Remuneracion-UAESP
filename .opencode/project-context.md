@@ -73,9 +73,14 @@ Automatización/
 ```
 
 ## Fase Roadmap
-1. **Fase 1 (Actual):** prototipo single-ASE — leer R1/R2/R4 + calcular CONSOLIDADO. Reemplazar stubs Excel I/O.
-2. **Fase 2:** escalar a 5 ASE, conciliación, reportes bancarios.
-3. **Fase 3:** manejo de errores, CLI, logging, documentación.
+1. **Fase 1 ✅ cerrada (HU-01..HU-06):** prototipo single-ASE — lectura R1/R2/R4, motor CONSOLIDADO, escritura OpenXML, UI, golden Capa A.
+2. **Fase 2 ✅ cerrada (HU-07..HU-13):** 5 ASE, conciliación (2.2), banco (2.3), BCE (2.4), AJUSTES Q2 (2.5), cell-map Q2 + DetRetri (2.6), validaciones cruzadas (2.7).
+3. **Fase 3 (HU-14..HU-17, aprobado por el Ingeniero 2026-09-09):**
+   - HU-14: 3.1 + 3.2 robustez y observabilidad (cierre errores + logging; absorbe W-1/W-2/W-3, S-1..S-4).
+   - HU-15: 3.3 modo CLI (ejecución desatendida; habilita pruebas repetibles).
+   - HU-16: INTERVENTORIA L25:N31 + filas L-Especiales menores (última hoja sin HU, con su T0).
+   - HU-17: 3.4 manual + entrega a pruebas (manual, instructivo Capa B, paquete, casos, criterio de pase).
+   - Acción del Ingeniero (no HU): Capa B manual Excel con el instructivo de HU-17.
 
 ## MCPs y Fuentes de Contexto
 - `engram` — memoria persistente (decisiones, continuidad, aprobación de planes).

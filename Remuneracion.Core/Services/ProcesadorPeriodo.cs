@@ -20,6 +20,7 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
     private readonly IValidador _validador;
     private readonly IWorkbookLeafWriter _workbookLeafWriter;
     private readonly ILocalizadorArchivosAse _localizador;
+    private readonly IValidacionOracleReader? _validacionOracleReader;
 
     public ProcesadorPeriodo(
         IRecaudoReader recaudoReader,
@@ -27,7 +28,8 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         ICalculoRemuneracion calculoRemuneracion,
         IValidador validador,
         IWorkbookLeafWriter workbookLeafWriter,
-        ILocalizadorArchivosAse localizador)
+        ILocalizadorArchivosAse localizador,
+        IValidacionOracleReader? validacionOracleReader = null)
     {
         _recaudoReader = recaudoReader ?? throw new ArgumentNullException(nameof(recaudoReader));
         _leafReader = leafReader ?? throw new ArgumentNullException(nameof(leafReader));
@@ -35,6 +37,7 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         _validador = validador ?? throw new ArgumentNullException(nameof(validador));
         _workbookLeafWriter = workbookLeafWriter ?? throw new ArgumentNullException(nameof(workbookLeafWriter));
         _localizador = localizador ?? throw new ArgumentNullException(nameof(localizador));
+        _validacionOracleReader = validacionOracleReader;
     }
 
     public ResultadoProcesoPeriodo Ejecutar(SolicitudProcesoPeriodo solicitud, IProgress<string>? progreso = null)
@@ -143,6 +146,21 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
                     SaldosNotas = _leafReader.LeerSaldosNotas(ase, rutaSaldosNotas),
                     RetribucionNegativa = _leafReader.LeerRetribucionNegativa(ase, rutaRetribucionNegativa)
                 };
+
+                // HU-12 (2.6 ampliada, V0.4): DetRetri-Q2 por ASE — composición CONGELADA
+                // ROUND(D104:D108,0) vía DetRetriRounder (origen = Σ visibles leaf Q2 + AJUSTES-SF-T).
+                // Fail-fast si el leaf no expone los visibles Q2 (el reader Q2 ya falló aguas arriba).
+                leaf.DetRetriQ2 = new DetRetriQ2Inputs
+                {
+                    Ase = ase,
+                    TotalD104 = leaf.R1.TotalOportunoEsperadoPorAse
+                        + leaf.R2.TotalOportunoEsperado
+                        + leaf.R1.ExtemporaneoEsperadoPorAse
+                        + leaf.R4.TotalReversionEsperada
+                        + leaf.AjustesSfT.TotalAjustes
+                };
+
+                progreso?.Report($"ASE {idAse}: DetRetri esperado post-Excel = {leaf.DetRetriQ2.Detalle:0} (origen D104:D108 = {leaf.DetRetriQ2.TotalD104:0.##}).");
             }
 
             datos.Add((ase, r1, r2, r4));
@@ -196,13 +214,60 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             }
         }
 
+        // HU-13 (2.7): validaciones cruzadas como ORÁCULO DE LECTURA (D1). Solo si hay reader
+        // (modo período completo de la UI): se lee el snapshot de la SALIDA (read-only, caché
+        // visible — OpenXML no recalcula) y se evalúan los gates 2.7 con fail-fast que nombra
+        // ASE + validación. Sin reader (regresión) = HU-12 puro por construcción (D3).
+        var lineasValidaciones = new List<string>();
+        if (_validacionOracleReader is not null)
+        {
+            progreso?.Report("Leyendo oráculo de validaciones cruzadas de la salida (read-only)...");
+            var snapshots = _validacionOracleReader.LeerSnapshots(solicitud.RutaSalida, solicitud.Periodo);
+            var erroresValidacion = _validador.Validar(resultado, leafs, snapshots);
+            if (erroresValidacion.Count > 0)
+            {
+                var detalleValidacion = string.Join("; ", erroresValidacion);
+                throw new CalculoInvalidoException($"La validación cruzada (2.7) falló: {detalleValidacion}");
+            }
+
+            // Veredictos por ASE (bloque VALIDACIONES del log/UI, §2.6). Honestidad: se lee el
+            // caché visible; el recálculo Excel (Capa B) es acción del usuario (§2.7 A5).
+            progreso?.Report("VALIDACIONES por ASE (caché visible de la salida; recálculo Excel = Capa B manual):");
+            foreach (var snapshot in snapshots.OrderBy(s => s.Ase.Id))
+            {
+                var aseId = snapshot.Ase.Id;
+                lineasValidaciones.Add($"ASE {aseId} VALIDACIONES:");
+                foreach (var empresa in snapshot.PorEmpresa.OrderBy(e => e.Empresa, StringComparer.OrdinalIgnoreCase))
+                {
+                    lineasValidaciones.Add($"  {empresa.Empresa}: O (Recaudo vs REMUNERACION) = {empresa.DiferenciaO:0.###}; P (INT(O)=0) = {(empresa.VerificacionP ? "TRUE" : "FALSE")}");
+                }
+
+                if (snapshot.DetValiRetri is not null)
+                {
+                    var maxDiff = snapshot.DetValiRetri.DiferenciasAse.Count == 0
+                        ? 0m
+                        : snapshot.DetValiRetri.DiferenciasAse.Max(c => Math.Abs(c.Valor));
+                    lineasValidaciones.Add($"  DetValiRetri D16:D20 cierra (máx |dif| = {maxDiff:0.###}); verificación D24:D28 = {(snapshot.DetValiRetri.VerificacionesAse.All(v => v.Verificacion) ? "TRUE" : "FALSE")}; D29 = {(snapshot.DetValiRetri.VerificacionTotalD29 ? "TRUE" : "FALSE")}");
+                    lineasValidaciones.Add($"  DetValiRetri D21 (fila Total) divergencia documentada = {snapshot.DetValiRetri.DiferenciaTotalD21:0.###} (excluida del gate, D6); D9:D14/J9:J14 ≠ ROUND documentado.");
+                }
+
+                lineasValidaciones.Add($"  VALIDACION_TOTAL O9 = {snapshot.ValidacionTotal:0.###}; P9 = {(snapshot.ValidacionTotalOkP ? "TRUE" : "FALSE")}");
+            }
+
+            foreach (var linea in lineasValidaciones)
+            {
+                progreso?.Report(linea);
+            }
+        }
+
         progreso?.Report("Proceso del período completado correctamente.");
 
         return new ResultadoProcesoPeriodo
         {
             Resultado = resultado,
             Leafs = leafs,
-            RutaSalida = solicitud.RutaSalida
+            RutaSalida = solicitud.RutaSalida,
+            Validaciones = lineasValidaciones
         };
     }
 

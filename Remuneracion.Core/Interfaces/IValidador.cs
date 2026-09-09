@@ -47,4 +47,26 @@ public interface IValidador
     /// El validador NO abre .xlsx (J/K/M downstream y bloque 18–24 van a Capa B).
     /// </remarks>
     List<string> Validar(ResultadoRemuneracion resultado, IReadOnlyList<WorkbookLeafInputs> leafs);
+
+    /// <summary>
+    /// HU-13 (2.7): valida un resultado multi-ASE contra los snapshots-oráculo de validaciones
+    /// cruzadas (gates 2.7 aditivos por quincena, D3). Snapshot ausente/vacío para un ASE =
+    /// comportamiento HU-12 puro (sin gates nuevos para ese ASE).
+    /// </summary>
+    /// <param name="resultado">Resultado con los consolidados por ASE.</param>
+    /// <param name="leafs">Inputs leaf, uno por ASE (5 en modo período).</param>
+    /// <param name="snapshots">Snapshots-oráculo leídos read-only del workbook (D1), uno por ASE
+    /// (5 en modo período). El validador NO abre .xlsx.</param>
+    /// <returns>Lista de mensajes de validación (vacía si no hay problemas).</returns>
+    /// <remarks>
+    /// Gates 2.7 (§2.5 del Plan 13, congelados por T0 en ambos canónicos):
+    /// (i) por empresa y ASE: columna O (H−N de Recaudo * vs REMUNERACION_*) == 0 ±0.5 y
+    ///     columna P (INT(O)=0) == true exacto — error que nombra ASE + empresa;
+    /// (ii) DetValiRetri D16..D20 == 0 ±0.5 por ASE y D24..D28 == true exacto — error que nombra
+    ///     ASE + celda; la fila Total D21 y D9:D14/J9:J14 ≠ ROUND quedan EXCLUIDAS (D6);
+    /// (iii) VALIDACION_TOTAL O9 == 0 ±0.5 y P9 == true exacto;
+    /// (iv) controles Valida -* = informativos (T0: sin celda numérica estable; sin gate).
+    /// El resto de la validación HU-01..HU-12 queda intacta; sin snapshots = HU-12 puro.
+    /// </remarks>
+    List<string> Validar(ResultadoRemuneracion resultado, IReadOnlyList<WorkbookLeafInputs> leafs, IReadOnlyList<ValidacionCruzadaSnapshot> snapshots);
 }

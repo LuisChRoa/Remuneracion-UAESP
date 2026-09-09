@@ -1,5 +1,6 @@
 using Remuneracion.Core.Interfaces;
 using Remuneracion.Core.Models;
+using Remuneracion.Core.Rules;
 
 namespace Remuneracion.Core.Services;
 
@@ -155,6 +156,30 @@ public sealed class ValidadorBasico : IValidador
             ValidarSigmaEmpresasPorAse(errores, leaf);
         }
 
+        // HU-12 (2.6 ampliada, §2.5 regla 2): DetRetri-Q2 por ASE — SOLO en Q2 (Q1 sin cambios,
+        // regresión ciega). Cada leaf debe traer DetRetriQ2 (error que nombra el ASE; nunca null)
+        // y el Detalle debe coincidir con ROUND(D104:D108,0) vía DetRetriRounder (composición V0.4;
+        // la comparación contra el caché golden vive en la Capa A, no en gates de fórmula).
+        if (esQuincena2)
+        {
+            foreach (var leaf in leafs)
+            {
+                var detalle = leaf.DetRetriQ2;
+                if (detalle is null)
+                {
+                    errores.Add($"ASE {leaf.Ase.Id}: en Q2 el leaf debe traer DetRetriQ2 (ROUND(D104:D108,0)) para validar el gate; no puede ser null.");
+                    continue;
+                }
+
+                var redondeado = DetRetriRounder.Round(detalle.TotalD104);
+                var diferencia = Math.Abs(detalle.Detalle - redondeado);
+                if (diferencia > Tolerancia)
+                {
+                    errores.Add($"ASE {leaf.Ase.Id}: Detalle DetRetri ({detalle.Detalle}) no coincide con ROUND(D104:D108,0) ({redondeado}). Diferencia={diferencia} > ±{Tolerancia}.");
+                }
+            }
+        }
+
         // §2.5 regla 5: GranTotal == Σ TotalAse (±0.5) + TotalAse aritmético por ASE.
         var sumaTotalAse = resultado.Consolidados.Sum(c => c.TotalAse);
         if (Math.Abs(resultado.GranTotal - sumaTotalAse) > Tolerancia)
@@ -182,6 +207,119 @@ public sealed class ValidadorBasico : IValidador
         ValidarBalanceSc(errores, leafs);
 
         return errores;
+    }
+
+    public List<string> Validar(
+        ResultadoRemuneracion resultado,
+        IReadOnlyList<WorkbookLeafInputs> leafs,
+        IReadOnlyList<ValidacionCruzadaSnapshot> snapshots)
+    {
+        ArgumentNullException.ThrowIfNull(resultado);
+        ArgumentNullException.ThrowIfNull(leafs);
+        ArgumentNullException.ThrowIfNull(snapshots);
+
+        // Todo HU-01..HU-12 intacto (gates existentes con matcheo estricto por Ase.Id).
+        var errores = Validar(resultado, leafs);
+
+        // §2.5 regla 2.7-0: la lista de snapshots debe tener la misma cantidad de ASE que los
+        // consolidados/leafs. Snapshot ausente/vacío para un ASE = HU-12 puro para ese ASE.
+        if (resultado.Consolidados.Count != snapshots.Count)
+        {
+            errores.Add($"El modo validaciones cruzadas exige la misma cantidad de consolidados y snapshots: {resultado.Consolidados.Count} consolidados vs {snapshots.Count} snapshots.");
+        }
+
+        if (snapshots.Count != 5)
+        {
+            errores.Add($"El modo validaciones cruzadas exige exactamente 5 snapshots (uno por ASE); se recibieron {snapshots.Count}.");
+        }
+
+        foreach (var snapshot in snapshots.OrderBy(s => s.Ase.Id))
+        {
+            ValidarGatesValidacionesCruzadasPorAse(errores, snapshot, resultado);
+        }
+
+        return errores;
+    }
+
+    /// <summary>
+    /// HU-13 (2.7, §2.5): gates aditivos por ASE contra el snapshot-oráculo (D1/D3). El validador
+    /// NO abre .xlsx: solo compara números. Matcheo estricto por <see cref="Ase.Id"/> (Single,
+    /// nunca fallback). Semántica congelada por T0 en ambos canónicos (Plan 13 §4 Fase 0).
+    /// </summary>
+    private static void ValidarGatesValidacionesCruzadasPorAse(
+        List<string> errores,
+        ValidacionCruzadaSnapshot snapshot,
+        ResultadoRemuneracion resultado)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
+        var consolidado = resultado.Consolidados.SingleOrDefault(c => c.Ase.Id == snapshot.Ase.Id);
+        if (consolidado is null)
+        {
+            errores.Add($"No se encontró el consolidado del ASE {snapshot.Ase.Id} para el gate de validaciones cruzadas.");
+            return;
+        }
+
+        // (i) Por empresa (VALIDACION_*): fila 2+aseId de cada hoja. O = H−N == 0 ±0.5 y
+        //     P (INT(O)=0) == true exacto (falla aunque O esté en tolerancia). Error ASE+empresa.
+        foreach (var empresa in snapshot.PorEmpresa)
+        {
+            if (empresa.AseId != snapshot.Ase.Id)
+            {
+                errores.Add($"ASE {snapshot.Ase.Id}: el snapshot por empresa trae la fila del ASE {empresa.AseId} (empresa {empresa.Empresa}); matcheo estricto violado.");
+                continue;
+            }
+
+            var diferenciaO = Math.Abs(empresa.DiferenciaO);
+            if (diferenciaO > Tolerancia)
+            {
+                errores.Add($"ASE {snapshot.Ase.Id} · {empresa.Empresa}: la validación Recaudo vs REMUNERACION (O) no cierra: O={empresa.DiferenciaO} (debe ser 0 ±{Tolerancia}).");
+            }
+
+            if (!empresa.VerificacionP)
+            {
+                errores.Add($"ASE {snapshot.Ase.Id} · {empresa.Empresa}: la verificación P (INT(O)=0) es falsa en el workbook aunque O esté en tolerancia.");
+            }
+        }
+
+        // (ii) DetValiRetri: D16..D20 (diferencias por ASE) == 0 ±0.5; D24..D28 == true exacto;
+        //     D29 (total) == true exacto. D21 (fila Total) y D9:D14/J9:J14 ≠ ROUND quedan
+        //     EXCLUIDOS (D6: divergencia documentada en ambos canónicos).
+        if (snapshot.DetValiRetri is not null)
+        {
+            foreach (var celda in snapshot.DetValiRetri.DiferenciasAse)
+            {
+                var diferencia = Math.Abs(celda.Valor);
+                if (diferencia > Tolerancia)
+                {
+                    errores.Add($"ASE {snapshot.Ase.Id}: DetValiRetri {celda.Celda} no cierra: {celda.Valor} (debe ser 0 ±{Tolerancia}).");
+                }
+            }
+
+            foreach (var celda in snapshot.DetValiRetri.VerificacionesAse)
+            {
+                if (!celda.Verificacion)
+                {
+                    errores.Add($"ASE {snapshot.Ase.Id}: DetValiRetri {celda.Celda} es falso (composición no verificada).");
+                }
+            }
+
+            if (!snapshot.DetValiRetri.VerificacionTotalD29)
+            {
+                errores.Add($"ASE {snapshot.Ase.Id}: DetValiRetri D29 (verificación TOTAL) es falso.");
+            }
+        }
+
+        // (iii) VALIDACION_TOTAL: fila TOTAL O9 == 0 ±0.5 y P9 == true exacto.
+        if (Math.Abs(snapshot.ValidacionTotal) > Tolerancia)
+        {
+            errores.Add($"ASE {snapshot.Ase.Id}: VALIDACION_TOTAL (O9) no cierra: {snapshot.ValidacionTotal} (debe ser 0 ±{Tolerancia}).");
+        }
+
+        if (!snapshot.ValidacionTotalOkP)
+        {
+            errores.Add($"ASE {snapshot.Ase.Id}: VALIDACION_TOTAL P9 (INT(O9)=0) es falso en el workbook.");
+        }
     }
 
     /// <summary>

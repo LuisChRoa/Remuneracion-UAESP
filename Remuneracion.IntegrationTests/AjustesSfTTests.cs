@@ -218,7 +218,12 @@ public sealed class AjustesSfTTests
                 R1 = new WorkbookLeafInputsR1 { F25 = 100m + i, F41 = 200m + i, L25 = 0m, F30 = 0m, F10 = 0m, L10 = 0m },
                 R2 = new WorkbookLeafInputsR2 { E15 = 2000m + i, E26 = 0m, K15 = 0m },
                 R4 = new WorkbookLeafInputsR4 { D9 = -(300m + i), P9 = 0m },
-                AjustesSfT = ajustes
+                AjustesSfT = ajustes,
+                DetRetriQ2 = new DetRetriQ2Inputs
+                {
+                    Ase = ase,
+                    TotalD104 = (2000m + i) + (-(300m + i)) + ajustes.TotalAjustes // = R2.TotalOportunoEsperado + R4.TotalReversionEsperada + TotalAjustes
+                }
             };
 
             datos.Add((ase, r1, r2, r4, ajustes.TotalAjustes));
@@ -331,14 +336,11 @@ public sealed class AjustesSfTTests
 
     /// <summary>
     /// Lee R1/R2/R4 + 2.5 de las fuentes Q2 reales y arma leafs completos (sin escritura).
-    /// NOTA T0-0.6 (recorte honesto, Riesgo 5): la conciliación por empresa (HU-08) NO se
-    /// ejecuta en Q2 porque el R4 de ASE2 diverge del Q1 (trae ENEL+OCCIDENTE, no RECIPROCIDAD/
-    /// NUEVO ESQUEMA) y el mapa HU-08 está congelado para Q1 — el plan §0.2 prohíbe tocarlo.
-    /// ADEMÁS el R1-Q2 de ASE5 diverge del Q1 (solo 2 filas Mes/Total vs 3) y el template Q2
-    /// tiene F519/F521 como VALORES (no la fórmula F513+F498+F478 del mapa HU-07) → el leaf
-    /// completo de ASE5 NO es construible con el reader HU-07. Por eso este helper devuelve
-    /// leafs para ASE1-4 (R1/R2/R4 Q2 legibles) + ajustes 2.5 de los 5; ASE5 se certifica solo
-    /// en la cadena 2.5 (A1/A2) y su TotalAse queda a Capa B manual.
+    /// HU-12 (2.6 ampliada): el dispatch Q2 del reader leaf (mapa <see cref="WorkbookLeafCellMapQ2"/>
+    /// con variante ASE5 de 2 filas Mes/Total, V0.3) levanta el recorte T0-0.6 de HU-11 → los 5
+    /// leafs se construyen (R1/R2/R4 Q2 legibles). La conciliación por empresa (HU-08) NO se
+    /// ejecuta en Q2 (recorte 1 HU-11, V0.6: layout R4 por empresa divergente; el mapa HU-08 está
+    /// congelado para Q1).
     /// </summary>
     internal static (List<(Ase ase, RecaudoComponenteR1 r1, SaldosFavorR2 r2, ReversionR4 r4, decimal ajustesSfT)> Datos,
         List<(Ase ase, RecaudoComponenteR1 r1, SaldosFavorR2 r2, ReversionR4 r4)> DatosViejos,
@@ -358,16 +360,6 @@ public sealed class AjustesSfTTests
             var r1 = lector.LeerR1(Insumos.R1Q2(i));
             var r2 = lector.LeerR2(Insumos.R2Q2(i));
             var r4 = lector.LeerR4(Insumos.R4Q2(i));
-
-            if (i == 5)
-            {
-                // RECORTE T0-0.6: el R1-Q2 de ASE5 no es legible por el reader leaf HU-07
-                // (solo 2 filas Mes/Total). El leaf de ASE5 no se arma; solo se certifica la
-                // cadena 2.5 (ver AjustesSfTTests). No se inventa ningún valor.
-                datos.Add((ase, r1, r2, r4, 0m));
-                datosViejos.Add((ase, r1, r2, r4));
-                continue;
-            }
 
             var leaf = leafReader.LeerLeafInputs(ase, periodo, Insumos.R1Q2(i), Insumos.R2Q2(i), Insumos.R4Q2(i));
             leaf.ReporteBanco = leafReader.LeerReporteBanco(ase, periodo, Insumos.ReporteBancoQ2(i));
