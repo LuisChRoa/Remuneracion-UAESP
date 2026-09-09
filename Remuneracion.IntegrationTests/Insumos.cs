@@ -1,4 +1,5 @@
 using Remuneracion.Core.Models;
+using Remuneracion.Core.Services;
 using Xunit;
 
 namespace Remuneracion.IntegrationTests;
@@ -79,17 +80,11 @@ internal static class Insumos
         return archivo!;
     }
 
-    public static Ase Ase(int id)
-    {
-        var nombres = new[] { "Promoambiental", "Lime", "Ciudad Limpia", "Bogotá Limpia", "Área Limpia" };
-        return new Ase
-        {
-            Id = id,
-            NombreCorto = nombres[id - 1].ToUpperInvariant(),
-            NombreCompleto = nombres[id - 1],
-            NumeroCarpeta = id
-        };
-    }
+    /// <summary>
+    /// HU-14 (S-3): helper migrado a la factoría única <see cref="AseFactory.DesdeId"/>
+    /// (fuente única desde <see cref="Remuneracion.Core.Constants.CarpetasAse.Prefijos"/>).
+    /// </summary>
+    public static Ase Ase(int id) => AseFactory.DesdeId(id);
 
     public static Periodo Periodo() => new() { CodigoAAAAMM = "202607", NumeroQuincena = 1 };
 

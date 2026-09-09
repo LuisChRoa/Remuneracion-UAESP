@@ -1,3 +1,4 @@
+using Remuneracion.Core.Errors;
 using Remuneracion.Core.Interfaces;
 using Remuneracion.Core.Models;
 using Remuneracion.Core.Rules;
@@ -15,6 +16,13 @@ public sealed class ValidadorBasico : IValidador
 {
     private const decimal Tolerancia = 0.5m;
 
+    /// <summary>
+    /// HU-14 (3.1): agrega un error con el prefijo <c>[ERR-VALIDACION]</c> del catálogo
+    /// (todo error del validador es una validación de dominio que no cierra).
+    /// </summary>
+    private static void AgregarError(List<string> errores, string mensaje) =>
+        errores.Add($"[{CodigoError.Validacion}] {mensaje}");
+
     public List<string> Validar(ResultadoRemuneracion resultado)
     {
         ArgumentNullException.ThrowIfNull(resultado);
@@ -23,12 +31,12 @@ public sealed class ValidadorBasico : IValidador
 
         if (resultado.Consolidados.Count != 1)
         {
-            errores.Add("Debe existir exactamente 1 consolidado para validar la hoja de salida en Fase 1.");
+            AgregarError(errores, "Debe existir exactamente 1 consolidado para validar la hoja de salida en Fase 1.");
         }
 
         if (resultado.Consolidados.Count > 0 && resultado.Consolidados.Any(c => Math.Abs(c.AjustesSfT) > Tolerancia))
         {
-            errores.Add($"AjustesSfT debe ser 0 en Fase 1, pero se encontró {resultado.Consolidados.First().AjustesSfT}.");
+            AgregarError(errores, $"AjustesSfT debe ser 0 en Fase 1, pero se encontró {resultado.Consolidados.First().AjustesSfT}.");
         }
 
         var consolidado = resultado.Consolidados.FirstOrDefault();
@@ -37,7 +45,7 @@ public sealed class ValidadorBasico : IValidador
             var diffGranTotal = Math.Abs(resultado.GranTotal - consolidado.TotalAse);
             if (diffGranTotal > Tolerancia)
             {
-                errores.Add($"GranTotal no coincide con el único TotalAse: {resultado.GranTotal} vs {consolidado.TotalAse}. Diferencia={diffGranTotal}.");
+                AgregarError(errores, $"GranTotal no coincide con el único TotalAse: {resultado.GranTotal} vs {consolidado.TotalAse}. Diferencia={diffGranTotal}.");
             }
         }
 
@@ -47,7 +55,7 @@ public sealed class ValidadorBasico : IValidador
             var granTotal = resultado.GranTotal;
             if (Math.Abs(granTotal - totalAse) > Tolerancia)
             {
-                errores.Add($"GranTotal ≠ único TotalAse ({granTotal} ≠ {totalAse}).");
+                AgregarError(errores, $"GranTotal ≠ único TotalAse ({granTotal} ≠ {totalAse}).");
             }
         }
 
@@ -65,13 +73,13 @@ public sealed class ValidadorBasico : IValidador
         var consolidado = resultado.Consolidados.SingleOrDefault(c => c.Ase.Id == leaf.Ase.Id);
         if (consolidado is null)
         {
-            errores.Add($"No se encontró el consolidado del ASE {leaf.Ase.Id} para comparar contra los inputs leaf.");
+            AgregarError(errores, $"No se encontró el consolidado del ASE {leaf.Ase.Id} para comparar contra los inputs leaf.");
             return errores;
         }
 
         if (Math.Abs(consolidado.AjustesSfT) > Tolerancia)
         {
-            errores.Add($"AjustesSfT debe ser 0: {consolidado.AjustesSfT}.");
+            AgregarError(errores, $"AjustesSfT debe ser 0: {consolidado.AjustesSfT}.");
         }
 
         ValidarGatesPorAse(errores, leaf, consolidado);
@@ -89,12 +97,12 @@ public sealed class ValidadorBasico : IValidador
         // §2.5 regla 1: Consolidados.Count == leafs.Count; en modo período se exige 5.
         if (resultado.Consolidados.Count != leafs.Count)
         {
-            errores.Add($"El modo período exige la misma cantidad de consolidados y leafs: {resultado.Consolidados.Count} consolidados vs {leafs.Count} leafs.");
+            AgregarError(errores, $"El modo período exige la misma cantidad de consolidados y leafs: {resultado.Consolidados.Count} consolidados vs {leafs.Count} leafs.");
         }
 
         if (leafs.Count != 5)
         {
-            errores.Add(
+            AgregarError(errores,
                 leafs.Count == 1
                     ? "El modo período exige exactamente 5 ASE; se recibió 1 (¿usó el modo single-ASE?)."
                     : $"El modo período exige exactamente 5 ASE; se recibieron {leafs.Count}.");
@@ -106,7 +114,7 @@ public sealed class ValidadorBasico : IValidador
             .FirstOrDefault(g => g.Count() > 1);
         if (duplicados is not null)
         {
-            errores.Add($"Se detectaron leafs con ASE duplicado: {duplicados.Key}.");
+            AgregarError(errores, $"Se detectaron leafs con ASE duplicado: {duplicados.Key}.");
         }
 
         // §2.5 regla 3: AjustesSfT por quincena — Q1 exige 0 (intacto); Q2 exige el TotalAjustes
@@ -119,7 +127,7 @@ public sealed class ValidadorBasico : IValidador
             {
                 if (Math.Abs(consolidado.AjustesSfT) > Tolerancia)
                 {
-                    errores.Add($"AjustesSfT debe ser 0 en Q1; ASE {consolidado.Ase.Id} tiene {consolidado.AjustesSfT}.");
+                    AgregarError(errores, $"AjustesSfT debe ser 0 en Q1; ASE {consolidado.Ase.Id} tiene {consolidado.AjustesSfT}.");
                 }
 
                 continue;
@@ -128,14 +136,14 @@ public sealed class ValidadorBasico : IValidador
             var ajustes = leafs.SingleOrDefault(l => l.Ase.Id == consolidado.Ase.Id)?.AjustesSfT;
             if (ajustes is null)
             {
-                errores.Add($"ASE {consolidado.Ase.Id}: en Q2 el leaf debe traer AjustesSfT (SALDOS POR NOTA + RETRIBUCION NEGATIVA) para validar el gate; no puede ser null.");
+                AgregarError(errores, $"ASE {consolidado.Ase.Id}: en Q2 el leaf debe traer AjustesSfT (SALDOS POR NOTA + RETRIBUCION NEGATIVA) para validar el gate; no puede ser null.");
                 continue;
             }
 
             var diferencia = Math.Abs(consolidado.AjustesSfT - ajustes.TotalAjustes);
             if (diferencia > Tolerancia)
             {
-                errores.Add($"ASE {consolidado.Ase.Id}: AjustesSfT del consolidado ({consolidado.AjustesSfT}) no coincide con TotalAjustes de la fuente ({ajustes.TotalAjustes}). Diferencia={diferencia} > ±{Tolerancia}.");
+                AgregarError(errores, $"ASE {consolidado.Ase.Id}: AjustesSfT del consolidado ({consolidado.AjustesSfT}) no coincide con TotalAjustes de la fuente ({ajustes.TotalAjustes}). Diferencia={diferencia} > ±{Tolerancia}.");
             }
         }
 
@@ -145,7 +153,7 @@ public sealed class ValidadorBasico : IValidador
             var consolidado = resultado.Consolidados.SingleOrDefault(c => c.Ase.Id == leaf.Ase.Id);
             if (consolidado is null)
             {
-                errores.Add($"No se encontró el consolidado del ASE {leaf.Ase.Id} para el gate leaf-vs-consolidado.");
+                AgregarError(errores, $"No se encontró el consolidado del ASE {leaf.Ase.Id} para el gate leaf-vs-consolidado.");
                 continue;
             }
 
@@ -167,7 +175,7 @@ public sealed class ValidadorBasico : IValidador
                 var detalle = leaf.DetRetriQ2;
                 if (detalle is null)
                 {
-                    errores.Add($"ASE {leaf.Ase.Id}: en Q2 el leaf debe traer DetRetriQ2 (ROUND(D104:D108,0)) para validar el gate; no puede ser null.");
+                    AgregarError(errores, $"ASE {leaf.Ase.Id}: en Q2 el leaf debe traer DetRetriQ2 (ROUND(D104:D108,0)) para validar el gate; no puede ser null.");
                     continue;
                 }
 
@@ -175,7 +183,7 @@ public sealed class ValidadorBasico : IValidador
                 var diferencia = Math.Abs(detalle.Detalle - redondeado);
                 if (diferencia > Tolerancia)
                 {
-                    errores.Add($"ASE {leaf.Ase.Id}: Detalle DetRetri ({detalle.Detalle}) no coincide con ROUND(D104:D108,0) ({redondeado}). Diferencia={diferencia} > ±{Tolerancia}.");
+                    AgregarError(errores, $"ASE {leaf.Ase.Id}: Detalle DetRetri ({detalle.Detalle}) no coincide con ROUND(D104:D108,0) ({redondeado}). Diferencia={diferencia} > ±{Tolerancia}.");
                 }
             }
         }
@@ -184,7 +192,7 @@ public sealed class ValidadorBasico : IValidador
         var sumaTotalAse = resultado.Consolidados.Sum(c => c.TotalAse);
         if (Math.Abs(resultado.GranTotal - sumaTotalAse) > Tolerancia)
         {
-            errores.Add($"GranTotal ({resultado.GranTotal}) no coincide con Σ TotalAse ({sumaTotalAse}).");
+            AgregarError(errores, $"GranTotal ({resultado.GranTotal}) no coincide con Σ TotalAse ({sumaTotalAse}).");
         }
 
         foreach (var consolidado in resultado.Consolidados)
@@ -196,7 +204,7 @@ public sealed class ValidadorBasico : IValidador
                 + consolidado.AjustesSfT;
             if (Math.Abs(consolidado.TotalAse - totalAritmetico) > Tolerancia)
             {
-                errores.Add($"TotalAse del ASE {consolidado.Ase.Id} ({consolidado.TotalAse}) no coincide con su aritmética ({totalAritmetico}).");
+                AgregarError(errores, $"TotalAse del ASE {consolidado.Ase.Id} ({consolidado.TotalAse}) no coincide con su aritmética ({totalAritmetico}).");
             }
         }
 
@@ -225,17 +233,45 @@ public sealed class ValidadorBasico : IValidador
         // consolidados/leafs. Snapshot ausente/vacío para un ASE = HU-12 puro para ese ASE.
         if (resultado.Consolidados.Count != snapshots.Count)
         {
-            errores.Add($"El modo validaciones cruzadas exige la misma cantidad de consolidados y snapshots: {resultado.Consolidados.Count} consolidados vs {snapshots.Count} snapshots.");
+            AgregarError(errores, $"El modo validaciones cruzadas exige la misma cantidad de consolidados y snapshots: {resultado.Consolidados.Count} consolidados vs {snapshots.Count} snapshots.");
         }
 
         if (snapshots.Count != 5)
         {
-            errores.Add($"El modo validaciones cruzadas exige exactamente 5 snapshots (uno por ASE); se recibieron {snapshots.Count}.");
+            AgregarError(errores, $"El modo validaciones cruzadas exige exactamente 5 snapshots (uno por ASE); se recibieron {snapshots.Count}.");
         }
 
-        foreach (var snapshot in snapshots.OrderBy(s => s.Ase.Id))
+        var snapshotsOrdenados = snapshots.OrderBy(s => s.Ase.Id).ToList();
+        foreach (var snapshot in snapshotsOrdenados)
         {
             ValidarGatesValidacionesCruzadasPorAse(errores, snapshot, resultado);
+        }
+
+        // HU-14 (S-2, D8): VALIDACION_TOTAL con gate ÚNICO (no ×5) + igualdad entre snapshots.
+        // El reader lee O9/P9 una sola vez; el gate evalúa el primer snapshot y la igualdad
+        // detecta una divergencia del lector (fail-fast con 1 error, no 5).
+        if (snapshotsOrdenados.Count > 0)
+        {
+            var baseTotal = snapshotsOrdenados[0];
+            if (Math.Abs(baseTotal.ValidacionTotal) > Tolerancia)
+            {
+                AgregarError(errores, $"ASE {baseTotal.Ase.Id}: VALIDACION_TOTAL (O9) no cierra: {baseTotal.ValidacionTotal} (debe ser 0 ±{Tolerancia}).");
+            }
+
+            if (!baseTotal.ValidacionTotalOkP)
+            {
+                AgregarError(errores, $"ASE {baseTotal.Ase.Id}: VALIDACION_TOTAL P9 (INT(O9)=0) es falso en el workbook.");
+            }
+
+            foreach (var snapshot in snapshotsOrdenados.Skip(1))
+            {
+                if (snapshot.ValidacionTotal != baseTotal.ValidacionTotal
+                    || snapshot.ValidacionTotalOkP != baseTotal.ValidacionTotalOkP)
+                {
+                    AgregarError(errores, $"VALIDACION_TOTAL: el snapshot del ASE {snapshot.Ase.Id} (O9={snapshot.ValidacionTotal}, P9={snapshot.ValidacionTotalOkP}) diverge del ASE {baseTotal.Ase.Id}; el lector-oráculo debe leer O9/P9 una sola vez (S-2).");
+                    break;
+                }
+            }
         }
 
         return errores;
@@ -245,6 +281,18 @@ public sealed class ValidadorBasico : IValidador
     /// HU-13 (2.7, §2.5): gates aditivos por ASE contra el snapshot-oráculo (D1/D3). El validador
     /// NO abre .xlsx: solo compara números. Matcheo estricto por <see cref="Ase.Id"/> (Single,
     /// nunca fallback). Semántica congelada por T0 en ambos canónicos (Plan 13 §4 Fase 0).
+    ///
+    /// HU-14 (W-2, veredicto documentado — sin mover): este gate de validaciones cruzadas vive
+    /// AQUÍ (ValidadorBasico) y NO en <c>WorkbookLeafCoherence</c> por diseño: todos los gates
+    /// cruzados HU-08..HU-12 (<c>ValidarSigmaEmpresasPorAse</c>, <c>ValidarReporteBanco</c>,
+    /// <c>ValidarBalanceSc</c>) viven en el validador con AGREGACIÓN de errores por lista;
+    /// moverlos a <c>WorkbookLeafCoherence</c> (throw al primer fallo) cambiaría la semántica
+    /// de agregación. Ver Plan 13 §2.8/§4-3.1 enmendado por Plan 14 §9.7.
+    ///
+    /// HU-14 (W-1): además de O/P por empresa y DetValiRetri, se gatean los sub-bloques
+    /// booleanos de <c>VALIDACION_TOTAL</c> (C15/D25/O25/D34/F34) == true exacto por ASE.
+    /// HU-14 (S-2): el gate numérico/booleano de VALIDACION_TOTAL (O9/P9) NO se evalúa aquí
+    /// por ASE (sería ×5); se evalúa UNA vez en <c>Validar(resultado, leafs, snapshots)</c>.
     /// </summary>
     private static void ValidarGatesValidacionesCruzadasPorAse(
         List<string> errores,
@@ -256,7 +304,7 @@ public sealed class ValidadorBasico : IValidador
         var consolidado = resultado.Consolidados.SingleOrDefault(c => c.Ase.Id == snapshot.Ase.Id);
         if (consolidado is null)
         {
-            errores.Add($"No se encontró el consolidado del ASE {snapshot.Ase.Id} para el gate de validaciones cruzadas.");
+            AgregarError(errores, $"No se encontró el consolidado del ASE {snapshot.Ase.Id} para el gate de validaciones cruzadas.");
             return;
         }
 
@@ -266,19 +314,19 @@ public sealed class ValidadorBasico : IValidador
         {
             if (empresa.AseId != snapshot.Ase.Id)
             {
-                errores.Add($"ASE {snapshot.Ase.Id}: el snapshot por empresa trae la fila del ASE {empresa.AseId} (empresa {empresa.Empresa}); matcheo estricto violado.");
+                AgregarError(errores, $"ASE {snapshot.Ase.Id}: el snapshot por empresa trae la fila del ASE {empresa.AseId} (empresa {empresa.Empresa}); matcheo estricto violado.");
                 continue;
             }
 
             var diferenciaO = Math.Abs(empresa.DiferenciaO);
             if (diferenciaO > Tolerancia)
             {
-                errores.Add($"ASE {snapshot.Ase.Id} · {empresa.Empresa}: la validación Recaudo vs REMUNERACION (O) no cierra: O={empresa.DiferenciaO} (debe ser 0 ±{Tolerancia}).");
+                AgregarError(errores, $"ASE {snapshot.Ase.Id} · {empresa.Empresa}: la validación Recaudo vs REMUNERACION (O) no cierra: O={empresa.DiferenciaO} (debe ser 0 ±{Tolerancia}).");
             }
 
             if (!empresa.VerificacionP)
             {
-                errores.Add($"ASE {snapshot.Ase.Id} · {empresa.Empresa}: la verificación P (INT(O)=0) es falsa en el workbook aunque O esté en tolerancia.");
+                AgregarError(errores, $"ASE {snapshot.Ase.Id} · {empresa.Empresa}: la verificación P (INT(O)=0) es falsa en el workbook aunque O esté en tolerancia.");
             }
         }
 
@@ -292,7 +340,7 @@ public sealed class ValidadorBasico : IValidador
                 var diferencia = Math.Abs(celda.Valor);
                 if (diferencia > Tolerancia)
                 {
-                    errores.Add($"ASE {snapshot.Ase.Id}: DetValiRetri {celda.Celda} no cierra: {celda.Valor} (debe ser 0 ±{Tolerancia}).");
+                    AgregarError(errores, $"ASE {snapshot.Ase.Id}: DetValiRetri {celda.Celda} no cierra: {celda.Valor} (debe ser 0 ±{Tolerancia}).");
                 }
             }
 
@@ -300,25 +348,25 @@ public sealed class ValidadorBasico : IValidador
             {
                 if (!celda.Verificacion)
                 {
-                    errores.Add($"ASE {snapshot.Ase.Id}: DetValiRetri {celda.Celda} es falso (composición no verificada).");
+                    AgregarError(errores, $"ASE {snapshot.Ase.Id}: DetValiRetri {celda.Celda} es falso (composición no verificada).");
                 }
             }
 
             if (!snapshot.DetValiRetri.VerificacionTotalD29)
             {
-                errores.Add($"ASE {snapshot.Ase.Id}: DetValiRetri D29 (verificación TOTAL) es falso.");
+                AgregarError(errores, $"ASE {snapshot.Ase.Id}: DetValiRetri D29 (verificación TOTAL) es falso.");
             }
         }
 
-        // (iii) VALIDACION_TOTAL: fila TOTAL O9 == 0 ±0.5 y P9 == true exacto.
-        if (Math.Abs(snapshot.ValidacionTotal) > Tolerancia)
+        // (iii) HU-14 (W-1): sub-bloques booleanos de VALIDACION_TOTAL (C15/D25/O25/D34/F34)
+        //     == true exacto por ASE (amparo T0-0.4 HU-13: TRUE en ambos goldens). El gate
+        //     numérico/booleano TOTAL (O9/P9) es ÚNICO (S-2) y vive en Validar(...snapshots).
+        foreach (var (celda, valor) in snapshot.SubBloquesValidacionTotal.OrderBy(kv => kv.Key))
         {
-            errores.Add($"ASE {snapshot.Ase.Id}: VALIDACION_TOTAL (O9) no cierra: {snapshot.ValidacionTotal} (debe ser 0 ±{Tolerancia}).");
-        }
-
-        if (!snapshot.ValidacionTotalOkP)
-        {
-            errores.Add($"ASE {snapshot.Ase.Id}: VALIDACION_TOTAL P9 (INT(O9)=0) es falso en el workbook.");
+            if (!valor)
+            {
+                AgregarError(errores, $"ASE {snapshot.Ase.Id} · VALIDACION_TOTAL · {celda}: sub-bloque booleano es falso en el workbook (debe ser TRUE exacto; W-1).");
+            }
         }
     }
 
@@ -348,7 +396,7 @@ public sealed class ValidadorBasico : IValidador
             var bloque = balance.Ases.SingleOrDefault(b => b.Ase.Id == leaf.Ase.Id);
             if (bloque is null)
             {
-                errores.Add($"El leaf del ASE {leaf.Ase.Id} no trae su fila de balance SC para validar.");
+                AgregarError(errores, $"El leaf del ASE {leaf.Ase.Id} no trae su fila de balance SC para validar.");
                 continue;
             }
 
@@ -356,7 +404,7 @@ public sealed class ValidadorBasico : IValidador
             var diferencia = Math.Abs(bloque.TotalBsc - bloque.TotalFuente);
             if (diferencia > Tolerancia)
             {
-                errores.Add($"ASE {leaf.Ase.Id}: Total BSC ({bloque.TotalBsc}) != Total General fuente ({bloque.TotalFuente}). Diferencia={diferencia} > ±{Tolerancia}.");
+                AgregarError(errores, $"ASE {leaf.Ase.Id}: Total BSC ({bloque.TotalBsc}) != Total General fuente ({bloque.TotalFuente}). Diferencia={diferencia} > ±{Tolerancia}.");
             }
 
             // Gate (iii): H≈F con redondeo a entero SOLO en desenlace D2(a); en D2(b) (Q1)
@@ -366,7 +414,7 @@ public sealed class ValidadorBasico : IValidador
                 var redondeado = Math.Round(bloque.TotalBsc, MidpointRounding.AwayFromZero);
                 if (Math.Abs(bloque.Sistema.Value - redondeado) > Tolerancia)
                 {
-                    errores.Add($"ASE {leaf.Ase.Id}: H (SISTEMA) {bloque.Sistema.Value} no coincide con ROUND(F,0)={redondeado}.");
+                    AgregarError(errores, $"ASE {leaf.Ase.Id}: H (SISTEMA) {bloque.Sistema.Value} no coincide con ROUND(F,0)={redondeado}.");
                 }
             }
         }
@@ -376,7 +424,7 @@ public sealed class ValidadorBasico : IValidador
         var sumaFuente = conBalance.Sum(l => l.BalanceSc!.Ases.Sum(b => b.TotalFuente));
         if (Math.Abs(sumaBsc - sumaFuente) > Tolerancia)
         {
-            errores.Add($"Σ Total BSC ({sumaBsc}) != Σ Total General fuente ({sumaFuente}). Diferencia={Math.Abs(sumaBsc - sumaFuente)} > ±{Tolerancia}.");
+            AgregarError(errores, $"Σ Total BSC ({sumaBsc}) != Σ Total General fuente ({sumaFuente}). Diferencia={Math.Abs(sumaBsc - sumaFuente)} > ±{Tolerancia}.");
         }
     }
 
@@ -406,7 +454,7 @@ public sealed class ValidadorBasico : IValidador
             // Gate (iii): C59 == quincena (dominio, nunca fuente).
             if (banco.Quincena != leaf.Periodo.NumeroQuincena)
             {
-                errores.Add($"ASE {leaf.Ase.Id}: C59 del reporte por banco ({banco.Quincena}) no coincide con la quincena del período ({leaf.Periodo.NumeroQuincena}).");
+                AgregarError(errores, $"ASE {leaf.Ase.Id}: C59 del reporte por banco ({banco.Quincena}) no coincide con la quincena del período ({leaf.Periodo.NumeroQuincena}).");
             }
 
             // Gate (i): bloque = resumen fuente por empresa ±0.5 (fail-fast nombra ASE + empresa).
@@ -417,7 +465,7 @@ public sealed class ValidadorBasico : IValidador
                     var diferencia = Math.Abs(empresa.Total - empresa.TotalFuente);
                     if (diferencia > Tolerancia)
                     {
-                        errores.Add($"ASE {leaf.Ase.Id} · {empresa.Empresa}: bloque banco ({empresa.Total}) != resumen fuente ({empresa.TotalFuente}). Diferencia={diferencia} > ±{Tolerancia}.");
+                        AgregarError(errores, $"ASE {leaf.Ase.Id} · {empresa.Empresa}: bloque banco ({empresa.Total}) != resumen fuente ({empresa.TotalFuente}). Diferencia={diferencia} > ±{Tolerancia}.");
                     }
                 }
             }
@@ -442,13 +490,13 @@ public sealed class ValidadorBasico : IValidador
         {
             if (!sumaPorEmpresa.TryGetValue(empresa, out var suma))
             {
-                errores.Add($"Consolidado banco declara la empresa '{empresa}' pero no hay bloques con esa empresa en los leafs.");
+                AgregarError(errores, $"Consolidado banco declara la empresa '{empresa}' pero no hay bloques con esa empresa en los leafs.");
                 continue;
             }
 
             if (Math.Abs(suma - esperado) > Tolerancia)
             {
-                errores.Add($"Consolidado 1–7 de '{empresa}' ({esperado}) no coincide con Σ bloques por empresa ({suma}).");
+                AgregarError(errores, $"Consolidado 1–7 de '{empresa}' ({esperado}) no coincide con Σ bloques por empresa ({suma}).");
             }
         }
     }
@@ -462,19 +510,19 @@ public sealed class ValidadorBasico : IValidador
         // Prohibido comparar TotOpt HU-02 contra visibles R1.
         if (Math.Abs(leaf.R1.F25 - consolidado.Extemp) > Tolerancia)
         {
-            errores.Add($"ASE {leaf.Ase.Id}: la hoja R1 F25-equivalente ({leaf.R1.F25}) no coincide con Extemp del consolidado ({consolidado.Extemp}).");
+            AgregarError(errores, $"ASE {leaf.Ase.Id}: la hoja R1 F25-equivalente ({leaf.R1.F25}) no coincide con Extemp del consolidado ({consolidado.Extemp}).");
         }
 
         // Gate R2: visible del bloque vs R2TotalOportuno.
         if (Math.Abs(leaf.R2.TotalOportunoEsperado - consolidado.R2TotalOportuno) > Tolerancia)
         {
-            errores.Add($"ASE {leaf.Ase.Id}: la hoja R2 TotalOportunoEsperado ({leaf.R2.TotalOportunoEsperado}) no coincide con R2TotalOportuno del consolidado ({consolidado.R2TotalOportuno}).");
+            AgregarError(errores, $"ASE {leaf.Ase.Id}: la hoja R2 TotalOportunoEsperado ({leaf.R2.TotalOportunoEsperado}) no coincide con R2TotalOportuno del consolidado ({consolidado.R2TotalOportuno}).");
         }
 
         // Gate R4: visible del bloque vs ReversionR4.
         if (Math.Abs(leaf.R4.TotalReversionEsperada - consolidado.ReversionR4) > Tolerancia)
         {
-            errores.Add($"ASE {leaf.Ase.Id}: la hoja R4 TotalReversionEsperada ({leaf.R4.TotalReversionEsperada}) no coincide con ReversionR4 del consolidado ({consolidado.ReversionR4}).");
+            AgregarError(errores, $"ASE {leaf.Ase.Id}: la hoja R4 TotalReversionEsperada ({leaf.R4.TotalReversionEsperada}) no coincide con ReversionR4 del consolidado ({consolidado.ReversionR4}).");
         }
     }
 
@@ -493,19 +541,19 @@ public sealed class ValidadorBasico : IValidador
         var sumaR1 = leaf.Conciliacion.Sum(c => c.VisibleR1);
         if (Math.Abs(sumaR1 - leaf.R1.TotalOportunoEsperadoPorAse) > Tolerancia)
         {
-            errores.Add($"ASE {leaf.Ase.Id}: Σ visibles de empresas en R1 ({sumaR1}) no coincide con el visible de bloque ({leaf.R1.TotalOportunoEsperadoPorAse}). Detalle: {DetalleEmpresas(leaf, c => c.VisibleR1)}");
+            AgregarError(errores, $"ASE {leaf.Ase.Id}: Σ visibles de empresas en R1 ({sumaR1}) no coincide con el visible de bloque ({leaf.R1.TotalOportunoEsperadoPorAse}). Detalle: {DetalleEmpresas(leaf, c => c.VisibleR1)}");
         }
 
         var sumaR2 = leaf.Conciliacion.Sum(c => c.VisibleR2);
         if (Math.Abs(sumaR2 - leaf.R2.TotalOportunoEsperado) > Tolerancia)
         {
-            errores.Add($"ASE {leaf.Ase.Id}: Σ visibles de empresas en R2 ({sumaR2}) no coincide con el visible de bloque ({leaf.R2.TotalOportunoEsperado}). Detalle: {DetalleEmpresas(leaf, c => c.VisibleR2)}");
+            AgregarError(errores, $"ASE {leaf.Ase.Id}: Σ visibles de empresas en R2 ({sumaR2}) no coincide con el visible de bloque ({leaf.R2.TotalOportunoEsperado}). Detalle: {DetalleEmpresas(leaf, c => c.VisibleR2)}");
         }
 
         var sumaR4 = leaf.Conciliacion.Sum(c => c.VisibleR4);
         if (Math.Abs(sumaR4 - leaf.R4.TotalReversionEsperada) > Tolerancia)
         {
-            errores.Add($"ASE {leaf.Ase.Id}: Σ visibles de empresas en R4 ({sumaR4}) no coincide con el visible de bloque ({leaf.R4.TotalReversionEsperada}). Detalle: {DetalleEmpresas(leaf, c => c.VisibleR4)}");
+            AgregarError(errores, $"ASE {leaf.Ase.Id}: Σ visibles de empresas en R4 ({sumaR4}) no coincide con el visible de bloque ({leaf.R4.TotalReversionEsperada}). Detalle: {DetalleEmpresas(leaf, c => c.VisibleR4)}");
         }
     }
 

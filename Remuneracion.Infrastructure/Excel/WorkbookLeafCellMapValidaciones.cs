@@ -36,6 +36,12 @@ public static class WorkbookLeafCellMapValidaciones
     public const string HojaValidaControlRecaudo = "Valida - Control Recaudo";
 
     /// <summary>
+    /// HU-14 (W-1): sub-bloques booleanos de <c>VALIDACION_TOTAL</c> gateados TRUE exacto por
+    /// ASE. Amparo T0-0.4 HU-13 (TRUE en ambos goldens; re-verificado por los tests W-1).
+    /// </summary>
+    public static readonly IReadOnlyList<string> SubBloquesValidacionTotal = ["C15", "D25", "O25", "D34", "F34"];
+
+    /// <summary>
     /// Sufijo de las hojas DetRetri/DetValiRetri por período: Q1 = 2026071, Q2 = 2026072.
     /// </summary>
     public static string SufijoHojasDetRetri(int numeroQuincena) =>
@@ -89,6 +95,14 @@ public static class WorkbookLeafCellMapValidaciones
         {
             lista.Add((HojaValidacionTotal, $"O{fila}", fila == 9 ? ["SUM", "O3", "O8"] : []));
             lista.Add((HojaValidacionTotal, $"P{fila}", []));
+        }
+
+        // HU-14 (W-1): sub-bloques booleanos de VALIDACION_TOTAL (C15/D25/O25/D34/F34) entran
+        // al mapa protegido con presencia de <f> (assert W2); el gate TRUE exacto vive en el
+        // validador (amparo T0-0.4 HU-13).
+        foreach (var celda in SubBloquesValidacionTotal)
+        {
+            lista.Add((HojaValidacionTotal, celda, []));
         }
 
         // Detalle Q1 (mapa Q2 ya cubierto por WorkbookLeafCellMapQ2.DetRetriProtected):

@@ -1,3 +1,5 @@
+using Serilog;
+using Remuneracion.Core.Errors;
 using Remuneracion.Core.Exceptions;
 using Remuneracion.Core.Interfaces;
 using Remuneracion.Core.Models;
@@ -6,6 +8,9 @@ namespace Remuneracion.Core.Services;
 
 /// <summary>
 /// Orquestador del caso de uso de remuneración para un único ASE.
+/// HU-14 (3.1 + 3.2): cada fail-fast porta un <see cref="CodigoError"/> del catálogo (D1);
+/// RunId por ejecución vía <c>Serilog.Context.LogContext</c> correlaciona los eventos (D5) y
+/// cada paso se registra con nivel y propiedades estructuradas (CA-6).
 /// </summary>
 public sealed class ProcesadorRemuneracion : IProcesadorRemuneracion
 {
@@ -33,42 +38,57 @@ public sealed class ProcesadorRemuneracion : IProcesadorRemuneracion
     {
         ArgumentNullException.ThrowIfNull(solicitud);
 
+        // HU-14 (3.2, D5): RunId por ejecución correlaciona todos los eventos del procesador.
+        var runId = Guid.NewGuid();
+        using var _runIdScope = Serilog.Context.LogContext.PushProperty("RunId", runId);
+        using var _periodoScope = Serilog.Context.LogContext.PushProperty("Periodo", solicitud.Periodo.CodigoCompleto);
+        using var _quincenaScope = Serilog.Context.LogContext.PushProperty("Quincena", solicitud.Periodo.NumeroQuincena);
+        using var _modoScope = Serilog.Context.LogContext.PushProperty("Modo", $"ASE {solicitud.Ase.Id}");
+
         progreso?.Report("Iniciando ejecución del procesador real.");
+        Log.Information("Iniciando ejecución del procesador real.");
         progreso?.Report($"Periodo: {solicitud.Periodo.CodigoCompleto}; ASE: {solicitud.Ase.Id} - {solicitud.Ase.NombreCompleto}");
+        Log.Information("Periodo: {Periodo}; ASE {AseId} ({Nombre})", solicitud.Periodo.CodigoCompleto, solicitud.Ase.Id, solicitud.Ase.NombreCompleto);
 
         if (string.IsNullOrWhiteSpace(solicitud.RutaR1) || string.IsNullOrWhiteSpace(solicitud.RutaR2) || string.IsNullOrWhiteSpace(solicitud.RutaR4))
         {
-            throw new ArchivoFuenteNoEncontradoException("Debe indicarse R1, R2 y R4 para ejecutar el proceso.");
+            throw new ArchivoFuenteNoEncontradoException(CodigoError.FuenteNoEncontrada, "Debe indicarse R1, R2 y R4 para ejecutar el proceso.");
         }
 
         if (string.IsNullOrWhiteSpace(solicitud.RutaPlantilla) || string.IsNullOrWhiteSpace(solicitud.RutaSalida))
         {
-            throw new ArchivoFuenteNoEncontradoException("Debe indicarse plantilla y ruta de salida.");
+            throw new ArchivoFuenteNoEncontradoException(CodigoError.Plantilla, "Debe indicarse plantilla y ruta de salida.");
         }
 
         progreso?.Report("Leyendo R1, R2 y R4...");
+        Log.Information("Leyendo R1, R2 y R4...");
         var r1 = _recaudoReader.LeerR1(solicitud.RutaR1);
         var r2 = _recaudoReader.LeerR2(solicitud.RutaR2);
         var r4 = _recaudoReader.LeerR4(solicitud.RutaR4);
 
         progreso?.Report("Calculando consolidado del ASE...");
+        Log.Information("Calculando consolidado del ASE...");
         var resultado = _calculoRemuneracion.CalcularConsolidado(solicitud.Periodo, [(solicitud.Ase, r1, r2, r4)]);
 
         progreso?.Report("Leyendo inputs leaf del workbook...");
+        Log.Information("Leyendo inputs leaf del workbook...");
         var leaf = _leafReader.LeerLeafInputs(solicitud.Ase, solicitud.Periodo, solicitud.RutaR1, solicitud.RutaR2, solicitud.RutaR4);
 
         progreso?.Report("Validando coherencia básica...");
+        Log.Information("Validando coherencia básica...");
         var errores = _validador.Validar(resultado, leaf);
         if (errores.Count > 0)
         {
             var detalle = string.Join("; ", errores);
-            throw new CalculoInvalidoException($"La validación básica falló: {detalle}");
+            throw new CalculoInvalidoException(CodigoError.Validacion, $"[{CodigoError.Validacion}] La validación básica falló: {detalle}");
         }
 
         progreso?.Report("Generando workbook de salida...");
+        Log.Information("Generando workbook de salida...");
         _workbookLeafWriter.GenerarWorkbook(solicitud.RutaPlantilla, solicitud.RutaSalida, resultado, leaf);
 
         progreso?.Report("Proceso completado correctamente.");
+        Log.Information("Proceso completado correctamente.");
 
         return new ResultadoProcesoAse
         {

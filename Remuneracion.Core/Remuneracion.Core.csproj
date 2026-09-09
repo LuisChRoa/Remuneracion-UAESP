@@ -6,4 +6,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- HU-14 (D5): Serilog core para LogContext (RunId). Ya está en el árbol vía
+         Serilog.Sinks.File de WinForms; es la misma versión 4.4.0 del proyecto. -->
+    <PackageReference Include="Serilog" Version="4.4.0" />
+  </ItemGroup>
+
 </Project>

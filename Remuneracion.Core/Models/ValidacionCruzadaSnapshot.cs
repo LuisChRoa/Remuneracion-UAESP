@@ -135,4 +135,12 @@ public sealed class ValidacionCruzadaSnapshot
     /// diferencia/booleana estable → sin gate numérico; el diccionario es informativo/log.
     /// </summary>
     public IReadOnlyDictionary<string, decimal> Controles { get; set; } = new Dictionary<string, decimal>();
+
+    /// <summary>
+    /// HU-14 (W-1): sub-bloques booleanos de <c>VALIDACION_TOTAL</c> (C15/D25/O25/D34/F34)
+    /// leídos del caché (celda → booleano). Golden Q1/Q2 = TRUE (amparo T0-0.4 HU-13).
+    /// Gate: == true exacto por ASE con error que nombra ASE · VALIDACION_TOTAL · celda.
+    /// Vacío = HU-13 puro (campo aditivo, compatibilidad).
+    /// </summary>
+    public IReadOnlyDictionary<string, bool> SubBloquesValidacionTotal { get; set; } = new Dictionary<string, bool>();
 }

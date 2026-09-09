@@ -1,9 +1,13 @@
 using System.IO;
+using System.Text.RegularExpressions;
 using Serilog;
+using Serilog.Context;
 using Remuneracion.Core.Constants;
+using Remuneracion.Core.Errors;
 using Remuneracion.Core.Exceptions;
 using Remuneracion.Core.Interfaces;
 using Remuneracion.Core.Models;
+using Remuneracion.Core.Services;
 using Remuneracion.Infrastructure.FileSystem;
 
 namespace Remuneracion.WinForms
@@ -19,6 +23,13 @@ namespace Remuneracion.WinForms
         private readonly IProcesadorRemuneracion _procesadorRemuneracion;
         private readonly IProcesadorPeriodo _procesadorPeriodo;
         private readonly ArchivoFuenteLocator _archivoFuenteLocator;
+
+        /// <summary>
+        /// HU-14 (3.1, D3): último código de salida registrado por esta ejecución (contrato
+        /// <see cref="CodigosSalida"/> para HU-15). WinForms lo REGISTRA (status + log) y NUNCA
+        /// lo emite con <c>Environment.Exit</c> (V6: GUI). Valores: 0 OK, 5 cancelado, 1..4 fallo.
+        /// </summary>
+        public int UltimoCodigoSalida { get; private set; } = CodigosSalida.Ok;
 
         public Form1(
             IProcesadorRemuneracion procesadorRemuneracion,
@@ -170,12 +181,24 @@ namespace Remuneracion.WinForms
             var rutaSalida = Path.Combine(txtCarpetaSalida.Text, periodo.NombreArchivo);
 
             var modoTexto = modoCincoAse ? "5 ASE" : $"ASE {aseSeleccionada}";
+
+            // HU-14 (3.2, D5): RunId por ejecución + propiedades de contexto. Se empuja AQUÍ
+            // (hilo UI) para que TODOS los eventos de la ejecución —el callback de progreso, los
+            // resúmenes y el catch— compartan el mismo RunId y sean filtrables en el log (CA-6).
+            var runId = Guid.NewGuid();
+            using var _runIdScope = LogContext.PushProperty("RunId", runId);
+            using var _periodoScope = LogContext.PushProperty("Periodo", PeriodoSeleccionado);
+            using var _modoScope = LogContext.PushProperty("Modo", modoTexto);
+
             txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Iniciando proceso — Período: {PeriodoSeleccionado}, Modo: {modoTexto}{Environment.NewLine}");
             Log.Information("Iniciando proceso de remuneración quincenal. Período: {Periodo}, Modo: {Modo}", PeriodoSeleccionado, modoTexto);
 
             if (string.Equals(Path.GetFullPath(txtPlantilla.Text), Path.GetFullPath(rutaSalida), StringComparison.OrdinalIgnoreCase))
             {
-                MessageBox.Show("La ruta de salida debe ser distinta a la plantilla original.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                // HU-14 (3.1): ERR-PLANTILLA con UX por catálogo (título + guía + código).
+                UltimoCodigoSalida = CodigosSalida.FuenteOPlantilla;
+                MostrarErrorUx(CodigoError.Plantilla, null);
+                toolStripStatusLabel.Text = $"Error {CodigoError.Plantilla} (salida {UltimoCodigoSalida})";
                 SetControlesHabilitados(true);
                 progressBar.Visible = false;
                 return;
@@ -191,8 +214,11 @@ namespace Remuneracion.WinForms
 
                 if (resultado != DialogResult.Yes)
                 {
+                    // HU-14 (3.1/3.2): cancelación = Warning + WARN-CANCELADO + salida 5 (contrato HU-15).
+                    UltimoCodigoSalida = CodigosSalida.CanceladoPorUsuario;
                     txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Proceso cancelado por decisión del usuario. Archivo de salida ya existe.{Environment.NewLine}");
-                    Log.Information("Proceso cancelado: salida ya existe y no se acepta sobreescritura.");
+                    Log.Warning("Proceso cancelado: salida ya existe y no se acepta sobreescritura. [{Codigo}]", CodigoError.CanceladoPorUsuario);
+                    toolStripStatusLabel.Text = $"Cancelado (salida {UltimoCodigoSalida})";
                     SetControlesHabilitados(true);
                     progressBar.Visible = false;
                     return;
@@ -204,7 +230,9 @@ namespace Remuneracion.WinForms
                 var progreso = new Progress<string>(mensaje =>
                 {
                     txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {mensaje}{Environment.NewLine}");
-                    Log.Information(mensaje);
+                    // HU-14 (3.2): el detalle/mensaje va al archivo en Debug (el archivo ya tiene
+                    // los hitos del procesador en Information; el box conserva todo como hoy, D4).
+                    Log.Debug(mensaje);
                     progressBar.Value = Math.Min(progressBar.Value + 1, progressBar.Maximum);
                 });
 
@@ -218,20 +246,48 @@ namespace Remuneracion.WinForms
                 }
 
                 progressBar.Value = progressBar.Maximum;
-                toolStripStatusLabel.Text = "Completado";
+                UltimoCodigoSalida = CodigosSalida.Ok;
+                toolStripStatusLabel.Text = $"Completado (salida {UltimoCodigoSalida})";
             }
             catch (Exception ex)
             {
-                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] ERROR: {ex.GetType().Name} — {ex.Message}{Environment.NewLine}");
-                Log.Error(ex, "Error en la ejecución del proceso.");
-                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                toolStripStatusLabel.Text = "Error";
+                // HU-14 (3.1): código del catálogo (ex.Codigo ?? ERR-INESPERADO), log con
+                // [CÓDIGO] + RunId en contexto, MessageBox por catálogo (nunca ex.Message crudo)
+                // y status con código de salida registrado (D3).
+                var codigo = ObtenerCodigoError(ex);
+                UltimoCodigoSalida = CatalogoErrores.CodigoSalidaPara(codigo);
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] ERROR [{codigo}]: {ex.GetType().Name} — {ex.Message}{Environment.NewLine}");
+                Log.Error(ex, "[{Codigo}] Error en la ejecución del proceso: {Mensaje}", codigo, ex.Message);
+                MostrarErrorUx(codigo, ex);
+                toolStripStatusLabel.Text = $"Error {codigo} (salida {UltimoCodigoSalida})";
             }
             finally
             {
                 progressBar.Visible = false;
                 SetControlesHabilitados(true);
             }
+        }
+
+        /// <summary>
+        /// HU-14 (3.1): código del catálogo para una excepción. Las 2 excepciones de dominio
+        /// portan <c>Codigo</c> (D1); cualquier otra = <see cref="CodigoError.Inesperado"/>.
+        /// </summary>
+        private static string ObtenerCodigoError(Exception ex) => ex switch
+        {
+            ArchivoFuenteNoEncontradoException archivo => archivo.Codigo,
+            CalculoInvalidoException calculo => calculo.Codigo,
+            _ => CodigoError.Inesperado
+        };
+
+        /// <summary>
+        /// HU-14 (3.1, D2): MessageBox con título + guía accionable del catálogo y el código
+        /// visible. El detalle técnico completo queda en el log (nunca ex.Message crudo como
+        /// texto principal del box).
+        /// </summary>
+        private static void MostrarErrorUx(string codigo, Exception? ex)
+        {
+            var (titulo, guia) = CatalogoErrores.Para(codigo, ex);
+            MessageBox.Show($"{guia} Código: {codigo}.", titulo, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private async Task EjecutarModoUnAse(Periodo periodo, string rutaSalida, IProgress<string> progreso)
@@ -283,7 +339,7 @@ namespace Remuneracion.WinForms
             {
                 var linea = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: TOT_OPT={leaf.R1.TotalOportunoEsperadoPorAse:0.##}; R2={leaf.R2.TotalOportunoEsperado:0.##}; EXTEMP={leaf.R1.ExtemporaneoEsperadoPorAse:0.##}; R4={leaf.R4.TotalReversionEsperada:0.##}";
                 txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {linea}{Environment.NewLine}");
-                Log.Information("ASE {AseId}: {Linea}", leaf.Ase.Id, linea);
+                Log.ForContext("AseId", leaf.Ase.Id).Debug("ASE {AseId}: {Linea}", leaf.Ase.Id, linea);
             }
 
             // HU-08 (2.2): resumen por empresa de facturación (esperado post-Excel) + Σ vs bloque.
@@ -293,7 +349,8 @@ namespace Remuneracion.WinForms
                 {
                     var lineaEmpresa = $"  ASE {leaf.Ase.Id} · {conc.Empresa.Nombre}: R1={conc.VisibleR1:0.##}; R2={conc.VisibleR2:0.##}; R4={conc.VisibleR4:0.##}";
                     txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaEmpresa}{Environment.NewLine}");
-                    Log.Information("ASE {AseId} empresa {Empresa}: {Linea}", leaf.Ase.Id, conc.Empresa.Nombre, lineaEmpresa);
+                    Log.ForContext("AseId", leaf.Ase.Id).ForContext("Empresa", conc.Empresa.Nombre)
+                        .Debug("ASE {AseId} empresa {Empresa}: {Linea}", leaf.Ase.Id, conc.Empresa.Nombre, lineaEmpresa);
                 }
             }
 
@@ -306,7 +363,7 @@ namespace Remuneracion.WinForms
                 {
                     var lineaRecaudo = $"  {recaudo.Empresa.Nombre}: OPORTUNO={recaudo.TotalOportuno:0.##}; EXTEMP={recaudo.TotalExtemporaneo:0.##}; TOTAL={recaudo.Total:0.##}";
                     txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaRecaudo}{Environment.NewLine}");
-                    Log.Information("Empresa {Empresa}: {Linea}", recaudo.Empresa.Nombre, lineaRecaudo);
+                    Log.ForContext("Empresa", recaudo.Empresa.Nombre).Debug("Empresa {Empresa}: {Linea}", recaudo.Empresa.Nombre, lineaRecaudo);
                 }
             }
 
@@ -323,22 +380,23 @@ namespace Remuneracion.WinForms
                         continue;
                     }
 
-                    foreach (var bloque in leaf.ReporteBanco.Ases)
-                    {
-                        foreach (var empresa in bloque.Empresas.OrderBy(e => e.Empresa))
+foreach (var bloque in leaf.ReporteBanco.Ases)
                         {
-                            var lineaBanco = $"  ASE {leaf.Ase.Id} · {empresa.Empresa}: FACT={empresa.AplicadosFacturacion:0.##}; SALDOS={empresa.SaldosFavorGenerados:0.##}; FINANC={empresa.FinanciacionesNuevas:0.##}; ESPEC={empresa.RecibosServEspeciales:0.##}; TOTAL={empresa.Total:0.##}";
-                            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaBanco}{Environment.NewLine}");
-                            Log.ForContext("Hoja", "REPORTE RECAUDO x BANCO")
-                                .Information("ASE {AseId} · {Empresa}: {Linea}", leaf.Ase.Id, empresa.Empresa, lineaBanco);
+                            foreach (var empresa in bloque.Empresas.OrderBy(e => e.Empresa))
+                            {
+                                var lineaBanco = $"  ASE {leaf.Ase.Id} · {empresa.Empresa}: FACT={empresa.AplicadosFacturacion:0.##}; SALDOS={empresa.SaldosFavorGenerados:0.##}; FINANC={empresa.FinanciacionesNuevas:0.##}; ESPEC={empresa.RecibosServEspeciales:0.##}; TOTAL={empresa.Total:0.##}";
+                                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaBanco}{Environment.NewLine}");
+                                Log.ForContext("Hoja", "REPORTE RECAUDO x BANCO")
+                                    .ForContext("AseId", leaf.Ase.Id).ForContext("Empresa", empresa.Empresa)
+                                    .Debug("ASE {AseId} · {Empresa}: {Linea}", leaf.Ase.Id, empresa.Empresa, lineaBanco);
+                            }
                         }
-                    }
                 }
 
                 var quincena = resultadoProceso.Leafs.First(l => l.ReporteBanco is not null).ReporteBanco!.Quincena;
                 txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}]  C59 (quincena) = {quincena}; diferencias filas 59–80 informativas (anulado/reversado misma quincena, esperadas ≠ 0).{Environment.NewLine}");
                 Log.ForContext("Hoja", "REPORTE RECAUDO x BANCO")
-                    .Information("C59 = {Quincena}; diferencias 59-80 informativas (anulado/reversado).", quincena);
+                    .Debug("C59 = {Quincena}; diferencias 59-80 informativas (anulado/reversado).", quincena);
             }
 
             // HU-10 (2.4, §2.6): balance de subsidios y contribuciones — por ASE (Subsidio E /
@@ -361,13 +419,14 @@ namespace Remuneracion.WinForms
                         var lineaBce = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: CONTRIBUCION(D)={bloque.Contribucion:0.##}; SUBSIDIO(E)={bloque.Subsidio:0.##}; TOTAL BSC(F)={bloque.TotalBsc:0.##}; H≈F por fórmula (DetRetri J{8 + leaf.Ase.Id})";
                         txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaBce}{Environment.NewLine}");
                         Log.ForContext("Hoja", "BCE SC POR FACT.")
-                            .Information("ASE {AseId}: {Linea}", leaf.Ase.Id, lineaBce);
+                            .ForContext("AseId", leaf.Ase.Id)
+                            .Debug("ASE {AseId}: {Linea}", leaf.Ase.Id, lineaBce);
                     }
                 }
 
                 txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}]  CONSOLIDADO J9:J13 y K/M calculan por fórmulas desde BCE F3:F7 (verificar post-Excel en Capa B).{Environment.NewLine}");
                 Log.ForContext("Hoja", "BCE SC POR FACT.")
-                    .Information("CONSOLIDADO J9:J13 y K/M calculan por fórmulas desde BCE F3:F7 (Capa B).");
+                    .Debug("CONSOLIDADO J9:J13 y K/M calculan por fórmulas desde BCE F3:F7 (Capa B).");
             }
 
                 // HU-11 (2.5, §2.6): AJUSTES-SF-T por ASE (saldos-nota / retribución-negativa / total
@@ -388,7 +447,8 @@ namespace Remuneracion.WinForms
                     var lineaAjustes = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: SALDOS-NOTA={ajustes.SaldosNotas.TotalSaldosNotas:0.##}; RETRIBUCION-NEGATIVA={ajustes.RetribucionNegativa.TotalRetribucionNegativa:0.##}; TOTAL AJUSTES(D{84 + leaf.Ase.Id})={ajustes.TotalAjustes:0.##}";
                     txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaAjustes}{Environment.NewLine}");
                     Log.ForContext("Hoja", "AJUSTES - SF-T")
-                        .Information("ASE {AseId}: {Linea}", leaf.Ase.Id, lineaAjustes);
+                        .ForContext("AseId", leaf.Ase.Id)
+                        .Debug("ASE {AseId}: {Linea}", leaf.Ase.Id, lineaAjustes);
                 }
             }
 
@@ -410,7 +470,8 @@ namespace Remuneracion.WinForms
                     var lineaDetRetri = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: D104:D108={detalle.TotalD104:0.##}; DetRetri-D(D{8 + leaf.Ase.Id})={detalle.Detalle:0}";
                     txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaDetRetri}{Environment.NewLine}");
                     Log.ForContext("Hoja", "DetRetri2026072")
-                        .Information("ASE {AseId}: {Linea}", leaf.Ase.Id, lineaDetRetri);
+                        .ForContext("AseId", leaf.Ase.Id)
+                        .Debug("ASE {AseId}: {Linea}", leaf.Ase.Id, lineaDetRetri);
                 }
             }
 
@@ -419,11 +480,60 @@ namespace Remuneracion.WinForms
             if (resultadoProceso.Validaciones.Count > 0)
             {
                 txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] VALIDACIONES (oráculo read-only; verificación post-Excel = Capa B manual):{Environment.NewLine}");
+                Log.Information("VALIDACIONES (oráculo read-only; verificación post-Excel = Capa B manual):");
+                int? aseIdActual = null;
                 foreach (var linea in resultadoProceso.Validaciones)
                 {
                     txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {linea}{Environment.NewLine}");
-                    Log.ForContext("Validacion", "cruzada")
-                        .Information("{Linea}", linea);
+                    // HU-14 (W-3): la propiedad Validacion lleva el nombre REAL de la validación
+                    // (VALIDACION_ENEL, DetValiRetri, VALIDACION_TOTAL, …) — nunca el literal
+                    // "cruzada" — y AseId como propiedad; plantilla estructurada donde la línea
+                    // lo permite (empresa y total), no solo {Linea} preformateada.
+                    var encabezado = Regex.Match(linea, @"^ASE (\d+) VALIDACIONES:$");
+                    if (encabezado.Success)
+                    {
+                        aseIdActual = int.Parse(encabezado.Groups[1].Value);
+                        Log.ForContext("AseId", aseIdActual.Value).Debug("VALIDACIONES del ASE {AseId}", aseIdActual.Value);
+                        continue;
+                    }
+
+                    var lineaEmpresa = Regex.Match(linea, @"^  (.+?): O \(Recaudo vs REMUNERACION\) = ([-0-9.,]+); P \(INT\(O\)=0\) = (TRUE|FALSE)$");
+                    if (lineaEmpresa.Success)
+                    {
+                        var empresa = EmpresaFacturacion.Catalogo.FirstOrDefault(e => e.Nombre == lineaEmpresa.Groups[1].Value);
+                        var validacionEmpresa = empresa?.HojaValidacion ?? lineaEmpresa.Groups[1].Value;
+                        var logEvento = Log.ForContext("Validacion", validacionEmpresa);
+                        if (aseIdActual is not null)
+                        {
+                            logEvento = logEvento.ForContext("AseId", aseIdActual.Value);
+                        }
+
+                        logEvento.Debug("Empresa {Empresa}: O (Recaudo vs REMUNERACION) = {O:0.###}; P (INT(O)=0) = {P}",
+                            lineaEmpresa.Groups[1].Value, decimal.Parse(lineaEmpresa.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture), lineaEmpresa.Groups[3].Value);
+                        continue;
+                    }
+
+                    var lineaTotal = Regex.Match(linea, @"^  VALIDACION_TOTAL O9 = ([-0-9.,]+); P9 = (TRUE|FALSE)$");
+                    if (lineaTotal.Success)
+                    {
+                        var logTotal = Log.ForContext("Validacion", "VALIDACION_TOTAL");
+                        if (aseIdActual is not null)
+                        {
+                            logTotal = logTotal.ForContext("AseId", aseIdActual.Value);
+                        }
+
+                        logTotal.Debug("VALIDACION_TOTAL O9 = {O9:0.###}; P9 = {P9}",
+                            decimal.Parse(lineaTotal.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture), lineaTotal.Groups[2].Value);
+                        continue;
+                    }
+
+                    var logDetalle = Log.ForContext("Validacion", linea.Contains("DetValiRetri", StringComparison.Ordinal) ? "DetValiRetri" : "VALIDACIONES");
+                    if (aseIdActual is not null)
+                    {
+                        logDetalle = logDetalle.ForContext("AseId", aseIdActual.Value);
+                    }
+
+                    logDetalle.Debug("{Linea}", linea);
                 }
             }
 
@@ -456,14 +566,15 @@ namespace Remuneracion.WinForms
         private static Ase ParseAse(string texto)
         {
             var numero = texto.Split('-')[0].Trim();
-            var nombre = texto.Contains('-') ? texto[(texto.IndexOf('-') + 1)..].Trim() : texto.Trim();
-            return new Ase
+            // HU-14 (S-3): se conserva el parseo del combo (UI), pero la construcción valida
+            // contra CarpetasAse.Prefijos vía AseFactory.DesdeId (fuente única; id fuera de
+            // 1..5 = fail-fast nombrado).
+            if (!int.TryParse(numero, out var id))
             {
-                Id = int.Parse(numero),
-                NombreCompleto = nombre,
-                NombreCorto = nombre.ToUpperInvariant(),
-                NumeroCarpeta = int.Parse(numero)
-            };
+                throw new ArchivoFuenteNoEncontradoException(CodigoError.FuenteNoEncontrada, $"No se pudo interpretar el ASE seleccionado: '{texto}'.");
+            }
+
+            return AseFactory.DesdeId(id);
         }
 
         private void SetControlesHabilitados(bool habilitados)
@@ -484,8 +595,18 @@ namespace Remuneracion.WinForms
 
         private void ConfigurarSerilog()
         {
+            // HU-14 (3.2, D6): rolling diario (mismo prefijo ./remuneracion_log_*, 30 días),
+            // MinimumLevel.Debug y template estructurado con las propiedades buscables
+            // (RunId/Periodo/AseId/Hoja/Validacion). El detalle Debug va SOLO al archivo; el
+            // txtLog conserva los hitos (D4).
             Log.Logger = new LoggerConfiguration()
-                .WriteTo.File("remuneracion_log.txt")
+                .MinimumLevel.Debug()
+                .Enrich.FromLogContext() // D5: LogContext (RunId/Periodo/Modo) adjunta las propiedades a cada evento
+                .WriteTo.File(
+                    "remuneracion_log_.txt",
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 30,
+                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] (RunId={RunId} Periodo={Periodo} AseId={AseId} Hoja={Hoja} Validacion={Validacion}) {Message:lj}{NewLine}{Exception}")
                 .CreateLogger();
         }
     }

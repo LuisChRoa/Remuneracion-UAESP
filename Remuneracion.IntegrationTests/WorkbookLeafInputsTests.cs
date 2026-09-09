@@ -70,8 +70,7 @@ public sealed class WorkbookLeafInputsTests
         Assert.False(File.Exists(salida));
     }
 
-    private static Ase CrearAse() =>
-        new() { Id = 1, NombreCorto = "PROMOAMBIENTAL", NombreCompleto = "Promoambiental", NumeroCarpeta = 1 };
+    private static Ase CrearAse() => AseFactory.DesdeId(1); // HU-14 (S-3): factoría única
 
     private static Periodo CrearPeriodo() =>
         new() { CodigoAAAAMM = "202607", NumeroQuincena = 1 };
