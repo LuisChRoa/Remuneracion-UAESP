@@ -15,6 +15,10 @@ namespace Remuneracion.Infrastructure.Excel;
 /// HU-05: escritura real de celdas leaf sobre una copia (<see cref="IWorkbookLeafWriter"/>).
 /// HU-07: overload multi-ASE con mapa por bloque (<see cref="WorkbookLeafCellMapPorAse"/>),
 /// una sola copia, validación pre/post ampliada y borrado de parcial ante fallo.
+/// HU-11 (2.5): en Q2 escribe los operandos editables de SALDOS POR NOTA / RETRIBUCION NEGATIVA
+/// en la MISMA pasada atómica (D2a: T0-0.7 demostró bloques de valores editables) y amplía la
+/// validación protegida a la cadena AJUSTES-SF-T (mapa <see cref="WorkbookLeafCellMapAjustesSfT"/>
+/// + HU-10 parametrizado al sufijo de hoja 2026072).
 /// </summary>
 public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 {
@@ -24,6 +28,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
     private const string HojaR4 = WorkbookLeafCellMap.HojaR4;
     private const string HojaBanco = WorkbookLeafCellMapReporteBanco.HojaBanco;
     private const string HojaBce = WorkbookLeafCellMapBalanceSc.HojaBce;
+    private const string HojaSaldosNotas = WorkbookLeafCellMapAjustesSfT.HojaSaldosNotas;
+    private const string HojaRetribucionNegativa = WorkbookLeafCellMapAjustesSfT.HojaRetribucionNegativa;
+    private const string SufijoHojasQ1 = "2026071";
+    private const string SufijoHojasQ2 = "2026072";
 
     public void EscribirConsolidado(string rutaPlantilla, ResultadoRemuneracion resultado)
     {
@@ -171,6 +179,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
             WorkbookLeafCoherence.ValidarSigmaEmpresas(leaf.Conciliacion, leaf);
         }
 
+        // HU-11 (2.5): el sufijo de las hojas DetRetri/DetValiRetri depende del período.
+        // Q1 = 2026071 (mapa HU-10 intacto); Q2 = 2026072 (mapa parametrizado + mapa 2.5).
+        var esQuincena2 = leafInputs.Any(l => l.Periodo.NumeroQuincena == 2);
+
         var directorioSalida = Path.GetDirectoryName(rutaSalida);
         if (!string.IsNullOrWhiteSpace(directorioSalida))
         {
@@ -185,13 +197,14 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
             {
                 var workbookPart = workbook.WorkbookPart
                     ?? throw new CalculoInvalidoException("El workbook abierto no tiene WorkbookPart válido.");
-                ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook));
+                ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook), esQuincena2);
                 foreach (var leaf in leafInputs.OrderBy(l => l.Ase.Id))
                 {
                     EscribirCeldasLeafPorAse(workbookPart, leaf);
                     EscribirCeldasEmpresa(workbookPart, leaf);
                     EscribirCeldasBanco(workbookPart, leaf);
                     EscribirCeldasBalanceSc(workbookPart, leaf);
+                    EscribirCeldasAjustesSfT(workbookPart, leaf);
                 }
 
                 var workbookXml = workbookPart.Workbook
@@ -203,7 +216,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
             {
                 var workbookPart = workbook.WorkbookPart
                     ?? throw new CalculoInvalidoException("El workbook generado no tiene WorkbookPart válido.");
-                ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook));
+                ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook), esQuincena2);
             }
         }
         catch
@@ -436,9 +449,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
     /// Valida el mapa ampliado: visibles de cada bloque ASE (R1/R2/R4) + filas CONSOLIDADO
     /// D9:D13/D28:D32/D47:D51/D66:D70/D85:D89/D104:D108/D109 con shared-formula awareness,
     /// + mapa 2.2 (HU-08): <c>REMUNERACION_*</c>, <c>VALIDACION_*</c>, <c>GERENTES_*</c>,
-    /// <c>Recaudo *</c> fila 29+ (D6).
+    /// <c>Recaudo *</c> fila 29+ (D6) + HU-09 (banco) + HU-10 (BCE, parametrizado al período).
+    /// HU-11 (2.5): en Q2 además valida la cadena AJUSTES-SF-T (<see cref="WorkbookLeafCellMapAjustesSfT.Protegidas"/>).
     /// </summary>
-    private static void ValidarFormulasProtegidasMultiAse(WorkbookPart workbookPart, string operacion)
+    private static void ValidarFormulasProtegidasMultiAse(WorkbookPart workbookPart, string operacion, bool esQuincena2)
     {
         foreach (var aseId in WorkbookLeafCellMapPorAse.EditableLeafCellsPorAse.Keys.OrderBy(k => k))
         {
@@ -477,12 +491,47 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 
         // HU-10 (2.4, D6): mapa de fórmulas protegidas 2.4 (BCE F/I/H + filas 9/10/11/12/13 +
         // bloque 18–24 + CONSOLIDADO J/K/M + refs DetRetri/DetValiRetri). Jamás se escriben.
-        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapBalanceSc.Protegidas)
+        // HU-11 (2.5): el sufijo de las hojas DetRetri/DetValiRetri depende del período; el mapa
+        // HU-10 queda intacto (Q1 = 2026071) y en Q2 se parametriza al sufijo 2026072.
+        foreach (var (hoja, celda, fragmentos) in ProtegidasBceParaPeriodo(esQuincena2))
         {
             var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
             ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
         }
+
+        // HU-11 (2.5, Requirement 7): cadena AJUSTES-SF-T protegida (visibles SALDOS/RETRIBUCION,
+        // AJUSTES D9:D13/D28:D32/D47:D51, CONSOLIDADO D85:D89, INTERVENTORIA, ANT EXT-REV).
+        if (esQuincena2)
+        {
+            foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapAjustesSfT.Protegidas)
+            {
+                var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+                ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
+            }
+        }
     }
+
+    /// <summary>
+    /// HU-11 (2.5): devuelve el mapa protegido BCE con el sufijo de hojas DetRetri/DetValiRetri
+    /// correcto para el período (Q1 = 2026071 intacto; Q2 = 2026072). El mapa HU-10 NO se toca
+    /// (regla del plan): solo se parametriza su interpretación por período.
+    /// </summary>
+    private static IEnumerable<(string Hoja, string Celda, string[] Fragmentos)> ProtegidasBceParaPeriodo(bool esQuincena2)
+    {
+        if (!esQuincena2)
+        {
+            return WorkbookLeafCellMapBalanceSc.Protegidas;
+        }
+
+        return WorkbookLeafCellMapBalanceSc.Protegidas
+            .Select(p => (
+                ReemplazarSufijo(p.Hoja),
+                p.Celda,
+                p.Fragmentos.Select(ReemplazarSufijo).ToArray()));
+    }
+
+    private static string ReemplazarSufijo(string texto) =>
+        texto.Replace(SufijoHojasQ1, SufijoHojasQ2, StringComparison.Ordinal);
 
     /// <summary>
     /// Filas CONSOLIDADO del mapa ampliado multi-ASE (plan §2.3): D9:D13, D28:D32, D47:D51,
@@ -724,6 +773,33 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
         var editables = WorkbookLeafCellMapBalanceSc.ObtenerEditables(leaf.Ase.Id);
         EscribirValorNumerico(workbookPart, HojaBce, editables.Contribucion, bloque.Contribucion, $"BCE.Contribucion.ASE{leaf.Ase.Id}");
         EscribirValorNumerico(workbookPart, HojaBce, editables.Subsidio, bloque.Subsidio, $"BCE.Subsidio.ASE{leaf.Ase.Id}");
+    }
+
+    /// <summary>
+    /// HU-11 (2.5): escribe los operandos editables de SALDOS POR NOTA y RETRIBUCION NEGATIVA
+    /// del ASE (bloques de valores T0-0.7) en la MISMA pasada atómica HU-07..HU-10 (D2a/G8).
+    /// <c>AjustesSfT == null</c> = comportamiento HU-10 puro (Q1, G3). Los visibles Cn-In de
+    /// cada bloque, la hoja AJUSTES-SF-T, INTERVENTORIA y ANT EXT-REV son fórmulas protegidas
+    /// (mapa <see cref="WorkbookLeafCellMapAjustesSfT.Protegidas"/> + guard de
+    /// <see cref="EscribirValorNumerico"/>) → jamás se escriben. La columna I (Especiales) del
+    /// template se escribe con 0 (fuente sin esa columna, T0-0.5).
+    /// </summary>
+    private static void EscribirCeldasAjustesSfT(WorkbookPart workbookPart, WorkbookLeafInputs leaf)
+    {
+        if (leaf.AjustesSfT is null)
+        {
+            return; // HU-10 puro (Q1): sin escrituras 2.5.
+        }
+
+        foreach (var (celda, valor) in leaf.AjustesSfT.SaldosNotas.Celdas)
+        {
+            EscribirValorNumerico(workbookPart, HojaSaldosNotas, celda, valor, $"SaldosNotas.ASE{leaf.Ase.Id}.{celda}");
+        }
+
+        foreach (var (celda, valor) in leaf.AjustesSfT.RetribucionNegativa.Celdas)
+        {
+            EscribirValorNumerico(workbookPart, HojaRetribucionNegativa, celda, valor, $"RetribucionNegativa.ASE{leaf.Ase.Id}.{celda}");
+        }
     }
 
     private static void EscribirValorNumerico(WorkbookPart workbookPart, string hoja, string celda, decimal valor, string nombre)

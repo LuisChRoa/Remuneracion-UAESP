@@ -71,4 +71,28 @@ public interface IWorkbookLeafInputReader
     /// <param name="rutaBalance">Ruta del archivo <c>R4-BalanceSubsidioyContribuciones_*</c>.</param>
     /// <returns>Inputs del balance del ASE (Subsidio + Contribucion + TotalFuente).</returns>
     BalanceScInputs LeerBalanceSc(Ase ase, Periodo periodo, string rutaBalance);
+
+    /// <summary>
+    /// HU-11 (2.5, D3): lee el bloque SALDOS POR NOTA del ASE desde
+    /// <c>SaldosaFavorAplicadosPorNotas_*.xlsx</c> (búsqueda header-driven por títulos, patrón R2;
+    /// columna "Especiales" opcional — ausente → 0). Fail-fast: si falta un header esperado del
+    /// mapa T0-0.7, lanza <c>CalculoInvalidoException</c> que nombra el ASE (nunca valor inventado).
+    /// La aritmética de dominio <see cref="SaldosNotasAseInputs.TotalSaldosNotas"/> replica el
+    /// visible Cn-In del template (composición T0-0.3).
+    /// </summary>
+    /// <param name="ase">ASE asociado.</param>
+    /// <param name="rutaSaldosNotas">Ruta del archivo <c>SaldosaFavorAplicadosPorNotas_*</c>.</param>
+    /// <returns>Inputs del bloque SALDOS POR NOTA del ASE.</returns>
+    SaldosNotasAseInputs LeerSaldosNotas(Ase ase, string rutaSaldosNotas);
+
+    /// <summary>
+    /// HU-11 (2.5, D3): lee el bloque RETRIBUCION NEGATIVA del ASE desde
+    /// <c>RetribuciónNegativa_*.xlsx</c> (búsqueda header-driven por títulos; valores negativos
+    /// por componente). Distingue "fuente vacía = 0 legítimo" (Q2 trae archivos solo con el rango
+    /// de fechas) de "header ausente = fallo que nombra ASE + reporte" (Riesgo 6).
+    /// </summary>
+    /// <param name="ase">ASE asociado.</param>
+    /// <param name="rutaRetribucionNegativa">Ruta del archivo <c>RetribuciónNegativa_*</c>.</param>
+    /// <returns>Inputs del bloque RETRIBUCION NEGATIVA del ASE.</returns>
+    RetribucionNegativaAseInputs LeerRetribucionNegativa(Ase ase, string rutaRetribucionNegativa);
 }

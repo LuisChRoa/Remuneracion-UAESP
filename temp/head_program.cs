@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -176,9 +176,7 @@ internal static class Program
 
                 try
                 {
-                    // Lista tipada explícita: desambigua la sobrecarga HU-11 (con ajustes) de la
-                    // HU-07 original (sin ajustes) cuando la colección está vacía.
-                    calculo.CalcularConsolidado(periodo, new List<(Ase ase, RecaudoComponenteR1 r1, SaldosFavorR2 r2, ReversionR4 r4)>());
+                    calculo.CalcularConsolidado(periodo, []);
                     Console.WriteLine("    ERROR: No se lanzó excepción por lista vacía");
                     return false;
                 }

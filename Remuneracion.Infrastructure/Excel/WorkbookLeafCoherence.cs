@@ -190,5 +190,15 @@ internal static class WorkbookLeafCoherence
             "R4.TotalReversionEsperada vs ConsolidadoAse.ReversionR4",
             leaf.R4.TotalReversionEsperada,
             consolidado.ReversionR4);
+
+        // HU-11 (2.5, §2.5 regla 6): coherencia leaf ajustes vs consolidado con matcheo estricto
+        // por Ase.Id. AjustesSfT == null = comportamiento HU-10 puro (Q1) — sin gate.
+        if (leaf.AjustesSfT is not null)
+        {
+            AsegurarDentroDeTolerancia(
+                $"ASE {leaf.Ase.Id} AJUSTES-SF-T: TotalAjustes (composición T0-0.3) vs ConsolidadoAse.AjustesSfT",
+                leaf.AjustesSfT.TotalAjustes,
+                consolidado.AjustesSfT);
+        }
     }
 }

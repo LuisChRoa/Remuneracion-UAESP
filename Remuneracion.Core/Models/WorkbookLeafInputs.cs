@@ -56,4 +56,11 @@ public sealed class WorkbookLeafInputs
     /// plan §0.4 G6 / §8).
     /// </summary>
     public BalanceScInputs? BalanceSc { get; set; }
+
+    /// <summary>
+    /// HU-11 (2.5): composición AJUSTES-SF-T para este ASE (SALDOS POR NOTA + RETRIBUCION
+    /// NEGATIVA → <see cref="ConsolidadoAse.AjustesSfT"/> en Q2). <c>null</c> = comportamiento
+    /// HU-10 puro (Q1, plan §2.4 G3); en Q2 el proceso SIEMPRE lo puebla (fail-fast si falta).
+    /// </summary>
+    public AjustesSfTInputs? AjustesSfT { get; set; }
 }

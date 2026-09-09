@@ -370,13 +370,36 @@ namespace Remuneracion.WinForms
                     .Information("CONSOLIDADO J9:J13 y K/M calculan por fórmulas desde BCE F3:F7 (Capa B).");
             }
 
-                // GranTotal honesto post-Excel = Σ visibles leaf por ASE (nunca agregados HU-02 como
-                // valores CONSOLIDADO; A5).
+                // HU-11 (2.5, §2.6): AJUSTES-SF-T por ASE (saldos-nota / retribución-negativa / total
+            // esperado post-Excel) + D85:D89 esperado. Solo en Q2 (leaf.AjustesSfT != null).
+            if (resultadoProceso.Leafs.Any(l => l.AjustesSfT is not null))
+            {
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] AJUSTES-SF-T (esperado post-Excel; hoja formulada, no escrita):{Environment.NewLine}");
+                Log.ForContext("Hoja", "AJUSTES - SF-T")
+                    .Information("AJUSTES-SF-T: esperados post-Excel por ASE (Q2).");
+                foreach (var leaf in resultadoProceso.Leafs.OrderBy(l => l.Ase.Id))
+                {
+                    if (leaf.AjustesSfT is null)
+                    {
+                        continue;
+                    }
+
+                    var ajustes = leaf.AjustesSfT;
+                    var lineaAjustes = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: SALDOS-NOTA={ajustes.SaldosNotas.TotalSaldosNotas:0.##}; RETRIBUCION-NEGATIVA={ajustes.RetribucionNegativa.TotalRetribucionNegativa:0.##}; TOTAL AJUSTES(D{84 + leaf.Ase.Id})={ajustes.TotalAjustes:0.##}";
+                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaAjustes}{Environment.NewLine}");
+                    Log.ForContext("Hoja", "AJUSTES - SF-T")
+                        .Information("ASE {AseId}: {Linea}", leaf.Ase.Id, lineaAjustes);
+                }
+            }
+
+            // GranTotal honesto post-Excel = Σ visibles leaf por ASE (nunca agregados HU-02 como
+            // valores CONSOLIDADO; A5).
             var granTotal = resultadoProceso.Leafs.Sum(l =>
                 l.R1.TotalOportunoEsperadoPorAse
                 + l.R2.TotalOportunoEsperado
                 + l.R1.ExtemporaneoEsperadoPorAse
-                + l.R4.TotalReversionEsperada);
+                + l.R4.TotalReversionEsperada
+                + (l.AjustesSfT?.TotalAjustes ?? 0m));
             txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] GranTotal CONSOLIDADO (Σ visibles post-Excel) = {granTotal:0.##}; salida = {rutaSalida}{Environment.NewLine}");
             Log.Information("GranTotal CONSOLIDADO (Σ visibles post-Excel) = {GranTotal}; salida = {Salida}", granTotal, rutaSalida);
         }

@@ -50,4 +50,23 @@ public interface ILocalizadorArchivosAse
     /// <param name="carpetaAse">Carpeta del ASE.</param>
     /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
     string? BuscarBalance(string carpetaAse);
+
+    /// <summary>
+    /// HU-11 (2.5, D4): localiza el <c>SaldosaFavorAplicadosPorNotas_*.xlsx</c> dentro de la
+    /// carpeta del ASE (prefijo nuevo, sin fechas; match agnóstico a rango — V3: ASE4 trae
+    /// rango 16072026–31072026 y los demás 0107–3107).
+    /// </summary>
+    /// <param name="carpetaAse">Carpeta del ASE.</param>
+    /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
+    string? BuscarSaldosNotas(string carpetaAse);
+
+    /// <summary>
+    /// HU-11 (2.5, D4): localiza el <c>RetribuciónNegativa_*.xlsx</c> dentro de la carpeta del
+    /// ASE. El nombre en disco lleva diacríticos (V9: <c>RetribuciónNegativa_…</c>); el matcher
+    /// NORMALIZA (lowercase + strip diacríticos + prefijo sin fechas) — nunca un literal con
+    /// acento frágil ni un rango de fechas.
+    /// </summary>
+    /// <param name="carpetaAse">Carpeta del ASE.</param>
+    /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
+    string? BuscarRetribucionNegativa(string carpetaAse);
 }

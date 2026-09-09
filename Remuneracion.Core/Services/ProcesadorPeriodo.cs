@@ -63,7 +63,9 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         }
 
         var datos = new List<(Ase ase, RecaudoComponenteR1 r1, SaldosFavorR2 r2, ReversionR4 r4)>();
+        var datosConAjustes = new List<(Ase ase, RecaudoComponenteR1 r1, SaldosFavorR2 r2, ReversionR4 r4, decimal ajustesSfT)>();
         var leafs = new List<WorkbookLeafInputs>();
+        var esQuincena2 = solicitud.Periodo.NumeroQuincena == 2;
 
         for (var idAse = 1; idAse <= 5; idAse++)
         {
@@ -91,8 +93,20 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             var leaf = _leafReader.LeerLeafInputs(ase, solicitud.Periodo, rutaR1, rutaR2, rutaR4);
 
             // HU-08 (2.2): conciliación por empresa de facturación de este ASE (fail-fast ASE+empresa).
-            progreso?.Report($"ASE {idAse}: leyendo conciliación por empresa (R1/R2/R4)...");
-            leaf.Conciliacion = _leafReader.LeerConciliacionEmpresas(ase, solicitud.Periodo, rutaR1, rutaR2, rutaR4);
+            // RECORTE HONESTO T0-0.6 (Riesgo 5): en Q2 el layout del R4 por empresa DIVERGE del Q1
+            // (ASE2 trae ENEL+OCCIDENTE, no RECIPROCIDAD/"NUEVO ESQUEMA"; el template Q2 tampoco
+            // tiene esa fila). El mapa HU-08 está congelado para Q1 y el plan §0.2 prohíbe
+            // reescribirlo → la conciliación por empresa y las hojas Recaudo * se omiten en Q2
+            // (leaf.Conciliacion/Recaudos vacíos = comportamiento HU-07 puro para validador/writer).
+            if (!esQuincena2)
+            {
+                progreso?.Report($"ASE {idAse}: leyendo conciliación por empresa (R1/R2/R4)...");
+                leaf.Conciliacion = _leafReader.LeerConciliacionEmpresas(ase, solicitud.Periodo, rutaR1, rutaR2, rutaR4);
+            }
+            else
+            {
+                progreso?.Report($"ASE {idAse}: conciliación por empresa omitida en Q2 (recorte T0-0.6: layout R4 divergente vs Q1).");
+            }
 
             // HU-09 (2.3): reporte de recaudo por banco de este ASE (fail-fast ASE+empresa-columna).
             var rutaBanco = _localizador.BuscarReporteBanco(carpetaAse)
@@ -110,22 +124,54 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             progreso?.Report($"ASE {idAse}: leyendo balance de subsidios y contribuciones...");
             leaf.BalanceSc = _leafReader.LeerBalanceSc(ase, solicitud.Periodo, rutaBalance);
 
+            // HU-11 (2.5, path Q2): SALDOS POR NOTA + RETRIBUCION NEGATIVA por ASE (fail-fast
+            // nombra ASE + reporte; locator agnóstico a rango y diacríticos, D4). En Q1 el
+            // paso 2.5 se OMITE (AjustesSfT = null, comportamiento HU-10 intacto, G3).
+            if (esQuincena2)
+            {
+                var rutaSaldosNotas = _localizador.BuscarSaldosNotas(carpetaAse)
+                    ?? throw new ArchivoFuenteNoEncontradoException(
+                        $"No se encontró SaldosaFavorAplicadosPorNotas del ASE {idAse} en {carpetaAse}.");
+                var rutaRetribucionNegativa = _localizador.BuscarRetribucionNegativa(carpetaAse)
+                    ?? throw new ArchivoFuenteNoEncontradoException(
+                        $"No se encontró RetribuciónNegativa del ASE {idAse} en {carpetaAse}.");
+
+                progreso?.Report($"ASE {idAse}: leyendo SALDOS POR NOTA y RETRIBUCION NEGATIVA...");
+                leaf.AjustesSfT = new AjustesSfTInputs
+                {
+                    Ase = ase,
+                    SaldosNotas = _leafReader.LeerSaldosNotas(ase, rutaSaldosNotas),
+                    RetribucionNegativa = _leafReader.LeerRetribucionNegativa(ase, rutaRetribucionNegativa)
+                };
+            }
+
             datos.Add((ase, r1, r2, r4));
+            if (esQuincena2)
+            {
+                datosConAjustes.Add((ase, r1, r2, r4, leaf.AjustesSfT?.TotalAjustes ?? 0m));
+            }
+
             leafs.Add(leaf);
         }
 
         // HU-08 (2.2): hojas Recaudo * ← Consolidado/Conciliaciones (T0-0.6). Se leen una vez
         // y se comparten en los 5 leafs; fail-fast nombra la empresa si falta su archivo.
-        progreso?.Report("Leyendo hojas Recaudo * desde las conciliaciones por empresa...");
-        var recaudos = _leafReader.LeerRecaudosEmpresa(
-            empresa => _localizador.BuscarConciliacion(solicitud.CarpetaPeriodo, empresa.PrefijoConciliacion));
-        foreach (var leaf in leafs)
+        // RECORTE HONESTO T0-0.6: omitido en Q2 (misma razón que la conciliación por empresa).
+        if (!esQuincena2)
         {
-            leaf.Recaudos = recaudos;
+            progreso?.Report("Leyendo hojas Recaudo * desde las conciliaciones por empresa...");
+            var recaudos = _leafReader.LeerRecaudosEmpresa(
+                empresa => _localizador.BuscarConciliacion(solicitud.CarpetaPeriodo, empresa.PrefijoConciliacion));
+            foreach (var leaf in leafs)
+            {
+                leaf.Recaudos = recaudos;
+            }
         }
 
         progreso?.Report("Calculando consolidados de los 5 ASE...");
-        var resultado = _calculoRemuneracion.CalcularConsolidado(solicitud.Periodo, datos);
+        var resultado = esQuincena2
+            ? _calculoRemuneracion.CalcularConsolidado(solicitud.Periodo, datosConAjustes)
+            : _calculoRemuneracion.CalcularConsolidado(solicitud.Periodo, datos);
 
         progreso?.Report("Validando coherencia multi-ASE...");
         var errores = _validador.Validar(resultado, leafs);
@@ -137,6 +183,18 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
 
         progreso?.Report("Generando workbook de salida (una sola escritura)...");
         _workbookLeafWriter.GenerarWorkbook(solicitud.RutaPlantilla, solicitud.RutaSalida, resultado, leafs);
+
+        if (esQuincena2)
+        {
+            foreach (var leaf in leafs.OrderBy(l => l.Ase.Id))
+            {
+                var ajustes = leaf.AjustesSfT;
+                if (ajustes is not null)
+                {
+                    progreso?.Report($"ASE {leaf.Ase.Id}: AJUSTES-SF-T esperado post-Excel = {ajustes.TotalAjustes:0.##} (saldos-nota {ajustes.SaldosNotas.TotalSaldosNotas:0.##} + retribución-negativa {ajustes.RetribucionNegativa.TotalRetribucionNegativa:0.##}).");
+                }
+            }
+        }
 
         progreso?.Report("Proceso del período completado correctamente.");
 

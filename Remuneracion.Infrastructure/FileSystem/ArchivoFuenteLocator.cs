@@ -97,4 +97,63 @@ public class ArchivoFuenteLocator : ILocalizadorArchivosAse
     public string? BuscarBalance(string carpetaAse) =>
         BuscarArchivo(carpetaAse, "R4-BalanceSubsidioyContribuciones_")
         ?? BuscarArchivo(carpetaAse, "R4-BalanceSubsidioyContribuciones-Optimizado_");
+
+    /// <summary>
+    /// HU-11 (2.5, D4): localiza el <c>SaldosaFavorAplicadosPorNotas_*.xlsx</c> del ASE.
+    /// Prefijo sin fechas (V3: los rangos varían por ASE; prohibido codificarlos) y el nombre
+    /// en disco no lleva diacríticos (V9). Matcher normalizado: lowercase + sin diacríticos.
+    /// </summary>
+    /// <param name="carpetaAse">Carpeta del ASE.</param>
+    /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
+    public string? BuscarSaldosNotas(string carpetaAse) =>
+        BuscarArchivoNormalizado(carpetaAse, "saldosafavoraplicadospornotas");
+
+    /// <summary>
+    /// HU-11 (2.5, D4): localiza el <c>RetribuciónNegativa_*.xlsx</c> del ASE. El nombre en disco
+    /// lleva diacríticos (<c>RetribuciónNegativa_…</c>, V9) y el rango de fechas NO es homogéneo
+    /// (ASE4: 16072026–31072026, resto 0107–3107, V3) → el matcher normaliza y usa el stem sin
+    /// acento <c>retribucionnegativa</c>; prohibido literal con acento frágil o rango de fechas.
+    /// </summary>
+    /// <param name="carpetaAse">Carpeta del ASE.</param>
+    /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
+    public string? BuscarRetribucionNegativa(string carpetaAse) =>
+        BuscarArchivoNormalizado(carpetaAse, "retribucionnegativa");
+
+    /// <summary>
+    /// Busca el primer archivo .xlsx cuyo nombre normalizado (lowercase, sin diacríticos) comienza
+    /// con el prefijo normalizado. Agnóstico a rango de fechas y a diacríticos (D4/V3/V9).
+    /// </summary>
+    private static string? BuscarArchivoNormalizado(string carpeta, string prefijoNormalizado)
+    {
+        ArgumentNullException.ThrowIfNull(carpeta);
+        ArgumentNullException.ThrowIfNull(prefijoNormalizado);
+
+        if (!Directory.Exists(carpeta))
+        {
+            return null;
+        }
+
+        return Directory.EnumerateFiles(carpeta, "*.xlsx", SearchOption.TopDirectoryOnly)
+            .FirstOrDefault(f => NormalizarParaMatch(Path.GetFileNameWithoutExtension(f))
+                .StartsWith(prefijoNormalizado, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Normaliza un nombre para el match por prefijo: minúsculas y sin diacríticos (V9).
+    /// "RetribuciónNegativa" → "retribucionnegativa".
+    /// </summary>
+    private static string NormalizarParaMatch(string texto)
+    {
+        var normalizado = texto.Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder(normalizado.Length);
+        foreach (var ch in normalizado)
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch) != System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                sb.Append(char.ToLowerInvariant(ch));
+            }
+        }
+
+        return sb.ToString();
+    }
 }

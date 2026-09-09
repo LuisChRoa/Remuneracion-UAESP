@@ -387,6 +387,101 @@ public sealed class ProcesadorPeriodoTests
         Assert.False(File.Exists(salida), "No debe existir salida certificada ante gate roto.");
     }
 
+    // ── HU-11 (2.5): Q2 ─────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Ejecutar_Periodo2026072_FailFastHonestoPorR1Ase5Divergente()
+    {
+        // RECORTE HONESTO T0-0.6 (Riesgo 5): el R1-Q2 de ASE5 DIVERGE del Q1 — el reader leaf
+        // HU-07 exige 3 filas Mes/Total y la fuente Q2 de ASE5 trae solo 2 (y el template Q2
+        // tiene F519/F521 como valores, no la fórmula F513+F498+F478 del mapa HU-07). El plan
+        // §0.2 prohíbe reescribir HU-07 → el path completo del procesador Q2 NO es certificable
+        // end-to-end: fail-fast honesto que nombra el ASE y el reporte, sin salida certificada.
+        // La cadena 2.5 (readers + composición + golden A1/A2) SÍ se certifica en los 5 ASE
+        // (ver AjustesSfTTests / GoldenAjustesSfTQ2Tests).
+        var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-q2-recorte-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(salidaDir);
+        var salida = Path.Combine(salidaDir, Insumos.PeriodoQ2().NombreArchivo);
+
+        var procesador = CrearProcesador();
+        var ex = Assert.Throws<CalculoInvalidoException>(() =>
+            procesador.Ejecutar(new SolicitudProcesoPeriodo
+            {
+                Periodo = Insumos.PeriodoQ2(),
+                CarpetaPeriodo = Insumos.CarpetaPeriodoQ2,
+                RutaPlantilla = Insumos.PlantillaQ2,
+                RutaSalida = salida
+            }));
+
+        Assert.Contains("ASE 5", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(salida), "No debe existir salida certificada ante el recorte T0-0.6.");
+    }
+
+    [Fact]
+    public void Ejecutar_Q2_FaltaSaldosNotasEnAse3_FallaNombrandoAseYSinSalida()
+    {
+        // HU-11 Requirement 2 / §4.3: si falta la fuente SALDOS POR NOTA de un ASE en Q2,
+        // fail-fast nombra el ASE y NO hay salida certificada.
+        var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-q2-sn-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(salidaDir);
+        var salida = Path.Combine(salidaDir, Insumos.PeriodoQ2().NombreArchivo);
+
+        var carpetaPeriodo = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-q2-sn-carpeta-" + Guid.NewGuid().ToString("N"));
+        CopiarArbol(Insumos.CarpetaPeriodoQ2, carpetaPeriodo);
+
+        var carpetaAse3 = Path.Combine(carpetaPeriodo, "3-Ciudad Limpia");
+        var saldosNotasAse3 = Directory.EnumerateFiles(carpetaAse3, "*.xlsx", SearchOption.TopDirectoryOnly)
+            .First(f => Path.GetFileNameWithoutExtension(f).StartsWith("SaldosaFavorAplicadosPorNotas", StringComparison.OrdinalIgnoreCase));
+        File.Delete(saldosNotasAse3);
+
+        var procesador = CrearProcesador();
+        var ex = Assert.Throws<ArchivoFuenteNoEncontradoException>(() =>
+            procesador.Ejecutar(new SolicitudProcesoPeriodo
+            {
+                Periodo = Insumos.PeriodoQ2(),
+                CarpetaPeriodo = carpetaPeriodo,
+                RutaPlantilla = Insumos.PlantillaQ2,
+                RutaSalida = salida
+            }));
+
+        Assert.Contains("SaldosaFavorAplicadosPorNotas", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ASE 3", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(salida), "No debe existir salida certificada ante fallo.");
+    }
+
+    [Fact]
+    public void Ejecutar_Q2_FaltaRetribucionNegativaEnAse4_FallaNombrandoAseYSinSalida()
+    {
+        // HU-11 Requirement 2 / D4: si falta la fuente RETRIBUCION NEGATIVA de un ASE en Q2,
+        // fail-fast nombra el ASE (el matcher es agnóstico a diacríticos: el archivo real se
+        // llama RetribuciónNegativa_…).
+        var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-q2-rn-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(salidaDir);
+        var salida = Path.Combine(salidaDir, Insumos.PeriodoQ2().NombreArchivo);
+
+        var carpetaPeriodo = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-q2-rn-carpeta-" + Guid.NewGuid().ToString("N"));
+        CopiarArbol(Insumos.CarpetaPeriodoQ2, carpetaPeriodo);
+
+        var carpetaAse4 = Path.Combine(carpetaPeriodo, "4-Bogota Limpia");
+        var retribucionAse4 = Directory.EnumerateFiles(carpetaAse4, "*.xlsx", SearchOption.TopDirectoryOnly)
+            .First(f => Path.GetFileNameWithoutExtension(f).StartsWith("Retribuci", StringComparison.OrdinalIgnoreCase));
+        File.Delete(retribucionAse4);
+
+        var procesador = CrearProcesador();
+        var ex = Assert.Throws<ArchivoFuenteNoEncontradoException>(() =>
+            procesador.Ejecutar(new SolicitudProcesoPeriodo
+            {
+                Periodo = Insumos.PeriodoQ2(),
+                CarpetaPeriodo = carpetaPeriodo,
+                RutaPlantilla = Insumos.PlantillaQ2,
+                RutaSalida = salida
+            }));
+
+        Assert.Contains("RetribuciónNegativa", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ASE 4", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(salida), "No debe existir salida certificada ante fallo.");
+    }
+
     private static ProcesadorPeriodo CrearProcesador() =>
         new(
             new ExcelDataReaderRecaudoReader(),

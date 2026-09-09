@@ -108,12 +108,33 @@ public sealed class ValidadorBasico : IValidador
             errores.Add($"Se detectaron leafs con ASE duplicado: {duplicados.Key}.");
         }
 
-        // §2.5 regla 3: AjustesSfT == 0 en los 5.
+        // §2.5 regla 3: AjustesSfT por quincena — Q1 exige 0 (intacto); Q2 exige el TotalAjustes
+        // de la composición T0-0.3 ±0.5 con matcheo estricto por Ase.Id (D5). Si en Q2 un leaf no
+        // trae AjustesSfT, es error que nombra el ASE (nunca 0 silencioso).
+        var esQuincena2 = resultado.Periodo.NumeroQuincena == 2;
         foreach (var consolidado in resultado.Consolidados)
         {
-            if (Math.Abs(consolidado.AjustesSfT) > Tolerancia)
+            if (!esQuincena2)
             {
-                errores.Add($"AjustesSfT debe ser 0 en Q1; ASE {consolidado.Ase.Id} tiene {consolidado.AjustesSfT}.");
+                if (Math.Abs(consolidado.AjustesSfT) > Tolerancia)
+                {
+                    errores.Add($"AjustesSfT debe ser 0 en Q1; ASE {consolidado.Ase.Id} tiene {consolidado.AjustesSfT}.");
+                }
+
+                continue;
+            }
+
+            var ajustes = leafs.SingleOrDefault(l => l.Ase.Id == consolidado.Ase.Id)?.AjustesSfT;
+            if (ajustes is null)
+            {
+                errores.Add($"ASE {consolidado.Ase.Id}: en Q2 el leaf debe traer AjustesSfT (SALDOS POR NOTA + RETRIBUCION NEGATIVA) para validar el gate; no puede ser null.");
+                continue;
+            }
+
+            var diferencia = Math.Abs(consolidado.AjustesSfT - ajustes.TotalAjustes);
+            if (diferencia > Tolerancia)
+            {
+                errores.Add($"ASE {consolidado.Ase.Id}: AjustesSfT del consolidado ({consolidado.AjustesSfT}) no coincide con TotalAjustes de la fuente ({ajustes.TotalAjustes}). Diferencia={diferencia} > ±{Tolerancia}.");
             }
         }
 

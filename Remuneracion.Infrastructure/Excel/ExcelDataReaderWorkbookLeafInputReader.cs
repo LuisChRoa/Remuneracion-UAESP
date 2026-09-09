@@ -307,6 +307,276 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         };
     }
 
+    /// <inheritdoc />
+    public SaldosNotasAseInputs LeerSaldosNotas(Ase ase, string rutaSaldosNotas)
+    {
+        ArgumentNullException.ThrowIfNull(ase);
+        ArgumentNullException.ThrowIfNull(rutaSaldosNotas);
+
+        // HU-11 (2.5, D3): lectura header-driven por TÍTULO de columna (D3/G4) con la fila de
+        // headers localizada dinámicamente (T0-0.5: fila 3 en las fuentes Q2; nunca fila fija).
+        var filas = ExcelWorksheetNavigator.LeerFilas(rutaSaldosNotas);
+
+        // Fuente vacía legítima (solo la fila 1 con el rango de fechas; ASE5-Q2, T0-0.5):
+        // total 0 demostrable, sin inventar headers ni valores (Riesgo 6 del plan).
+        var mapeoObligatorio = WorkbookLeafCellMapAjustesSfT.MapeoColumnasPorTitulo;
+        var indiceHeaders = BuscarFilaHeaders(filas, mapeoObligatorio);
+        if (indiceHeaders < 0)
+        {
+            return new SaldosNotasAseInputs
+            {
+                Ase = ase,
+                TieneColumnaEspeciales = false,
+                Total = 0m,
+                ServEspK = 0m,
+                Celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
+            };
+        }
+
+        var filaHeaders = filas[indiceHeaders];
+        var indicesColumna = mapeoObligatorio
+            .Select(par => (par, indice: BuscarIndiceColumnaPorTitulo(filaHeaders, par.HeaderFuente)))
+            .ToArray();
+
+        // Fail-fast (Requirement 2): si falta un header obligatorio del mapa T0-0.5, fallo que
+        // nombra el ASE y el reporte; NUNCA valor inventado. "Deb/Cred" es OPCIONAL (solo ASE2).
+        var faltantes = indicesColumna
+            .Where(t => t.indice < 0)
+            .Select(t => t.par.HeaderFuente)
+            .ToArray();
+        if (faltantes.Length > 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: la fuente SALDOS POR NOTA no trae los headers esperados del mapa T0-0.5: {string.Join(", ", faltantes)}.");
+        }
+
+        var indiceDebCred = BuscarIndiceColumnaPorTitulo(filaHeaders, WorkbookLeafCellMapAjustesSfT.HeaderDebCredOpcional);
+
+        // Conceptos por fila del template (mapa explícito por Ase.Id, D7).
+        var conceptos = WorkbookLeafCellMapAjustesSfT.ObtenerConceptosSaldos(ase.Id);
+        var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        decimal total = 0m;
+
+        foreach (var (filaTemplate, concepto) in conceptos)
+        {
+            var filaFuente = BuscarFilaConcepto(filas, concepto);
+            if (filaFuente < 0)
+            {
+                throw new CalculoInvalidoException(
+                    $"ASE {ase.Id}: no se encontró la fila de concepto '{concepto}' en la fuente SALDOS POR NOTA.");
+            }
+
+            foreach (var (par, indice) in indicesColumna)
+            {
+                var valor = ExcelWorksheetNavigator.CeldaNumero(filas[filaFuente].ElementAtOrDefault(indice));
+                celdas[$"{par.ColumnaTemplate}{filaTemplate}"] = valor;
+
+                if (string.Equals(par.HeaderFuente, "Total", StringComparison.OrdinalIgnoreCase))
+                {
+                    total = valor;
+                }
+            }
+
+            // Columna O (Deb/Cred) del template: opcional — si la fuente la trae se escribe el
+            // valor; si no, queda el 0 ya presente en la plantilla (el writer no la escribe).
+            if (indiceDebCred >= 0)
+            {
+                celdas[$"{WorkbookLeafCellMapAjustesSfT.ColumnaTemplateDebCred}{filaTemplate}"] =
+                    ExcelWorksheetNavigator.CeldaNumero(filas[filaFuente].ElementAtOrDefault(indiceDebCred));
+            }
+        }
+
+        // La columna I del template ("Especiales") no existe en las fuentes Q2 (T0-0.5) → 0.
+        // TotalSaldosNotas = Total − ServEspK (aritmética T0-0.3, visible Cn-In).
+        foreach (var (filaTemplate, _) in conceptos)
+        {
+            celdas[$"I{filaTemplate}"] = 0m;
+        }
+
+        return new SaldosNotasAseInputs
+        {
+            Ase = ase,
+            TieneColumnaEspeciales = false,
+            Total = total,
+            ServEspK = 0m,
+            Celdas = celdas
+        };
+    }
+
+    /// <inheritdoc />
+    public RetribucionNegativaAseInputs LeerRetribucionNegativa(Ase ase, string rutaRetribucionNegativa)
+    {
+        ArgumentNullException.ThrowIfNull(ase);
+        ArgumentNullException.ThrowIfNull(rutaRetribucionNegativa);
+
+        // HU-11 (2.5, D3): misma lectura header-driven por TÍTULO que SALDOS POR NOTA. T0-0.4/0.5:
+        // en Q2 las 5 fuentes traen SOLO la fila 1 (rango de fechas) → 0 legítimo (el golden
+        // D28:D32 = 0 lo confirma). El reader distingue "fuente vacía = 0" de "header ausente
+        // dentro de una fuente con datos = fallo que nombra ASE + reporte" (Riesgo 6).
+        var filas = ExcelWorksheetNavigator.LeerFilas(rutaRetribucionNegativa);
+        var mapeoObligatorio = WorkbookLeafCellMapAjustesSfT.MapeoColumnasPorTitulo;
+        var indiceHeaders = BuscarFilaHeaders(filas, mapeoObligatorio);
+        if (indiceHeaders < 0)
+        {
+            return new RetribucionNegativaAseInputs
+            {
+                Ase = ase,
+                TieneColumnaEspeciales = false,
+                Total = 0m,
+                ServEspK = 0m,
+                Celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
+            };
+        }
+
+        var filaHeaders = filas[indiceHeaders];
+        var indicesColumna = mapeoObligatorio
+            .Select(par => (par, indice: BuscarIndiceColumnaPorTitulo(filaHeaders, par.HeaderFuente)))
+            .ToArray();
+
+        var faltantes = indicesColumna
+            .Where(t => t.indice < 0)
+            .Select(t => t.par.HeaderFuente)
+            .ToArray();
+        if (faltantes.Length > 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: la fuente RETRIBUCION NEGATIVA no trae los headers esperados del mapa T0-0.5: {string.Join(", ", faltantes)}.");
+        }
+
+        var indiceDebCred = BuscarIndiceColumnaPorTitulo(filaHeaders, WorkbookLeafCellMapAjustesSfT.HeaderDebCredOpcional);
+
+        var conceptos = WorkbookLeafCellMapAjustesSfT.ObtenerConceptosRetribucion(ase.Id);
+        var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        decimal total = 0m;
+
+        foreach (var (filaTemplate, concepto) in conceptos)
+        {
+            var filaFuente = BuscarFilaConcepto(filas, concepto);
+            if (filaFuente < 0)
+            {
+                throw new CalculoInvalidoException(
+                    $"ASE {ase.Id}: no se encontró la fila de concepto '{concepto}' en la fuente RETRIBUCION NEGATIVA.");
+            }
+
+            foreach (var (par, indice) in indicesColumna)
+            {
+                var valor = ExcelWorksheetNavigator.CeldaNumero(filas[filaFuente].ElementAtOrDefault(indice));
+                celdas[$"{par.ColumnaTemplate}{filaTemplate}"] = valor;
+
+                if (string.Equals(par.HeaderFuente, "Total", StringComparison.OrdinalIgnoreCase))
+                {
+                    total = valor;
+                }
+            }
+
+            if (indiceDebCred >= 0)
+            {
+                celdas[$"{WorkbookLeafCellMapAjustesSfT.ColumnaTemplateDebCred}{filaTemplate}"] =
+                    ExcelWorksheetNavigator.CeldaNumero(filas[filaFuente].ElementAtOrDefault(indiceDebCred));
+            }
+        }
+
+        foreach (var (filaTemplate, _) in conceptos)
+        {
+            celdas[$"I{filaTemplate}"] = 0m;
+        }
+
+        return new RetribucionNegativaAseInputs
+        {
+            Ase = ase,
+            TieneColumnaEspeciales = false,
+            Total = total,
+            ServEspK = 0m,
+            Celdas = celdas
+        };
+    }
+
+    /// <summary>
+    /// HU-11 (2.5): localiza la fila de headers de la fuente (la que contiene la mayoría de los
+    /// títulos del mapa T0-0.5). Devuelve -1 si la fuente no trae la estructura esperada
+    /// (fuente vacía legítima = solo la fila 1 con el rango de fechas).
+    /// </summary>
+    private static int BuscarFilaHeaders(
+        List<object?[]> filas,
+        (string HeaderFuente, string ColumnaTemplate)[] mapeo)
+    {
+        for (var i = 0; i < filas.Count; i++)
+        {
+            var fila = filas[i];
+            if (fila is null)
+            {
+                continue;
+            }
+
+            var aciertos = mapeo.Count(par =>
+                BuscarIndiceColumnaPorTitulo(fila, par.HeaderFuente) >= 0);
+            if (aciertos >= mapeo.Length - 1)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// HU-11 (2.5): índice (0-based) de la columna cuyo título (normalizado) coincide con el
+    /// header esperado. -1 si no existe.
+    /// </summary>
+    private static int BuscarIndiceColumnaPorTitulo(object?[] fila, string headerEsperado)
+    {
+        var esperado = NormalizarEtiqueta(headerEsperado);
+        for (var j = 0; j < fila.Length; j++)
+        {
+            var texto = ExcelWorksheetNavigator.CeldaTexto(fila[j]);
+            if (!string.IsNullOrWhiteSpace(texto)
+                && string.Equals(NormalizarEtiqueta(texto), esperado, StringComparison.Ordinal))
+            {
+                return j;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// HU-11 (2.5): índice (0-based) de la fila cuyo label (col A o col B, normalizado) coincide
+    /// con el concepto esperado ("Vlr Servicio", "Componente", "Subsidio(-)/Contribucion(+)",
+    /// "Subs/Cont", "Total", "Vlr Intereses"). El concepto "Total" SOLO matchea la columna A:
+    /// en las fuentes, la fila Total del bloque tiene A="Total" (B vacío), mientras que las filas
+    /// "Componente"/"Subs/Cont" tienen B="Total" (header de la segunda columna). -1 si no existe.
+    /// </summary>
+    private static int BuscarFilaConcepto(List<object?[]> filas, string concepto)
+    {
+        var esperado = NormalizarEtiqueta(concepto);
+        var esTotal = string.Equals(esperado, "total", StringComparison.Ordinal);
+        for (var i = 0; i < filas.Count; i++)
+        {
+            var fila = filas[i];
+            if (fila is null)
+            {
+                continue;
+            }
+
+            for (var j = 0; j < fila.Length && j < 2; j++)
+            {
+                if (esTotal && j == 1)
+                {
+                    continue; // "Total" solo en col A (fila Total del bloque).
+                }
+
+                var texto = ExcelWorksheetNavigator.CeldaTexto(fila[j]);
+                if (!string.IsNullOrWhiteSpace(texto)
+                    && string.Equals(NormalizarEtiqueta(texto), esperado, StringComparison.Ordinal))
+                {
+                    return i;
+                }
+            }
+        }
+
+        return -1;
+    }
+
     /// <summary>
     /// HU-10 (2.4): busca la fila "Total General" desde el final del <c>Sheet1</c> por match
     /// NORMALIZADO EXACTO (minúsculas, sin espacios — T0-0.4). Nunca fila fija (V6). Las filas
