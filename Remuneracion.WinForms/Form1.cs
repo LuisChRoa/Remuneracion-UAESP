@@ -31,6 +31,13 @@ namespace Remuneracion.WinForms
         private string _ultimoResumen = ResumenSinEjecucion;
 
         /// <summary>
+        /// Buffer en memoria del detalle técnico de la sesión. Reemplaza al <c>txtLog</c> de la card
+        /// Resultado: el texto se acumula aquí (formato <c>[{HH:mm:ss}] mensaje</c>) y se muestra bajo
+        /// demanda en <see cref="FormDetalleLog"/> (botón "Ver logs").
+        /// </summary>
+        private readonly System.Text.StringBuilder _bufferLog = new();
+
+        /// <summary>
         /// HU-14 (3.1, D3): último código de salida registrado por esta ejecución (contrato
         /// <see cref="CodigosSalida"/> para HU-15). WinForms lo REGISTRA (status + log) y NUNCA
         /// lo emite con <c>Environment.Exit</c> (V6: GUI). Valores: 0 OK, 5 cancelado, 1..4 fallo.
@@ -247,22 +254,47 @@ namespace Remuneracion.WinForms
         }
 
         /// <summary>
-        /// HU-18 (RF-4/G4): limpia SOLO el log, el progreso, el status y el código de salida.
-        /// Las rutas y el período quedan intactos (flujo administrativo: re-ejecutar el mismo período).
+        /// Reset GENERAL del formulario (Ejecución + Rutas + Período a hoy + ASE inicial): limpia el
+        /// detalle técnico (buffer en memoria), el progreso, el status y el código de salida, y además
+        /// vacía las rutas y devuelve el período/ASE a sus valores por defecto. Es reversible (solo
+        /// vacía campos, no borra archivos), por lo que no pide confirmación. "Ver logs" se
+        /// deshabilita sin contenido; los tooltips de ruta se actualizan vía <see cref="Ruta_TextChanged"/>.
         /// </summary>
         private void btnLimpiar_Click(object? sender, EventArgs e)
         {
-            txtLog.Clear();
+            _bufferLog.Clear();
             progressBar.Value = 0;
             lblProgresoPct.Text = "0 %";
             lblAseActual.Text = string.Empty;
-            lblLineasLog.Text = "0 líneas";
-            btnCopiarLog.Enabled = false;
-            toolStripStatusLabel.Text = "Listo";
-            chkVerDetalle.Checked = false;
+            btnVerLogs.Enabled = false;
             ActualizarResumenHumano(ResumenSinEjecucion);
+            toolStripStatusLabel.Text = "Listo";
             UltimoCodigoSalida = CodigosSalida.Ok;
-            Log.Debug("Log limpiado por el usuario.");
+
+            // 1. Rutas: se vacían (los tooltips se restauran vía Ruta_TextChanged).
+            txtCarpetaFuentes.Clear();
+            txtPlantilla.Clear();
+            txtCarpetaSalida.Clear();
+
+            // 2. Período a HOY (año/mes/quincena) + subtítulo del header.
+            string anioActual = DateTime.Now.Year.ToString();
+            if (!cmbAnio.Items.Contains(anioActual))
+            {
+                cmbAnio.Items.Add(anioActual);
+            }
+            cmbAnio.SelectedItem = anioActual;
+            cmbMes.SelectedIndex = DateTime.Now.Month - 1;
+            cmbQuincena.SelectedIndex = DateTime.Now.Day <= 15 ? 0 : 1;
+            ActualizarSubtitulo();
+
+            // 3. ASE al valor inicial: primero uncheck (el handler habilita el combo), luego índice 0.
+            chkCincoAse.Checked = false;
+            if (cmbAse.Items.Count > 0)
+            {
+                cmbAse.SelectedIndex = 0;
+            }
+
+            Log.Debug("Formulario limpiado (reset general) por el usuario.");
         }
 
         /// <summary>
@@ -298,77 +330,43 @@ namespace Remuneracion.WinForms
         }
 
         /// <summary>
-        /// HU-18 (RF-6): copia el contenido exacto del log al portapapeles bajo clic explícito.
+        /// HU-19 (§2.7): muestra el detalle técnico acumulado en un diálogo modal de solo lectura.
+        /// La función de copiar al portapapeles vive dentro del diálogo (antes era btnCopiarLog).
         /// </summary>
-        private void btnCopiarLog_Click(object? sender, EventArgs e)
+        private void btnVerLogs_Click(object? sender, EventArgs e)
         {
-            if (txtLog.TextLength == 0)
-            {
-                MessageBox.Show(
-                    "Todavía no hay contenido en el log.",
-                    "Copiar log",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-                return;
-            }
-
-            try
-            {
-                Clipboard.SetText(txtLog.Text);
-                toolStripStatusLabel.Text = "Log copiado al portapapeles";
-                ActualizarResumenHumano();
-            }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "No se pudo copiar el log al portapapeles.");
-                MessageBox.Show(
-                    "No se pudo copiar el log al portapapeles.",
-                    "Copiar log",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-            }
+            using var dlg = new FormDetalleLog(_bufferLog.ToString());
+            dlg.ShowDialog(this);
         }
 
         /// <summary>
-        /// HU-18 (G5/RF-8): único punto de append al log. Conserva el formato HU-14
-        /// <c>[{HH:mm:ss}] mensaje</c>, hace autoscroll y actualiza el conteo de líneas.
+        /// HU-18 (G5/RF-8) + HU-19: único punto de append al detalle técnico. Conserva el formato
+        /// HU-14 <c>[{HH:mm:ss}] mensaje</c> pero escribe en el buffer en memoria (sin TextBox);
+        /// el contenido se muestra bajo demanda en <see cref="FormDetalleLog"/>.
         /// </summary>
         private void AppendLogLine(string mensaje)
         {
-            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {mensaje}{Environment.NewLine}");
-            txtLog.SelectionStart = txtLog.TextLength;
-            txtLog.ScrollToCaret();
-            lblLineasLog.Text = string.IsNullOrEmpty(txtLog.Text) ? "0 líneas" : $"{txtLog.Lines.Length} líneas";
+            _bufferLog
+                .Append('[')
+                .Append(DateTime.Now.ToString("HH:mm:ss"))
+                .Append("] ")
+                .Append(mensaje)
+                .AppendLine();
         }
 
         /// <summary>
-        /// HU-19 (AC-RES-02/G1): alterna el detalle técnico sin redimensionar el formulario.
-        /// El log (txtLog) conserva su contenido y su formato <c>[{HH:mm:ss}]</c> intacto.
-        /// </summary>
-        private void chkVerDetalle_CheckedChanged(object? sender, EventArgs e)
-        {
-            pnlDetalleTecnico.Visible = chkVerDetalle.Checked;
-            // HU-19.3: colapsada respira menos abajo (12) con laterales de 16; expandida usa 16 en las 4 caras.
-            pnlCardResultado.Padding = chkVerDetalle.Checked
-                ? new Padding(16)
-                : new Padding(16, 12, 16, 12);
-            tlpMain.PerformLayout();
-        }
-
-        /// <summary>
-        /// HU-19 (§2.7/G6): espejo humano del status + resumen de una línea construido con datos
-        /// que el caller YA tiene (período, modo, archivo, GranTotal). No agrega cálculo ni parseo;
-        /// el detalle técnico (códigos/RunId) queda solo en el file-log y en <see cref="UltimoCodigoSalida"/>.
+        /// HU-19 (§2.7/G6): con la card Resultado eliminada, el resumen humano de la última
+        /// ejecución queda únicamente en la StatusStrip (memoria del plan: "resumen humano queda
+        /// solo en statusStrip"). El detalle técnico (códigos/RunId) sigue solo en el file-log y en
+        /// <see cref="UltimoCodigoSalida"/>.
         /// </summary>
         private void ActualizarResumenHumano(string? lineaResumen = null)
         {
-            lblEstadoHumano.Text = toolStripStatusLabel.Text;
             if (lineaResumen is not null)
             {
                 _ultimoResumen = lineaResumen;
+                toolStripStatusLabel.Text = _ultimoResumen;
             }
-
-            lblResumenUnaLinea.Text = _ultimoResumen;
         }
 
         private async void btnEjecutar_Click(object? sender, EventArgs e)
@@ -864,8 +862,8 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
             btnEjecutar.Enabled = habilitados;
             btnLimpiar.Enabled = habilitados;
             btnAbrirSalida.Enabled = habilitados;
-            btnCopiarLog.Enabled = habilitados && txtLog.TextLength > 0;
-            chkVerDetalle.Enabled = habilitados;
+            // HU-19: "Ver logs" solo cuando hay contenido en el buffer y no hay ejecución en curso.
+            btnVerLogs.Enabled = habilitados && _bufferLog.Length > 0;
         }
 
         private void ConfigurarSerilog()
