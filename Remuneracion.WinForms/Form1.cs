@@ -21,9 +21,14 @@ namespace Remuneracion.WinForms
             "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
         ];
 
+        private const string ResumenSinEjecucion = "Aún no hay ejecución en esta sesión.";
+
         private readonly IProcesadorRemuneracion _procesadorRemuneracion;
         private readonly IProcesadorPeriodo _procesadorPeriodo;
         private readonly ArchivoFuenteLocator _archivoFuenteLocator;
+
+        /// <summary>HU-19 (§2.7/G6): última línea de resumen humano mostrada (sin códigos técnicos).</summary>
+        private string _ultimoResumen = ResumenSinEjecucion;
 
         /// <summary>
         /// HU-14 (3.1, D3): último código de salida registrado por esta ejecución (contrato
@@ -43,6 +48,7 @@ namespace Remuneracion.WinForms
 
             InitializeComponent();
             ConfigurarSerilog();
+            InicializarLogo();
             InicializarPeriodo();
             InicializarAse();
         }
@@ -101,6 +107,47 @@ namespace Remuneracion.WinForms
             cmbQuincena.SelectedIndex = DateTime.Now.Day <= 15 ? 0 : 1;
 
             ActualizarSubtitulo();
+        }
+
+        /// <summary>
+        /// HU-19.2: carga el slogan embebido (Assets/slogan-blanco.png, matte blanco puro sin damero)
+        /// desde el manifiesto del ensamblado. Si el recurso no existe, no puede abrirse o está
+        /// corrupto, la cabecera queda solo con texto: se oculta el PictureBox y NUNCA se propaga
+        /// excepción (fallback seguro). No hay rutas absolutas: el PNG viaja como EmbeddedResource.
+        /// </summary>
+        private void InicializarLogo()
+        {
+            try
+            {
+                var ensamblado = typeof(Form1).Assembly;
+                var nombreRecurso = ensamblado
+                    .GetManifestResourceNames()
+                    .FirstOrDefault(n => n.EndsWith("slogan-blanco.png", StringComparison.OrdinalIgnoreCase));
+
+                if (nombreRecurso is null)
+                {
+                    picLogo.Visible = false;
+                    Log.Warning("No se encontró el recurso embebido del slogan (Assets/slogan-blanco.png); la cabecera mostrará solo texto.");
+                    return;
+                }
+
+                using var stream = ensamblado.GetManifestResourceStream(nombreRecurso);
+                if (stream is null)
+                {
+                    picLogo.Visible = false;
+                    Log.Warning("El recurso embebido del slogan existe pero no pudo abrirse; la cabecera mostrará solo texto.");
+                    return;
+                }
+
+                using var original = System.Drawing.Image.FromStream(stream);
+                // Copia independiente: permite cerrar el stream del manifiesto sin invalidar la imagen.
+                picLogo.Image = new System.Drawing.Bitmap(original);
+            }
+            catch (Exception ex)
+            {
+                picLogo.Visible = false;
+                Log.Warning(ex, "No se pudo cargar el slogan embebido; la cabecera mostrará solo texto.");
+            }
         }
 
         private void InicializarAse()
@@ -208,10 +255,12 @@ namespace Remuneracion.WinForms
             txtLog.Clear();
             progressBar.Value = 0;
             lblProgresoPct.Text = "0 %";
-            lblAseActual.Text = "—";
+            lblAseActual.Text = string.Empty;
             lblLineasLog.Text = "0 líneas";
             btnCopiarLog.Enabled = false;
             toolStripStatusLabel.Text = "Listo";
+            chkVerDetalle.Checked = false;
+            ActualizarResumenHumano(ResumenSinEjecucion);
             UltimoCodigoSalida = CodigosSalida.Ok;
             Log.Debug("Log limpiado por el usuario.");
         }
@@ -267,6 +316,7 @@ namespace Remuneracion.WinForms
             {
                 Clipboard.SetText(txtLog.Text);
                 toolStripStatusLabel.Text = "Log copiado al portapapeles";
+                ActualizarResumenHumano();
             }
             catch (Exception ex)
             {
@@ -289,6 +339,36 @@ namespace Remuneracion.WinForms
             txtLog.SelectionStart = txtLog.TextLength;
             txtLog.ScrollToCaret();
             lblLineasLog.Text = string.IsNullOrEmpty(txtLog.Text) ? "0 líneas" : $"{txtLog.Lines.Length} líneas";
+        }
+
+        /// <summary>
+        /// HU-19 (AC-RES-02/G1): alterna el detalle técnico sin redimensionar el formulario.
+        /// El log (txtLog) conserva su contenido y su formato <c>[{HH:mm:ss}]</c> intacto.
+        /// </summary>
+        private void chkVerDetalle_CheckedChanged(object? sender, EventArgs e)
+        {
+            pnlDetalleTecnico.Visible = chkVerDetalle.Checked;
+            // HU-19.3: colapsada respira menos abajo (12) con laterales de 16; expandida usa 16 en las 4 caras.
+            pnlCardResultado.Padding = chkVerDetalle.Checked
+                ? new Padding(16)
+                : new Padding(16, 12, 16, 12);
+            tlpMain.PerformLayout();
+        }
+
+        /// <summary>
+        /// HU-19 (§2.7/G6): espejo humano del status + resumen de una línea construido con datos
+        /// que el caller YA tiene (período, modo, archivo, GranTotal). No agrega cálculo ni parseo;
+        /// el detalle técnico (códigos/RunId) queda solo en el file-log y en <see cref="UltimoCodigoSalida"/>.
+        /// </summary>
+        private void ActualizarResumenHumano(string? lineaResumen = null)
+        {
+            lblEstadoHumano.Text = toolStripStatusLabel.Text;
+            if (lineaResumen is not null)
+            {
+                _ultimoResumen = lineaResumen;
+            }
+
+            lblResumenUnaLinea.Text = _ultimoResumen;
         }
 
         private async void btnEjecutar_Click(object? sender, EventArgs e)
@@ -316,6 +396,7 @@ namespace Remuneracion.WinForms
             lblProgresoPct.Text = "0 %";
             lblAseActual.Text = "Iniciando…";
             toolStripStatusLabel.Text = "Procesando…";
+            ActualizarResumenHumano();
 
             var periodo = Periodo.Parse(PeriodoSeleccionado);
             var aseSeleccionada = cmbAse.Text;
@@ -343,8 +424,9 @@ namespace Remuneracion.WinForms
                 Log.Error("[{Codigo}] La ruta de salida coincide con la plantilla: {Salida}. Use una ruta de salida distinta a la plantilla.", CodigoError.Plantilla, rutaSalida);
                 MostrarErrorUx(CodigoError.Plantilla, null);
                 toolStripStatusLabel.Text = $"Error {CodigoError.Plantilla} — ver guía en pantalla";
+                ActualizarResumenHumano($"Período {PeriodoSeleccionado} · no completado (error de plantilla) — ver guía en pantalla");
                 SetControlesHabilitados(true);
-                lblAseActual.Text = "—";
+                lblAseActual.Text = string.Empty;
                 return;
             }
 
@@ -363,8 +445,9 @@ namespace Remuneracion.WinForms
                     AppendLogLine("Proceso cancelado por decisión del usuario. Archivo de salida ya existe.");
                     Log.Warning("Proceso cancelado: salida ya existe y no se acepta sobreescritura. [{Codigo}]", CodigoError.CanceladoPorUsuario);
                     toolStripStatusLabel.Text = "Cancelado por el usuario";
+                    ActualizarResumenHumano($"Período {PeriodoSeleccionado} · no completado (cancelado por el usuario) — ver guía en pantalla");
                     SetControlesHabilitados(true);
-                    lblAseActual.Text = "—";
+                    lblAseActual.Text = string.Empty;
                     return;
                 }
             }
@@ -382,9 +465,10 @@ namespace Remuneracion.WinForms
                     lblAseActual.Text = mensaje;
                 });
 
+                decimal granTotalCincoAse = 0m;
                 if (modoCincoAse)
                 {
-                    await EjecutarModoCincoAse(periodo, rutaSalida, progreso, runId);
+                    granTotalCincoAse = await EjecutarModoCincoAse(periodo, rutaSalida, progreso, runId);
                 }
                 else
                 {
@@ -395,6 +479,9 @@ namespace Remuneracion.WinForms
                 lblProgresoPct.Text = "100 %";
                 UltimoCodigoSalida = CodigosSalida.Ok;
                 toolStripStatusLabel.Text = $"Completado — archivo listo en {txtCarpetaSalida.Text}";
+                ActualizarResumenHumano(modoCincoAse
+                    ? $"Período {PeriodoSeleccionado} · 5 ASE · GranTotal ≈ {granTotalCincoAse:0.##}"
+                    : $"Período {PeriodoSeleccionado} · ASE {aseSeleccionada} · salida = {Path.GetFileName(rutaSalida)}");
             }
             catch (Exception ex)
             {
@@ -407,11 +494,12 @@ namespace Remuneracion.WinForms
                 Log.Error(ex, "[{Codigo}] Error en la ejecución del proceso: {Mensaje}", codigo, ex.Message);
                 MostrarErrorUx(codigo, ex);
                 toolStripStatusLabel.Text = $"Error {codigo} — ver guía en pantalla";
+                ActualizarResumenHumano($"Período {PeriodoSeleccionado} · no completado (error inesperado) — ver guía en pantalla");
             }
             finally
             {
                 SetControlesHabilitados(true);
-                lblAseActual.Text = "—";
+                lblAseActual.Text = string.Empty;
             }
         }
 
@@ -464,7 +552,7 @@ namespace Remuneracion.WinForms
                 valorD9Esperado, valorF48Esperado, valorE41Esperado, valorD67Esperado, rutaSalida);
         }
 
-        private async Task EjecutarModoCincoAse(Periodo periodo, string rutaSalida, IProgress<string> progreso, Guid runId)
+        private async Task<decimal> EjecutarModoCincoAse(Periodo periodo, string rutaSalida, IProgress<string> progreso, Guid runId)
         {
             var solicitud = new SolicitudProcesoPeriodo
             {
@@ -723,6 +811,9 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
                 + (l.AjustesSfT?.TotalAjustes ?? 0m));
             AppendLogLine($"GranTotal CONSOLIDADO (Σ visibles post-Excel) = {granTotal:0.##}; salida = {rutaSalida}");
             Log.Information("GranTotal CONSOLIDADO (Σ visibles post-Excel) = {GranTotal}; salida = {Salida}", granTotal, rutaSalida);
+
+            // HU-19 (§2.4): el resumen humano 5-ASE reusa el GranTotal ya calculado (sin nuevo cálculo).
+            return granTotal;
         }
 
         private string ObtenerCarpetaAse(int idAse)
@@ -750,7 +841,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
                 // HU-17 (S-4 HU-14): selección inválida ≠ archivo faltante — ArgumentException
                 // (consistente con AseFactory.DesdeId, que lanza ArgumentOutOfRangeException para
                 // id fuera de 1..5; ambos son ArgumentException). El catch general lo traduce a
-                // ERR-INESPERADO (salida 4), nunca ERR-FUENTE-NO-ENCONTRADA (salida 2).
+                // ERR-INESPERADO (código 4), nunca ERR-FUENTE-NO-ENCONTRADA (código 2).
                 throw new ArgumentException($"No se pudo interpretar el ASE seleccionado: '{texto}'.", nameof(texto));
             }
 
@@ -774,6 +865,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
             btnLimpiar.Enabled = habilitados;
             btnAbrirSalida.Enabled = habilitados;
             btnCopiarLog.Enabled = habilitados && txtLog.TextLength > 0;
+            chkVerDetalle.Enabled = habilitados;
         }
 
         private void ConfigurarSerilog()

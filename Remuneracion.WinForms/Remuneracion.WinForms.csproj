@@ -10,6 +10,13 @@
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- HU-19.2: slogan con matte blanco puro (damero removido + recorte ajustado) embebido en el
+         ensamblado (sin ruta absoluta ni dependencia de archivo en runtime). Supersede a
+         Assets/slogan.jpg de HU-19.1, que se retira del proyecto. -->
+    <EmbeddedResource Include="Assets\slogan-blanco.png" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
