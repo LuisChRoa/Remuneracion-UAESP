@@ -119,6 +119,22 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             Log.Information("ASE {AseId}: leyendo inputs leaf del workbook...", idAse);
             var leaf = _leafReader.LeerLeafInputs(ase, solicitud.Periodo, rutaR1, rutaR2, rutaR4);
 
+            // HU-16 (D3a, T0-0.5/0.6): L-Especiales menores del R1 por ASE — la columna L del
+            // template espeja la columna SERVICIO ESPECIALES de la fuente R1 (cierre ±0.5 en
+            // ambos canónicos). Fail-fast si falta una fila rol del mapa (ASE + hoja + celda).
+            // Aplica en AMBOS períodos (Q1 y Q2); la rama HU-16 queda inactiva solo si el leaf
+            // no la puebla (extensión nullable, D8).
+            progreso?.Report($"ASE {idAse}: leyendo L-Especiales menores (R1 col L)...");
+            Log.Information("ASE {AseId}: leyendo L-Especiales menores (R1 col L)...", idAse);
+            leaf.LEspecialesMenores = _leafReader.LeerLEspecialesMenores(ase, solicitud.Periodo, rutaR1);
+
+            // HU-16 (D2b, T0-0.2/0.3/0.4): INTERVENTORIA = insumo externo anual DECLARADO (sin
+            // fuente en Docs/Insumos, V8). La hoja queda protegida intacta + assert estructural
+            // (writer); aquí solo se audita el estatuto por ASE con Hoja = "INTERVENTORIA".
+            progreso?.Report($"ASE {idAse}: INTERVENTORIA = insumo externo declarado — hoja intacta (bloque anual estático; no se escribe).");
+            Log.ForContext("Hoja", "INTERVENTORIA")
+                .Information("ASE {AseId}: INTERVENTORIA = insumo externo declarado — hoja intacta (bloque anual estático K26:K30/N26:N30; no se escribe; veredicto D2b T0).", idAse);
+
             // HU-08 (2.2): conciliación por empresa de facturación de este ASE (fail-fast ASE+empresa).
             // RECORTE HONESTO T0-0.6 (Riesgo 5): en Q2 el layout del R4 por empresa DIVERGE del Q1
             // (ASE2 trae ENEL+OCCIDENTE, no RECIPROCIDAD/"NUEVO ESQUEMA"; el template Q2 tampoco
@@ -254,6 +270,33 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
                     Log.Information("ASE {AseId}: AJUSTES-SF-T esperado post-Excel = {TotalAjustes:0.##} (saldos-nota {SaldosNotas:0.##} + retribución-negativa {RetribucionNegativa:0.##}).",
                         leaf.Ase.Id, ajustes.TotalAjustes, ajustes.SaldosNotas.TotalSaldosNotas, ajustes.RetribucionNegativa.TotalRetribucionNegativa);
                 }
+            }
+        }
+
+        // HU-16 (§2.6, CA-6): resumen INTERVENTORIA + L-Especiales menores por ASE con
+        // Hoja = "INTERVENTORIA" (D2b declarado / D3a valores leídos y escritos).
+        foreach (var leaf in leafs.OrderBy(l => l.Ase.Id))
+        {
+            var interventoria = InterventoriaDeclarada.ValorOficialMesPorAse.GetValueOrDefault(leaf.Ase.Id, 0m);
+            var seg = InterventoriaDeclarada.SegundaQuincenaPorAse.GetValueOrDefault(leaf.Ase.Id, 0m);
+            var pri = InterventoriaDeclarada.PrimeraQuincenaPorAse.GetValueOrDefault(leaf.Ase.Id, 0m);
+            progreso?.Report($"ASE {leaf.Ase.Id}: INTERVENTORIA (insumo externo declarado) K={interventoria:0} M(2ª)={seg:0} N(1ª)={pri:0} — hoja intacta, no se escribe.");
+            Log.ForContext("Hoja", "INTERVENTORIA")
+                // HU-17 (S-4 HU-16): lectura por ASE = DETALLE (Debug), no hito (Information);
+                // la doctrina HU-14 D4 exige hitos en Information y valores/lecturas en Debug.
+                .Debug("ASE {AseId}: INTERVENTORIA (insumo externo declarado) K={K:0} M(2ª)={M:0} N(1ª)={N:0} — hoja intacta, no se escribe.", leaf.Ase.Id, interventoria, seg, pri);
+
+            var lMenores = leaf.LEspecialesMenores;
+            if (lMenores is not null && lMenores.TieneCeldas)
+            {
+                progreso?.Report($"ASE {leaf.Ase.Id}: L-Especiales menores = {lMenores.Celdas.Count} celdas leídas de la fuente (D3a; escritas en la misma pasada); Σ={lMenores.Total:0.##}.");
+                Log.ForContext("Hoja", "INTERVENTORIA")
+                    .Debug("ASE {AseId}: L-Especiales menores = {Count} celdas leídas de la fuente (D3a; escritas en la misma pasada); Σ={Total:0.##}.", leaf.Ase.Id, lMenores.Celdas.Count, lMenores.Total);
+            }
+            else
+            {
+                Log.ForContext("Hoja", "INTERVENTORIA")
+                    .Debug("ASE {AseId}: sin L-Especiales menores (rama HU-16 inactiva, D8).", leaf.Ase.Id);
             }
         }
 

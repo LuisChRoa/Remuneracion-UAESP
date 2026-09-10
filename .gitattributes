@@ -1,0 +1,12 @@
+# HU-17 (G5 / §9): convención repo-wide — texto con eol=crlf (estándar Windows del proyecto)
+# y binarios Excel/Word/PDF como binary (nunca normalizar, nunca diff de texto).
+*.cs    text eol=crlf
+*.csproj text eol=crlf
+*.slnx  text eol=crlf
+*.md    text eol=crlf
+*.jsonc text eol=crlf
+*.json  text eol=crlf
+
+*.xlsx  binary
+*.docx  binary
+*.pdf   binary

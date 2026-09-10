@@ -479,6 +479,34 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
                 }
             }
 
+            // HU-16 (§2.6): INTERVENTORIA (D2b — insumo externo declarado, hoja intacta) +
+            // L-Especiales menores (D3a — leídas de la fuente y escritas en la misma pasada).
+            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] INTERVENTORIA (insumo externo declarado; bloque anual estático — hoja protegida, no se escribe):{Environment.NewLine}");
+            Log.ForContext("Hoja", "INTERVENTORIA")
+                .Information("INTERVENTORIA: insumo externo declarado; bloque anual estático — hoja protegida, no se escribe.");
+            foreach (var leaf in resultadoProceso.Leafs.OrderBy(l => l.Ase.Id))
+            {
+                var interventoria = Remuneracion.Core.Constants.InterventoriaDeclarada.ValorOficialMesPorAse.GetValueOrDefault(leaf.Ase.Id, 0m);
+                var seg = Remuneracion.Core.Constants.InterventoriaDeclarada.SegundaQuincenaPorAse.GetValueOrDefault(leaf.Ase.Id, 0m);
+                var pri = Remuneracion.Core.Constants.InterventoriaDeclarada.PrimeraQuincenaPorAse.GetValueOrDefault(leaf.Ase.Id, 0m);
+                var lineaInter = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: K(Valor oficial mes)={interventoria:0}; M(2ª quincena)={seg:0}; N(1ª quincena)={pri:0}";
+                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaInter}{Environment.NewLine}");
+                Log.ForContext("Hoja", "INTERVENTORIA")
+                    .ForContext("AseId", leaf.Ase.Id)
+                    // HU-17 (S-4 HU-16): la lectura por ASE es DETALLE (Debug), no hito (Information);
+                    // el header del bloque queda como único Information (doctrina HU-14 D4).
+                    .Debug("ASE {AseId}: K={K:0}; M(2ª)={M:0}; N(1ª)={N:0} (insumo externo declarado — hoja intacta).", leaf.Ase.Id, interventoria, seg, pri);
+
+                if (leaf.LEspecialesMenores is not null && leaf.LEspecialesMenores.TieneCeldas)
+                {
+                    var lineaL = $"  ASE {leaf.Ase.Id}: L-Especiales menores = {leaf.LEspecialesMenores.Celdas.Count} celdas (D3a: leídas de la fuente y escritas); Σ={leaf.LEspecialesMenores.Total:0.##}";
+                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaL}{Environment.NewLine}");
+                    Log.ForContext("Hoja", "INTERVENTORIA")
+                        .ForContext("AseId", leaf.Ase.Id)
+                        .Debug("ASE {AseId}: L-Especiales menores = {Count} celdas (D3a); Σ={Total:0.##}.", leaf.Ase.Id, leaf.LEspecialesMenores.Celdas.Count, leaf.LEspecialesMenores.Total);
+                }
+            }
+
             // HU-13 (2.7, §2.6): bloque VALIDACIONES por ASE (veredictos del oráculo de lectura).
             // Solo cuando el procesador trae el lector-oráculo (UI); regresión = lista vacía.
             if (resultadoProceso.Validaciones.Count > 0)
@@ -512,8 +540,8 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
                             logEvento = logEvento.ForContext("AseId", aseIdActual.Value);
                         }
 
-                        logEvento.Debug("Empresa {Empresa}: O (Recaudo vs REMUNERACION) = {O:0.###}; P (INT(O)=0) = {P}",
-                            lineaEmpresa.Groups[1].Value, decimal.Parse(lineaEmpresa.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture), lineaEmpresa.Groups[3].Value);
+                        logEvento.Debug("Empresa {Empresa}: O (Recaudo vs REMUNERACION) = {O}; P (INT(O)=0) = {P}",
+                            lineaEmpresa.Groups[1].Value, lineaEmpresa.Groups[2].Value, lineaEmpresa.Groups[3].Value);
                         continue;
                     }
 
@@ -526,8 +554,8 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
                             logTotal = logTotal.ForContext("AseId", aseIdActual.Value);
                         }
 
-                        logTotal.Debug("VALIDACION_TOTAL O9 = {O9:0.###}; P9 = {P9}",
-                            decimal.Parse(lineaTotal.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture), lineaTotal.Groups[2].Value);
+                        logTotal.Debug("VALIDACION_TOTAL O9 = {O9}; P9 = {P9}",
+                            lineaTotal.Groups[1].Value, lineaTotal.Groups[2].Value);
                         continue;
                     }
 
@@ -575,7 +603,11 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
             // 1..5 = fail-fast nombrado).
             if (!int.TryParse(numero, out var id))
             {
-                throw new ArchivoFuenteNoEncontradoException(CodigoError.FuenteNoEncontrada, $"No se pudo interpretar el ASE seleccionado: '{texto}'.");
+                // HU-17 (S-4 HU-14): selección inválida ≠ archivo faltante — ArgumentException
+                // (consistente con AseFactory.DesdeId, que lanza ArgumentOutOfRangeException para
+                // id fuera de 1..5; ambos son ArgumentException). El catch general lo traduce a
+                // ERR-INESPERADO (salida 4), nunca ERR-FUENTE-NO-ENCONTRADA (salida 2).
+                throw new ArgumentException($"No se pudo interpretar el ASE seleccionado: '{texto}'.", nameof(texto));
             }
 
             return AseFactory.DesdeId(id);

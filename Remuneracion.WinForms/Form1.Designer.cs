@@ -1,4 +1,4 @@
-﻿namespace Remuneracion.WinForms
+namespace Remuneracion.WinForms
 {
     partial class Form1
     {

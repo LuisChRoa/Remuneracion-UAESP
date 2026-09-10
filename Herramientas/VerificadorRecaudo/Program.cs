@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -547,11 +547,11 @@ internal static class Program
     {
         using var workbook = SpreadsheetDocument.Open(rutaPlantilla, false);
         var workbookPart = workbook.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
-        var sheet = workbookPart.Workbook.Descendants<Sheet>()
+        var sheet = workbookPart.Workbook!.Descendants<Sheet>()
             .FirstOrDefault(s => string.Equals(s.Name?.Value, nombreHoja, StringComparison.OrdinalIgnoreCase))
             ?? throw new InvalidOperationException($"No existe la hoja {nombreHoja}");
         var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id!);
-        var cell = worksheetPart.Worksheet.Descendants<Cell>().FirstOrDefault(c => string.Equals(c.CellReference?.Value, celda, StringComparison.OrdinalIgnoreCase));
+        var cell = worksheetPart.Worksheet!.Descendants<Cell>().FirstOrDefault(c => string.Equals(c.CellReference?.Value, celda, StringComparison.OrdinalIgnoreCase));
         if (cell is null)
         {
             throw new InvalidOperationException($"No existe la celda {celda} en {nombreHoja}");
@@ -565,7 +565,7 @@ internal static class Program
         if (cell.DataType is not null && cell.DataType.Value == CellValues.SharedString)
         {
             var sharedIndex = int.Parse(cell.CellValue.InnerText, CultureInfo.InvariantCulture);
-            var sharedString = workbookPart.SharedStringTablePart!.SharedStringTable.Elements<SharedStringItem>().ElementAtOrDefault(sharedIndex);
+            var sharedString = workbookPart.SharedStringTablePart!.SharedStringTable!.Elements<SharedStringItem>().ElementAtOrDefault(sharedIndex);
             if (sharedString is null)
             {
                 return 0m;
@@ -583,14 +583,14 @@ internal static class Program
     private static Worksheet ObtenerHoja(SpreadsheetDocument workbook, string nombreHoja, string operacion)
     {
         var workbookPart = workbook.WorkbookPart ?? throw new InvalidOperationException($"El workbook para {operacion} no tiene WorkbookPart.");
-        var sheet = workbookPart.Workbook.Descendants<Sheet>()
+        var sheet = workbookPart.Workbook!.Descendants<Sheet>()
             .FirstOrDefault(s => string.Equals(s.Name?.Value, nombreHoja, StringComparison.OrdinalIgnoreCase))
             ?? throw new InvalidOperationException($"La hoja '{nombreHoja}' no existe en el workbook para {operacion}.");
 
         var worksheetPart = workbookPart.GetPartById(sheet.Id!) as WorksheetPart
             ?? throw new InvalidOperationException($"No se pudo resolver la hoja '{nombreHoja}' en el workbook para {operacion}.");
 
-        return worksheetPart.Worksheet;
+        return worksheetPart.Worksheet!;
     }
 
     private static string LeerTextoCeldaSegura(Cell cell, WorkbookPart workbookPart)
@@ -608,9 +608,9 @@ internal static class Program
         if (cell.DataType is not null && cell.DataType.Value == CellValues.SharedString)
         {
             var shared = workbookPart.SharedStringTablePart;
-            if (shared is not null && int.TryParse(cell.CellValue.Text, out var index) && index >= 0 && index < shared.SharedStringTable.Count())
+            if (shared is not null && int.TryParse(cell.CellValue.Text, out var index) && index >= 0 && index < shared.SharedStringTable!.Count())
             {
-                var item = shared.SharedStringTable.ElementAt(index);
+                var item = shared.SharedStringTable!.ElementAt(index);
                 return item.InnerText;
             }
         }

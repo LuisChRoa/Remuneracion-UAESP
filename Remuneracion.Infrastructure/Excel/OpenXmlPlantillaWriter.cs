@@ -237,6 +237,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
                     EscribirCeldasBanco(workbookPart, leaf);
                     EscribirCeldasBalanceSc(workbookPart, leaf);
                     EscribirCeldasAjustesSfT(workbookPart, leaf);
+                    EscribirCeldasLEspecialesMenores(workbookPart, leaf);
                 }
 
                 // HU-12 (2.6 ampliada, V0.4): DetRetri-Q2 (enteros por ASE + total) en la MISMA pasada.
@@ -589,6 +590,11 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
             var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
             ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
         }
+
+        // HU-16 (D2b): assert estructural de INTERVENTORIA (bloque presente con el carácter T0:
+        // totales en fórmula + filas ASE 26..30 en VALORES con L = Id ASE). Aplica en ambos
+        // períodos (Q1 gana la protección; Q2 re-asegura el mapa existente sin duplicarlo).
+        ValidarInterventoriaEstructura(workbookPart, operacion);
     }
 
     /// <summary>
@@ -674,6 +680,78 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
             var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
             ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
         }
+
+        // HU-16 (D2b): assert estructural de INTERVENTORIA (ambos períodos; Requirement 5).
+        ValidarInterventoriaEstructura(workbookPart, operacion);
+    }
+
+    /// <summary>
+    /// HU-16 (D2b, §2.5 regla 3): assert estructural de <c>INTERVENTORIA</c> con el carácter T0
+    /// congelado: los totales K31/M31/N31 (SUM) y el gran total K32 (SUM(M31:N31)) siguen siendo
+    /// FÓRMULA, y las filas ASE 26..30 (K/L/M/N) son VALORES (no fórmula) con L26..L30 = Id ASE.
+    /// Detecta stale futuro (el riesgo que motiva esta HU): si la plantilla cambia el carácter
+    /// del bloque, fail-fast que nombra la hoja y la celda — nunca se escribe ni se inventa.
+    /// </summary>
+    private static void ValidarInterventoriaEstructura(WorkbookPart workbookPart, string operacion)
+    {
+        var hoja = WorkbookLeafCellMapInterventoria.HojaInterventoria;
+        var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
+
+        foreach (var (_, celda, fragmentos) in WorkbookLeafCellMapInterventoria.FormulasProtegidas)
+        {
+            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
+        }
+
+        foreach (var celda in WorkbookLeafCellMapInterventoria.CeldasValoresBloque())
+        {
+            var cell = ObtenerCelda(worksheet, celda)
+                ?? throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"La celda '{hoja}!{celda}' no existe en la plantilla para {operacion}. INTERVENTORIA perdió el bloque por ASE (T0-0.2) — fail-fast, nunca valor inventado.");
+
+            if (cell.CellFormula is not null)
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"La celda '{hoja}!{celda}' debería ser VALOR estático (insumo externo declarado) y es fórmula. INTERVENTORIA cambió su carácter T0 — fail-fast, nunca se escribe.");
+            }
+        }
+
+        // L26..L30 = Id ASE (1..5) — el bloque mantiene el orden congelado por T0-0.2.
+        for (var i = 0; i < 5; i++)
+        {
+            var aseId = i + 1;
+            var celda = WorkbookLeafCellMapInterventoria.CeldaBloque("L", WorkbookLeafCellMapInterventoria.FilaPrimerAse + i);
+            var valor = LeerCeldaNumerica(workbookPart, worksheet, hoja, celda);
+            if (Math.Abs(valor - aseId) > 0.5m)
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"La celda '{hoja}!{celda}' debería contener el Id del ASE {aseId} (bloque T0-0.2) y vale {valor}. INTERVENTORIA cambió su estructura — fail-fast.");
+            }
+        }
+    }
+
+    private static decimal LeerCeldaNumerica(WorkbookPart workbookPart, Worksheet worksheet, string hoja, string celda)
+    {
+        var cell = ObtenerCelda(worksheet, celda)
+            ?? throw new CalculoInvalidoException(CodigoError.Plantilla, $"La celda '{hoja}!{celda}' no existe en el workbook.");
+        if (cell.CellValue is null || string.IsNullOrWhiteSpace(cell.CellValue.InnerText))
+        {
+            return 0m;
+        }
+
+        if (!decimal.TryParse(cell.CellValue.InnerText, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var valor))
+        {
+            // HU-17 (S-3 HU-16): texto en celda de gate ≠ 0 — fail-fast que nombra la celda
+            // (doctrina W2: nunca 0 silencioso en gates). Si INTERVENTORIA trae "ASE1" en L26
+            // en vez del Id numérico, el fallo lo dice tal cual, no "vale 0".
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"La celda '{hoja}!{celda}' contiene un valor NO numérico ('{cell.CellValue.InnerText}'); se esperaba el Id del ASE (bloque T0-0.2). INTERVENTORIA cambió su estructura — fail-fast.");
+        }
+
+        return valor;
     }
 
     /// <summary>
@@ -1059,6 +1137,26 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
         foreach (var (celda, valor) in leaf.AjustesSfT.RetribucionNegativa.Celdas)
         {
             EscribirValorNumerico(workbookPart, HojaRetribucionNegativa, celda, valor, $"RetribucionNegativa.ASE{leaf.Ase.Id}.{celda}");
+        }
+    }
+
+    /// <summary>
+    /// HU-16 (D3a, §2.3): escribe las L-Especiales menores del R1 del ASE (mapa congelado T0-0.5)
+    /// en la MISMA pasada atómica HU-07..HU-12 (D6). <c>LEspecialesMenores == null</c> =
+    /// comportamiento HU-15 puro (extensión nullable, D8). Fail-fast si falta un valor mapeado
+    /// (nombra ASE + hoja + celda; nunca 0 silencioso). El guard de
+    /// <see cref="EscribirValorNumerico"/> impide tocar fórmulas.
+    /// </summary>
+    private static void EscribirCeldasLEspecialesMenores(WorkbookPart workbookPart, WorkbookLeafInputs leaf)
+    {
+        if (leaf.LEspecialesMenores is null)
+        {
+            return; // HU-15 puro (rama HU-16 inactiva sin sus insumos, G4).
+        }
+
+        foreach (var (celda, valor) in leaf.LEspecialesMenores.Celdas)
+        {
+            EscribirValorNumerico(workbookPart, WorkbookLeafCellMapInterventoria.HojaR1, celda, valor, $"L-menor.ASE{leaf.Ase.Id}.{celda}");
         }
     }
 

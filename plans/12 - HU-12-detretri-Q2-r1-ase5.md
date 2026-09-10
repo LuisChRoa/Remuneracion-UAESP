@@ -424,13 +424,14 @@ Slot T0/V0.3 ausente en R1-ASE5 (falla ASE5+R1); `Replace` de sufijo que no matc
 2. Cell-map Q2 hermano del mapa HU-07, explícito por (`Ase.Id`, período) con dispatch por período (D1); path Q1 intacto; prohibidos offsets.
 3. Variante R1-Q2-ASE5 con slots V0.3 (F531/F552/L531; EXTEMP a confirmar T0-0.3); fail-fast ASE5+R1 ante slot ausente.
 4. DetRetri-Q2 con composición congelada V0.4 (`ROUND(D104:D108,0)` vía `DetRetriRounder`); `DetValiRetri`/`VALIDACION_*` = protegidas.
-5. Validación protegida parametrizada por período (D5: Q1 = fórmulas HU-07; Q2 = mapa T0); M1 verificado contra el canónico incl. sheets 93/94.
+5. Validación protegida parametrizada por período (D5: Q1 = fórmulas HU-07; Q2 = mapa T0); M1 verificado contra el canónico incl. sheets 36/37 (fe de erratas HU-17 V5: el borrador decía "sheets 93/94"; la verdad canónica, confirmada por revisión HU-12 con `workbook.xml` y re-verificada en HU-17 con `mcp-excel` sobre ambos goldens, es que `DetRetri202607{1,2}`/`DetValiRetri202607{1,2}` son las hojas 36/37 de 40).
 6. Una sola escritura atómica; sin insert/delete de filas (fail-fast honesto si la plantilla no alcanza).
 7. Golden Q2 = canónico reutilizado (no se re-fija); Capa A completa incl. A6 cierra el recorte HU-11; Capa B manual residual como acción del usuario.
 8. Recorte 1 HU-11 (HU-08 fuera de Q2) y cadena 2.5 certificada se mantienen intactos (V0.6).
 9. UI delta mínimo + Serilog DetRetri por ASE; OPA = Ejecutar.
 10. Apply espera aprobación + PRs encadenados con T0 al frente (Unidad 0–4, §4).
 11. Si algo no cierra ±0.5: NEEDS_CONTEXT con recorte, nunca invención.
+12. **M2 (nota de aceptación, HU-17 V6):** `TieneColumnaEspeciales = false` fijado por código para las fuentes de saldos-nota/retribución (evidencia T0-0.5: 5/5 sin columna "Especiales"); ausente = 0. No es un fallo: es el comportamiento esperado, documentado en el manual y el instructivo Capa B.
 
 ---
 

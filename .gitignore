@@ -22,6 +22,8 @@ project.lock.json
 # Logs
 *.log
 remuneracion_log.txt
+# HU-17 (W-3 HU-15): rolling diario de Serilog (remuneracion_log_YYYYMMDD.txt, retención 30 días)
+remuneracion_log_*.txt
 
 # Windows / OneDrive temp
 *~$*

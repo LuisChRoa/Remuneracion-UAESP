@@ -95,4 +95,17 @@ public interface IWorkbookLeafInputReader
     /// <param name="rutaRetribucionNegativa">Ruta del archivo <c>RetribuciónNegativa_*</c>.</param>
     /// <returns>Inputs del bloque RETRIBUCION NEGATIVA del ASE.</returns>
     RetribucionNegativaAseInputs LeerRetribucionNegativa(Ase ase, string rutaRetribucionNegativa);
+
+    /// <summary>
+    /// HU-16 (D3a): lee las L-Especiales menores del <c>Reporte Componentes R1</c> del ASE desde
+    /// la misma fuente <c>Recaudoporcomponente_*</c> (columna SERVICIO ESPECIALES por rol de fila
+    /// congelado en T0-0.5, dispatch por período). Fail-fast: si la fila del rol/ocurrencia no
+    /// existe en la fuente, lanza <c>CalculoInvalidoException</c> que nombra ASE + hoja + celda
+    /// (doctrina "slot ausente" ≠ "leído 0"; nunca 0 silencioso en operando).
+    /// </summary>
+    /// <param name="ase">ASE asociado.</param>
+    /// <param name="periodo">Período de la liquidación (dispatch Q1/Q2 del mapa).</param>
+    /// <param name="rutaR1">Ruta del archivo fuente R1 del ASE.</param>
+    /// <returns>Inputs L-menores del ASE (celdas del template → valor ESP de la fuente).</returns>
+    LEspecialesMenoresAseInputs LeerLEspecialesMenores(Ase ase, Periodo periodo, string rutaR1);
 }

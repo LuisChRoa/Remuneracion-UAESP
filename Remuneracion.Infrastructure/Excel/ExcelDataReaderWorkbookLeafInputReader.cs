@@ -496,6 +496,121 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         };
     }
 
+    /// <inheritdoc />
+    public LEspecialesMenoresAseInputs LeerLEspecialesMenores(Ase ase, Periodo periodo, string rutaR1)
+    {
+        ArgumentNullException.ThrowIfNull(ase);
+        ArgumentNullException.ThrowIfNull(periodo);
+        ArgumentNullException.ThrowIfNull(rutaR1);
+
+        // HU-16 (D3a, T0-0.5/0.6): el mapa L-menores es explícito por (Ase.Id, período); cada rol
+        // se resuelve por ETIQUETA en la fuente R1 (col A/B/D/E) con la ocurrencia 0-based
+        // congelada. Prohibidos offsets; "slot ausente" ≠ "leído 0" (fail-fast ASE+hoja+celda).
+        var mapa = WorkbookLeafCellMapInterventoria.ObtenerLMenores(ase.Id, periodo.NumeroQuincena);
+        var filas = ExcelWorksheetNavigator.LeerFilas(rutaR1);
+
+        var indiceEspeciales = ExcelWorksheetNavigator.IndiceColumnaPorEncabezado(filas, "SERVICIO ESPECIALES");
+        if (indiceEspeciales < 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: la fuente R1 no trae la columna 'SERVICIO ESPECIALES' requerida por el mapa T0-0.5 de L-menores (reporte {Path.GetFileName(rutaR1)}).");
+        }
+
+        // Zona Componente: filas anteriores a la fila A='Componente' B='Total' (mismo corte que
+        // HU-08 ExtraerCeldasR1). TotalFinal se resuelve después de esa fila.
+        var indiceComponente = filas.FindIndex(f =>
+            ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(0)).Equals("Componente", StringComparison.OrdinalIgnoreCase)
+            && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)).Equals("Total", StringComparison.OrdinalIgnoreCase));
+        if (indiceComponente < 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: no se encontró la fila 'Componente/Total' en la fuente R1 para localizar las L-menores (mapa T0-0.5).");
+        }
+
+        bool EsFila(object?[] f, string? d = null, string? e = null, string? a = null, string? b = null)
+        {
+            var ok = true;
+            if (d is not null)
+            {
+                ok &= ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(3)).Equals(d, StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (e is not null)
+            {
+                ok &= ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(4)).Equals(e, StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (a is not null)
+            {
+                ok &= ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(0)).Equals(a, StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (b is not null)
+            {
+                ok &= ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)).Equals(b, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return ok;
+        }
+
+        // Listas por rol dentro de la zona Componente (orden de aparición en la fuente).
+        List<object?[]> EnZona(Func<object?[], bool> predicado) => filas
+            .Select((fila, indice) => (fila, indice))
+            .Where(t => t.indice < indiceComponente && predicado(t.fila))
+            .Select(t => t.fila)
+            .ToList();
+
+        var vlrServicio = EnZona(f => EsFila(f, e: "Vlr Servicio"));
+        var vlrIntereses = EnZona(f => EsFila(f, e: "Vlr Intereses"));
+        var totalE = EnZona(f => EsFila(f, d: "E", e: "Total"));
+        var totalH = EnZona(f => EsFila(f, d: "H", e: "Total"));
+        var totalO = EnZona(f => EsFila(f, d: "O", e: "Total"));
+        var totalT = EnZona(f => EsFila(f, d: "T", e: "Total"));
+        var totalDisplay = EnZona(f => EsFila(f, d: "Total") && string.IsNullOrWhiteSpace(ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(4))));
+
+        // TotalFinal: fila A='Total' B vacío DESPUÉS de la zona Componente.
+        var totalFinal = filas
+            .Select((fila, indice) => (fila, indice))
+            .Where(t => t.indice > indiceComponente && EsFila(t.fila, a: "Total")
+                && string.IsNullOrWhiteSpace(ExcelWorksheetNavigator.CeldaTexto(t.fila.ElementAtOrDefault(1))))
+            .Select(t => t.fila)
+            .ToList();
+
+        var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (celda, rol, ocurrencia) in mapa)
+        {
+            var candidatos = rol switch
+            {
+                WorkbookLeafCellMapInterventoria.RolLMenor.VlrServicio => vlrServicio,
+                WorkbookLeafCellMapInterventoria.RolLMenor.VlrIntereses => vlrIntereses,
+                WorkbookLeafCellMapInterventoria.RolLMenor.TotalD_E => totalE,
+                WorkbookLeafCellMapInterventoria.RolLMenor.TotalD_H => totalH,
+                WorkbookLeafCellMapInterventoria.RolLMenor.TotalD_O => totalO,
+                WorkbookLeafCellMapInterventoria.RolLMenor.TotalD_T => totalT,
+                WorkbookLeafCellMapInterventoria.RolLMenor.TotalDisplay => totalDisplay,
+                WorkbookLeafCellMapInterventoria.RolLMenor.CompTotal => [filas[indiceComponente]],
+                WorkbookLeafCellMapInterventoria.RolLMenor.TotalFinal => totalFinal,
+                _ => []
+            };
+
+            var fila = candidatos.ElementAtOrDefault(ocurrencia);
+            if (fila is null)
+            {
+                // Slot ausente (doctrina HU-12): nunca 0 silencioso; el mapa T0 exige la fila.
+                throw new CalculoInvalidoException(
+                    $"ASE {ase.Id}: la fuente R1 no trae la fila del rol {rol} (ocurrencia {ocurrencia}) requerida por el mapa T0-0.5 para la celda {WorkbookLeafCellMapInterventoria.HojaR1}!{celda} (reporte {Path.GetFileName(rutaR1)}).");
+            }
+
+            celdas[celda] = ExcelWorksheetNavigator.CeldaNumero(fila.ElementAtOrDefault(indiceEspeciales));
+        }
+
+        return new LEspecialesMenoresAseInputs
+        {
+            Ase = ase,
+            Celdas = celdas
+        };
+    }
+
     /// <summary>
     /// HU-11 (2.5): localiza la fila de headers de la fuente (la que contiene la mayoría de los
     /// títulos del mapa T0-0.5). Devuelve -1 si la fuente no trae la estructura esperada

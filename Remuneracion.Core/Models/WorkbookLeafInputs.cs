@@ -72,4 +72,11 @@ public sealed class WorkbookLeafInputs
     /// proceso SIEMPRE lo puebla (fail-fast si falta, §2.5 regla 2).
     /// </summary>
     public DetRetriQ2Inputs? DetRetriQ2 { get; set; }
+
+    /// <summary>
+    /// HU-16 (D3a): L-Especiales menores del R1 por ASE (columna L espejo de la fuente; mapa
+    /// congelado por T0-0.5/0.6). <c>null</c> = comportamiento HU-15 puro (extensión nullable,
+    /// plan §2.4 D8): el writer no escribe ninguna L-menor.
+    /// </summary>
+    public LEspecialesMenoresAseInputs? LEspecialesMenores { get; set; }
 }

@@ -74,6 +74,16 @@ public sealed class ProcesadorPeriodoTests
             Assert.Equal(1, leaf.ReporteBanco.Quincena);
         }
 
+        // HU-16 (D3a): cada leaf trae sus L-Especiales menores (leídas de la fuente R1; el
+        // mapa T0-0.5 las declara para los 5 ASE en Q1). INTERVENTORIA queda declarada (D2b)
+        // y la hoja intacta — verificado por Capa A (GoldenInterventoriaTests).
+        foreach (var leaf in resultado.Leafs)
+        {
+            Assert.NotNull(leaf.LEspecialesMenores);
+            Assert.True(leaf.LEspecialesMenores!.TieneCeldas,
+                $"ASE {leaf.Ase.Id}: el mapa D3a Q1 exige celdas L-menores.");
+        }
+
         // HU-10 (2.4): cada leaf trae su fila de balance SC (TotalBsc == TotalFuente; H D2(b)).
         foreach (var leaf in resultado.Leafs)
         {
