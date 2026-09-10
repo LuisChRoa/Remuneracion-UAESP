@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
 using Serilog;
@@ -98,6 +99,8 @@ namespace Remuneracion.WinForms
 
             cmbQuincena.Items.AddRange(["1.ª Quincena", "2.ª Quincena"]);
             cmbQuincena.SelectedIndex = DateTime.Now.Day <= 15 ? 0 : 1;
+
+            ActualizarSubtitulo();
         }
 
         private void InicializarAse()
@@ -127,6 +130,51 @@ namespace Remuneracion.WinForms
             cmbAse.Enabled = !chkCincoAse.Checked;
         }
 
+        private void Periodo_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            ActualizarSubtitulo();
+        }
+
+        /// <summary>
+        /// HU-18 (RF-1): el subtítulo del header refleja el período elegido
+        /// (Año/Mes/Quincena) sin tocar <see cref="PeriodoSeleccionado"/>.
+        /// </summary>
+        private void ActualizarSubtitulo()
+        {
+            var periodo = PeriodoSeleccionado;
+            if (string.IsNullOrEmpty(periodo))
+            {
+                lblSubtitulo.Text = "Seleccione el período";
+                return;
+            }
+
+            string quincena = cmbQuincena.SelectedIndex == 0 ? "1.ª Quincena" : "2.ª Quincena";
+            lblSubtitulo.Text = $"Período {periodo} · {quincena}";
+        }
+
+        /// <summary>
+        /// HU-18 (R2/G3): ToolTip con la ruta completa. Los <c>TextBox</c> no soportan
+        /// <c>AutoEllipsis</c>, por lo que el tip es el mecanismo para ver la ruta entera.
+        /// </summary>
+        private void Ruta_TextChanged(object? sender, EventArgs e)
+        {
+            if (sender is not TextBox caja)
+            {
+                return;
+            }
+
+            toolTipRutas.SetToolTip(caja, string.IsNullOrWhiteSpace(caja.Text) ? "Sin seleccionar" : caja.Text);
+        }
+
+        /// <summary>HU-18 (G3): doble-clic sobre una ruta la selecciona completa para copiar.</summary>
+        private void Ruta_DoubleClick(object? sender, EventArgs e)
+        {
+            if (sender is TextBox caja)
+            {
+                caja.SelectAll();
+            }
+        }
+
         private void btnSeleccionarCarpeta_Click(object? sender, EventArgs e)
         {
             if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
@@ -151,6 +199,98 @@ namespace Remuneracion.WinForms
             }
         }
 
+        /// <summary>
+        /// HU-18 (RF-4/G4): limpia SOLO el log, el progreso, el status y el código de salida.
+        /// Las rutas y el período quedan intactos (flujo administrativo: re-ejecutar el mismo período).
+        /// </summary>
+        private void btnLimpiar_Click(object? sender, EventArgs e)
+        {
+            txtLog.Clear();
+            progressBar.Value = 0;
+            lblProgresoPct.Text = "0 %";
+            lblAseActual.Text = "—";
+            lblLineasLog.Text = "0 líneas";
+            btnCopiarLog.Enabled = false;
+            toolStripStatusLabel.Text = "Listo";
+            UltimoCodigoSalida = CodigosSalida.Ok;
+            Log.Debug("Log limpiado por el usuario.");
+        }
+
+        /// <summary>
+        /// HU-18 (RF-5): abre la carpeta de salida en el Explorador. Validación UX (no de
+        /// proceso): si no hay carpeta válida muestra un aviso y NO lanza excepción.
+        /// </summary>
+        private void btnAbrirSalida_Click(object? sender, EventArgs e)
+        {
+            var carpeta = txtCarpetaSalida.Text;
+            if (string.IsNullOrWhiteSpace(carpeta) || !Directory.Exists(carpeta))
+            {
+                MessageBox.Show(
+                    "Seleccione primero una carpeta de salida válida.",
+                    "Carpeta de salida",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo(carpeta) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "No se pudo abrir la carpeta de salida: {Carpeta}", carpeta);
+                MessageBox.Show(
+                    "No se pudo abrir la carpeta de salida en el Explorador.",
+                    "Carpeta de salida",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+        }
+
+        /// <summary>
+        /// HU-18 (RF-6): copia el contenido exacto del log al portapapeles bajo clic explícito.
+        /// </summary>
+        private void btnCopiarLog_Click(object? sender, EventArgs e)
+        {
+            if (txtLog.TextLength == 0)
+            {
+                MessageBox.Show(
+                    "Todavía no hay contenido en el log.",
+                    "Copiar log",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            try
+            {
+                Clipboard.SetText(txtLog.Text);
+                toolStripStatusLabel.Text = "Log copiado al portapapeles";
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "No se pudo copiar el log al portapapeles.");
+                MessageBox.Show(
+                    "No se pudo copiar el log al portapapeles.",
+                    "Copiar log",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+        }
+
+        /// <summary>
+        /// HU-18 (G5/RF-8): único punto de append al log. Conserva el formato HU-14
+        /// <c>[{HH:mm:ss}] mensaje</c>, hace autoscroll y actualiza el conteo de líneas.
+        /// </summary>
+        private void AppendLogLine(string mensaje)
+        {
+            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {mensaje}{Environment.NewLine}");
+            txtLog.SelectionStart = txtLog.TextLength;
+            txtLog.ScrollToCaret();
+            lblLineasLog.Text = string.IsNullOrEmpty(txtLog.Text) ? "0 líneas" : $"{txtLog.Lines.Length} líneas";
+        }
+
         private async void btnEjecutar_Click(object? sender, EventArgs e)
         {
             if (string.IsNullOrWhiteSpace(txtCarpetaFuentes.Text) ||
@@ -169,12 +309,13 @@ namespace Remuneracion.WinForms
             var maxProgreso = modoCincoAse ? 42 : 8; // hitos × 5 + escritura en modo período
 
             SetControlesHabilitados(false);
-            progressBar.Visible = true;
             progressBar.Style = ProgressBarStyle.Continuous;
             progressBar.Minimum = 0;
             progressBar.Maximum = maxProgreso;
             progressBar.Value = 0;
-            toolStripStatusLabel.Text = "Procesando...";
+            lblProgresoPct.Text = "0 %";
+            lblAseActual.Text = "Iniciando…";
+            toolStripStatusLabel.Text = "Procesando…";
 
             var periodo = Periodo.Parse(PeriodoSeleccionado);
             var aseSeleccionada = cmbAse.Text;
@@ -190,7 +331,7 @@ namespace Remuneracion.WinForms
             using var _periodoScope = LogContext.PushProperty("Periodo", PeriodoSeleccionado);
             using var _modoScope = LogContext.PushProperty("Modo", modoTexto);
 
-            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Iniciando proceso — Período: {PeriodoSeleccionado}, Modo: {modoTexto}{Environment.NewLine}");
+            AppendLogLine($"Iniciando proceso — Período: {PeriodoSeleccionado}, Modo: {modoTexto}");
             Log.Information("Iniciando proceso de remuneración quincenal. Período: {Periodo}, Modo: {Modo}", PeriodoSeleccionado, modoTexto);
 
             if (string.Equals(Path.GetFullPath(txtPlantilla.Text), Path.GetFullPath(rutaSalida), StringComparison.OrdinalIgnoreCase))
@@ -201,9 +342,9 @@ namespace Remuneracion.WinForms
                 UltimoCodigoSalida = CodigosSalida.FuenteOPlantilla;
                 Log.Error("[{Codigo}] La ruta de salida coincide con la plantilla: {Salida}. Use una ruta de salida distinta a la plantilla.", CodigoError.Plantilla, rutaSalida);
                 MostrarErrorUx(CodigoError.Plantilla, null);
-                toolStripStatusLabel.Text = $"Error {CodigoError.Plantilla} (salida {UltimoCodigoSalida})";
+                toolStripStatusLabel.Text = $"Error {CodigoError.Plantilla} — ver guía en pantalla";
                 SetControlesHabilitados(true);
-                progressBar.Visible = false;
+                lblAseActual.Text = "—";
                 return;
             }
 
@@ -219,11 +360,11 @@ namespace Remuneracion.WinForms
                 {
                     // HU-14 (3.1/3.2): cancelación = Warning + WARN-CANCELADO + salida 5 (contrato HU-15).
                     UltimoCodigoSalida = CodigosSalida.CanceladoPorUsuario;
-                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Proceso cancelado por decisión del usuario. Archivo de salida ya existe.{Environment.NewLine}");
+                    AppendLogLine("Proceso cancelado por decisión del usuario. Archivo de salida ya existe.");
                     Log.Warning("Proceso cancelado: salida ya existe y no se acepta sobreescritura. [{Codigo}]", CodigoError.CanceladoPorUsuario);
-                    toolStripStatusLabel.Text = $"Cancelado (salida {UltimoCodigoSalida})";
+                    toolStripStatusLabel.Text = "Cancelado por el usuario";
                     SetControlesHabilitados(true);
-                    progressBar.Visible = false;
+                    lblAseActual.Text = "—";
                     return;
                 }
             }
@@ -232,11 +373,13 @@ namespace Remuneracion.WinForms
             {
                 var progreso = new Progress<string>(mensaje =>
                 {
-                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {mensaje}{Environment.NewLine}");
+                    AppendLogLine(mensaje);
                     // HU-14 (3.2): el detalle/mensaje va al archivo en Debug (el archivo ya tiene
                     // los hitos del procesador en Information; el box conserva todo como hoy, D4).
                     Log.Debug(mensaje);
                     progressBar.Value = Math.Min(progressBar.Value + 1, progressBar.Maximum);
+                    lblProgresoPct.Text = $"{progressBar.Value * 100 / progressBar.Maximum} %";
+                    lblAseActual.Text = mensaje;
                 });
 
                 if (modoCincoAse)
@@ -249,8 +392,9 @@ namespace Remuneracion.WinForms
                 }
 
                 progressBar.Value = progressBar.Maximum;
+                lblProgresoPct.Text = "100 %";
                 UltimoCodigoSalida = CodigosSalida.Ok;
-                toolStripStatusLabel.Text = $"Completado (salida {UltimoCodigoSalida})";
+                toolStripStatusLabel.Text = $"Completado — archivo listo en {txtCarpetaSalida.Text}";
             }
             catch (Exception ex)
             {
@@ -259,15 +403,15 @@ namespace Remuneracion.WinForms
                 // y status con código de salida registrado (D3).
                 var codigo = ObtenerCodigoError(ex);
                 UltimoCodigoSalida = CatalogoErrores.CodigoSalidaPara(codigo);
-                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] ERROR [{codigo}]: {ex.GetType().Name} — {ex.Message}{Environment.NewLine}");
+                AppendLogLine($"ERROR [{codigo}]: {ex.GetType().Name} — {ex.Message}");
                 Log.Error(ex, "[{Codigo}] Error en la ejecución del proceso: {Mensaje}", codigo, ex.Message);
                 MostrarErrorUx(codigo, ex);
-                toolStripStatusLabel.Text = $"Error {codigo} (salida {UltimoCodigoSalida})";
+                toolStripStatusLabel.Text = $"Error {codigo} — ver guía en pantalla";
             }
             finally
             {
-                progressBar.Visible = false;
                 SetControlesHabilitados(true);
+                lblAseActual.Text = "—";
             }
         }
 
@@ -315,7 +459,7 @@ namespace Remuneracion.WinForms
             var valorE41Esperado = leaf.R2.TotalOportunoEsperado;
             var valorD67Esperado = leaf.R4.TotalReversionEsperada;
 
-            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Resumen final: F46/D9 esperado post-Excel = {valorD9Esperado:0.##}; F48/D47 esperado = {valorF48Esperado:0.##}; E41/D28 esperado = {valorE41Esperado:0.##}; D67/D66 esperado = {valorD67Esperado:0.##}; salida = {rutaSalida}{Environment.NewLine}");
+            AppendLogLine($"Resumen final: F46/D9 esperado post-Excel = {valorD9Esperado:0.##}; F48/D47 esperado = {valorF48Esperado:0.##}; E41/D28 esperado = {valorE41Esperado:0.##}; D67/D66 esperado = {valorD67Esperado:0.##}; salida = {rutaSalida}");
             Log.Information("Resumen final: F46/D9 esperado post-Excel = {D9}; F48/D47 esperado = {D47}; E41/D28 esperado = {D28}; D67/D66 esperado = {D66}; salida = {Salida}",
                 valorD9Esperado, valorF48Esperado, valorE41Esperado, valorD67Esperado, rutaSalida);
         }
@@ -337,12 +481,12 @@ namespace Remuneracion.WinForms
 
             // Resumen honesto por ASE: visibles esperados post-Excel (nunca agregados HU-02 como
             // valores CONSOLIDADO) + GranTotal.
-            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Resumen por ASE (esperado post-Excel):{Environment.NewLine}");
+            AppendLogLine("Resumen por ASE (esperado post-Excel):");
             Log.Information("Resumen multi-ASE: esperados post-Excel por ASE.");
             foreach (var leaf in resultadoProceso.Leafs.OrderBy(l => l.Ase.Id))
             {
                 var linea = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: TOT_OPT={leaf.R1.TotalOportunoEsperadoPorAse:0.##}; R2={leaf.R2.TotalOportunoEsperado:0.##}; EXTEMP={leaf.R1.ExtemporaneoEsperadoPorAse:0.##}; R4={leaf.R4.TotalReversionEsperada:0.##}";
-                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {linea}{Environment.NewLine}");
+                AppendLogLine(linea);
                 Log.ForContext("AseId", leaf.Ase.Id).Debug("ASE {AseId}: {Linea}", leaf.Ase.Id, linea);
             }
 
@@ -352,7 +496,7 @@ namespace Remuneracion.WinForms
                 foreach (var conc in leaf.Conciliacion.OrderBy(c => c.Empresa.Id))
                 {
                     var lineaEmpresa = $"  ASE {leaf.Ase.Id} · {conc.Empresa.Nombre}: R1={conc.VisibleR1:0.##}; R2={conc.VisibleR2:0.##}; R4={conc.VisibleR4:0.##}";
-                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaEmpresa}{Environment.NewLine}");
+                    AppendLogLine(lineaEmpresa);
                     Log.ForContext("AseId", leaf.Ase.Id).ForContext("Empresa", conc.Empresa.Nombre)
                         .Debug("ASE {AseId} empresa {Empresa}: {Linea}", leaf.Ase.Id, conc.Empresa.Nombre, lineaEmpresa);
                 }
@@ -362,11 +506,11 @@ namespace Remuneracion.WinForms
             var primerLeaf = resultadoProceso.Leafs.FirstOrDefault();
             if (primerLeaf is not null && primerLeaf.Recaudos.Count > 0)
             {
-                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] Recaudo por empresa (hojas Recaudo *):{Environment.NewLine}");
+                AppendLogLine("Recaudo por empresa (hojas Recaudo *):");
                 foreach (var recaudo in primerLeaf.Recaudos.OrderBy(r => r.Empresa.Id))
                 {
                     var lineaRecaudo = $"  {recaudo.Empresa.Nombre}: OPORTUNO={recaudo.TotalOportuno:0.##}; EXTEMP={recaudo.TotalExtemporaneo:0.##}; TOTAL={recaudo.Total:0.##}";
-                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaRecaudo}{Environment.NewLine}");
+                    AppendLogLine(lineaRecaudo);
                     Log.ForContext("Empresa", recaudo.Empresa.Nombre).Debug("Empresa {Empresa}: {Linea}", recaudo.Empresa.Nombre, lineaRecaudo);
                 }
             }
@@ -375,7 +519,7 @@ namespace Remuneracion.WinForms
             // "esperado post-Excel") + C59 + nota 59–80 informativa. Delta mínimo, sin restyle.
             if (resultadoProceso.Leafs.Any(l => l.ReporteBanco is not null))
             {
-                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] REPORTE RECAUDO x BANCO (esperado post-Excel):{Environment.NewLine}");
+                AppendLogLine("REPORTE RECAUDO x BANCO (esperado post-Excel):");
                 Log.Information("REPORTE RECAUDO x BANCO: esperados post-Excel por ASE y empresa.");
                 foreach (var leaf in resultadoProceso.Leafs.OrderBy(l => l.Ase.Id))
                 {
@@ -389,7 +533,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
                             foreach (var empresa in bloque.Empresas.OrderBy(e => e.Empresa))
                             {
                                 var lineaBanco = $"  ASE {leaf.Ase.Id} · {empresa.Empresa}: FACT={empresa.AplicadosFacturacion:0.##}; SALDOS={empresa.SaldosFavorGenerados:0.##}; FINANC={empresa.FinanciacionesNuevas:0.##}; ESPEC={empresa.RecibosServEspeciales:0.##}; TOTAL={empresa.Total:0.##}";
-                                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaBanco}{Environment.NewLine}");
+                                AppendLogLine(lineaBanco);
                                 Log.ForContext("Hoja", "REPORTE RECAUDO x BANCO")
                                     .ForContext("AseId", leaf.Ase.Id).ForContext("Empresa", empresa.Empresa)
                                     .Debug("ASE {AseId} · {Empresa}: {Linea}", leaf.Ase.Id, empresa.Empresa, lineaBanco);
@@ -398,7 +542,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
                 }
 
                 var quincena = resultadoProceso.Leafs.First(l => l.ReporteBanco is not null).ReporteBanco!.Quincena;
-                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}]  C59 (quincena) = {quincena}; diferencias filas 59–80 informativas (anulado/reversado misma quincena, esperadas ≠ 0).{Environment.NewLine}");
+                AppendLogLine($" C59 (quincena) = {quincena}; diferencias filas 59–80 informativas (anulado/reversado misma quincena, esperadas ≠ 0).");
                 Log.ForContext("Hoja", "REPORTE RECAUDO x BANCO")
                     .Debug("C59 = {Quincena}; diferencias 59-80 informativas (anulado/reversado).", quincena);
             }
@@ -408,7 +552,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
             // nota J9:J13 y K/M calculan por fórmulas (Capa B). Delta mínimo, sin restyle.
             if (resultadoProceso.Leafs.Any(l => l.BalanceSc is not null))
             {
-                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] BCE SC POR FACT. (esperado post-Excel; asignación D/E = veredicto T0: D←Contribución F-fuente, E←Subsidio E-fuente):{Environment.NewLine}");
+                AppendLogLine("BCE SC POR FACT. (esperado post-Excel; asignación D/E = veredicto T0: D←Contribución F-fuente, E←Subsidio E-fuente):");
                 Log.ForContext("Hoja", "BCE SC POR FACT.")
                     .Information("BCE SC POR FACT.: esperados post-Excel por ASE (veredicto D/E T0 hipótesis líder).");
                 foreach (var leaf in resultadoProceso.Leafs.OrderBy(l => l.Ase.Id))
@@ -421,14 +565,14 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
                     foreach (var bloque in leaf.BalanceSc.Ases)
                     {
                         var lineaBce = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: CONTRIBUCION(D)={bloque.Contribucion:0.##}; SUBSIDIO(E)={bloque.Subsidio:0.##}; TOTAL BSC(F)={bloque.TotalBsc:0.##}; H≈F por fórmula (DetRetri J{8 + leaf.Ase.Id})";
-                        txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaBce}{Environment.NewLine}");
+                        AppendLogLine(lineaBce);
                         Log.ForContext("Hoja", "BCE SC POR FACT.")
                             .ForContext("AseId", leaf.Ase.Id)
                             .Debug("ASE {AseId}: {Linea}", leaf.Ase.Id, lineaBce);
                     }
                 }
 
-                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}]  CONSOLIDADO J9:J13 y K/M calculan por fórmulas desde BCE F3:F7 (verificar post-Excel en Capa B).{Environment.NewLine}");
+                AppendLogLine(" CONSOLIDADO J9:J13 y K/M calculan por fórmulas desde BCE F3:F7 (verificar post-Excel en Capa B).");
                 Log.ForContext("Hoja", "BCE SC POR FACT.")
                     .Debug("CONSOLIDADO J9:J13 y K/M calculan por fórmulas desde BCE F3:F7 (Capa B).");
             }
@@ -437,7 +581,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
             // esperado post-Excel) + D85:D89 esperado. Solo en Q2 (leaf.AjustesSfT != null).
             if (resultadoProceso.Leafs.Any(l => l.AjustesSfT is not null))
             {
-                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] AJUSTES-SF-T (esperado post-Excel; hoja formulada, no escrita):{Environment.NewLine}");
+                AppendLogLine("AJUSTES-SF-T (esperado post-Excel; hoja formulada, no escrita):");
                 Log.ForContext("Hoja", "AJUSTES - SF-T")
                     .Information("AJUSTES-SF-T: esperados post-Excel por ASE (Q2).");
                 foreach (var leaf in resultadoProceso.Leafs.OrderBy(l => l.Ase.Id))
@@ -449,7 +593,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
 
                     var ajustes = leaf.AjustesSfT;
                     var lineaAjustes = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: SALDOS-NOTA={ajustes.SaldosNotas.TotalSaldosNotas:0.##}; RETRIBUCION-NEGATIVA={ajustes.RetribucionNegativa.TotalRetribucionNegativa:0.##}; TOTAL AJUSTES(D{84 + leaf.Ase.Id})={ajustes.TotalAjustes:0.##}";
-                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaAjustes}{Environment.NewLine}");
+                    AppendLogLine(lineaAjustes);
                     Log.ForContext("Hoja", "AJUSTES - SF-T")
                         .ForContext("AseId", leaf.Ase.Id)
                         .Debug("ASE {AseId}: {Linea}", leaf.Ase.Id, lineaAjustes);
@@ -460,7 +604,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
             // en DetRetri2026072 D9:D13; D14 = total) — solo en Q2 (leaf.DetRetriQ2 != null).
             if (resultadoProceso.Leafs.Any(l => l.DetRetriQ2 is not null))
             {
-                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] DetRetri Q2 (esperado post-Excel; entero ROUND(D104:D108,0) escrito en valores):{Environment.NewLine}");
+                AppendLogLine("DetRetri Q2 (esperado post-Excel; entero ROUND(D104:D108,0) escrito en valores):");
                 Log.ForContext("Hoja", "DetRetri2026072")
                     .Information("DetRetri Q2: esperados post-Excel por ASE (composición V0.4).");
                 foreach (var leaf in resultadoProceso.Leafs.OrderBy(l => l.Ase.Id))
@@ -472,7 +616,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
 
                     var detalle = leaf.DetRetriQ2;
                     var lineaDetRetri = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: D104:D108={detalle.TotalD104:0.##}; DetRetri-D(D{8 + leaf.Ase.Id})={detalle.Detalle:0}";
-                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaDetRetri}{Environment.NewLine}");
+                    AppendLogLine(lineaDetRetri);
                     Log.ForContext("Hoja", "DetRetri2026072")
                         .ForContext("AseId", leaf.Ase.Id)
                         .Debug("ASE {AseId}: {Linea}", leaf.Ase.Id, lineaDetRetri);
@@ -481,7 +625,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
 
             // HU-16 (§2.6): INTERVENTORIA (D2b — insumo externo declarado, hoja intacta) +
             // L-Especiales menores (D3a — leídas de la fuente y escritas en la misma pasada).
-            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] INTERVENTORIA (insumo externo declarado; bloque anual estático — hoja protegida, no se escribe):{Environment.NewLine}");
+            AppendLogLine("INTERVENTORIA (insumo externo declarado; bloque anual estático — hoja protegida, no se escribe):");
             Log.ForContext("Hoja", "INTERVENTORIA")
                 .Information("INTERVENTORIA: insumo externo declarado; bloque anual estático — hoja protegida, no se escribe.");
             foreach (var leaf in resultadoProceso.Leafs.OrderBy(l => l.Ase.Id))
@@ -490,7 +634,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
                 var seg = Remuneracion.Core.Constants.InterventoriaDeclarada.SegundaQuincenaPorAse.GetValueOrDefault(leaf.Ase.Id, 0m);
                 var pri = Remuneracion.Core.Constants.InterventoriaDeclarada.PrimeraQuincenaPorAse.GetValueOrDefault(leaf.Ase.Id, 0m);
                 var lineaInter = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: K(Valor oficial mes)={interventoria:0}; M(2ª quincena)={seg:0}; N(1ª quincena)={pri:0}";
-                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaInter}{Environment.NewLine}");
+                AppendLogLine(lineaInter);
                 Log.ForContext("Hoja", "INTERVENTORIA")
                     .ForContext("AseId", leaf.Ase.Id)
                     // HU-17 (S-4 HU-16): la lectura por ASE es DETALLE (Debug), no hito (Information);
@@ -500,7 +644,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
                 if (leaf.LEspecialesMenores is not null && leaf.LEspecialesMenores.TieneCeldas)
                 {
                     var lineaL = $"  ASE {leaf.Ase.Id}: L-Especiales menores = {leaf.LEspecialesMenores.Celdas.Count} celdas (D3a: leídas de la fuente y escritas); Σ={leaf.LEspecialesMenores.Total:0.##}";
-                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {lineaL}{Environment.NewLine}");
+                    AppendLogLine(lineaL);
                     Log.ForContext("Hoja", "INTERVENTORIA")
                         .ForContext("AseId", leaf.Ase.Id)
                         .Debug("ASE {AseId}: L-Especiales menores = {Count} celdas (D3a); Σ={Total:0.##}.", leaf.Ase.Id, leaf.LEspecialesMenores.Celdas.Count, leaf.LEspecialesMenores.Total);
@@ -511,12 +655,12 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
             // Solo cuando el procesador trae el lector-oráculo (UI); regresión = lista vacía.
             if (resultadoProceso.Validaciones.Count > 0)
             {
-                txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] VALIDACIONES (oráculo read-only; verificación post-Excel = Capa B manual):{Environment.NewLine}");
+                AppendLogLine("VALIDACIONES (oráculo read-only; verificación post-Excel = Capa B manual):");
                 Log.Information("VALIDACIONES (oráculo read-only; verificación post-Excel = Capa B manual):");
                 int? aseIdActual = null;
                 foreach (var linea in resultadoProceso.Validaciones)
                 {
-                    txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {linea}{Environment.NewLine}");
+                    AppendLogLine(linea);
                     // HU-14 (W-3): la propiedad Validacion lleva el nombre REAL de la validación
                     // (VALIDACION_ENEL, DetValiRetri, VALIDACION_TOTAL, …) — nunca el literal
                     // "cruzada" — y AseId como propiedad; plantilla estructurada donde la línea
@@ -577,7 +721,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
                 + l.R1.ExtemporaneoEsperadoPorAse
                 + l.R4.TotalReversionEsperada
                 + (l.AjustesSfT?.TotalAjustes ?? 0m));
-            txtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] GranTotal CONSOLIDADO (Σ visibles post-Excel) = {granTotal:0.##}; salida = {rutaSalida}{Environment.NewLine}");
+            AppendLogLine($"GranTotal CONSOLIDADO (Σ visibles post-Excel) = {granTotal:0.##}; salida = {rutaSalida}");
             Log.Information("GranTotal CONSOLIDADO (Σ visibles post-Excel) = {GranTotal}; salida = {Salida}", granTotal, rutaSalida);
         }
 
@@ -627,6 +771,9 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
             cmbAse.Enabled = habilitados && !chkCincoAse.Checked;
             chkCincoAse.Enabled = habilitados;
             btnEjecutar.Enabled = habilitados;
+            btnLimpiar.Enabled = habilitados;
+            btnAbrirSalida.Enabled = habilitados;
+            btnCopiarLog.Enabled = habilitados && txtLog.TextLength > 0;
         }
 
         private void ConfigurarSerilog()
