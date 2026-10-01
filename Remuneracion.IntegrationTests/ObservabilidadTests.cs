@@ -155,6 +155,7 @@ public sealed class ObservabilidadTests : IDisposable
             new ValidadorBasico(),
             new OpenXmlPlantillaWriter(),
             new ArchivoFuenteLocator(),
+            new ExcelDataReaderDetRetriR10Reader(),
             new ValidacionOracleReader());
 
     private sealed class CapturaEventos : ILogEventSink

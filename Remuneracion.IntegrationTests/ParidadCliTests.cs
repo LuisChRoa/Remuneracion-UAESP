@@ -294,6 +294,7 @@ public sealed class ParidadCliTests : IDisposable
             new ValidadorBasico(),
             new OpenXmlPlantillaWriter(),
             new ArchivoFuenteLocator(),
+            new ExcelDataReaderDetRetriR10Reader(),
             new ValidacionOracleReader());
 
     private static ResultadoProcesoAse EjecutarUnAseDirecto(int aseId, Periodo periodo, string salida) =>

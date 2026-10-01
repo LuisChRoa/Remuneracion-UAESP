@@ -262,6 +262,7 @@ public sealed class MicroFixesHu17Tests
             new ValidadorBasico(),
             new OpenXmlPlantillaWriter(),
             new ArchivoFuenteLocator(),
+            new ExcelDataReaderDetRetriR10Reader(),
             new ValidacionOracleReader());
         return procesador.Ejecutar(new SolicitudProcesoPeriodo
         {

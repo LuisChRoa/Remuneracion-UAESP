@@ -43,6 +43,51 @@ public static class ExcelWorksheetNavigator
         return filas;
     }
 
+    /// <summary>
+    /// HU-20 (G3): lee las filas de la hoja cuyo nombre coincide (case-insensitive) con
+    /// <paramref name="nombreHoja"/>. Fail-fast si la hoja no existe (nombra archivo + hoja;
+    /// nunca lee la primera hoja a ciegas). El R10 trae DetRetri como primera hoja, pero la
+    /// selección explícita protege contra un futuro reordenamiento.
+    /// </summary>
+    public static List<object?[]> LeerFilas(string rutaArchivo, string nombreHoja)
+    {
+        ArgumentNullException.ThrowIfNull(rutaArchivo);
+        ArgumentNullException.ThrowIfNull(nombreHoja);
+
+        if (!File.Exists(rutaArchivo))
+        {
+            throw new ArchivoFuenteNoEncontradoException($"No se encontró el archivo fuente: '{rutaArchivo}'.");
+        }
+
+        using var stream = File.Open(rutaArchivo, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = ExcelReaderFactory.CreateReader(stream);
+        do
+        {
+            if (!string.Equals(reader.Name, nombreHoja, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var filas = new List<object?[]>();
+            while (reader.Read())
+            {
+                var fila = new object?[reader.FieldCount];
+                for (var i = 0; i < reader.FieldCount; i++)
+                {
+                    fila[i] = reader.GetValue(i);
+                }
+
+                filas.Add(fila);
+            }
+
+            return filas;
+        }
+        while (reader.NextResult());
+
+        throw new ArchivoFuenteNoEncontradoException(
+            $"No se encontró la hoja '{nombreHoja}' en el archivo '{rutaArchivo}'.");
+    }
+
     public static string CeldaTexto(object? valor)
     {
         if (valor is null)

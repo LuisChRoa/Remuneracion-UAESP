@@ -32,15 +32,17 @@ public interface IWorkbookLeafInputReader
     IReadOnlyList<ConciliacionEmpresaInputs> LeerConciliacionEmpresas(Ase ase, Periodo periodo, string rutaR1, string rutaR2, string rutaR4);
 
     /// <summary>
-    /// HU-08 (2.2): lee las 5 hojas <c>Recaudo *</c> desde los archivos de conciliación
-    /// <c>Consolidado/Conciliaciones/Conjunta {prefijo}*.xlsx</c> (T0-0.6). Fail-fast: si falta
-    /// el archivo de conciliación de una empresa, lanza <c>ArchivoFuenteNoEncontradoException</c>
-    /// que nombra la empresa.
+    /// HU-08 (2.2) / HU-20: lee las 5 hojas <c>Recaudo *</c> desde los archivos de conciliación
+    /// <c>{periodo}/Conciliaciones/Conjunta {prefijo}*.xlsx</c>. La quincena la gobierna
+    /// <see cref="Periodo.NumeroQuincena"/> (G2-D2: dominio, nunca fuente): Q1 lee D/E (VALOR 1°Q),
+    /// Q2 lee F/G (VALOR 2°Q). Fail-fast: si falta el archivo de conciliación de una empresa,
+    /// lanza <c>ArchivoFuenteNoEncontradoException</c> que nombra la empresa y el prefijo.
     /// </summary>
+    /// <param name="periodo">Período de la liquidación (dispatch Q1/Q2 del par de columnas).</param>
     /// <param name="rutaConciliacionPorEmpresa">Función que resuelve la ruta del archivo de
     /// conciliación para una empresa (devuelve <c>null</c> si no existe).</param>
     /// <returns>Inputs de las hojas <c>Recaudo *</c> (5 empresas).</returns>
-    IReadOnlyList<RecaudoEmpresaInputs> LeerRecaudosEmpresa(Func<EmpresaFacturacion, string?> rutaConciliacionPorEmpresa);
+    IReadOnlyList<RecaudoEmpresaInputs> LeerRecaudosEmpresa(Periodo periodo, Func<EmpresaFacturacion, string?> rutaConciliacionPorEmpresa);
 
     /// <summary>
     /// HU-09 (2.3): lee el "Resumen Recaudo Aplicado Por Servicio" del final del

@@ -12,7 +12,7 @@ namespace Remuneracion.IntegrationTests;
 
 /// <summary>
 /// HU-16 (Plan 16 §2.7): Golden Capa A HU-16 contra AMBOS canónicos (Q1 golden y Q2 canónico
-/// "Plantilla 8 agos…" con caché golden <c>Remuneracion 202607-2 Total.xlsx</c>).
+/// "Plantilla_ Remuneracion 202607-2.xlsx" con caché golden <c>Remuneracion 202607-2 Total.xlsx</c>).
 /// Matriz: A1 (L-menores D3a escritas en la salida == leaf del golden ±0.5), A2 (dominio
 /// L-menores == caché golden), A3 (INTERVENTORIA intacta: totales en fórmula, bloque por ASE en
 /// valores DECLARADOS sin mutación; D3b siguen 0), A4 (SHA256 de ambos canónicos sin cambios),
@@ -45,7 +45,8 @@ public sealed class GoldenInterventoriaTests
                 new CalculoRemuneracion(),
                 new ValidadorBasico(),
                 new OpenXmlPlantillaWriter(),
-                new ArchivoFuenteLocator());
+                new ArchivoFuenteLocator(),
+                new ExcelDataReaderDetRetriR10Reader());
 
             var resultado = procesador.Ejecutar(new SolicitudProcesoPeriodo
             {

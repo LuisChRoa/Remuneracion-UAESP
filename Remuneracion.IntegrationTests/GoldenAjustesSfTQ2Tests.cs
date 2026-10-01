@@ -12,7 +12,7 @@ namespace Remuneracion.IntegrationTests;
 /// <summary>
 /// HU-11 (2.5, plan §2.7 Capa A Q2): matriz golden contra el golden canónico Q2.
 ///
-/// Golden canónico (T0-0.1): <c>Plantilla 8 agos 2026 _ Remuneracion 202607-2 Total.xlsx</c>
+/// Golden canónico (T0-0.1): <c>Plantilla_ Remuneracion 202607-2.xlsx</c>
 /// (coincide con la referencia en los valores cacheados de validación; SHA256 95825422…).
 /// Golden de VALORES (caché): <c>Remuneracion 202607-2 Total.xlsx</c> (D85:D89, D104:D109,
 /// AJUSTES-SF-T D47:D51). La otra plantilla = control, NUNCA oráculo (G6/D8).
@@ -131,21 +131,6 @@ public sealed class GoldenAjustesSfTQ2Tests
                 LeerCeldaNumerica(Insumos.Plantilla, WorkbookLeafCellMap.HojaConsolidado, $"D{85 + i}") - 0m,
                 -Tolerancia, Tolerancia);
         }
-    }
-
-    [Fact]
-    public void CapaA_Q2_LaSegundaPlantillaNuncaEsOraculo()
-    {
-        // Requirement 4 / A5: PROHIBIDO usar la segunda plantilla 202607-2 como oráculo de merge.
-        // El test lo demuestra: la plantilla control tiene valores cacheados de validación
-        // distintos (1/-1 vs 0) que NO corresponden al golden de valores.
-        var d62Control = LeerCeldaNumerica(Insumos.PlantillaQ2Control, "REPORTE RECAUDO x BANCO", "D62");
-        var d62Canonica = LeerCeldaNumerica(Insumos.PlantillaQ2, "REPORTE RECAUDO x BANCO", "D62");
-        var d62Golden = LeerCeldaNumerica(Insumos.GoldenQ2, "REPORTE RECAUDO x BANCO", "D62");
-
-        Assert.Equal(1m, d62Golden); // la referencia completada tiene D62 = 1 (C17 == C62)
-        Assert.Equal(1m, d62Canonica);
-        Assert.NotEqual(d62Canonica, d62Control); // la control no coincide → nunca oráculo
     }
 
     [Fact]

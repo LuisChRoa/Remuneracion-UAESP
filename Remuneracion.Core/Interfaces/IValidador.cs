@@ -69,4 +69,17 @@ public interface IValidador
     /// El resto de la validación HU-01..HU-12 queda intacta; sin snapshots = HU-12 puro.
     /// </remarks>
     List<string> Validar(ResultadoRemuneracion resultado, IReadOnlyList<WorkbookLeafInputs> leafs, IReadOnlyList<ValidacionCruzadaSnapshot> snapshots);
+
+    /// <summary>
+    /// HU-20 (G3): valida el DetRetri CALCULADO por ASE (<see cref="WorkbookLeafInputs.DetRetriQ2"/>,
+    /// ROUND(D104:D108,0)) contra el oráculo <c>R10</c> del período, tolerancia ±0.5 tras el
+    /// redondeo a entero (G3-D1: el R10 es oráculo de validación, NUNCA fuente de escritura).
+    /// El proceso puebla el detalle en AMBAS quincenas, por lo que el gate corre en Q1 y Q2; los
+    /// leafs sin detalle (construcciones manuales de test) se omiten. Divergencia → mensaje con
+    /// ASE + ambos valores; el procesador lo eleva a fail-fast con período + archivo (G3-D2/R-G3-3).
+    /// </summary>
+    /// <param name="leafs">Inputs leaf, uno por ASE (5 en modo período).</param>
+    /// <param name="r10">DetRetri leído del R10 del período (oráculo).</param>
+    /// <returns>Lista de mensajes de validación (vacía si no hay problemas).</returns>
+    List<string> ValidarDetRetriContraR10(IReadOnlyList<WorkbookLeafInputs> leafs, DetRetriInputs r10);
 }

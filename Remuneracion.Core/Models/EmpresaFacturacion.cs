@@ -4,7 +4,7 @@ namespace Remuneracion.Core.Models;
 /// Catálogo 2.2 de las empresas de facturación (HU-08). Nombres EXACTOS del template:
 /// hojas <c>REMUNERACION_*</c>, hojas <c>Recaudo *</c> y labels de las filas detalle
 /// R1/R2/R4 (<see cref="LabelTemplate"/>). El prefijo de conciliación localiza el archivo
-/// <c>Consolidado/Conciliaciones/Conjunta {prefijo}*.xlsx</c> (T0-0.6: fuente de las hojas
+/// <c>{periodo}/Conciliaciones/Conjunta {prefijo}*.xlsx</c> (HU-20/G1-D1: fuente de las hojas
 /// <c>Recaudo *</c>).
 /// </summary>
 public sealed class EmpresaFacturacion
@@ -33,7 +33,7 @@ public sealed class EmpresaFacturacion
     public string HojaRecaudo { get; set; } = string.Empty;
 
     /// <summary>
-    /// Prefijo del archivo de conciliación en <c>Consolidado/Conciliaciones/</c>
+    /// Prefijo del archivo de conciliación en <c>{periodo}/Conciliaciones/</c>
     /// (p. ej. "Conjunta ENEL", "Directa", "Conjunta Otros").
     /// </summary>
     public string PrefijoConciliacion { get; set; } = string.Empty;

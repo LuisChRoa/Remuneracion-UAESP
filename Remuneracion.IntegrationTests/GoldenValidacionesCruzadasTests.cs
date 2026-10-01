@@ -92,7 +92,8 @@ public sealed class GoldenValidacionesCruzadasTests
             new CalculoRemuneracion(),
             new ValidadorBasico(),
             new OpenXmlPlantillaWriter(),
-            new ArchivoFuenteLocator());
+            new ArchivoFuenteLocator(),
+            new ExcelDataReaderDetRetriR10Reader());
 
         var resultado = procesador.Ejecutar(new SolicitudProcesoPeriodo
         {

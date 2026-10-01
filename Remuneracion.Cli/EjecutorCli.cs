@@ -109,8 +109,8 @@ public static class EjecutorCli
     }
 
     /// <summary>
-    /// Modo período (5 ASE): composición idéntica a <c>Program.cs</c> del WinForms (V8), incluido
-    /// el oráculo de lectura de validaciones cruzadas.
+    /// Modo período (5 ASE): composición idéntica a <c>Program.cs</c> del WinForms (V8), incluidos
+    /// el oráculo R10 obligatorio (HU-20/G3) y el oráculo de lectura de validaciones cruzadas.
     /// </summary>
     private static void EjecutarPeriodo(OpcionesCli opciones, string salida, Guid runId, TextWriter stdout)
     {
@@ -121,6 +121,7 @@ public static class EjecutorCli
             new ValidadorBasico(),
             new OpenXmlPlantillaWriter(),
             new ArchivoFuenteLocator(),
+            new ExcelDataReaderDetRetriR10Reader(),
             new ValidacionOracleReader());
 
         procesador.Ejecutar(new SolicitudProcesoPeriodo

@@ -23,13 +23,23 @@ public interface ILocalizadorArchivosAse
     string? BuscarArchivo(string carpeta, string prefijo);
 
     /// <summary>
-    /// HU-08 (2.2, T0-0.6): localiza el archivo de conciliación por empresa dentro de
-    /// <c>{carpetaPeriodo}/Consolidado/Conciliaciones/</c>.
+    /// HU-08 (2.2) / HU-20 (G1-D1): localiza el archivo de conciliación por empresa dentro de
+    /// <c>{carpetaPeriodo}/Conciliaciones/</c>. La carpeta <c>Consolidado/</c> fue eliminada → no
+    /// hay respaldo a la ruta vieja.
     /// </summary>
     /// <param name="carpetaPeriodo">Carpeta del período quincenal.</param>
     /// <param name="prefijo">Prefijo del nombre del archivo de conciliación.</param>
     /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
     string? BuscarConciliacion(string carpetaPeriodo, string prefijo);
+
+    /// <summary>
+    /// HU-20 (G3): localiza el <c>R10_Remuneracion_{AAAAMMQ}.xlsx</c> dentro de la carpeta del
+    /// período (insumo de PERÍODO, no de ASE). Devuelve <c>null</c> si no existe → el procesador
+    /// falla con un mensaje que nombra período + archivo (G3-D2).
+    /// </summary>
+    /// <param name="carpetaPeriodo">Carpeta del período quincenal.</param>
+    /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
+    string? BuscarR10(string carpetaPeriodo);
 
     /// <summary>
     /// HU-09 (2.3, V13): localiza el <c>ReportePagosxBanco_*.xlsx</c> dentro de la carpeta del

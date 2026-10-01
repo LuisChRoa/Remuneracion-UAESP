@@ -278,6 +278,55 @@ public sealed class ValidadorBasico : IValidador
     }
 
     /// <summary>
+    /// HU-20 (G3-D1): valida el DetRetri CALCULADO por ASE (<see cref="DetRetriQ2Inputs.Detalle"/> =
+    /// ROUND(D104:D108,0)) contra el oráculo R10 del período, tolerancia ±0.5. El R10 es oráculo de
+    /// VALIDACIÓN (nunca se escribe al template). Matcheo estricto por <see cref="Ase.Id"/>. El
+    /// proceso puebla <see cref="WorkbookLeafInputs.DetRetriQ2"/> en AMBAS quincenas, por lo que el
+    /// gate corre en Q1 y Q2; los leafs sin detalle (construcciones manuales de test) se omiten.
+    /// El procesador agrega período + archivo al fail-fast.
+    /// </summary>
+    public List<string> ValidarDetRetriContraR10(IReadOnlyList<WorkbookLeafInputs> leafs, DetRetriInputs r10)
+    {
+        ArgumentNullException.ThrowIfNull(leafs);
+        ArgumentNullException.ThrowIfNull(r10);
+
+        var errores = new List<string>();
+        var conDetalle = leafs
+            .Where(l => l.DetRetriQ2 is not null)
+            .OrderBy(l => l.Ase.Id)
+            .ToList();
+        if (conDetalle.Count == 0)
+        {
+            return errores; // Leafs sin DetRetri calculado (construcciones manuales de test).
+        }
+
+        foreach (var leaf in conDetalle)
+        {
+            var calculado = leaf.DetRetriQ2!.Detalle;
+            if (!r10.DetRetriPorAse.TryGetValue(leaf.Ase.Id, out var oraculo))
+            {
+                AgregarError(errores, $"El R10 ({r10.CodigoRemuneracion}) no trae el DetRetri del ASE {leaf.Ase.Id} para validar el calculado ({calculado}).");
+                continue;
+            }
+
+            var diferencia = Math.Abs(calculado - oraculo);
+            if (diferencia > Tolerancia)
+            {
+                AgregarError(errores, $"ASE {leaf.Ase.Id}: DetRetri calculado ({calculado}) no coincide con el R10 ({oraculo}). Diferencia={diferencia} > ±{Tolerancia}.");
+            }
+        }
+
+        var sumaCalculada = conDetalle.Sum(l => l.DetRetriQ2!.Detalle);
+        var diferenciaTotal = Math.Abs(sumaCalculada - r10.Total);
+        if (diferenciaTotal > Tolerancia)
+        {
+            AgregarError(errores, $"DetRetri total calculado (Σ {sumaCalculada}) no coincide con el R10 total ({r10.Total}). Diferencia={diferenciaTotal} > ±{Tolerancia}.");
+        }
+
+        return errores;
+    }
+
+    /// <summary>
     /// HU-13 (2.7, §2.5): gates aditivos por ASE contra el snapshot-oráculo (D1/D3). El validador
     /// NO abre .xlsx: solo compara números. Matcheo estricto por <see cref="Ase.Id"/> (Single,
     /// nunca fallback). Semántica congelada por T0 en ambos canónicos (Plan 13 §4 Fase 0).

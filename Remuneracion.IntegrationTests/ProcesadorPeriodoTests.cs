@@ -58,6 +58,10 @@ public sealed class ProcesadorPeriodoTests
         Assert.Equal(5, resultado.Leafs.Count);
         Assert.Equal([1, 2, 3, 4, 5], resultado.Leafs.OrderBy(l => l.Ase.Id).Select(l => l.Ase.Id).ToArray());
 
+        // HU-20 (G3): en Q1 el DetRetri calculado también se puebla (oráculo de validación contra
+        // el R10); el writer NO lo escribe en Q1 (hoja DetRetri2026071 con fórmulas protegidas).
+        Assert.All(resultado.Leafs, l => Assert.NotNull(l.DetRetriQ2));
+
         // HU-08 (2.2): cada leaf trae las 5 empresas de facturación y las 5 hojas Recaudo *.
         foreach (var leaf in resultado.Leafs)
         {
@@ -114,15 +118,15 @@ public sealed class ProcesadorPeriodoTests
     [Fact]
     public void Ejecutar_FaltaConciliacionDeEnerbit_FallaNombrandoEmpresaYSinSalida()
     {
-        // HU-08 (2.2): si falta el archivo de conciliación de una empresa, fail-fast nombra la
-        // empresa y NO hay salida certificada (T0-0.6: Recaudo * ← Consolidado/Conciliaciones).
+        // HU-08 (2.2) / HU-20-G1: si falta el archivo de conciliación de una empresa, fail-fast
+        // nombra la empresa y NO hay salida certificada ({periodo}/Conciliaciones/).
         var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-failconc-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(salidaDir);
         var salida = Path.Combine(salidaDir, Insumos.Periodo().NombreArchivo);
 
         var carpetaPeriodo = Path.Combine(Path.GetTempPath(), "remuneracion-periodo-conc-" + Guid.NewGuid().ToString("N"));
         CopiarArbol(Insumos.CarpetaPeriodo, carpetaPeriodo);
-        var conciliaciones = Path.Combine(carpetaPeriodo, "Consolidado", "Conciliaciones");
+        var conciliaciones = Path.Combine(carpetaPeriodo, "Conciliaciones");
         var enerbit = Directory.EnumerateFiles(conciliaciones, "*.xlsx", SearchOption.TopDirectoryOnly)
             .First(f => Path.GetFileNameWithoutExtension(f).StartsWith("Conjunta ENERBIT", StringComparison.OrdinalIgnoreCase));
         File.Delete(enerbit);
@@ -546,7 +550,8 @@ public sealed class ProcesadorPeriodoTests
             new CalculoRemuneracion(),
             new ValidadorBasico(),
             new OpenXmlPlantillaWriter(),
-            new ArchivoFuenteLocator());
+            new ArchivoFuenteLocator(),
+            new ExcelDataReaderDetRetriR10Reader());
 
     private static ProcesadorPeriodo CrearProcesadorConOracle() =>
         new(
@@ -556,5 +561,6 @@ public sealed class ProcesadorPeriodoTests
             new ValidadorBasico(),
             new OpenXmlPlantillaWriter(),
             new ArchivoFuenteLocator(),
+            new ExcelDataReaderDetRetriR10Reader(),
             new ValidacionOracleReader());
 }

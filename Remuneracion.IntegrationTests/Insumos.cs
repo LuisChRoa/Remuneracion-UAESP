@@ -88,25 +88,31 @@ internal static class Insumos
 
     public static Periodo Periodo() => new() { CodigoAAAAMM = "202607", NumeroQuincena = 1 };
 
+    /// <summary>
+    /// HU-20 (G1): carpeta de conciliaciones de la nueva organización
+    /// (<c>{periodo}/Conciliaciones/</c>; <c>Consolidado/</c> eliminada).
+    /// </summary>
+    public static string CarpetaConciliaciones => Path.Combine(CarpetaPeriodo, "Conciliaciones");
+
+    /// <summary>
+    /// HU-20 (G3): R10 del período Q1 (<c>R10_Remuneracion_{AAAAMMQ}.xlsx</c>).
+    /// </summary>
+    public static string R10 => Path.Combine(CarpetaPeriodo, "R10_Remuneracion_2026071.xlsx");
+
     // ── HU-11 (2.5): insumos Q2 ──────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// HU-11 (2.5, T0-0.1): golden canónico Q2 = "Plantilla 8 agos 2026" (coincide con la
-    /// referencia en los valores cacheados de validación). SHA256 95825422… La otra plantilla
-    /// queda como control, NUNCA oráculo (G6/D8).
+    /// HU-11 (2.5, T0-0.1): golden canónico Q2 (coincide con la referencia en los valores
+    /// cacheados de validación). SHA256 95825422… HU-20-T0: la reorganización de insumos lo
+    /// renombró a <c>Plantilla_ Remuneracion 202607-2.xlsx</c> (mismo hash canónico).
     /// </summary>
-    public static string PlantillaQ2 => Path.Combine(Raiz(), "Docs", "Insumos", "REMUNERACION 2026072", "Plantilla 8 agos 2026 _ Remuneracion 202607-2 Total.xlsx");
+    public static string PlantillaQ2 => Path.Combine(Raiz(), "Docs", "Insumos", "REMUNERACION 2026072", "Plantilla_ Remuneracion 202607-2.xlsx");
 
     /// <summary>
     /// HU-11 (2.5, T0-0.1): golden de VALORES Q2 (referencia completada) usado como caché en la
     /// Capa A (D85:D89, D104:D109, AJUSTES-SF-T). SHA256 58431010…
     /// </summary>
     public static string GoldenQ2 => Path.Combine(Raiz(), "Docs", "Insumos", "Remuneracion 202607-2 Total.xlsx");
-
-    /// <summary>
-    /// HU-11 (2.5): la otra plantilla 202607-2 = control/estructura, nunca oráculo de merge.
-    /// </summary>
-    public static string PlantillaQ2Control => Path.Combine(Raiz(), "Docs", "Insumos", "REMUNERACION 2026072", "Plantilla  _ Remuneracion 202607-2 Total.xlsx");
 
     public static string CarpetaPeriodoQ2 => Path.Combine(Raiz(), "Docs", "Insumos", "REMUNERACION 2026072");
 
@@ -120,6 +126,16 @@ internal static class Insumos
     };
 
     public static Periodo PeriodoQ2() => new() { CodigoAAAAMM = "202607", NumeroQuincena = 2 };
+
+    /// <summary>
+    /// HU-20 (G1): carpeta de conciliaciones Q2 (nueva organización).
+    /// </summary>
+    public static string CarpetaConciliacionesQ2 => Path.Combine(CarpetaPeriodoQ2, "Conciliaciones");
+
+    /// <summary>
+    /// HU-20 (G3): R10 del período Q2 (<c>R10_Remuneracion_{AAAAMMQ}.xlsx</c>).
+    /// </summary>
+    public static string R10Q2 => Path.Combine(CarpetaPeriodoQ2, "R10_Remuneracion_2026072.xlsx");
 
     /// <summary>
     /// HU-11 (2.5): ruta del <c>Recaudoporcomponente_*.xlsx</c> del ASE Q2 (layout ASE1-4

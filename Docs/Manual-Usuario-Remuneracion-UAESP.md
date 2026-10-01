@@ -3,6 +3,7 @@
 > **Norma de referencia:** Resolución UAESP 27 de 2018 — Reglamento Comercial y Financiero del servicio de aseo.
 > **Documento rector:** `Docs/Propuesta_Proyecto_Automatizacion_Remuneracion_UAESP.md` (Fase 3, it. 3.4 — "Manual de usuario y technical").
 > **Versión de la aplicación:** 1.0 (Fase 3 cerrada; HU-01..HU-17).
+> **Última actualización del manual:** 2026-09-16 (§3 sincronizada con la UI real).
 
 ---
 
@@ -91,7 +92,9 @@ Dentro de cada carpeta de ASE, los archivos fuente se reconocen por **prefijo** 
 | **Carpeta de fuentes** | Carpeta del período (`REMUNERACION AAAAMM{Q}`) con las 5 carpetas de ASE. |
 | **Plantilla** | Archivo plantilla de origen (canónico). |
 | **Carpeta de salida** | Carpeta donde se creará `Remuneración AAAAMM-# Total.xlsx` (se nombra automáticamente). |
-| **Modo 5 ASE / ASE único** | Checkbox "5 ASE" activa los 5 operadores; desmarcado procesa el ASE seleccionado en el combo. |
+| **Modo 5 ASE / ASE único** | Casilla **"Procesar todos"**: marcada procesa los 5 operadores; desmarcada procesa el ASE elegido en el combo. |
+| **Ver logs** | Abre el diálogo modal **"Detalle técnico — logs"** con el detalle de la última ejecución (botones **Copiar** y **Cerrar**). Se habilita solo al finalizar, si hubo contenido. |
+| **Limpiar** | Reset general: vacía las 3 rutas, devuelve el período a hoy y el ASE al primero. No borra archivos. |
 
 ### 3.2 Pasos
 
@@ -99,15 +102,15 @@ Dentro de cada carpeta de ASE, los archivos fuente se reconocen por **prefijo** 
 2. Seleccione la carpeta de fuentes (`...` junto a "Carpeta de fuentes").
 3. Seleccione la plantilla canónica (`...` junto a "Plantilla").
 4. Seleccione la carpeta de salida (`...` junto a "Carpeta de salida").
-5. Marque "5 ASE" o elija un ASE único en el combo.
+5. Marque **"Procesar todos"** o elija un ASE único en el combo.
 6. Pulse **Ejecutar**.
 
 ### 3.3 Qué ocurre durante la ejecución
 
-- El panel de log muestra los hitos por ASE (TOT_OPT, R2, EXTEMP, R4, resúmenes por empresa, banco, BCE, AJUSTES, DetRetri, INTERVENTORIA y VALIDACIONES).
+- El detalle de la ejecución se acumula en memoria y se consulta, al finalizar, con el botón **Ver logs**, que abre el diálogo modal **"Detalle técnico — logs"** con **Copiar** y **Cerrar** (ya no hay panel inline de log).
 - La barra de progreso avanza (máx. 42 hitos en modo 5 ASE, 8 en modo 1 ASE).
 - Si el archivo de salida ya existe, la UI **pregunta** si se sobrescribe.
-- Al terminar, la barra de estado muestra `Completado (salida 0)`. Si algo falla, muestra el código del catálogo y el código de salida.
+- Al terminar, la barra de estado muestra `Completado — archivo listo en <carpeta de salida>` y **Ver logs** queda habilitado. Si algo falla, muestra el código del catálogo.
 
 ### 3.4 Salida
 

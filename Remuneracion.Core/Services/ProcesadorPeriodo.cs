@@ -26,8 +26,16 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
     private readonly IValidador _validador;
     private readonly IWorkbookLeafWriter _workbookLeafWriter;
     private readonly ILocalizadorArchivosAse _localizador;
+    private readonly IDetRetriR10Reader _detRetriR10Reader;
     private readonly IValidacionOracleReader? _validacionOracleReader;
 
+    /// <summary>
+    /// Composición del caso de uso de período. El oráculo R10 (<see cref="IDetRetriR10Reader"/>)
+    /// es una dependencia OBLIGATORIA (HU-20/G3): parte del flujo normal de AMBAS quincenas —
+    /// el DetRetri calculado bottom-up se contrasta contra el R10 del período con tolerancia ±0.5
+    /// post-redondeo (G3-D1). Solo el oráculo de validaciones cruzadas (<see cref="IValidacionOracleReader"/>)
+    /// sigue siendo opcional (compatibilidad de la regresión HU-13 D3).
+    /// </summary>
     public ProcesadorPeriodo(
         IRecaudoReader recaudoReader,
         IWorkbookLeafInputReader leafReader,
@@ -35,6 +43,7 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         IValidador validador,
         IWorkbookLeafWriter workbookLeafWriter,
         ILocalizadorArchivosAse localizador,
+        IDetRetriR10Reader detRetriR10Reader,
         IValidacionOracleReader? validacionOracleReader = null)
     {
         _recaudoReader = recaudoReader ?? throw new ArgumentNullException(nameof(recaudoReader));
@@ -43,6 +52,7 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         _validador = validador ?? throw new ArgumentNullException(nameof(validador));
         _workbookLeafWriter = workbookLeafWriter ?? throw new ArgumentNullException(nameof(workbookLeafWriter));
         _localizador = localizador ?? throw new ArgumentNullException(nameof(localizador));
+        _detRetriR10Reader = detRetriR10Reader ?? throw new ArgumentNullException(nameof(detRetriR10Reader));
         _validacionOracleReader = validacionOracleReader;
     }
 
@@ -136,11 +146,12 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
                 .Information("ASE {AseId}: INTERVENTORIA = insumo externo declarado — hoja intacta (bloque anual estático K26:K30/N26:N30; no se escribe; veredicto D2b T0).", idAse);
 
             // HU-08 (2.2): conciliación por empresa de facturación de este ASE (fail-fast ASE+empresa).
-            // RECORTE HONESTO T0-0.6 (Riesgo 5): en Q2 el layout del R4 por empresa DIVERGE del Q1
-            // (ASE2 trae ENEL+OCCIDENTE, no RECIPROCIDAD/"NUEVO ESQUEMA"; el template Q2 tampoco
-            // tiene esa fila). El mapa HU-08 está congelado para Q1 y el plan §0.2 prohíbe
-            // reescribirlo → la conciliación por empresa y las hojas Recaudo * se omiten en Q2
-            // (leaf.Conciliacion/Recaudos vacíos = comportamiento HU-07 puro para validador/writer).
+            // HU-20-T0b/G2-D1: el T0 re-verificó el layout R4-por-empresa Q2 y la divergencia
+            // PERSISTE (ASE2-Q2 trae ENEL+OCCIDENTE y NO la fila RECIPROCIDAD/"NUEVO ESQUEMA"; el
+            // mapa HU-08 congelado para Q1 no la puede resolver). Por el alcance acotado del plan,
+            // el levantamiento Q2 cubre SOLO Recaudos; la conciliación por empresa en Q2 queda
+            // como follow-up con su propio T0 (NUNCA se reescribe el mapa HU-08 a ciegas).
+            // leaf.Conciliacion vacío en Q2 = comportamiento HU-07 puro para validador/writer.
             if (!esQuincena2)
             {
                 progreso?.Report($"ASE {idAse}: leyendo conciliación por empresa (R1/R2/R4)...");
@@ -149,8 +160,8 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             }
             else
             {
-                progreso?.Report($"ASE {idAse}: conciliación por empresa omitida en Q2 (recorte T0-0.6: layout R4 divergente vs Q1).");
-                Log.Warning("ASE {AseId}: conciliación por empresa omitida en Q2 (recorte T0-0.6: layout R4 divergente vs Q1).", idAse);
+                progreso?.Report($"ASE {idAse}: conciliación por empresa omitida en Q2 (HU-20-T0b: layout R4 divergente persistente; alcance acotado a Recaudos).");
+                Log.Warning("ASE {AseId}: conciliación por empresa omitida en Q2 (HU-20-T0b: layout R4 divergente persistente; alcance acotado a Recaudos).", idAse);
             }
 
             // HU-09 (2.3): reporte de recaudo por banco de este ASE (fail-fast ASE+empresa-columna).
@@ -195,23 +206,26 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
                     SaldosNotas = _leafReader.LeerSaldosNotas(ase, rutaSaldosNotas),
                     RetribucionNegativa = _leafReader.LeerRetribucionNegativa(ase, rutaRetribucionNegativa)
                 };
-
-                // HU-12 (2.6 ampliada, V0.4): DetRetri-Q2 por ASE — composición CONGELADA
-                // ROUND(D104:D108,0) vía DetRetriRounder (origen = Σ visibles leaf Q2 + AJUSTES-SF-T).
-                // Fail-fast si el leaf no expone los visibles Q2 (el reader Q2 ya falló aguas arriba).
-                leaf.DetRetriQ2 = new DetRetriQ2Inputs
-                {
-                    Ase = ase,
-                    TotalD104 = leaf.R1.TotalOportunoEsperadoPorAse
-                        + leaf.R2.TotalOportunoEsperado
-                        + leaf.R1.ExtemporaneoEsperadoPorAse
-                        + leaf.R4.TotalReversionEsperada
-                        + leaf.AjustesSfT.TotalAjustes
-                };
-
-                progreso?.Report($"ASE {idAse}: DetRetri esperado post-Excel = {leaf.DetRetriQ2.Detalle:0} (origen D104:D108 = {leaf.DetRetriQ2.TotalD104:0.##}).");
-                Log.Information("ASE {AseId}: DetRetri esperado post-Excel = {Detalle:0} (origen D104:D108 = {Total:0.##}).", idAse, leaf.DetRetriQ2.Detalle, leaf.DetRetriQ2.TotalD104);
             }
+
+            // HU-12 (2.6 ampliada, V0.4) / HU-20 (G3): DetRetri por ASE — composición CONGELADA
+            // ROUND(D104:D108,0) vía DetRetriRounder (origen = Σ visibles leaf + AJUSTES-SF-T).
+            // Se calcula en AMBAS quincenas: en Q1 AjustesSfT = 0 y el DetRetri es ORÁCULO DE
+            // VALIDACIÓN contra el R10 (nunca se escribe — el writer solo escribe DetRetri en Q2);
+            // en Q2 suma AJUSTES-SF-T. El ROUND(D104:D108,0) de Q1 cierra contra
+            // R10_Remuneracion_{AAAAMMQ} (evidencia T0: D9:D13 = ROUND de D104:D108 en ambas).
+            leaf.DetRetriQ2 = new DetRetriQ2Inputs
+            {
+                Ase = ase,
+                TotalD104 = leaf.R1.TotalOportunoEsperadoPorAse
+                    + leaf.R2.TotalOportunoEsperado
+                    + leaf.R1.ExtemporaneoEsperadoPorAse
+                    + leaf.R4.TotalReversionEsperada
+                    + (leaf.AjustesSfT?.TotalAjustes ?? 0m)
+            };
+
+            progreso?.Report($"ASE {idAse}: DetRetri esperado post-Excel = {leaf.DetRetriQ2.Detalle:0} (origen D104:D108 = {leaf.DetRetriQ2.TotalD104:0.##}).");
+            Log.Information("ASE {AseId}: DetRetri esperado post-Excel = {Detalle:0} (origen D104:D108 = {Total:0.##}).", idAse, leaf.DetRetriQ2.Detalle, leaf.DetRetriQ2.TotalD104);
 
             datos.Add((ase, r1, r2, r4));
             if (esQuincena2)
@@ -222,19 +236,19 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             leafs.Add(leaf);
         }
 
-        // HU-08 (2.2): hojas Recaudo * ← Consolidado/Conciliaciones (T0-0.6). Se leen una vez
-        // y se comparten en los 5 leafs; fail-fast nombra la empresa si falta su archivo.
-        // RECORTE HONESTO T0-0.6: omitido en Q2 (misma razón que la conciliación por empresa).
-        if (!esQuincena2)
+        // HU-08 (2.2) / HU-20: hojas Recaudo * ← {periodo}/Conciliaciones (G1). Se leen UNA vez y
+        // se comparten en los 5 leafs; fail-fast nombra la empresa si falta su archivo.
+        // HU-20-T0b/G2-D1: el recorte Q2 se LEVANTA para Recaudos (layout RESUMEN MES uniforme
+        // verificado en disco). La quincena la gobierna Periodo.NumeroQuincena (G2-D2): en Q2 el
+        // reader toma el par de columnas F/G (VALOR 2°Q).
+        progreso?.Report("Leyendo hojas Recaudo * desde las conciliaciones por empresa...");
+        Log.Information("Leyendo hojas Recaudo * desde las conciliaciones por empresa...");
+        var recaudos = _leafReader.LeerRecaudosEmpresa(
+            solicitud.Periodo,
+            empresa => _localizador.BuscarConciliacion(solicitud.CarpetaPeriodo, empresa.PrefijoConciliacion));
+        foreach (var leaf in leafs)
         {
-            progreso?.Report("Leyendo hojas Recaudo * desde las conciliaciones por empresa...");
-            Log.Information("Leyendo hojas Recaudo * desde las conciliaciones por empresa...");
-            var recaudos = _leafReader.LeerRecaudosEmpresa(
-                empresa => _localizador.BuscarConciliacion(solicitud.CarpetaPeriodo, empresa.PrefijoConciliacion));
-            foreach (var leaf in leafs)
-            {
-                leaf.Recaudos = recaudos;
-            }
+            leaf.Recaudos = recaudos;
         }
 
         progreso?.Report("Calculando consolidados de los 5 ASE...");
@@ -242,6 +256,17 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         var resultado = esQuincena2
             ? _calculoRemuneracion.CalcularConsolidado(solicitud.Periodo, datosConAjustes)
             : _calculoRemuneracion.CalcularConsolidado(solicitud.Periodo, datos);
+
+        // HU-20 (G3): el R10 del período es ORÁCULO DE VALIDACIÓN del DetRetri calculado (G3-D1).
+        // Es un insumo de PERÍODO (no de ASE) y parte del FLUJO NORMAL de AMBAS quincenas: si
+        // falta, fail-fast que nombra período + archivo (G3-D2), nunca warning silencioso.
+        var rutaR10 = _localizador.BuscarR10(solicitud.CarpetaPeriodo)
+            ?? throw new ArchivoFuenteNoEncontradoException(
+                CodigoError.FuenteNoEncontrada,
+                $"No se encontró R10_Remuneracion_{solicitud.Periodo.CodigoCompleto} en '{solicitud.CarpetaPeriodo}'.");
+        progreso?.Report($"Leyendo R10 del período ({Path.GetFileName(rutaR10)}) como oráculo de DetRetri...");
+        Log.Information("Leyendo R10 del período ({Archivo}) como oráculo de DetRetri...", Path.GetFileName(rutaR10));
+        var r10 = _detRetriR10Reader.LeerDetRetri(solicitud.Periodo, rutaR10);
 
         progreso?.Report("Validando coherencia multi-ASE...");
         Log.Information("Validando coherencia multi-ASE...");
@@ -253,6 +278,20 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             // (Codigo) y cada error del validador ya lo porta (AgregarError). El catch del
             // frontend agrega [{Codigo}] una sola vez (antes quedaba doble/triple en el log).
             throw new CalculoInvalidoException(CodigoError.Validacion, $"La validación multi-ASE falló: {detalle}");
+        }
+
+        // HU-20 (G3-D1/R-G3-3): DetRetri calculado vs R10 (±0.5 post-redondeo) en AMBAS quincenas.
+        // Divergencia → error fail-fast con período + archivo + ambos valores; nunca escritura
+        // parcial silenciosa.
+        progreso?.Report($"Validando DetRetri calculado contra el R10 ({Path.GetFileName(rutaR10)})...");
+        Log.Information("Validando DetRetri calculado contra el R10 ({Archivo})...", Path.GetFileName(rutaR10));
+        var erroresR10 = _validador.ValidarDetRetriContraR10(leafs, r10);
+        if (erroresR10.Count > 0)
+        {
+            var detalleR10 = string.Join("; ", erroresR10);
+            throw new CalculoInvalidoException(
+                CodigoError.Validacion,
+                $"La validación DetRetri-vs-R10 falló (periodo {solicitud.Periodo.CodigoCompleto}, archivo {Path.GetFileName(rutaR10)}): {detalleR10}");
         }
 
         progreso?.Report("Generando workbook de salida (una sola escritura)...");

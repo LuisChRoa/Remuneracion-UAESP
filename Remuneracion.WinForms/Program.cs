@@ -19,8 +19,10 @@ namespace Remuneracion.WinForms
             var writer = new OpenXmlPlantillaWriter();
             var locator = new ArchivoFuenteLocator();
 
-            // HU-13 (2.7): oráculo de LECTURA de validaciones cruzadas (read-only). La UI lo
-            // inyecta; la regresión corre sin él (= HU-12 puro, D3).
+            // HU-20 (G3): oráculo R10 del período (OBLIGATORIO) — valida el DetRetri calculado en
+            // ambas quincenas. HU-13 (2.7): oráculo de LECTURA de validaciones cruzadas (opcional;
+            // la regresión corre sin él = HU-12 puro, D3).
+            var detRetriR10Reader = new ExcelDataReaderDetRetriR10Reader();
             var validacionOracleReader = new ValidacionOracleReader();
 
             IProcesadorRemuneracion procesador = new ProcesadorRemuneracion(
@@ -37,6 +39,7 @@ namespace Remuneracion.WinForms
                 validador,
                 writer,
                 locator,
+                detRetriR10Reader,
                 validacionOracleReader);
 
             Application.Run(new Form1(procesador, procesadorPeriodo, locator));

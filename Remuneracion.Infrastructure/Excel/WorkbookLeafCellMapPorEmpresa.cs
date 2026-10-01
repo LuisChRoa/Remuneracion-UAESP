@@ -167,8 +167,9 @@ public static class WorkbookLeafCellMapPorEmpresa
 
     /// <summary>
     /// Celdas de las hojas <c>Recaudo *</c> (zona de datos filas ~3–28) por hoja.
-    /// Fuente 1:1: <c>Consolidado/Conciliaciones/Conjunta {prefijo}*.xlsx</c> hoja
-    /// <c>RESUMEN MES</c> (T0-0.6). D = valor, E = número de registros.
+    /// Fuente 1:1: <c>{periodo}/Conciliaciones/Conjunta {prefijo}*.xlsx</c> hoja
+    /// <c>RESUMEN MES</c> (HU-20/G1-D1). Las letras destino dependen de la quincena
+    /// (D/E en Q1, F/G en Q2; G2-D2) y las construye el reader.
     /// </summary>
     public static readonly IReadOnlyDictionary<string, string[]> CeldasRecaudoPorHoja =
         new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)

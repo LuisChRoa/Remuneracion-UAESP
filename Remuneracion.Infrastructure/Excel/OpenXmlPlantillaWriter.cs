@@ -240,8 +240,14 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
                     EscribirCeldasLEspecialesMenores(workbookPart, leaf);
                 }
 
-                // HU-12 (2.6 ampliada, V0.4): DetRetri-Q2 (enteros por ASE + total) en la MISMA pasada.
-                EscribirCeldasDetRetriQ2(workbookPart, leafInputs);
+                // HU-12 (2.6 ampliada, V0.4): DetRetri-Q2 (enteros por ASE + total) en la MISMA
+                // pasada. SOLO en Q2: en Q1 el DetRetri calculado es oráculo de validación contra
+                // el R10 (HU-20/G3) y la hoja DetRetri2026071 queda con sus fórmulas protegidas
+                // intactas (NUNCA se sobrescribe).
+                if (esQuincena2)
+                {
+                    EscribirCeldasDetRetriQ2(workbookPart, leafInputs);
+                }
 
                 var workbookXml = workbookPart.Workbook
                     ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene metadata Workbook válida.");
@@ -944,8 +950,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
     /// <summary>
     /// HU-12 (2.6 ampliada, V0.4): escribe DetRetri-Q2 (hoja <c>DetRetri2026072</c>) en la MISMA
     /// pasada atómica: D9:D13 = ROUND(D104:D108) por ASE (vía <see cref="DetRetriRounder"/>, única
-    /// regla) y D14 = ROUND(Σ D104:D108). <c>leaf.DetRetriQ2 == null</c> para todos = Q1 (no-op).
-    /// La composición está CONGELADA (probada 5/5 contra el golden, V0.4); nunca se inventa.
+    /// regla) y D14 = ROUND(Σ D104:D108). La composición está CONGELADA (probada 5/5 contra el
+    /// golden, V0.4); nunca se inventa. El llamador la ejecuta SOLO en Q2 (HU-20/G3): en Q1 el
+    /// DetRetri calculado existe como oráculo de validación contra el R10, pero la hoja
+    /// <c>DetRetri2026071</c> queda con sus fórmulas protegidas intactas.
     /// </summary>
     private static void EscribirCeldasDetRetriQ2(WorkbookPart workbookPart, IReadOnlyList<WorkbookLeafInputs> leafInputs)
     {

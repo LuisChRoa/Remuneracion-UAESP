@@ -51,9 +51,10 @@ public class ArchivoFuenteLocator : ILocalizadorArchivosAse
     }
 
     /// <summary>
-    /// HU-08 (2.2, T0-0.6): localiza el archivo de conciliación por empresa dentro de
-    /// <c>{carpetaPeriodo}/Consolidado/Conciliaciones/</c> (p. ej. "Conjunta ENEL",
-    /// "Directa", "Conjunta Otros"). Devuelve <c>null</c> si no existe.
+    /// HU-08 (2.2) / HU-20 (G1-D1: migración, sin fallback): localiza el archivo de conciliación
+    /// por empresa dentro de <c>{carpetaPeriodo}/Conciliaciones/</c> (p. ej. "Conjunta ENEL",
+    /// "Directa", "Conjunta Otros"). La carpeta <c>Consolidado/</c> fue eliminada por el estándar
+    /// nuevo → NO hay respaldo a la ruta vieja. Devuelve <c>null</c> si no existe.
     /// </summary>
     /// <param name="carpetaPeriodo">Carpeta del período quincenal.</param>
     /// <param name="prefijo">Prefijo del nombre del archivo de conciliación.</param>
@@ -63,7 +64,7 @@ public class ArchivoFuenteLocator : ILocalizadorArchivosAse
         ArgumentNullException.ThrowIfNull(carpetaPeriodo);
         ArgumentNullException.ThrowIfNull(prefijo);
 
-        var carpetaConciliaciones = Path.Combine(carpetaPeriodo, "Consolidado", "Conciliaciones");
+        var carpetaConciliaciones = Path.Combine(carpetaPeriodo, "Conciliaciones");
         if (!Directory.Exists(carpetaConciliaciones))
         {
             return null;
@@ -73,6 +74,16 @@ public class ArchivoFuenteLocator : ILocalizadorArchivosAse
             .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f)
                 .StartsWith(prefijo, StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>
+    /// HU-20 (G3): localiza el <c>R10_Remuneracion_{AAAAMMQ}.xlsx</c> dentro de la carpeta del
+    /// período (insumo de PERÍODO, no de ASE). Matcher por prefijo <c>R10_</c> (case-insensitive,
+    /// <c>TopDirectoryOnly</c>). Devuelve <c>null</c> si no existe → fail-fast aguas arriba que
+    /// nombra período + archivo (G3-D2).
+    /// </summary>
+    /// <param name="carpetaPeriodo">Carpeta del período quincenal.</param>
+    /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
+    public string? BuscarR10(string carpetaPeriodo) => BuscarArchivo(carpetaPeriodo, "R10_");
 
     /// <summary>
     /// HU-09 (2.3, V13): localiza el <c>ReportePagosxBanco_*.xlsx</c> dentro de la carpeta del

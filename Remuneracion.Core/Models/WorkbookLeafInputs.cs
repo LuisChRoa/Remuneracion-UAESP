@@ -67,9 +67,12 @@ public sealed class WorkbookLeafInputs
     public AjustesSfTInputs? AjustesSfT { get; set; }
 
     /// <summary>
-    /// HU-12 (2.6 ampliada, V0.4): DetRetri-Q2 por ASE (<c>Detalle = ROUND(D104:D108,0)</c> vía
-    /// <see cref="DetRetriRounder"/>). <c>null</c> = comportamiento HU-11 puro (Q1); en Q2 el
-    /// proceso SIEMPRE lo puebla (fail-fast si falta, §2.5 regla 2).
+    /// HU-12 (2.6 ampliada, V0.4) / HU-20 (G3): DetRetri por ASE calculado bottom-up
+    /// (<c>Detalle = ROUND(D104:D108,0)</c> vía <see cref="DetRetriRounder"/>). El proceso lo
+    /// puebla SIEMPRE, en AMBAS quincenas: en Q2 se escribe en la hoja <c>DetRetri2026072</c>
+    /// (HU-12); en Q1 es ORÁCULO DE VALIDACIÓN contra el R10 del período y NUNCA se escribe
+    /// (la hoja <c>DetRetri2026071</c> queda con sus fórmulas protegidas). <c>null</c> solo en
+    /// construcciones manuales de test (comportamiento HU-11 puro).
     /// </summary>
     public DetRetriQ2Inputs? DetRetriQ2 { get; set; }
 

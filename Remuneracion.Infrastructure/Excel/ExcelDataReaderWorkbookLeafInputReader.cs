@@ -92,18 +92,23 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
 
     /// <inheritdoc />
     public IReadOnlyList<RecaudoEmpresaInputs> LeerRecaudosEmpresa(
-        Func<EmpresaFacturacion, string?> rutaConciliacionPorEmpresa)
+        Periodo periodo, Func<EmpresaFacturacion, string?> rutaConciliacionPorEmpresa)
     {
+        ArgumentNullException.ThrowIfNull(periodo);
         ArgumentNullException.ThrowIfNull(rutaConciliacionPorEmpresa);
+
+        // G2-D2: la quincena la gobierna el DOMINIO (Periodo.NumeroQuincena), jamás la detección
+        // de contenido del xlsx. Q1 → par de columnas D/E (VALOR 1°Q / N° REG. 1°Q); Q2 → F/G.
+        var esQuincena2 = periodo.NumeroQuincena == 2;
 
         var resultado = new List<RecaudoEmpresaInputs>();
         foreach (var empresa in EmpresaFacturacion.Catalogo)
         {
             var ruta = rutaConciliacionPorEmpresa(empresa)
                 ?? throw new ArchivoFuenteNoEncontradoException(
-                    $"No se encontró el archivo de conciliación de {empresa.Nombre} (prefijo '{empresa.PrefijoConciliacion}') en Consolidado/Conciliaciones.");
+                    $"No se encontró el archivo de conciliación de {empresa.Nombre} (prefijo '{empresa.PrefijoConciliacion}') en la carpeta Conciliaciones/ del período.");
 
-            resultado.Add(LeerRecaudoEmpresa(empresa, ruta));
+            resultado.Add(LeerRecaudoEmpresa(empresa, ruta, esQuincena2));
         }
 
         return resultado;
@@ -726,14 +731,30 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         return -1;
     }
 
-    private static RecaudoEmpresaInputs LeerRecaudoEmpresa(EmpresaFacturacion empresa, string rutaConciliacion)
+    /// <summary>
+    /// Lee una hoja <c>Recaudo *</c> desde el <c>RESUMEN MES</c> de la conciliación por empresa.
+    ///
+    /// T0-0.6 / HU-20-T0a: los archivos <c>Conjunta *</c>/<c>Directa*</c> tienen UNA sola hoja
+    /// (RESUMEN MES). La estructura de bloques es uniforme (ASE1..5 + X + total) aunque los
+    /// encabezados varíen ("OPORTUNO"/"EXTEMP."/"TOTAL" en ENEL vs "Ciudad Limpia - Prestador"/
+    /// "EAAB - Prestador" en Otros). Se detectan los bloques por la corrida de filas con ASE 1..5
+    /// (col C).
+    ///
+    /// G2-D2 (quincena = dominio): el par de columnas leído se parametriza por
+    /// <paramref name="esQuincena2"/>: Q1 → (3,4) = D/E (VALOR 1°Q / N° REG. 1°Q), Q2 → (5,6) =
+    /// F/G (VALOR 2°Q / N° REG. 2°Q). Las claves de <c>Celdas</c> reflejan la columna destino REAL
+    /// (D/E en Q1; F/G en Q2) para que <c>EscribirCeldasEmpresa</c> escriba la celda correcta.
+    /// </summary>
+    private static RecaudoEmpresaInputs LeerRecaudoEmpresa(EmpresaFacturacion empresa, string rutaConciliacion, bool esQuincena2)
     {
-        // T0-0.6: los archivos Conjunta * tienen UNA sola hoja (RESUMEN MES); LeerFilas lee la primera.
-        // La estructura de bloques es uniforme (ASE1..5 + X + total) aunque los encabezados varíen
-        // ("OPORTUNO"/"EXTEMP."/"TOTAL" en ENEL vs "Ciudad Limpia - Prestador"/"EAAB - Prestador"
-        // en Otros). Se detectan los bloques por la corrida de filas con ASE 1..5 (col C).
         var filas = ExcelWorksheetNavigator.LeerFilas(rutaConciliacion);
         var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+
+        // Q1 → D/E (índices 3/4); Q2 → F/G (índices 5/6).
+        var indiceValor = esQuincena2 ? 5 : 3;
+        var indiceRegistros = esQuincena2 ? 6 : 4;
+        var letraValor = esQuincena2 ? "F" : "D";
+        var letraRegistros = esQuincena2 ? "G" : "E";
 
         bool EsAse(object?[]? fila, int esperado)
         {
@@ -764,22 +785,22 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
                 $"No se encontraron los 3 bloques (ASE 1..5) en el RESUMEN MES de {empresa.Nombre} ({rutaConciliacion}).");
         }
 
-        // Bloques → Recaudo: OPORTUNO D3:D9, EXTEMP D12:D18, TOTAL D21:D27 (D = valor, E = n° reg).
+        // Bloques → Recaudo: OPORTUNO 3:9, EXTEMP 12:18, TOTAL 21:27 (fila base por bloque).
         var filasInicio = new[] { 3, 12, 21 };
         for (var b = 0; b < 3; b++)
         {
             for (var i = 0; i < 7; i++)
             {
                 var fila = filas.ElementAtOrDefault(inicioBloques[b] + i);
-                var valor = fila?.ElementAtOrDefault(3);
-                var registros = fila?.ElementAtOrDefault(4);
+                var valor = fila?.ElementAtOrDefault(indiceValor);
+                var registros = fila?.ElementAtOrDefault(indiceRegistros);
                 if (valor is null && registros is null)
                 {
                     continue; // fila "X" sin datos
                 }
 
-                celdas[$"D{filasInicio[b] + i}"] = ExcelWorksheetNavigator.CeldaNumero(valor);
-                celdas[$"E{filasInicio[b] + i}"] = ExcelWorksheetNavigator.CeldaNumero(registros);
+                celdas[$"{letraValor}{filasInicio[b] + i}"] = ExcelWorksheetNavigator.CeldaNumero(valor);
+                celdas[$"{letraRegistros}{filasInicio[b] + i}"] = ExcelWorksheetNavigator.CeldaNumero(registros);
             }
         }
 
@@ -788,9 +809,9 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             Empresa = empresa,
             HojaRecaudo = empresa.HojaRecaudo,
             Celdas = celdas,
-            TotalOportuno = celdas.GetValueOrDefault("D9"),
-            TotalExtemporaneo = celdas.GetValueOrDefault("D18"),
-            Total = celdas.GetValueOrDefault("D27")
+            TotalOportuno = celdas.GetValueOrDefault($"{letraValor}9"),
+            TotalExtemporaneo = celdas.GetValueOrDefault($"{letraValor}18"),
+            Total = celdas.GetValueOrDefault($"{letraValor}27")
         };
     }
 

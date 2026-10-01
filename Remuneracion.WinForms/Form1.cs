@@ -74,7 +74,8 @@ namespace Remuneracion.WinForms
                     new Remuneracion.Core.Services.CalculoRemuneracion(),
                     new Remuneracion.Core.Services.ValidadorBasico(),
                     new Remuneracion.Infrastructure.Excel.OpenXmlPlantillaWriter(),
-                    new ArchivoFuenteLocator()),
+                    new ArchivoFuenteLocator(),
+                    new Remuneracion.Infrastructure.Excel.ExcelDataReaderDetRetriR10Reader()),
                 new ArchivoFuenteLocator())
         {
         }
