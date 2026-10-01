@@ -5,7 +5,7 @@
 
 ---
 
-## 1. Qué es la App (en 5 líneas)
+## 1. Qué es la App 
 
 1. La App arma el archivo de la **remuneración quincenal** de los 5 operadores del servicio de aseo de Bogotá.
 2. **Le entra** la carpeta de fuentes del período y la plantilla Excel.
