@@ -362,16 +362,31 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
 
         var indiceDebCred = BuscarIndiceColumnaPorTitulo(filaHeaders, WorkbookLeafCellMapAjustesSfT.HeaderDebCredOpcional);
 
-        // Conceptos por fila del template (mapa explícito por Ase.Id, D7).
+        // Conceptos por fila del template (mapa explícito por Ase.Id, D7). HU-22 (Plan 23, R-F-1/T2,
+        // T0d §5.1): el flag EsOpcional del mapa distingue el concepto opcional ("Vlr Intereses")
+        // del core; la ausencia del opcional se emite como 0 explícito (nunca fail-fast ni valor
+        // fabricado). La decisión obligatorio/opcional vive SOLO en el mapa, no en el reader.
         var conceptos = WorkbookLeafCellMapAjustesSfT.ObtenerConceptosSaldos(ase.Id);
         var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
         decimal total = 0m;
 
-        foreach (var (filaTemplate, concepto) in conceptos)
+        foreach (var (filaTemplate, concepto, esOpcional) in conceptos)
         {
             var filaFuente = BuscarFilaConcepto(filas, concepto);
             if (filaFuente < 0)
             {
+                // Opcional ausente (T0d): fila completa en 0 explícito. Se conserva el 0 de
+                // plantilla en O/Deb/Cred (no se escribe) y la columna I se fija a 0 más abajo.
+                if (esOpcional)
+                {
+                    foreach (var (par, _) in indicesColumna)
+                    {
+                        celdas[$"{par.ColumnaTemplate}{filaTemplate}"] = 0m;
+                    }
+
+                    continue;
+                }
+
                 throw new CalculoInvalidoException(
                     $"ASE {ase.Id}: no se encontró la fila de concepto '{concepto}' en la fuente SALDOS POR NOTA.");
             }
@@ -398,7 +413,7 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
 
         // La columna I del template ("Especiales") no existe en las fuentes Q2 (T0-0.5) → 0.
         // TotalSaldosNotas = Total − ServEspK (aritmética T0-0.3, visible Cn-In).
-        foreach (var (filaTemplate, _) in conceptos)
+        foreach (var (filaTemplate, _, _) in conceptos)
         {
             celdas[$"I{filaTemplate}"] = 0m;
         }
@@ -455,15 +470,32 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
 
         var indiceDebCred = BuscarIndiceColumnaPorTitulo(filaHeaders, WorkbookLeafCellMapAjustesSfT.HeaderDebCredOpcional);
 
+        // HU-22 (Plan 23, R-F-2/T2, T0d §5.3): MISMA regla de opcionalidad que SALDOS POR NOTA.
+        // El flag EsOpcional del mapa distingue el concepto opcional ("Vlr Intereses") del core;
+        // su ausencia se emite como 0 explícito (nunca fail-fast). El defecto es latente (las
+        // fuentes Q2/agosto traen solo la fila de fecha → early-return 0), pero la rama queda
+        // simétrica y ejercitable si una fuente futura trae headers sin el concepto opcional.
         var conceptos = WorkbookLeafCellMapAjustesSfT.ObtenerConceptosRetribucion(ase.Id);
         var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
         decimal total = 0m;
 
-        foreach (var (filaTemplate, concepto) in conceptos)
+        foreach (var (filaTemplate, concepto, esOpcional) in conceptos)
         {
             var filaFuente = BuscarFilaConcepto(filas, concepto);
             if (filaFuente < 0)
             {
+                // Opcional ausente: fila completa en 0 explícito; O/Deb/Cred conserva el 0 de
+                // plantilla (no se escribe) e I{fila} se fija a 0 más abajo.
+                if (esOpcional)
+                {
+                    foreach (var (par, _) in indicesColumna)
+                    {
+                        celdas[$"{par.ColumnaTemplate}{filaTemplate}"] = 0m;
+                    }
+
+                    continue;
+                }
+
                 throw new CalculoInvalidoException(
                     $"ASE {ase.Id}: no se encontró la fila de concepto '{concepto}' en la fuente RETRIBUCION NEGATIVA.");
             }
@@ -486,7 +518,7 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             }
         }
 
-        foreach (var (filaTemplate, _) in conceptos)
+        foreach (var (filaTemplate, _, _) in conceptos)
         {
             celdas[$"I{filaTemplate}"] = 0m;
         }
@@ -502,118 +534,226 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
     }
 
     /// <inheritdoc />
-    public LEspecialesMenoresAseInputs LeerLEspecialesMenores(Ase ase, Periodo periodo, string rutaR1)
+    public BloqueEspejoAseInputs LeerEspejoR1(Ase ase, string rutaR1)
     {
         ArgumentNullException.ThrowIfNull(ase);
-        ArgumentNullException.ThrowIfNull(periodo);
         ArgumentNullException.ThrowIfNull(rutaR1);
 
-        // HU-16 (D3a, T0-0.5/0.6): el mapa L-menores es explícito por (Ase.Id, período); cada rol
-        // se resuelve por ETIQUETA en la fuente R1 (col A/B/D/E) con la ocurrencia 0-based
-        // congelada. Prohibidos offsets; "slot ausente" ≠ "leído 0" (fail-fast ASE+hoja+celda).
-        var mapa = WorkbookLeafCellMapInterventoria.ObtenerLMenores(ase.Id, periodo.NumeroQuincena);
-        var filas = ExcelWorksheetNavigator.LeerFilas(rutaR1);
+        // Plan 21 (T2, R-E-1): la fuente R1 trae UN bloque por archivo. Se lee la hoja Sheet1 y se
+        // delimita la zona por ETIQUETAS (nunca por fila/columna fija). Sin cardinalidades ni
+        // ocurrencias: la secuencia observada ES la especificación del período (D-B).
+        const string hoja = "Sheet1";
+        var filas = ExcelWorksheetNavigator.LeerFilas(rutaR1, hoja);
 
-        var indiceEspeciales = ExcelWorksheetNavigator.IndiceColumnaPorEncabezado(filas, "SERVICIO ESPECIALES");
-        if (indiceEspeciales < 0)
+        // Encabezados por detección dinámica: la fila de headers es la inmediatamente anterior a
+        // la primera fila de datos (E='Vlr Servicio'). Así la ausencia de la columna
+        // SERVICIO ESPECIALES no impide localizar el resto (R-E-6).
+        var indicePrimeraFila = filas.FindIndex(f =>
+            NormalizarEtiqueta(ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(4))).Equals("vlrservicio", StringComparison.Ordinal));
+        if (indicePrimeraFila <= 0)
         {
             throw new CalculoInvalidoException(
-                $"ASE {ase.Id}: la fuente R1 no trae la columna 'SERVICIO ESPECIALES' requerida por el mapa T0-0.5 de L-menores (reporte {Path.GetFileName(rutaR1)}).");
+                $"ASE {ase.Id}: la fuente R1 ({Path.GetFileName(rutaR1)}) no trae la fila 'Vlr Servicio' que delimita el inicio del bloque espejo.");
         }
 
-        // Zona Componente: filas anteriores a la fila A='Componente' B='Total' (mismo corte que
-        // HU-08 ExtraerCeldasR1). TotalFinal se resuelve después de esa fila.
-        var indiceComponente = filas.FindIndex(f =>
-            ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(0)).Equals("Componente", StringComparison.OrdinalIgnoreCase)
-            && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)).Equals("Total", StringComparison.OrdinalIgnoreCase));
-        if (indiceComponente < 0)
+        var indiceHeader = indicePrimeraFila - 1;
+        while (indiceHeader > 0 && FilaSinTexto(filas[indiceHeader]))
+        {
+            indiceHeader--;
+        }
+
+        var (encabezados, indicesPorEncabezado) = MapearEncabezados(filas[indiceHeader]);
+        var tieneEspeciales = indicesPorEncabezado.Keys.Any(EsEncabezadoEspeciales);
+        var indiceEspeciales = indicesPorEncabezado
+            .Where(kv => EsEncabezadoEspeciales(kv.Key))
+            .Select(kv => kv.Value)
+            .FirstOrDefault(-1);
+
+        // Zona: desde la primera fila de datos hasta la fila 'Total' final (A='Total', B vacío),
+        // ambas inclusive. Si no aparece, la secuencia no es interpretable → fail-fast.
+        var indiceTotal = -1;
+        for (var i = indicePrimeraFila; i < filas.Count; i++)
+        {
+            var fila = filas[i];
+            if (string.Equals(ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(0)), "Total", StringComparison.OrdinalIgnoreCase)
+                && string.IsNullOrWhiteSpace(ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(1))))
+            {
+                indiceTotal = i;
+                break;
+            }
+        }
+
+        if (indiceTotal < 0)
         {
             throw new CalculoInvalidoException(
-                $"ASE {ase.Id}: no se encontró la fila 'Componente/Total' en la fuente R1 para localizar las L-menores (mapa T0-0.5).");
+                $"ASE {ase.Id}: la fuente R1 ({Path.GetFileName(rutaR1)}) no trae la fila invariante 'Total' (A='Total', B vacío) que cierra el bloque espejo.");
         }
 
-        bool EsFila(object?[] f, string? d = null, string? e = null, string? a = null, string? b = null)
+        var filasEspejo = new List<FilaEspejoR1>();
+        for (var i = indicePrimeraFila; i <= indiceTotal; i++)
         {
-            var ok = true;
-            if (d is not null)
+            var fila = filas[i];
+            if (FilaSinTexto(fila) && FilaSinValores(fila, indicesPorEncabezado))
             {
-                ok &= ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(3)).Equals(d, StringComparison.OrdinalIgnoreCase);
+                continue; // fila fantasma vacía: no forma parte de la secuencia observada
             }
 
-            if (e is not null)
-            {
-                ok &= ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(4)).Equals(e, StringComparison.OrdinalIgnoreCase);
-            }
-
-            if (a is not null)
-            {
-                ok &= ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(0)).Equals(a, StringComparison.OrdinalIgnoreCase);
-            }
-
-            if (b is not null)
-            {
-                ok &= ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)).Equals(b, StringComparison.OrdinalIgnoreCase);
-            }
-
-            return ok;
+            filasEspejo.Add(ConstruirFilaEspejo(fila, encabezados, indicesPorEncabezado, indiceEspeciales));
         }
 
-        // Listas por rol dentro de la zona Componente (orden de aparición en la fuente).
-        List<object?[]> EnZona(Func<object?[], bool> predicado) => filas
-            .Select((fila, indice) => (fila, indice))
-            .Where(t => t.indice < indiceComponente && predicado(t.fila))
-            .Select(t => t.fila)
-            .ToList();
-
-        var vlrServicio = EnZona(f => EsFila(f, e: "Vlr Servicio"));
-        var vlrIntereses = EnZona(f => EsFila(f, e: "Vlr Intereses"));
-        var totalE = EnZona(f => EsFila(f, d: "E", e: "Total"));
-        var totalH = EnZona(f => EsFila(f, d: "H", e: "Total"));
-        var totalO = EnZona(f => EsFila(f, d: "O", e: "Total"));
-        var totalT = EnZona(f => EsFila(f, d: "T", e: "Total"));
-        var totalDisplay = EnZona(f => EsFila(f, d: "Total") && string.IsNullOrWhiteSpace(ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(4))));
-
-        // TotalFinal: fila A='Total' B vacío DESPUÉS de la zona Componente.
-        var totalFinal = filas
-            .Select((fila, indice) => (fila, indice))
-            .Where(t => t.indice > indiceComponente && EsFila(t.fila, a: "Total")
-                && string.IsNullOrWhiteSpace(ExcelWorksheetNavigator.CeldaTexto(t.fila.ElementAtOrDefault(1))))
-            .Select(t => t.fila)
-            .ToList();
-
-        var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (celda, rol, ocurrencia) in mapa)
-        {
-            var candidatos = rol switch
-            {
-                WorkbookLeafCellMapInterventoria.RolLMenor.VlrServicio => vlrServicio,
-                WorkbookLeafCellMapInterventoria.RolLMenor.VlrIntereses => vlrIntereses,
-                WorkbookLeafCellMapInterventoria.RolLMenor.TotalD_E => totalE,
-                WorkbookLeafCellMapInterventoria.RolLMenor.TotalD_H => totalH,
-                WorkbookLeafCellMapInterventoria.RolLMenor.TotalD_O => totalO,
-                WorkbookLeafCellMapInterventoria.RolLMenor.TotalD_T => totalT,
-                WorkbookLeafCellMapInterventoria.RolLMenor.TotalDisplay => totalDisplay,
-                WorkbookLeafCellMapInterventoria.RolLMenor.CompTotal => [filas[indiceComponente]],
-                WorkbookLeafCellMapInterventoria.RolLMenor.TotalFinal => totalFinal,
-                _ => []
-            };
-
-            var fila = candidatos.ElementAtOrDefault(ocurrencia);
-            if (fila is null)
-            {
-                // Slot ausente (doctrina HU-12): nunca 0 silencioso; el mapa T0 exige la fila.
-                throw new CalculoInvalidoException(
-                    $"ASE {ase.Id}: la fuente R1 no trae la fila del rol {rol} (ocurrencia {ocurrencia}) requerida por el mapa T0-0.5 para la celda {WorkbookLeafCellMapInterventoria.HojaR1}!{celda} (reporte {Path.GetFileName(rutaR1)}).");
-            }
-
-            celdas[celda] = ExcelWorksheetNavigator.CeldaNumero(fila.ElementAtOrDefault(indiceEspeciales));
-        }
-
-        return new LEspecialesMenoresAseInputs
+        var bloque = new BloqueEspejoAseInputs
         {
             Ase = ase,
-            Celdas = celdas
+            Encabezados = encabezados,
+            Filas = filasEspejo,
+            TieneColumnaEspeciales = tieneEspeciales
         };
+
+        // Invariantes duras T0e: si falta una, fail-fast que nombra ASE + reporte + fila esperada.
+        // W-7 (auditoría PR3): el chequeo vive en el modelo (FaltantesInvariantesDeCierre) para no
+        // duplicar la definición con ProcesadorPeriodo.ValidarInvariantesEspejoR1.
+        var faltantes = bloque.FaltantesInvariantesDeCierre();
+        if (faltantes.Count > 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: la fuente R1 ({Path.GetFileName(rutaR1)}) no trae las filas invariantes de cierre T0e: {string.Join(", ", faltantes)}.");
+        }
+
+        return bloque;
+    }
+
+    /// <summary>
+    /// Plan 21 (T2): encabezados de columna de la fila de headers, en orden físico, con su índice
+    /// 0-based. Los encabezados vacíos se omiten; los duplicados se conservan una sola vez.
+    /// </summary>
+    private static (List<string> Encabezados, Dictionary<string, int> Indices) MapearEncabezados(object?[] filaHeader)
+    {
+        var encabezados = new List<string>();
+        var indices = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var j = 0; j < filaHeader.Length; j++)
+        {
+            var texto = ExcelWorksheetNavigator.CeldaTexto(filaHeader[j]);
+            if (string.IsNullOrWhiteSpace(texto))
+            {
+                continue;
+            }
+
+            var encabezado = texto.Trim();
+            if (indices.ContainsKey(encabezado))
+            {
+                continue;
+            }
+
+            indices[encabezado] = j;
+            encabezados.Add(encabezado);
+        }
+
+        return (encabezados, indices);
+    }
+
+    /// <summary>
+    /// Plan 21 (T2, R-E-6): verdad si el encabezado es la columna de especiales
+    /// (<c>SERVICIO ESPECIALES</c> o su alias <c>Especiales</c>, normalizados).
+    /// </summary>
+    private static bool EsEncabezadoEspeciales(string encabezado)
+    {
+        var normalizado = NormalizarEtiqueta(encabezado);
+        return normalizado is "servicioespeciales" or "especiales";
+    }
+
+    /// <summary>
+    /// Plan 21 (T2): construye una <see cref="FilaEspejoR1"/> con su firma A–E y sus valores por
+    /// encabezado. Si la columna de especiales no existe, aporta 0 (R-E-6).
+    /// </summary>
+    private static FilaEspejoR1 ConstruirFilaEspejo(
+        object?[] fila,
+        IReadOnlyList<string> encabezados,
+        IReadOnlyDictionary<string, int> indicesPorEncabezado,
+        int indiceEspeciales)
+    {
+        var valores = new Dictionary<string, decimal?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var encabezado in encabezados)
+        {
+            valores[encabezado] = CeldaNumeroONulo(fila.ElementAtOrDefault(indicesPorEncabezado[encabezado]));
+        }
+
+        if (indiceEspeciales < 0)
+        {
+            valores["SERVICIO ESPECIALES"] = 0m;
+        }
+
+        return new FilaEspejoR1
+        {
+            A = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(0)),
+            B = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(1)),
+            C = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(2)),
+            D = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(3)),
+            E = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(4)),
+            ValoresPorColumna = valores
+        };
+    }
+
+    /// <summary>Plan 21 (T2): verdad si la fila no tiene texto en ninguna columna.</summary>
+    private static bool FilaSinTexto(object?[]? fila)
+    {
+        if (fila is null)
+        {
+            return true;
+        }
+
+        foreach (var celda in fila)
+        {
+            if (!string.IsNullOrWhiteSpace(ExcelWorksheetNavigator.CeldaTexto(celda)))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Plan 21 (T2): verdad si la fila no tiene valor numérico en ninguna de las columnas de
+    /// encabezado detectadas.
+    /// </summary>
+    private static bool FilaSinValores(object?[] fila, IReadOnlyDictionary<string, int> indicesPorEncabezado)
+    {
+        foreach (var indice in indicesPorEncabezado.Values)
+        {
+            if (CeldaNumeroONulo(fila.ElementAtOrDefault(indice)) is not null)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Plan 21 (T2): convierte una celda a número nullable; <c>null</c> = celda vacía (distingue
+    /// "ausente" de "cero", R-E-5). Texto no numérico → <c>null</c>.
+    /// </summary>
+    private static decimal? CeldaNumeroONulo(object? valor)
+    {
+        if (valor is null)
+        {
+            return null;
+        }
+
+        if (valor is string texto)
+        {
+            texto = texto.Trim();
+            if (texto.Length == 0)
+            {
+                return null;
+            }
+
+            return decimal.TryParse(texto, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var numero)
+                ? numero
+                : null;
+        }
+
+        return ExcelWorksheetNavigator.CeldaNumero(valor);
     }
 
     /// <summary>
@@ -816,41 +956,39 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
     }
 
     /// <summary>
-    /// HU-12 (2.6 ampliada, T0-0.2/0.3): mapeo R1-Q2 por roles de fila congelados en
-    /// <see cref="WorkbookLeafCellMapQ2.R1Q2EditablesPorAse"/>. La variante ASE5 usa 2 filas
-    /// Mes/Total (V0.3: F558=F552+F531-L531 = 12033011685.71 = D13 golden); ASE1-4 usan 3.
-    /// Fail-fast: si falta un rol esperado (fila Mes/Total, Subsidio o Aplicación) lanza
-    /// <c>CalculoInvalidoException</c> que nombra el ASE y el reporte (nunca 0 silencioso;
-    /// distinguir "leído 0" de "slot ausente", Riesgo 6).
+    /// Plan 25 (T2, R-F-1/2/3): mapeo R1-Q2 resolviendo cada celda destino por FIRMA de etiquetas
+    /// (A–E) sobre la secuencia construida desde la MISMA lectura de filas (reusa, no duplica el
+    /// I/O; R-DOBLE-FUENTE). La firma vive en Core (<see cref="FilaEspejoR1"/>); aquí solo se
+    /// construye la secuencia y se resuelve por orden de aparición.
+    ///
+    /// Regla de ausencia por rol (T0e §6): <c>Mes0/1/2</c> y <c>Lmes0/1/2</c> son core
+    /// OBLIGATORIOS (fail-fast que nombra ASE + reporte + celda, mensaje intacto);
+    /// <c>Aplic0/Aplic1/LAplic0</c> son OPCIONALES (ausente = 0 explícito). El agregado EXTEMP
+    /// (D-C) = ΣF(todas las filas <c>Aplicacion</c>) − Especiales de la primera (0 si no hay).
     /// </summary>
     private static WorkbookLeafInputsR1 MapearR1Q2(Ase ase, List<object?[]> filas)
     {
         var indiceEspeciales = ExcelWorksheetNavigator.IndiceColumnaPorEncabezado(filas, "SERVICIO ESPECIALES");
+        var indiceTotal = ExcelWorksheetNavigator.IndiceColumnaPorEncabezado(filas, "Total");
+        if (indiceTotal < 0)
+        {
+            indiceTotal = 5; // columna F (V0.3): el header 'Total' coincide en las fuentes reales
+        }
 
-        var filasMes = filas
-            .Where(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)).Equals("Mes", StringComparison.OrdinalIgnoreCase)
-                && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(2)).Equals("Total", StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        // Secuencia tipada construida desde la MISMA lectura: la firma (Core) resuelve los roles.
+        var secuencia = new BloqueEspejoAseInputs
+        {
+            Ase = ase,
+            Filas = filas.Select(f => ConstruirFilaEspejoRolQ2(f, indiceTotal, indiceEspeciales)).ToList()
+        };
 
-        var filasAplicacion = filas
-            .Where(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1))
-                .Contains("Aplicacion nuevos x reversion", StringComparison.OrdinalIgnoreCase)
-                && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(2)).Equals("Total", StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        var filasMes = secuencia.FilasMes();
+        var filasAplicacion = secuencia.FilasAplicacion();
 
-        var filasSubsidio = filas
-            .Where(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(4))
-                .Contains("Subsidio(-)/Contribucion(+)", StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        decimal F(FilaEspejoR1? fila) => fila?.Valor("Total") ?? 0m;
+        decimal Esp(FilaEspejoR1? fila) => fila?.Valor("SERVICIO ESPECIALES") ?? 0m;
 
-        decimal Esp(object?[]? fila) =>
-            indiceEspeciales >= 0
-                ? ExcelWorksheetNavigator.CeldaNumero(fila?.ElementAtOrDefault(indiceEspeciales))
-                : 0m;
-
-        decimal F(object?[]? fila) => ExcelWorksheetNavigator.CeldaNumero(fila?.ElementAtOrDefault(5));
-
-        object?[]? RolFila(WorkbookLeafCellMapQ2.R1Q2Fuente rol) => rol switch
+        FilaEspejoR1? RolCore(WorkbookLeafCellMapQ2.R1Q2Fuente rol) => rol switch
         {
             WorkbookLeafCellMapQ2.R1Q2Fuente.Mes0 => filasMes.ElementAtOrDefault(0),
             WorkbookLeafCellMapQ2.R1Q2Fuente.Mes1 => filasMes.ElementAtOrDefault(1),
@@ -858,17 +996,18 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes0 => filasMes.ElementAtOrDefault(0),
             WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes1 => filasMes.ElementAtOrDefault(1),
             WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes2 => filasMes.ElementAtOrDefault(2),
-            WorkbookLeafCellMapQ2.R1Q2Fuente.Subs0 => filasSubsidio.ElementAtOrDefault(0),
-            WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic0 => filasAplicacion.ElementAtOrDefault(0),
-            WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic1 => filasAplicacion.ElementAtOrDefault(1),
-            WorkbookLeafCellMapQ2.R1Q2Fuente.LAplic0 => filasAplicacion.ElementAtOrDefault(0),
             _ => null
         };
 
-        // Fail-fast por rol ausente (slot ausente ≠ leído 0): nombra ASE + reporte.
+        static bool EsRolAplic(WorkbookLeafCellMapQ2.R1Q2Fuente rol) =>
+            rol is WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic0
+                or WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic1
+                or WorkbookLeafCellMapQ2.R1Q2Fuente.LAplic0;
+
+        // Fail-fast SOLO de roles core (slot ausente ≠ leído 0). Los roles Aplic son opcionales.
         foreach (var (celda, fuente) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(ase.Id))
         {
-            if (RolFila(fuente) is null)
+            if (!EsRolAplic(fuente) && RolCore(fuente) is null)
             {
                 throw new CalculoInvalidoException(
                     $"ASE {ase.Id}: la fuente R1-Q2 no trae la fila del rol {fuente} requerida por el mapa T0 para la celda {celda} (reporte Recaudoporcomponente).");
@@ -876,42 +1015,37 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         }
 
         var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
-        decimal totOpt = 0m;
-        decimal extemp = 0m;
         foreach (var (celda, fuente) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(ase.Id))
         {
-            var fila = RolFila(fuente)!;
             var valor = fuente switch
             {
-                WorkbookLeafCellMapQ2.R1Q2Fuente.Mes0 or WorkbookLeafCellMapQ2.R1Q2Fuente.Mes1
-                    or WorkbookLeafCellMapQ2.R1Q2Fuente.Mes2 or WorkbookLeafCellMapQ2.R1Q2Fuente.Subs0
-                    or WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic0 or WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic1 => F(fila),
-                _ => Esp(fila)
+                WorkbookLeafCellMapQ2.R1Q2Fuente.Mes0
+                    or WorkbookLeafCellMapQ2.R1Q2Fuente.Mes1
+                    or WorkbookLeafCellMapQ2.R1Q2Fuente.Mes2 => F(RolCore(fuente)),
+                WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes0
+                    or WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes1
+                    or WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes2 => Esp(RolCore(fuente)),
+                WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic0 => F(filasAplicacion.ElementAtOrDefault(0)),
+                WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic1 => F(filasAplicacion.ElementAtOrDefault(1)),
+                WorkbookLeafCellMapQ2.R1Q2Fuente.LAplic0 => Esp(filasAplicacion.ElementAtOrDefault(0)),
+                _ => 0m
             };
 
             celdas[celda] = valor;
-            switch (fuente)
-            {
-                case WorkbookLeafCellMapQ2.R1Q2Fuente.Mes0:
-                case WorkbookLeafCellMapQ2.R1Q2Fuente.Mes1:
-                case WorkbookLeafCellMapQ2.R1Q2Fuente.Mes2:
-                    totOpt += valor;
-                    break;
-                case WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes0:
-                case WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes1:
-                case WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes2:
-                    totOpt -= valor;
-                    break;
-                case WorkbookLeafCellMapQ2.R1Q2Fuente.Subs0:
-                case WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic0:
-                case WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic1:
-                    extemp += valor;
-                    break;
-                case WorkbookLeafCellMapQ2.R1Q2Fuente.LAplic0:
-                    extemp -= valor;
-                    break;
-            }
         }
+
+        // TOT_OPT: patrón visible del template resuelto por firma/observación —
+        // ΣF(todas las filas Mes) − Especiales de todas MENOS la última. Es idéntico al mapa
+        // congelado en ASE1-4 (3 filas) y ASE5-julio (2 filas, Lmes1=0); generaliza ASE5-agosto
+        // (3 filas Mes — T0a) al mismo 5-term visible, sin depender del conteo congelado.
+        var totOpt = filasMes.Sum(f => f.Valor("Total") ?? 0m)
+            - (filasMes.Count > 1
+                ? filasMes.Take(filasMes.Count - 1).Sum(f => f.Valor("SERVICIO ESPECIALES") ?? 0m)
+                : 0m);
+
+        // D-C (R-F-2): EXTEMP = ΣF(todas las filas Aplicacion) − Especiales de la primera; 0 si no hay.
+        var extemp = secuencia.SumarAplicacion("Total")
+            - (filasAplicacion.Count > 0 ? Esp(filasAplicacion[0]) : 0m);
 
         // F25/F41/L25 conservan la semántica Q1 (primera/segunda fila Mes/Total) para el gate
         // R1-F25 vs Extemporáneo HU-02 (Q1 intacto por construcción, G5).
@@ -929,6 +1063,33 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             CeldasPorAse = celdas,
             TotalOportunoEsperadoPorAse = totOpt,
             ExtemporaneoEsperadoPorAse = extemp
+        };
+    }
+
+    /// <summary>
+    /// Plan 25 (T2): construye una <see cref="FilaEspejoR1"/> de rol desde una fila cruda, con los
+    /// valores por ENCABEZADO (<c>Total</c> = columna F; <c>SERVICIO ESPECIALES</c> = L o 0 si
+    /// ausente). Reusa la semántica de <c>ConstruirFilaEspejo</c> sin exigir la zona del espejo
+    /// (la secuencia de roles es un subconjunto de la lectura cruda ya cargada).
+    /// </summary>
+    private static FilaEspejoR1 ConstruirFilaEspejoRolQ2(object?[] fila, int indiceTotal, int indiceEspeciales)
+    {
+        var valores = new Dictionary<string, decimal?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Total"] = CeldaNumeroONulo(fila.ElementAtOrDefault(indiceTotal)),
+            ["SERVICIO ESPECIALES"] = indiceEspeciales >= 0
+                ? CeldaNumeroONulo(fila.ElementAtOrDefault(indiceEspeciales))
+                : 0m
+        };
+
+        return new FilaEspejoR1
+        {
+            A = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(0)),
+            B = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(1)),
+            C = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(2)),
+            D = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(3)),
+            E = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(4)),
+            ValoresPorColumna = valores
         };
     }
 

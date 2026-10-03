@@ -83,6 +83,96 @@ public sealed class AjustesSfTTests
         }
     }
 
+    // ── HU-22 (Plan 23): opcionalidad de 'Vlr Intereses' (T1/T2) ─────────────────────────────
+
+    [Fact]
+    public void LeerSaldosNotas_OpcionalAusente_AgostoAse2_EmiteCeroExplicito()
+    {
+        // HU-22 (Plan 23, R-F-1/T2, S1, T0d §5.1): la fuente de agosto de ASE2 NO trae la fila
+        // 'Vlr Intereses' (5 conceptos). Antes lanzaba CalculoInvalidoException en el paso 2.5;
+        // ahora la fila 16 del template se emite en 0 explícito y el resto del bloque procesa
+        // igual (Total real de la fuente). Insumo REAL de Docs/Prueba2/Insumos; sin golden de
+        // agosto (R-ORACULO-AGOSTO) solo se asertan invariantes, no valores de negocio nuevos.
+        var reader = new ExcelDataReaderWorkbookLeafInputReader();
+        var saldos = reader.LeerSaldosNotas(Insumos.Ase(2), Insumos.SaldosNotasAgosto(2));
+
+        // Fila 16 = 'Vlr Intereses' del bloque ASE2 (FilaTotalSaldosPorAse[2] = 20). Todas las
+        // columnas del MapeoColumnasPorTitulo quedan en 0 explícito; la I (Especiales) también.
+        foreach (var columna in new[] { "C", "D", "E", "F", "G", "H", "J", "K", "L", "M", "N" })
+        {
+            Assert.True(saldos.Celdas.ContainsKey($"{columna}16"), $"Falta el 0 explícito {columna}16.");
+            Assert.Equal(0m, saldos.Celdas[$"{columna}16"]);
+        }
+
+        Assert.Equal(0m, saldos.Celdas["I16"]);
+
+        // El resto del bloque no se ve afectado por la ausencia (T0 V6: Total = Componente + Subsidio).
+        Assert.InRange(saldos.Total - 506855.36m, -Tolerancia, Tolerancia);
+    }
+
+    [Fact]
+    public void LeerSaldosNotas_OpcionalPresente_JulioAse2_LeeValorReal()
+    {
+        // HU-22 (Plan 23, R-F-4/T2, S2, R-REGRESION-JULIO): julio Q2 ASE2 SÍ trae 'Vlr Intereses'
+        // (C5 = 172.61) → la fila 16 del template debe traer el valor real, nunca 0. La rama
+        // tolerante solo se activa cuando la fila falta.
+        var reader = new ExcelDataReaderWorkbookLeafInputReader();
+        var saldos = reader.LeerSaldosNotas(Insumos.Ase(2), Insumos.SaldosNotas(2));
+
+        Assert.True(saldos.Celdas.ContainsKey("C16"));
+        Assert.NotEqual(0m, saldos.Celdas["C16"]);
+        Assert.InRange(saldos.Celdas["C16"] - 172.61m, -Tolerancia, Tolerancia);
+    }
+
+    [Fact]
+    public void LeerSaldosNotas_ConceptoCoreAusente_FallaNombrandoAseReporteConcepto()
+    {
+        // HU-22 (Plan 23, R-F-3/T2, S3): solo 'Vlr Intereses' es opcional; la ausencia de un
+        // concepto core (p. ej. 'Componente') mantiene el fail-fast actual que nombra ASE +
+        // reporte + concepto. Fixture NEGATIVO (headers completos, falta una fila): no es dato de
+        // negocio inventado, es la contracara del path tolerante (mismo patrón que
+        // LeerSaldosNotas_HeaderObligatorioAusente_FallaNombrandoAse).
+        var ruta = CrearFuenteSaldosSinConceptoCore("Componente");
+        var reader = new ExcelDataReaderWorkbookLeafInputReader();
+
+        var ex = Assert.Throws<CalculoInvalidoException>(() =>
+            reader.LeerSaldosNotas(Insumos.Ase(1), ruta));
+
+        Assert.Contains("ASE 1", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("SALDOS POR NOTA", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Componente", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void MapaAjustesSfT_SoloVlrInteresesEsOpcional_EnAmbasTablas()
+    {
+        // HU-22 (Plan 23, T1, R-F-1/R-F-2): la obligatoriedad es DATO del mapa. Único concepto
+        // opcional = 'Vlr Intereses'; todo lo demás es core obligatorio. SALDOS lo marca en
+        // ASE 2/4/5; RETRI en ASE 1-4 (paridad de la regla en ambos readers, defecto latente T0d).
+        for (var aseId = 1; aseId <= 5; aseId++)
+        {
+            foreach (var (_, concepto, esOpcional) in WorkbookLeafCellMapAjustesSfT.ObtenerConceptosSaldos(aseId))
+            {
+                Assert.Equal(string.Equals(concepto, "Vlr Intereses", StringComparison.Ordinal), esOpcional);
+            }
+
+            foreach (var (_, concepto, esOpcional) in WorkbookLeafCellMapAjustesSfT.ObtenerConceptosRetribucion(aseId))
+            {
+                Assert.Equal(string.Equals(concepto, "Vlr Intereses", StringComparison.Ordinal), esOpcional);
+            }
+        }
+
+        var saldosConIntereses = Enumerable.Range(1, 5)
+            .Where(id => WorkbookLeafCellMapAjustesSfT.ObtenerConceptosSaldos(id).Any(c => c.Concepto == "Vlr Intereses"))
+            .ToArray();
+        var retriConIntereses = Enumerable.Range(1, 5)
+            .Where(id => WorkbookLeafCellMapAjustesSfT.ObtenerConceptosRetribucion(id).Any(c => c.Concepto == "Vlr Intereses"))
+            .ToArray();
+
+        Assert.Equal(new[] { 2, 4, 5 }, saldosConIntereses);
+        Assert.Equal(new[] { 1, 2, 3, 4 }, retriConIntereses);
+    }
+
     [Fact]
     public void LeerSaldosNotas_HeaderObligatorioAusente_FallaNombrandoAse()
     {
@@ -448,4 +538,89 @@ public sealed class AjustesSfTTests
 
         return ruta;
     }
+
+    /// <summary>
+    /// Fuente de prueba SALDOS-NOTAS con headers completos pero SIN la fila del concepto core
+    /// indicado (contracara del path tolerante HU-22/T2). Fixture NEGATIVO: prueba el fail-fast de
+    /// core ausente (el throw ocurre antes de leer valores), no declara datos de negocio.
+    /// </summary>
+    private static string CrearFuenteSaldosSinConceptoCore(string conceptoOmitido)
+    {
+        var ruta = Path.Combine(Path.GetTempPath(), "saldos-sin-core-" + Guid.NewGuid().ToString("N") + ".xlsx");
+        using (var doc = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Create(ruta, DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook))
+        {
+            var workbookPart = doc.AddWorkbookPart();
+            workbookPart.Workbook = new DocumentFormat.OpenXml.Spreadsheet.Workbook();
+            var sheetPart = workbookPart.AddNewPart<DocumentFormat.OpenXml.Packaging.WorksheetPart>();
+            var headers = new[] { "Total", "Componente TDF", "Componente TTL", "Componente TVIAT", "Aprovechamiento", "CCSA Prest.Aprov.", "Componente TCS", "Componente TLU", "Componente TBL", "Componente TRT", "CCSA Prest. No Aprov." };
+
+            var filas = new List<DocumentFormat.OpenXml.Spreadsheet.Row>
+            {
+                new DocumentFormat.OpenXml.Spreadsheet.Row(CeldaCadena("A1", "Recaudo Desde: 01/07/2026 Hasta: 31/07/2026"))
+            };
+
+            var celdasHeaders = new List<DocumentFormat.OpenXml.Spreadsheet.Cell>();
+            for (var i = 0; i < headers.Length; i++)
+            {
+                celdasHeaders.Add(CeldaCadena($"{(char)('C' + i)}3", headers[i]));
+            }
+
+            filas.Add(new DocumentFormat.OpenXml.Spreadsheet.Row(celdasHeaders));
+
+            var conceptos = new (string EtiquetaA, string EtiquetaB)[]
+            {
+                ("", "Vlr Servicio"),
+                ("Componente", "Total"),
+                ("", "Subsidio(-)/Contribucion(+)"),
+                ("Subs/Cont", "Total"),
+                ("Total", "")
+            };
+
+            var numeroFila = 4;
+            foreach (var (etiquetaA, etiquetaB) in conceptos)
+            {
+                if (string.Equals(etiquetaA, conceptoOmitido, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(etiquetaB, conceptoOmitido, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var celdasFila = new List<DocumentFormat.OpenXml.Spreadsheet.Cell>();
+                if (etiquetaA.Length > 0)
+                {
+                    celdasFila.Add(CeldaCadena($"A{numeroFila}", etiquetaA));
+                }
+
+                if (etiquetaB.Length > 0)
+                {
+                    celdasFila.Add(CeldaCadena($"B{numeroFila}", etiquetaB));
+                }
+
+                celdasFila.Add(new DocumentFormat.OpenXml.Spreadsheet.Cell
+                {
+                    CellReference = $"C{numeroFila}",
+                    CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("216025.77")
+                });
+
+                filas.Add(new DocumentFormat.OpenXml.Spreadsheet.Row(celdasFila));
+                numeroFila++;
+            }
+
+            sheetPart.Worksheet = new DocumentFormat.OpenXml.Spreadsheet.Worksheet(new DocumentFormat.OpenXml.Spreadsheet.SheetData(filas));
+
+            var sheets = workbookPart.Workbook.AppendChild(new DocumentFormat.OpenXml.Spreadsheet.Sheets());
+            sheets.AppendChild(new DocumentFormat.OpenXml.Spreadsheet.Sheet { Id = workbookPart.GetIdOfPart(sheetPart), SheetId = 1, Name = "Sheet1" });
+            workbookPart.Workbook.Save();
+        }
+
+        return ruta;
+    }
+
+    private static DocumentFormat.OpenXml.Spreadsheet.Cell CeldaCadena(string referencia, string valor) =>
+        new()
+        {
+            CellReference = referencia,
+            DataType = DocumentFormat.OpenXml.Spreadsheet.CellValues.String,
+            CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(valor)
+        };
 }

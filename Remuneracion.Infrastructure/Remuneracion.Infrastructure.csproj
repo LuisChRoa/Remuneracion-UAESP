@@ -15,4 +15,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Plan 21 (W-2, auditoría PR3): los tests asertan la instrumentación de reanclaje del
+         espejo R1 (EspejoR1MutacionResultado, internal) sin abrir la API pública. -->
+    <InternalsVisibleTo Include="Remuneracion.IntegrationTests" />
+  </ItemGroup>
+
 </Project>

@@ -27,7 +27,7 @@ namespace Remuneracion.Infrastructure.Excel;
 /// período (D5): Q1 exige las fórmulas HU-07, Q2 exige el mapa T0 (F53…, D73…, DetValiRetri/
 /// VALIDACION_*/INTERVENTORIA/ANT EXT-REV protegidas) y M1 queda ejercitado contra el canónico.
 /// </summary>
-public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
+public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEspejoR1Writer
 {
     private const string HojaConsolidado = WorkbookLeafCellMap.HojaConsolidado;
     private const string HojaR1 = WorkbookLeafCellMap.HojaR1;
@@ -211,6 +211,17 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
         // Q1 = 2026071 (mapa HU-10 intacto); Q2 = 2026072 (mapa parametrizado + mapa 2.5).
         var esQuincena2 = leafInputs.Any(l => l.Periodo.NumeroQuincena == 2);
 
+        // Plan 21 (T4): si el orquestador adjuntó el bloque espejo R1 de los 5 ASE, la hoja
+        // Reporte Componentes R1 se gobierna por el espejo (dimensionado + escritura por
+        // encabezado); las celdas R1 del mapa absoluto HU-07/HU-12 quedan superseded dentro del
+        // bloque y NO se escriben por el mapa. El resto de las hojas queda intacto.
+        var bloquesEspejo = leafInputs
+            .Where(l => l.EspejoR1 is not null)
+            .Select(l => l.EspejoR1!)
+            .OrderBy(b => b.Ase.Id)
+            .ToList();
+        var espejoR1 = bloquesEspejo.Count == 5;
+
         // HU-15 (W-2.3, D5): copia + escritura dentro del try de atomicidad — un fallo de I/O
         // (IOException) se envuelve en ERR-ESCRITURA con InnerException preservada y el parcial
         // se borra. Las excepciones de dominio (ERR-PLANTILLA de estructura, ERR-VALIDACION de
@@ -225,19 +236,41 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 
             File.Copy(origen, rutaSalida, overwrite: true);
 
+            // Plan 21 (T4): el gate de evidencia del espejo se computa ANTES de mutar el workbook
+            // (estado real de la plantilla respecto de la forma de la fuente) y se reutiliza en la
+            // validación post-escritura (CRITICAL #1: recomputarlo tras AjustarEnWorkbook siempre
+            // daría false con Δ≠0 → validación por direcciones absolutas sobre un R1 desplazado).
+            var espejoDesplazado = false;
+
             using (var workbook = SpreadsheetDocument.Open(rutaSalida, true))
             {
                 var workbookPart = workbook.WorkbookPart
                     ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene WorkbookPart válido.");
-                ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook), esQuincena2);
+
+                // Plan 21 (T4): el espejo se aplica ANTES de la escritura de hojas y solo cuando
+                // hace falta (algún bloque difiere de la forma de la fuente). Con Δ=0 (julio) el
+                // espejo reescribe el bloque ya dimensionado y las direcciones absolutas quedan
+                // intactas; la validación protegida corre normal. Con Δ≠0 (agosto) las direcciones
+                // R1 se desplazan y su validación por dirección fija queda superseded por el gate
+                // estructural del espejo (T3), evitando falsos ERR-PLANTILLA.
+                if (espejoR1)
+                {
+                    espejoDesplazado = OpenXmlEspejoR1Mutador.RequiereAjuste(workbookPart, bloquesEspejo);
+                    OpenXmlEspejoR1Mutador.AjustarEnWorkbook(workbookPart, bloquesEspejo);
+                }
+
+                if (!espejoDesplazado)
+                {
+                    ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook), esQuincena2);
+                }
+
                 foreach (var leaf in leafInputs.OrderBy(l => l.Ase.Id))
                 {
-                    EscribirCeldasLeafPorAse(workbookPart, leaf, esQuincena2);
-                    EscribirCeldasEmpresa(workbookPart, leaf);
+                    EscribirCeldasLeafPorAse(workbookPart, leaf, esQuincena2, omitirR1: espejoR1);
+                    EscribirCeldasEmpresa(workbookPart, leaf, omitirR1: espejoR1);
                     EscribirCeldasBanco(workbookPart, leaf);
                     EscribirCeldasBalanceSc(workbookPart, leaf);
                     EscribirCeldasAjustesSfT(workbookPart, leaf);
-                    EscribirCeldasLEspecialesMenores(workbookPart, leaf);
                 }
 
                 // HU-12 (2.6 ampliada, V0.4): DetRetri-Q2 (enteros por ASE + total) en la MISMA
@@ -258,7 +291,17 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
             {
                 var workbookPart = workbook.WorkbookPart
                     ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook generado no tiene WorkbookPart válido.");
-                ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook), esQuincena2);
+
+                // CRITICAL #1 (auditoría PR3): reutilizar el resultado del PRIMER gate
+                // (espejoDesplazado) en lugar de recomputar RequiereAjuste aquí. Este bloque corre
+                // DESPUÉS de AjustarEnWorkbook, que ya mutó el workbook: recomputar devolvería
+                // false (los bloques ya coinciden con la fuente) y dispararía la validación por
+                // direcciones absolutas de julio sobre un R1 desplazado → ERR-PLANTILLA falso
+                // garantizado con Δ≠0. El gate de evidencia es el estado ANTES de mutar.
+                if (!espejoDesplazado)
+                {
+                    ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook), esQuincena2);
+                }
             }
         }
         catch (Exception ex)
@@ -285,6 +328,60 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
             throw new CalculoInvalidoException(
                 CodigoError.Escritura,
                 $"No se pudo generar el workbook de salida: {ex.Message}",
+                ex);
+        }
+    }
+
+    /// <summary>
+    /// Plan 21 (T3, R-E-2/R-E-3/R-E-4): aplica el espejo estructural R1 sobre una COPIA de la
+    /// plantilla: dimensiona cada bloque ASE a la forma de la fuente del período actual
+    /// (inserta/borra filas preservando estilos y fórmulas), reancla las referencias A1 afectadas
+    /// (fórmulas, rangos compartidos, celdas combinadas y nombres definidos) y escribe los valores
+    /// por ENCABEZADO de columna. No recalcula aritmética de negocio.
+    /// </summary>
+    /// <inheritdoc />
+    public void EscribirEspejoR1(string rutaPlantillaOrigen, string rutaSalida, IReadOnlyList<BloqueEspejoAseInputs> bloques)
+    {
+        _ = EscribirEspejoR1ConResultado(rutaPlantillaOrigen, rutaSalida, bloques);
+    }
+
+    /// <summary>
+    /// Plan 21 (W-2, auditoría PR3): variante interna que devuelve la instrumentación del
+    /// reanclaje (Δ y referencias reancladas por bloque) para que los tests aserten evidencia
+    /// estructural. La API pública (<see cref="EscribirEspejoR1"/>) mantiene su firma <c>void</c>.
+    /// </summary>
+    internal EspejoR1MutacionResultado EscribirEspejoR1ConResultado(string rutaPlantillaOrigen, string rutaSalida, IReadOnlyList<BloqueEspejoAseInputs> bloques)
+    {
+        ArgumentNullException.ThrowIfNull(rutaPlantillaOrigen);
+        ArgumentNullException.ThrowIfNull(rutaSalida);
+        ArgumentNullException.ThrowIfNull(bloques);
+
+        try
+        {
+            return OpenXmlEspejoR1Mutador.Ajustar(rutaPlantillaOrigen, rutaSalida, bloques);
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                if (File.Exists(rutaSalida))
+                {
+                    File.Delete(rutaSalida);
+                }
+            }
+            catch
+            {
+                // Best-effort: no enmascarar la causa real con un error de borrado del parcial.
+            }
+
+            if (ex is ArchivoFuenteNoEncontradoException or CalculoInvalidoException)
+            {
+                throw;
+            }
+
+            throw new CalculoInvalidoException(
+                CodigoError.Escritura,
+                $"No se pudo aplicar el espejo estructural R1: {ex.Message}",
                 ex);
         }
     }
@@ -863,11 +960,11 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
     /// HU-12 (2.6 ampliada, D1/G2): en Q2 escribe el mapa hermano <see cref="WorkbookLeafCellMapQ2"/>
     /// (R1/R2/R4-Q2 por ASE, incluida la variante ASE5 de 2 filas V0.3); Q1 queda intacto.
     /// </summary>
-    private static void EscribirCeldasLeafPorAse(WorkbookPart workbookPart, WorkbookLeafInputs leaf, bool esQuincena2)
+    private static void EscribirCeldasLeafPorAse(WorkbookPart workbookPart, WorkbookLeafInputs leaf, bool esQuincena2, bool omitirR1)
     {
         if (esQuincena2)
         {
-            EscribirCeldasLeafPorAseQ2(workbookPart, leaf);
+            EscribirCeldasLeafPorAseQ2(workbookPart, leaf, omitirR1);
             return;
         }
 
@@ -875,6 +972,11 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
 
         foreach (var (hoja, celda, nombre) in editables)
         {
+            if (omitirR1 && string.Equals(hoja, HojaR1, StringComparison.OrdinalIgnoreCase))
+            {
+                continue; // Plan 21 (T4): la hoja R1 la gobierna el espejo, no el mapa absoluto.
+            }
+
             if (WorkbookLeafCellMapPorAse.ProtectedFormulasPorAse[leaf.Ase.Id].Any(p =>
                     string.Equals(p.Hoja, hoja, StringComparison.OrdinalIgnoreCase)
                     && string.Equals(p.Celda, celda, StringComparison.OrdinalIgnoreCase)))
@@ -912,16 +1014,19 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
     /// filas (V0.3). Fail-fast si falta un valor mapeado (nombra ASE + hoja + celda; nunca 0
     /// silencioso). El guard de <see cref="EscribirValorNumerico"/> impide tocar fórmulas.
     /// </summary>
-    private static void EscribirCeldasLeafPorAseQ2(WorkbookPart workbookPart, WorkbookLeafInputs leaf)
+    private static void EscribirCeldasLeafPorAseQ2(WorkbookPart workbookPart, WorkbookLeafInputs leaf, bool omitirR1)
     {
-        foreach (var (celda, _) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(leaf.Ase.Id))
+        if (!omitirR1)
         {
-            if (!leaf.R1.CeldasPorAse.TryGetValue(celda, out var valorR1))
+            foreach (var (celda, _) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(leaf.Ase.Id))
             {
-                throw new CalculoInvalidoException($"No hay valor leaf R1-Q2 mapeado para {celda} del ASE {leaf.Ase.Id}.");
-            }
+                if (!leaf.R1.CeldasPorAse.TryGetValue(celda, out var valorR1))
+                {
+                    throw new CalculoInvalidoException($"No hay valor leaf R1-Q2 mapeado para {celda} del ASE {leaf.Ase.Id}.");
+                }
 
-            EscribirValorNumerico(workbookPart, HojaR1, celda, valorR1, $"R1-Q2.ASE{leaf.Ase.Id}.{celda}");
+                EscribirValorNumerico(workbookPart, HojaR1, celda, valorR1, $"R1-Q2.ASE{leaf.Ase.Id}.{celda}");
+            }
         }
 
         var r2 = WorkbookLeafCellMapQ2.ObtenerR2Q2Editables(leaf.Ase.Id);
@@ -1000,11 +1105,11 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
     /// <c>Recaudo *</c> en valores. Solo celdas del mapa congelado; el guard de fórmulas
     /// (<see cref="EscribirValorNumerico"/>) impide tocar cualquier celda con <c>&lt;f&gt;</c>.
     /// </summary>
-    private static void EscribirCeldasEmpresa(WorkbookPart workbookPart, WorkbookLeafInputs leaf)
+    private static void EscribirCeldasEmpresa(WorkbookPart workbookPart, WorkbookLeafInputs leaf, bool omitirR1)
     {
         foreach (var conc in leaf.Conciliacion)
         {
-            EscribirCeldasConciliacion(workbookPart, leaf.Ase.Id, conc);
+            EscribirCeldasConciliacion(workbookPart, leaf.Ase.Id, conc, omitirR1);
         }
 
         foreach (var recaudo in leaf.Recaudos)
@@ -1016,9 +1121,9 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
         }
     }
 
-    private static void EscribirCeldasConciliacion(WorkbookPart workbookPart, int aseId, ConciliacionEmpresaInputs conc)
+    private static void EscribirCeldasConciliacion(WorkbookPart workbookPart, int aseId, ConciliacionEmpresaInputs conc, bool omitirR1)
     {
-        if (WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa.TryGetValue((conc.Empresa.Id, aseId), out var r1))
+        if (!omitirR1 && WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa.TryGetValue((conc.Empresa.Id, aseId), out var r1))
         {
             foreach (var (celda, _) in r1)
             {
@@ -1145,26 +1250,6 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter
         foreach (var (celda, valor) in leaf.AjustesSfT.RetribucionNegativa.Celdas)
         {
             EscribirValorNumerico(workbookPart, HojaRetribucionNegativa, celda, valor, $"RetribucionNegativa.ASE{leaf.Ase.Id}.{celda}");
-        }
-    }
-
-    /// <summary>
-    /// HU-16 (D3a, §2.3): escribe las L-Especiales menores del R1 del ASE (mapa congelado T0-0.5)
-    /// en la MISMA pasada atómica HU-07..HU-12 (D6). <c>LEspecialesMenores == null</c> =
-    /// comportamiento HU-15 puro (extensión nullable, D8). Fail-fast si falta un valor mapeado
-    /// (nombra ASE + hoja + celda; nunca 0 silencioso). El guard de
-    /// <see cref="EscribirValorNumerico"/> impide tocar fórmulas.
-    /// </summary>
-    private static void EscribirCeldasLEspecialesMenores(WorkbookPart workbookPart, WorkbookLeafInputs leaf)
-    {
-        if (leaf.LEspecialesMenores is null)
-        {
-            return; // HU-15 puro (rama HU-16 inactiva sin sus insumos, G4).
-        }
-
-        foreach (var (celda, valor) in leaf.LEspecialesMenores.Celdas)
-        {
-            EscribirValorNumerico(workbookPart, WorkbookLeafCellMapInterventoria.HojaR1, celda, valor, $"L-menor.ASE{leaf.Ase.Id}.{celda}");
         }
     }
 

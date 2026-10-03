@@ -69,6 +69,45 @@ Archivos INSUMOS (NO commitados). **HU-20 (nueva organización, `Consolidado/` E
 
 **Alcance Q2 acotado (HU-20-T0b/G2-D1):** el layout R4-por-empresa Q2 sigue divergiendo (ASE2-Q2: ENEL+OCCIDENTE, sin `NUEVO ESQUEMA`), por lo que la conciliación por empresa en Q2 se OMITE (follow-up con su propio T0); las hojas `Recaudo *` SÍ se levantan en Q2 (layout `RESUMEN MES` uniforme).
 
+## Doctrina Espejo Estructural R1 (Plan 21 — vigente)
+
+**Principio rector (`la fuente del período define la forma`):** la hoja `Reporte Componentes R1` deja de gobernarse por mapas absolutos con ocurrencias congeladas y pasa a un **espejo estructural fila-a-fila**: la secuencia observada de `Recaudporcomponente` (firma A–E + valores por encabezado de columna) ES la especificación del período. Se eliminan las cardinalidades exigidas y las ocurrencias congeladas (`D-B`): una fila ausente en la fuente se **suprime** (nunca 0 simulado); una fila presente con valor 0 se escribe 0. Fuera de los bloques espejo, el fail-fast "slot ausente ≠ 0" sigue vigente. Evidencia base: `plans/21 - T0 Evidencia.md` (espejo 1:1 confirmado 10/10 julio; conteos Q1 38/52/46/69/44 y Q2 45/75/43/73/52).
+
+**Derogación puntual D-C (prohibición insert/delete):** los planes 07/16 prohibían insertar/borrar filas del template ("si no alcanza, fail-fast honesto"). El Plan 21 **deroga esa prohibición SOLO para los bloques espejo R1** (y R4 según veredicto T0b), con **reanclaje obligatorio** de referencias A1 y gates de evidencia. Fuera de esos bloques, la prohibición intacta. Implementación: `OpenXmlEspejoR1Mutador` (Infrastructure) procesa los bloques **5→1** (de abajo hacia arriba), inserta/borra filas preservando estilos y fórmulas, y reanclaja fórmulas, `ref` de shared formulas, celdas combinadas y nombres definidos. Guard anti-fórmula vigente: una celda de valor/fórmula destino que sea fórmula → `ERR-PLANTILLA`, nunca sobrescritura silenciosa.
+
+**Tabla de deltas por ASE (T0a, plantilla Q2→fuente agosto):** `ConteoAgosto − plantillaQ2`.
+| ASE | Plantilla Q2 | Fuente agosto | Δ |
+|-----|-------------:|--------------:|--:|
+| 1 PROMOAMBIENTAL | 45 | 42 | −3 |
+| 2 LIME | 75 | 66 | −9 |
+| 3 CIUDAD LIMPIA | 43 | 37 | −6 |
+| 4 BOGOTA LIMPIA | 73 | 79 | +6 |
+| 5 AREA LIMPIA | 52 | 60 | +8 |
+
+**Invariantes duras de cierre (T0e):** `A='Componente' B='Total'`, `A='Subs/Cont' B='Total'` y `A='Total' B` vacío — presentes en 15/15 (5 ASE × Q1/Q2/agosto). `Mes` y `AFaseo` NO son invariantes (la forma la define la fuente). Si falta una invariante dura → fail-fast que nombra ASE + reporte + fila esperada (`BloqueEspejoAseInputs.FaltantesInvariantesDeCierre`, fuente única).
+
+**Columna L-menores absorbida:** el path legado rol/ocurrencia (`LeerLEspecialesMenores` + `WorkbookLeafCellMapInterventoria.LMenoresPorAse/Q2` + `RolLMenor` + `ObtenerLMenores`) se **retiró** (T5) al probarse absorción 15/15 (`EspejoR1AbsorcionTests`). Su columna (`SERVICIO ESPECIALES` del template) la escribe el espejo por encabezado en toda la secuencia. `WorkbookLeafInputs.LEspecialesMenores` y `LEspecialesMenoresAseInputs` eliminados. La parte INTERVENTORIA (`D2b`, hoja intacta) del mapa sigue vigente.
+
+**Follow-up explícito (pendiente):** el **bloque espejo solo se implementó para R1** (`OpenXmlEspejoR1Mutador`). `Reversion Pagos R4` quedó declarado "ENTRA" por T0b (espejo de fila A/B/C 1:1 en 10/10) pero su implementación es **pendiente** (mismo motor, otra hoja). Otros follow-ups: R4-por-empresa Q2 (recorte HU-20/G2-D1), cobertura de `conditionalFormatting`/`dataValidations` (W-4), y el blocker de `SaldosaFavorAplicadosPorNotas` de agosto (HU-11/Q2: ASE2 sin la fila `Vlr Intereses`; fuera del scope del Plan 21).
+
+## Doctrina Roles R1-Q2 por firma sobre la secuencia espejo (Plan 25 — vigente)
+
+**Principio rector (`la fuente define la forma` extendido a la LECTURA de roles):** el mapa leaf R1-Q2 (`WorkbookLeafCellMapQ2.R1Q2EditablesPorAse`) deja de resolver las celdas destino por **enésima ocurrencia de roles congelados** (`ElementAtOrDefault` sobre listas filtradas por raw) y las resuelve por **firma de etiquetas (A/B/C/D/E)** dentro de la **secuencia espejo ya cargada** (`LeerEspejoR1` / `BloqueEspejoAseInputs.Filas`). El mapa declara celdas → rol; la firma y el orden de aparición resuelven el valor. **Fin del conteo de ocurrencias en ese mapa** (mismo patrón que falló dos veces: L-menores HU-12 y `Aplicacion` agosto).
+
+**Corrección de rol D-A:** `F37` (ASE1) y `F270` (ASE3) estaban bindeadas a una fila `Subsidio` (`Subs0`) cuando la celda destino es una fila `Aplicacion`; el defecto quedó enmascarado por la coincidencia numérica de julio (`Subs0 == Aplic1` en bloques monocompañía). Ahora son `Aplic1`; el miembro `Subs0` fue **retirado** del enum (sin consumidor Q2). La resolución por firma elimina la clase de defecto (el valor sale de la fila con la firma correcta, no del rol declarado).
+
+**Regla de ausencia por rol (T0e §6):** `Mes0/1/2` y `Lmes0/1/2` son **core OBLIGATORIOS** → fail-fast que nombra ASE + reporte + celda (mensaje intacto); `Aplic0/Aplic1/LAplic0` son **OPCIONALES** → ausente = **0 explícito** (no "no escribir": el agregado `extemp` vive en `WorkbookLeafInputsR1` y alimenta `TotalD104`/DetRetri en ambos flujos single-ASE y 5-ASE). NO se generaliza "ausencia de cualquier rol = 0": `Mes` (totOpt) y los gates de coherencia exigen el dato.
+
+**Agregado EXTEMP (D-C, R-F-2):** `EXTEMP = ΣF(TODAS las filas Aplicacion) − Especiales de la primera` (0 si no hay ninguna). Coincide con `Aplic0+Aplic1` con 2 filas (validado 10/10 vs el extemp implícito del R10) y da 0 en ASE3-agosto (0 filas, implícito 0,33 ±0.5). Fuente única: `BloqueEspejoAseInputs.SumarAplicacion`.
+
+**totOpt generalizado (D-F, forzado por el DoD del Plan 25):** `totOpt = ΣF(todas las filas Mes) − Especiales de todas MENOS la última`. Es idéntico al mapa congelado en ASE1-4 (3 filas) y ASE5-julio (2 filas, Lmes1 = 0), y generaliza ASE5-agosto (3 filas Mes — T0a §2.1) al mismo 5-término visible del template, sin depender del conteo. Guardián: ASE5-julio = 12.033.011.685,71 (idéntico al golden D13); ASE5-agosto = 12.105.458.586,04.
+
+**Estados finales (Q2):** ASE1/2/4/5 conservan la rama julio (todas las filas presentes); ASE3-agosto es la rama tolerante (0 filas `Aplicacion`). La escritura espejo R1 (`omitirR1`), las protegidas `F343/F345`, los puentes AJUSTES/CONSOLIDADO y Q1 (`MapearR1`, `AjustesSfT = 0`) quedan **intactos**; el fix vive en el reader compartido (`ProcesadorPeriodo` y `ProcesadorRemuneracion`).
+
+**Trampa documentada (R-TRAMPA-OPC):** aplicar opcionalidad (`Aplic` ausente = 0) **SIN** la corrección de rol D-A desplaza el fallo al DetRetri-vs-R10 con error ~1.088e9 en ASE3-agosto. La corrección de rol y la opcionalidad van **juntas**.
+
+**Follow-ups vivos (fuera del Plan 25):** R4 espejo pendiente del Plan 21 (motor solo R1); R4-por-empresa Q2 (recorte HU-20/G2-D1); CF/DV del reanclaje (W-4); `R-EXTRA-CONCEPTO` del Plan 23. R-AGREGADO-N: con 1 o 3+ filas `Aplicacion` la sumatoria D-C queda validada por decisión sin evidencia runtime (su propio T0 con fuente real si cambia la semántica).
+
 ## Estructura de Directorios
 ```
 Automatización/

@@ -206,6 +206,55 @@ internal static class Insumos
         return archivo!;
     }
 
+    // ── HU-22 (Plan 23): insumos de agosto (Docs/Prueba2/Insumos) ───────────────────────────
+
+    /// <summary>
+    /// HU-22 (Plan 23): raíz de los insumos de agosto (<c>Docs/Prueba2/Insumos</c>), usados para
+    /// ejercitar la opcionalidad de <c>Vlr Intereses</c> (ASE2 sin la fila, T0d §5.1).
+    /// </summary>
+    public static string CarpetaInsumosAgosto => Path.Combine(Raiz(), "Docs", "Prueba2", "Insumos");
+
+    public static string[] CarpetasAseAgosto => new[]
+    {
+        Path.Combine(CarpetaInsumosAgosto, "1-Promoambiental"),
+        Path.Combine(CarpetaInsumosAgosto, "2-Lime"),
+        Path.Combine(CarpetaInsumosAgosto, "3-Ciudad Limpia"),
+        Path.Combine(CarpetaInsumosAgosto, "4-Bogota Limpia"),
+        Path.Combine(CarpetaInsumosAgosto, "5-Área Limpia")
+    };
+
+    /// <summary>
+    /// HU-22 (Plan 23): ruta del <c>SaldosaFavorAplicadosPorNotas_*.xlsx</c> de agosto del ASE.
+    /// </summary>
+    public static string SaldosNotasAgosto(int aseId) =>
+        Buscar(CarpetasAseAgosto[aseId - 1], "SaldosaFavorAplicadosPorNotas", $"SaldosNotas agosto ASE{aseId}");
+
+    /// <summary>
+    /// Plan 25 (WU-1): ruta del <c>Recaudoporcomponente_*.xlsx</c> de agosto (R1) del ASE.
+    /// </summary>
+    public static string R1Agosto(int aseId) =>
+        Buscar(CarpetasAseAgosto[aseId - 1], "Recaudoporcomponente", $"R1 agosto ASE{aseId}");
+
+    /// <summary>
+    /// Plan 25 (WU-1): ruta del <c>RerpoteDetalleSaldosaFavor_*.xlsx</c> de agosto (R2) del ASE.
+    /// </summary>
+    public static string R2Agosto(int aseId) =>
+        Buscar(CarpetasAseAgosto[aseId - 1], "RerpoteDetalleSaldosaFavor", $"R2 agosto ASE{aseId}");
+
+    /// <summary>
+    /// Plan 25 (WU-1): ruta del <c>ReversiónPorComponente_*.xlsx</c> de agosto (R4) del ASE
+    /// (diacríticos en disco; match por stem normalizado).
+    /// </summary>
+    public static string R4Agosto(int aseId)
+    {
+        var carpeta = CarpetasAseAgosto[aseId - 1];
+        Assert.True(Directory.Exists(carpeta), $"Falta carpeta: {carpeta}");
+        var r4 = Directory.EnumerateFiles(carpeta, "*.xlsx", SearchOption.TopDirectoryOnly)
+            .FirstOrDefault(f => Normalizar(Path.GetFileNameWithoutExtension(f)).StartsWith("reversionporcomponente", StringComparison.Ordinal));
+        Assert.True(r4 is not null, $"Falta R4 agosto ASE{aseId} en {carpeta}");
+        return r4!;
+    }
+
     /// <summary>
     /// HU-11 (2.5, T0-0.4): normaliza un nombre (minúsculas, sin diacríticos) para el match por prefijo.
     /// </summary>

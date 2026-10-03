@@ -99,15 +99,22 @@ public interface IWorkbookLeafInputReader
     RetribucionNegativaAseInputs LeerRetribucionNegativa(Ase ase, string rutaRetribucionNegativa);
 
     /// <summary>
-    /// HU-16 (D3a): lee las L-Especiales menores del <c>Reporte Componentes R1</c> del ASE desde
-    /// la misma fuente <c>Recaudoporcomponente_*</c> (columna SERVICIO ESPECIALES por rol de fila
-    /// congelado en T0-0.5, dispatch por período). Fail-fast: si la fila del rol/ocurrencia no
-    /// existe en la fuente, lanza <c>CalculoInvalidoException</c> que nombra ASE + hoja + celda
-    /// (doctrina "slot ausente" ≠ "leído 0"; nunca 0 silencioso en operando).
+    /// Plan 21 (T2, R-E-1/R-E-6): lee la fuente R1 (<c>Recaudoporcomponente_*</c>, hoja
+    /// <c>Sheet1</c>) como BLOQUE ESPEJO del ASE: la secuencia ordenada de filas tipadas
+    /// (<see cref="FilaEspejoR1"/>) con sus valores por ENCABEZADO de columna (detección
+    /// dinámica, nunca por índice fijo). No exige cardinalidades ni ocurrencias (la secuencia
+    /// observada ES la especificación del período — D-B/R-E-1); la columna
+    /// <c>SERVICIO ESPECIALES</c> es opcional (ausente → 0, R-E-6). Delimita la zona por
+    /// etiquetas y exige las invariantes duras de cierre T0e (<c>Componente/Total</c>,
+    /// <c>Subs/Cont/Total</c> y <c>Total</c> final); si falta una, lanza
+    /// <c>CalculoInvalidoException</c> nombrando ASE + reporte + fila esperada.
+    ///
+    /// Plan 21 (T5): esta es la ÚNICA vía de lectura/gobernanza de la columna L-menores del R1;
+    /// el path legado rol/ocurrencia (<c>LeerLEspecialesMenores</c> + mapa T0-0.5) se retiró al
+    /// probar la absorción 100% en los 15 escenarios (5 ASE × Q1/Q2/agosto).
     /// </summary>
     /// <param name="ase">ASE asociado.</param>
-    /// <param name="periodo">Período de la liquidación (dispatch Q1/Q2 del mapa).</param>
     /// <param name="rutaR1">Ruta del archivo fuente R1 del ASE.</param>
-    /// <returns>Inputs L-menores del ASE (celdas del template → valor ESP de la fuente).</returns>
-    LEspecialesMenoresAseInputs LeerLEspecialesMenores(Ase ase, Periodo periodo, string rutaR1);
+    /// <returns>Bloque espejo del ASE (secuencia de filas + encabezados detectados).</returns>
+    BloqueEspejoAseInputs LeerEspejoR1(Ase ase, string rutaR1);
 }

@@ -58,25 +58,18 @@ public sealed class GoldenInterventoriaTests
 
             Assert.True(File.Exists(salida));
 
-            // ---- A1: L-menores D3a escritas en la SALIDA == leaf del golden ±0.5 ----
+            // ---- A1: L-menores escritas por el ESPEJO en la SALIDA == caché golden ±0.5 ----
+            // Plan 21 (T5): el path legado rol/ocurrencia se retiró; la columna L la gobierna el
+            // espejo R1. Las celdas del mapa T0-0.5 quedan como EVIDENCIA congelada
+            // (MapaLMenoresEvidenciaT0) para mantener la misma red de regresión.
             foreach (var leaf in resultado.Leafs.OrderBy(l => l.Ase.Id))
             {
-                Assert.NotNull(leaf.LEspecialesMenores);
-                foreach (var (celda, _) in leaf.LEspecialesMenores!.Celdas)
+                Assert.NotNull(leaf.EspejoR1);
+                foreach (var celda in MapaLMenoresEvidenciaT0.PorQuincena(periodo.NumeroQuincena)[leaf.Ase.Id])
                 {
                     var escrito = TestHelpers.LeerCeldaNumerica(salida, WorkbookLeafCellMapInterventoria.HojaR1, celda);
                     var golden = TestHelpers.LeerCeldaNumerica(goldenCache, WorkbookLeafCellMapInterventoria.HojaR1, celda);
                     Assert.InRange(escrito - golden, -Tolerancia, Tolerancia);
-                }
-            }
-
-            // ---- A2: dominio L-menores == caché golden ±0.5 (aritmética D3a) ----
-            foreach (var leaf in resultado.Leafs.OrderBy(l => l.Ase.Id))
-            {
-                foreach (var (celda, valor) in leaf.LEspecialesMenores!.Celdas)
-                {
-                    var golden = TestHelpers.LeerCeldaNumerica(goldenCache, WorkbookLeafCellMapInterventoria.HojaR1, celda);
-                    Assert.InRange(valor - golden, -Tolerancia, Tolerancia);
                 }
             }
 
@@ -149,16 +142,13 @@ public sealed class GoldenInterventoriaTests
             }
         }
 
-        foreach (var mapa in numeroQuincena == 2
-                     ? WorkbookLeafCellMapInterventoria.LMenoresPorAseQ2.Values
-                     : WorkbookLeafCellMapInterventoria.LMenoresPorAse.Values)
+        // Plan 21 (T5): celdas del mapa legado T0-0.5, congeladas como evidencia (el mapa
+        // productivo se retiró; el espejo R1 gobierna la columna L).
+        foreach (var c in MapaLMenoresEvidenciaT0.PorQuincena(numeroQuincena).Values.SelectMany(v => v))
         {
-            foreach (var (c, _, _) in mapa)
+            if (string.Equals(c, celda, StringComparison.OrdinalIgnoreCase))
             {
-                if (string.Equals(c, celda, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
+                return true;
             }
         }
 

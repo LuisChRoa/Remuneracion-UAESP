@@ -77,9 +77,15 @@ public sealed class WorkbookLeafInputs
     public DetRetriQ2Inputs? DetRetriQ2 { get; set; }
 
     /// <summary>
-    /// HU-16 (D3a): L-Especiales menores del R1 por ASE (columna L espejo de la fuente; mapa
-    /// congelado por T0-0.5/0.6). <c>null</c> = comportamiento HU-15 puro (extensión nullable,
-    /// plan §2.4 D8): el writer no escribe ninguna L-menor.
+    /// Plan 21 (T4, R-E-1..R-E-6): bloque espejo estructural de la hoja <c>Reporte Componentes R1</c>
+    /// leído de la fuente <c>Recaudoporcomponente_*</c> del período actual (secuencia ordenada de
+    /// filas tipadas + valores por encabezado). Cuando está presente, el writer redimensiona el
+    /// bloque destino a la forma de la fuente y escribe la hoja R1 por el espejo (el mapa absoluto
+    /// HU-07/HU-12 queda superseded dentro del bloque). <c>null</c> = comportamiento previo intacto.
+    ///
+    /// Plan 21 (T5): es la ÚNICA vía de gobernanza de la columna L-menores del R1; el antiguo
+    /// <c>LEspecialesMenores</c> (mapa rol/ocurrencia T0-0.5) se retiró al probarse la absorción
+    /// 15/15 (EspejoR1AbsorcionTests).
     /// </summary>
-    public LEspecialesMenoresAseInputs? LEspecialesMenores { get; set; }
+    public BloqueEspejoAseInputs? EspejoR1 { get; set; }
 }

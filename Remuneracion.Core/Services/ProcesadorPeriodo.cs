@@ -129,14 +129,20 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             Log.Information("ASE {AseId}: leyendo inputs leaf del workbook...", idAse);
             var leaf = _leafReader.LeerLeafInputs(ase, solicitud.Periodo, rutaR1, rutaR2, rutaR4);
 
-            // HU-16 (D3a, T0-0.5/0.6): L-Especiales menores del R1 por ASE — la columna L del
-            // template espeja la columna SERVICIO ESPECIALES de la fuente R1 (cierre ±0.5 en
-            // ambos canónicos). Fail-fast si falta una fila rol del mapa (ASE + hoja + celda).
-            // Aplica en AMBOS períodos (Q1 y Q2); la rama HU-16 queda inactiva solo si el leaf
-            // no la puebla (extensión nullable, D8).
-            progreso?.Report($"ASE {idAse}: leyendo L-Especiales menores (R1 col L)...");
-            Log.Information("ASE {AseId}: leyendo L-Especiales menores (R1 col L)...", idAse);
-            leaf.LEspecialesMenores = _leafReader.LeerLEspecialesMenores(ase, solicitud.Periodo, rutaR1);
+            // Plan 21 (T4, R-E-1/R-E-5): bloque espejo estructural del R1 por ASE — la fuente del
+            // período actual define la forma (sin cardinalidades ni ocurrencias congeladas). Se lee
+            // SIEMPRE antes de la escritura; el writer redimensiona el bloque destino y escribe por
+            // encabezado. Los asserts de cierre T0e (Componente/Total, Subs/Cont/Total, Total final)
+            // son invariantes duras: si falta una, fail-fast nombrando ASE + reporte + fila.
+            progreso?.Report($"ASE {idAse}: leyendo bloque espejo estructural R1...");
+            Log.Information("ASE {AseId}: leyendo bloque espejo estructural R1...", idAse);
+            // Plan 21 (T5): el espejo R1 es la ÚNICA vía de la columna L-menores; el path legado
+            // rol/ocurrencia (LeerLEspecialesMenores + mapa T0-0.5) se retiró al probar la absorción
+            // 15/15 (EspejoR1AbsorcionTests). Sin carve-out ni slot ausente: la secuencia observada
+            // ES la especificación del período (D-B), sin ocurrencias congeladas que puedan romper.
+            var espejoR1 = _leafReader.LeerEspejoR1(ase, rutaR1);
+            ValidarInvariantesEspejoR1(ase, espejoR1);
+            leaf.EspejoR1 = espejoR1;
 
             // HU-16 (D2b, T0-0.2/0.3/0.4): INTERVENTORIA = insumo externo anual DECLARADO (sin
             // fuente en Docs/Insumos, V8). La hoja queda protegida intacta + assert estructural
@@ -324,19 +330,6 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
                 // HU-17 (S-4 HU-16): lectura por ASE = DETALLE (Debug), no hito (Information);
                 // la doctrina HU-14 D4 exige hitos en Information y valores/lecturas en Debug.
                 .Debug("ASE {AseId}: INTERVENTORIA (insumo externo declarado) K={K:0} M(2ª)={M:0} N(1ª)={N:0} — hoja intacta, no se escribe.", leaf.Ase.Id, interventoria, seg, pri);
-
-            var lMenores = leaf.LEspecialesMenores;
-            if (lMenores is not null && lMenores.TieneCeldas)
-            {
-                progreso?.Report($"ASE {leaf.Ase.Id}: L-Especiales menores = {lMenores.Celdas.Count} celdas leídas de la fuente (D3a; escritas en la misma pasada); Σ={lMenores.Total:0.##}.");
-                Log.ForContext("Hoja", "INTERVENTORIA")
-                    .Debug("ASE {AseId}: L-Especiales menores = {Count} celdas leídas de la fuente (D3a; escritas en la misma pasada); Σ={Total:0.##}.", leaf.Ase.Id, lMenores.Celdas.Count, lMenores.Total);
-            }
-            else
-            {
-                Log.ForContext("Hoja", "INTERVENTORIA")
-                    .Debug("ASE {AseId}: sin L-Especiales menores (rama HU-16 inactiva, D8).", leaf.Ase.Id);
-            }
         }
 
         // HU-13 (2.7): validaciones cruzadas como ORÁCULO DE LECTURA (D1). Solo si hay reader
@@ -412,5 +405,26 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             RutaSalida = solicitud.RutaSalida,
             Validaciones = lineasValidaciones
         };
+    }
+
+    /// <summary>
+    /// Plan 21 (T4, R-E-5): asserts de cierre del espejo R1. Las tres invariantes duras T0e
+    /// (<c>Componente/Total</c>, <c>Subs/Cont/Total</c> y <c>Total</c> final) deben estar presentes
+    /// en la secuencia observada; si falta una, fail-fast que nombra ASE + reporte + fila esperada.
+    /// <c>Mes</c> y <c>AFaseo</c> NO son invariantes (la forma la define la fuente del período).
+    /// W-7 (auditoría PR3): el listado de faltantes lo aporta el modelo
+    /// (<see cref="BloqueEspejoAseInputs.FaltantesInvariantesDeCierre"/>), fuente única compartida
+    /// con <c>ExcelDataReaderWorkbookLeafInputReader.LeerEspejoR1</c>.
+    /// </summary>
+    internal static void ValidarInvariantesEspejoR1(Ase ase, BloqueEspejoAseInputs espejo)
+    {
+        var faltantes = espejo.FaltantesInvariantesDeCierre();
+        if (faltantes.Count > 0)
+        {
+            // Doctrina fail-fast: el mensaje nombra ASE + reporte + fila esperada (nunca 0/invención).
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"Espejo estructural: la fuente R1 del ASE {ase.Id} ({ase.NombreCorto}) no trae las filas invariantes de cierre en el reporte 'Reporte Componentes R1': {string.Join(", ", faltantes)}.");
+        }
     }
 }

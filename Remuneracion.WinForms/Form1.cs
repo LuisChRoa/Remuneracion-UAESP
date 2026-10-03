@@ -727,15 +727,6 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
                     // HU-17 (S-4 HU-16): la lectura por ASE es DETALLE (Debug), no hito (Information);
                     // el header del bloque queda como único Information (doctrina HU-14 D4).
                     .Debug("ASE {AseId}: K={K:0}; M(2ª)={M:0}; N(1ª)={N:0} (insumo externo declarado — hoja intacta).", leaf.Ase.Id, interventoria, seg, pri);
-
-                if (leaf.LEspecialesMenores is not null && leaf.LEspecialesMenores.TieneCeldas)
-                {
-                    var lineaL = $"  ASE {leaf.Ase.Id}: L-Especiales menores = {leaf.LEspecialesMenores.Celdas.Count} celdas (D3a: leídas de la fuente y escritas); Σ={leaf.LEspecialesMenores.Total:0.##}";
-                    AppendLogLine(lineaL);
-                    Log.ForContext("Hoja", "INTERVENTORIA")
-                        .ForContext("AseId", leaf.Ase.Id)
-                        .Debug("ASE {AseId}: L-Especiales menores = {Count} celdas (D3a); Σ={Total:0.##}.", leaf.Ase.Id, leaf.LEspecialesMenores.Celdas.Count, leaf.LEspecialesMenores.Total);
-                }
             }
 
             // HU-13 (2.7, §2.6): bloque VALIDACIONES por ASE (veredictos del oráculo de lectura).

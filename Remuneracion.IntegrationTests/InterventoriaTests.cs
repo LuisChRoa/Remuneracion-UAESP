@@ -1,5 +1,3 @@
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Spreadsheet;
 using Remuneracion.Core.Constants;
 using Remuneracion.Core.Models;
 using Remuneracion.Infrastructure.Excel;
@@ -67,29 +65,10 @@ public sealed class InterventoriaTests
         Assert.Empty(encontrados);
     }
 
-    [Fact]
-    public void D3a_LEspecialesMenores_LecturaCierraContraGolden_AmbosPeriodos()
-    {
-        var reader = new ExcelDataReaderWorkbookLeafInputReader();
-        var q1 = (periodo: Insumos.Periodo(), fuente: (Func<int, string>)Insumos.R1, golden: Insumos.Plantilla, etiqueta: "Q1");
-        var q2 = (periodo: Insumos.PeriodoQ2(), fuente: (Func<int, string>)Insumos.R1Q2, golden: Insumos.GoldenQ2, etiqueta: "Q2");
-
-        foreach (var caso in new[] { q1, q2 })
-        {
-            for (var aseId = 1; aseId <= 5; aseId++)
-            {
-                var ase = Insumos.Ase(aseId);
-                var inputs = reader.LeerLEspecialesMenores(ase, caso.periodo, caso.fuente(aseId));
-                Assert.True(inputs.TieneCeldas, $"{caso.etiqueta} ASE{aseId}: el mapa D3a exige celdas L-menores.");
-                foreach (var (celda, valor) in inputs.Celdas)
-                {
-                    var golden = TestHelpers.LeerCeldaNumerica(caso.golden, WorkbookLeafCellMapInterventoria.HojaR1, celda);
-                    Assert.True(Math.Abs(valor - golden) <= Tolerancia,
-                        $"{caso.etiqueta} ASE{aseId} {WorkbookLeafCellMapInterventoria.HojaR1}!{celda}: reader={valor} vs golden={golden} (tolerancia ±{Tolerancia}).");
-                }
-            }
-        }
-    }
+    // D3a (Plan 21 T5): la lectura legado rol/ocurrencia se retiró; la columna L la gobierna el
+    // espejo R1. Su cobertura (salida == golden ±0.5 en las celdas del mapa T0-0.5, para Q1 y Q2)
+    // queda en GoldenInterventoriaTests.A1 sobre el FLUJO REAL con espejo, que es la red superior:
+    // el test D3a original era la verificación del reader legado que ya no existe.
 
     [Fact]
     public void D3b_LEspecialesMenores_TodaLNumericaFueraDeMapas_EsCero_EnAmbosCanonicos()
@@ -156,14 +135,10 @@ public sealed class InterventoriaTests
             }
         }
 
-        foreach (var mapa in numeroQuincena == 2
-                     ? WorkbookLeafCellMapInterventoria.LMenoresPorAseQ2.Values
-                     : WorkbookLeafCellMapInterventoria.LMenoresPorAse.Values)
+        // Plan 21 (T5): celdas del mapa legado T0-0.5, congeladas como evidencia.
+        foreach (var celda in MapaLMenoresEvidenciaT0.PorQuincena(numeroQuincena).Values.SelectMany(v => v))
         {
-            foreach (var (celda, _, _) in mapa)
-            {
-                celdas.Add(celda);
-            }
+            celdas.Add(celda);
         }
 
         return celdas;

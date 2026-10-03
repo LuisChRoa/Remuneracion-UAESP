@@ -111,68 +111,79 @@ public static class WorkbookLeafCellMapAjustesSfT
     /// <summary>
     /// Concepto fuente por fila del template en SALDOS POR NOTA (mapeo explícito por Ase.Id;
     /// prohibidos offsets, D7). La fila es la del template (rango T0-0.7); el concepto es la
-    /// etiqueta que se busca en la fuente (col A/B) para poblar esa fila.
+    /// etiqueta que se busca en la fuente (col A/B) para poblar esa fila; <c>EsOpcional</c> marca
+    /// la obligatoriedad de la entrada.
+    ///
+    /// HU-22 (Plan 23, R-F-1/T1, T0d §5.1): `Vlr Intereses` es el ÚNICO concepto opcional
+    /// evidenciado (varía por ASE y período: agosto-ASE2 no la trae, T0d). Ausente = 0 explícito
+    /// (nunca fail-fast). El resto de conceptos (core) sigue obligatorio: su ausencia dispara el
+    /// fail-fast que nombra ASE + reporte. La decisión obligatorio/opcional se lee del mapa en un
+    /// único lugar (el reader), jamás de una lista de excepciones.
     /// </summary>
-    public static readonly IReadOnlyDictionary<int, (int Fila, string Concepto)[]> ConceptosSaldosPorAse =
-        new Dictionary<int, (int, string)[]>
+    public static readonly IReadOnlyDictionary<int, (int Fila, string Concepto, bool EsOpcional)[]> ConceptosSaldosPorAse =
+        new Dictionary<int, (int, string, bool)[]>
         {
             [1] =
             [
-                (3, "Vlr Servicio"), (4, "Componente"), (5, "Subsidio(-)/Contribucion(+)"),
-                (6, "Subs/Cont"), (7, "Total")
+                (3, "Vlr Servicio", false), (4, "Componente", false), (5, "Subsidio(-)/Contribucion(+)", false),
+                (6, "Subs/Cont", false), (7, "Total", false)
             ],
             [2] =
             [
-                (15, "Vlr Servicio"), (16, "Vlr Intereses"), (17, "Componente"),
-                (18, "Subsidio(-)/Contribucion(+)"), (19, "Subs/Cont"), (20, "Total")
+                (15, "Vlr Servicio", false), (16, "Vlr Intereses", true), (17, "Componente", false),
+                (18, "Subsidio(-)/Contribucion(+)", false), (19, "Subs/Cont", false), (20, "Total", false)
             ],
             [3] =
             [
-                (28, "Vlr Servicio"), (29, "Componente"), (30, "Subsidio(-)/Contribucion(+)"),
-                (31, "Subs/Cont"), (32, "Total")
+                (28, "Vlr Servicio", false), (29, "Componente", false), (30, "Subsidio(-)/Contribucion(+)", false),
+                (31, "Subs/Cont", false), (32, "Total", false)
             ],
             [4] =
             [
-                (40, "Vlr Servicio"), (41, "Vlr Intereses"), (42, "Componente"),
-                (43, "Subsidio(-)/Contribucion(+)"), (44, "Subs/Cont"), (45, "Total")
+                (40, "Vlr Servicio", false), (41, "Vlr Intereses", true), (42, "Componente", false),
+                (43, "Subsidio(-)/Contribucion(+)", false), (44, "Subs/Cont", false), (45, "Total", false)
             ],
             [5] =
             [
-                (53, "Vlr Servicio"), (54, "Vlr Intereses"), (55, "Componente"),
-                (56, "Subsidio(-)/Contribucion(+)"), (57, "Subs/Cont"), (58, "Total")
+                (53, "Vlr Servicio", false), (54, "Vlr Intereses", true), (55, "Componente", false),
+                (56, "Subsidio(-)/Contribucion(+)", false), (57, "Subs/Cont", false), (58, "Total", false)
             ]
         };
 
     /// <summary>
     /// Concepto fuente por fila del template en RETRIBUCION NEGATIVA (mapeo explícito por Ase.Id).
+    ///
+    /// HU-22 (Plan 23, R-F-2/T1, T0d §5.2-5.3): defecto latente espejo del de SALDOS POR NOTA;
+    /// `Vlr Intereses` se marca opcional con la MISMA regla (ausente = 0 explícito), aunque las
+    /// fuentes Q2/agosto actuales solo traigan la fila de fecha (early-return 0).
     /// </summary>
-    public static readonly IReadOnlyDictionary<int, (int Fila, string Concepto)[]> ConceptosRetribucionPorAse =
-        new Dictionary<int, (int, string)[]>
+    public static readonly IReadOnlyDictionary<int, (int Fila, string Concepto, bool EsOpcional)[]> ConceptosRetribucionPorAse =
+        new Dictionary<int, (int, string, bool)[]>
         {
             [1] =
             [
-                (3, "Vlr Intereses"), (4, "Vlr Servicio"), (5, "Componente"),
-                (6, "Subsidio(-)/Contribucion(+)"), (7, "Subs/Cont"), (8, "Total")
+                (3, "Vlr Intereses", true), (4, "Vlr Servicio", false), (5, "Componente", false),
+                (6, "Subsidio(-)/Contribucion(+)", false), (7, "Subs/Cont", false), (8, "Total", false)
             ],
             [2] =
             [
-                (16, "Vlr Intereses"), (17, "Vlr Servicio"), (18, "Componente"),
-                (19, "Subsidio(-)/Contribucion(+)"), (20, "Subs/Cont"), (21, "Total")
+                (16, "Vlr Intereses", true), (17, "Vlr Servicio", false), (18, "Componente", false),
+                (19, "Subsidio(-)/Contribucion(+)", false), (20, "Subs/Cont", false), (21, "Total", false)
             ],
             [3] =
             [
-                (29, "Vlr Intereses"), (30, "Vlr Servicio"), (31, "Componente"),
-                (32, "Subsidio(-)/Contribucion(+)"), (33, "Subs/Cont"), (34, "Total")
+                (29, "Vlr Intereses", true), (30, "Vlr Servicio", false), (31, "Componente", false),
+                (32, "Subsidio(-)/Contribucion(+)", false), (33, "Subs/Cont", false), (34, "Total", false)
             ],
             [4] =
             [
-                (42, "Vlr Intereses"), (43, "Vlr Servicio"), (44, "Componente"),
-                (45, "Subsidio(-)/Contribucion(+)"), (46, "Subs/Cont"), (47, "Total")
+                (42, "Vlr Intereses", true), (43, "Vlr Servicio", false), (44, "Componente", false),
+                (45, "Subsidio(-)/Contribucion(+)", false), (46, "Subs/Cont", false), (47, "Total", false)
             ],
             [5] =
             [
-                (55, "Vlr Servicio"), (56, "Componente"), (57, "Subsidio(-)/Contribucion(+)"),
-                (58, "Subs/Cont"), (59, "Total")
+                (55, "Vlr Servicio", false), (56, "Componente", false), (57, "Subsidio(-)/Contribucion(+)", false),
+                (58, "Subs/Cont", false), (59, "Total", false)
             ]
         };
 
@@ -255,17 +266,19 @@ public static class WorkbookLeafCellMapAjustesSfT
             : throw new ArgumentOutOfRangeException(nameof(aseId), $"No hay cell-map de RETRIBUCION NEGATIVA para el ASE {aseId}.");
 
     /// <summary>
-    /// Obtiene los conceptos por fila del template de SALDOS POR NOTA para un ASE.
+    /// Obtiene los conceptos por fila del template de SALDOS POR NOTA para un ASE
+    /// (cada entrada lleva su flag <c>EsOpcional</c>; HU-22/T1).
     /// </summary>
-    public static (int Fila, string Concepto)[] ObtenerConceptosSaldos(int aseId) =>
+    public static (int Fila, string Concepto, bool EsOpcional)[] ObtenerConceptosSaldos(int aseId) =>
         ConceptosSaldosPorAse.TryGetValue(aseId, out var conceptos)
             ? conceptos
             : throw new ArgumentOutOfRangeException(nameof(aseId), $"No hay conceptos de SALDOS POR NOTA para el ASE {aseId}.");
 
     /// <summary>
-    /// Obtiene los conceptos por fila del template de RETRIBUCION NEGATIVA para un ASE.
+    /// Obtiene los conceptos por fila del template de RETRIBUCION NEGATIVA para un ASE
+    /// (cada entrada lleva su flag <c>EsOpcional</c>; HU-22/T1).
     /// </summary>
-    public static (int Fila, string Concepto)[] ObtenerConceptosRetribucion(int aseId) =>
+    public static (int Fila, string Concepto, bool EsOpcional)[] ObtenerConceptosRetribucion(int aseId) =>
         ConceptosRetribucionPorAse.TryGetValue(aseId, out var conceptos)
             ? conceptos
             : throw new ArgumentOutOfRangeException(nameof(aseId), $"No hay conceptos de RETRIBUCION NEGATIVA para el ASE {aseId}.");

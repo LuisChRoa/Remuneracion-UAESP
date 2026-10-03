@@ -99,9 +99,8 @@ public sealed class MicroFixesHu17Tests
             var lectura = sink.Eventos.First(e => e.MessageTemplate.Text.Contains("ASE {AseId}: INTERVENTORIA (insumo externo declarado) K=", StringComparison.Ordinal));
             Assert.Equal(LogEventLevel.Debug, lectura.Level);
 
-            // L-Especiales por ASE → Debug.
-            var lMenores = sink.Eventos.First(e => e.MessageTemplate.Text.Contains("L-Especiales menores = {Count}", StringComparison.Ordinal));
-            Assert.Equal(LogEventLevel.Debug, lMenores.Level);
+            // Plan 21 (T5): el log "L-Especiales menores = {Count}" se retiró con el path legado
+            // rol/ocurrencia; la columna L la gobierna el espejo R1 y no emite lectura por celda.
 
             // Hito de declaración (read-loop) → Information (doctrina HU-14 D4: hitos a Information).
             var hito = sink.Eventos.First(e => e.MessageTemplate.Text.Contains("INTERVENTORIA = insumo externo declarado — hoja intacta (bloque anual", StringComparison.Ordinal));

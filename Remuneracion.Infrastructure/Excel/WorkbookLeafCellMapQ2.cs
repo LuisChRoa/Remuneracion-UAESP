@@ -14,7 +14,7 @@ using Remuneracion.Core.Models;
 ///   D85:D89 → 'AJUSTES - SF-T'!D47:D51 (igual forma que Q1).
 /// - T0-0.2: todos los operandos de los visibles Q2 son VALORES editables (cero en el template);
 ///   los visibles son FÓRMULA con las cadenas exactas (F53=F32+F48+F12-L12-L32, …).
-/// - T0-0.3: mapeo fuente→template por rol de fila (Mes0/Mes1/Mes2, Subs0, Aplic0/Aplic1) verificado
+/// - T0-0.3: mapeo fuente→template por rol de fila (Mes0/Mes1/Mes2, Aplic0/Aplic1) verificado
 ///   contra el caché golden en los 5 ASE (R1/R2/R4) y contra V0.3 en ASE5 (F558=F552+F531-L531 =
 ///   12033011685.71 = D13).
 /// - T0-0.4: hojas DetRetri2026072/DetValiRetri2026072 (sheets 36/37): D9:D14 = VALORES editables
@@ -42,12 +42,16 @@ public static class WorkbookLeafCellMapQ2
     /// <summary>
     /// Rol de la fila de la fuente R1-Q2 que alimenta una celda operando del template (T0-0.3).
     /// Mes0/Mes1/Mes2 = filas "Mes/Total" en orden de aparición (ASE5 solo trae 2 → Mes2 ausente).
-    /// Subs0 = primera fila "Subsidio(-)/Contribucion(+)"; Aplic0/Aplic1 = filas
-    /// "Aplicacion nuevos x reversion" en orden; L* = columna Especiales (SERVICIO ESPECIALES) de la fila.
+    /// Aplic0/Aplic1 = filas "Aplicacion nuevos x reversion" en orden (opcionales); L* = columna
+    /// Especiales (SERVICIO ESPECIALES) de la fila.
+    ///
+    /// Plan 25 (D-A, T2): se retira <c>Subs0</c> — <c>F37/F270</c> eran filas <c>Aplicacion</c>
+    /// mal bindeadas (coincidían con <c>Subs0</c> en julio por bloques monocompañía). La resolución
+    /// por firma vive en el lector; aquí solo se declaran celdas → rol.
     /// </summary>
     public enum R1Q2Fuente
     {
-        Mes0, Mes1, Mes2, Lmes0, Lmes1, Lmes2, Subs0, Aplic0, Aplic1, LAplic0
+        Mes0, Mes1, Mes2, Lmes0, Lmes1, Lmes2, Aplic0, Aplic1, LAplic0
     }
 
     /// <summary>
@@ -62,7 +66,7 @@ public static class WorkbookLeafCellMapQ2
                 ("F12", R1Q2Fuente.Mes0), ("L12", R1Q2Fuente.Lmes0),
                 ("F32", R1Q2Fuente.Mes1), ("L32", R1Q2Fuente.Lmes1),
                 ("F48", R1Q2Fuente.Mes2),
-                ("F37", R1Q2Fuente.Subs0), ("F17", R1Q2Fuente.Aplic0), ("L17", R1Q2Fuente.LAplic0)
+                ("F37", R1Q2Fuente.Aplic1), ("F17", R1Q2Fuente.Aplic0), ("L17", R1Q2Fuente.LAplic0)
             ],
             [2] =
             [
@@ -76,7 +80,7 @@ public static class WorkbookLeafCellMapQ2
                 ("F244", R1Q2Fuente.Mes0), ("L244", R1Q2Fuente.Lmes0),
                 ("F265", R1Q2Fuente.Mes1), ("L265", R1Q2Fuente.Lmes1),
                 ("F281", R1Q2Fuente.Mes2),
-                ("F270", R1Q2Fuente.Subs0), ("F250", R1Q2Fuente.Aplic0), ("L250", R1Q2Fuente.LAplic0)
+                ("F270", R1Q2Fuente.Aplic1), ("F250", R1Q2Fuente.Aplic0), ("L250", R1Q2Fuente.LAplic0)
             ],
             [4] =
             [

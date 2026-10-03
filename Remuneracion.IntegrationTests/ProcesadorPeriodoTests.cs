@@ -78,14 +78,14 @@ public sealed class ProcesadorPeriodoTests
             Assert.Equal(1, leaf.ReporteBanco.Quincena);
         }
 
-        // HU-16 (D3a): cada leaf trae sus L-Especiales menores (leídas de la fuente R1; el
-        // mapa T0-0.5 las declara para los 5 ASE en Q1). INTERVENTORIA queda declarada (D2b)
-        // y la hoja intacta — verificado por Capa A (GoldenInterventoriaTests).
+        // Plan 21 (T4/T5): cada leaf trae su bloque espejo R1 (la fuente del período define la
+        // forma; absorbe la columna L-menores). INTERVENTORIA queda declarada (D2b) y la hoja
+        // intacta — verificado por Capa A (GoldenInterventoriaTests).
         foreach (var leaf in resultado.Leafs)
         {
-            Assert.NotNull(leaf.LEspecialesMenores);
-            Assert.True(leaf.LEspecialesMenores!.TieneCeldas,
-                $"ASE {leaf.Ase.Id}: el mapa D3a Q1 exige celdas L-menores.");
+            Assert.NotNull(leaf.EspejoR1);
+            Assert.True(leaf.EspejoR1!.TieneInvariantesDeCierre,
+                $"ASE {leaf.Ase.Id}: el espejo R1 debe traer las 3 invariantes de cierre T0e.");
         }
 
         // HU-10 (2.4): cada leaf trae su fila de balance SC (TotalBsc == TotalFuente; H D2(b)).
@@ -399,6 +399,29 @@ public sealed class ProcesadorPeriodoTests
             new OpenXmlPlantillaWriter().GenerarWorkbook(Insumos.Plantilla, salida, resultado, leafs));
 
         Assert.False(File.Exists(salida), "No debe existir salida certificada ante gate roto.");
+    }
+
+    [Fact]
+    public void W5_EspejoR1_Agosto_NoDependeDelMapaRolOcurrenciaRetirado()
+    {
+        // Plan 21 (T5): el path legado rol/ocurrencia (LeerLEspecialesMenores + mapa T0-0.5) se
+        // retiró al probar la absorción 15/15. La fuente de agosto (que rompía con ERR-VALIDACION
+        // por la ocurrencia congelada `TotalD_E` 2) ahora se lee por el espejo, sin cardinalidades
+        // ni carve-outs: la secuencia observada ES la especificación del período (D-B).
+        var reader = new ExcelDataReaderWorkbookLeafInputReader();
+        var bloque = reader.LeerEspejoR1(Insumos.Ase(1), AgostoR1(1));
+
+        Assert.Equal(42, bloque.TotalFilas);
+        Assert.True(bloque.TieneInvariantesDeCierre,
+            "El espejo de agosto ASE1 debe traer las 3 invariantes duras T0e (Componente/Total, Subs/Cont/Total, Total).");
+    }
+
+    private static string AgostoR1(int aseId)
+    {
+        var carpeta = Path.Combine(Insumos.Raiz(), "Docs", "Prueba2", "Insumos");
+        var dir = Directory.EnumerateDirectories(carpeta)
+            .First(d => Path.GetFileName(d).StartsWith($"{aseId}-", StringComparison.OrdinalIgnoreCase));
+        return Directory.EnumerateFiles(dir, "Recaudoporcomponente*.xlsx", SearchOption.TopDirectoryOnly).First();
     }
 
     // ── HU-11 (2.5) / HU-12 (2.6 ampliada): Q2 ─────────────────────────────────────────────────
