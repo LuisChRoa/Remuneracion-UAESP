@@ -62,6 +62,35 @@ public sealed class ProcesadorRemuneracion : IProcesadorRemuneracion
             throw new ArchivoFuenteNoEncontradoException(CodigoError.Plantilla, "Debe indicarse plantilla y ruta de salida.");
         }
 
+        // Plan 26 (T2, R-F-5/S5): guardrail de existencia de R1/R2/R4 con el mismo código y
+        // formateador del preflight de período, ANTES de leer nada. El flujo single-ASE NO consume
+        // banco/balance/conciliaciones/R10/saldos (§V7): solo verifica estas 3 rutas explícitas.
+        var faltantes = new List<InsumoFaltante>();
+        if (!File.Exists(solicitud.RutaR1))
+        {
+            faltantes.Add(FormateadorInsumosFaltantes.ReporteAseRuta(solicitud.Ase.Id, solicitud.RutaR1, ReporteInsumoAse.R1));
+        }
+
+        if (!File.Exists(solicitud.RutaR2))
+        {
+            faltantes.Add(FormateadorInsumosFaltantes.ReporteAseRuta(solicitud.Ase.Id, solicitud.RutaR2, ReporteInsumoAse.R2));
+        }
+
+        if (!File.Exists(solicitud.RutaR4))
+        {
+            faltantes.Add(FormateadorInsumosFaltantes.ReporteAseRuta(solicitud.Ase.Id, solicitud.RutaR4, ReporteInsumoAse.R4));
+        }
+
+        if (faltantes.Count > 0)
+        {
+            Log.Warning(
+                "Preflight single-ASE: faltan {CantidadInsumos} insumo(s); no se inicia el procesamiento.",
+                faltantes.Count);
+            throw new ArchivoFuenteNoEncontradoException(
+                CodigoError.FuenteNoEncontrada,
+                FormateadorInsumosFaltantes.MensajeAse(solicitud.Periodo, solicitud.Ase, faltantes));
+        }
+
         progreso?.Report("Leyendo R1, R2 y R4...");
         Log.Information("Leyendo R1, R2 y R4...");
         var r1 = _recaudoReader.LeerR1(solicitud.RutaR1);

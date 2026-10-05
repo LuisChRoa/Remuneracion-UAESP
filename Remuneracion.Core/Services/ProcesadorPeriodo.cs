@@ -30,6 +30,13 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
     private readonly IValidacionOracleReader? _validacionOracleReader;
 
     /// <summary>
+    /// Plan 26 (T2, D-A): preflight de insumos del período. Se compone con el localizador ya
+    /// inyectado (mismo contrato que usan los finders runtime) para no ampliar la firma de
+    /// composición de UI/CLI.
+    /// </summary>
+    private readonly ValidadorInsumosPeriodo _validadorInsumos;
+
+    /// <summary>
     /// Composición del caso de uso de período. El oráculo R10 (<see cref="IDetRetriR10Reader"/>)
     /// es una dependencia OBLIGATORIA (HU-20/G3): parte del flujo normal de AMBAS quincenas —
     /// el DetRetri calculado bottom-up se contrasta contra el R10 del período con tolerancia ±0.5
@@ -54,6 +61,7 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         _localizador = localizador ?? throw new ArgumentNullException(nameof(localizador));
         _detRetriR10Reader = detRetriR10Reader ?? throw new ArgumentNullException(nameof(detRetriR10Reader));
         _validacionOracleReader = validacionOracleReader;
+        _validadorInsumos = new ValidadorInsumosPeriodo(_localizador);
     }
 
     public ResultadoProcesoPeriodo Ejecutar(SolicitudProcesoPeriodo solicitud, IProgress<string>? progreso = null)
@@ -93,6 +101,23 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             throw new ArchivoFuenteNoEncontradoException(
                 CodigoError.FuenteNoEncontrada,
                 $"No se encontraron carpetas de ASE en '{solicitud.CarpetaPeriodo}'. Deben existir 5 carpetas con prefijos {string.Join(", ", CarpetasAse.Prefijos)}.");
+        }
+
+        // Plan 26 (T2, R-F-1/D-A): preflight fail-fast al inicio. Enumera TODOS los insumos
+        // faltantes del período reutilizando los MISMOS finders del runtime (D-C) ANTES de abrir
+        // ningún workbook. Con faltantes → UN solo error con la lista numerada completa en
+        // lenguaje administrativo (D-B/D-E) y el proceso NO inicia (no lee, no calcula, no escribe).
+        progreso?.Report("Verificando insumos del período...");
+        Log.Information("Verificando insumos del período...");
+        var faltantes = _validadorInsumos.Validar(solicitud.CarpetaPeriodo, solicitud.Periodo);
+        if (faltantes.Count > 0)
+        {
+            Log.Warning(
+                "Preflight: faltan {CantidadInsumos} insumo(s) del período; no se inicia el procesamiento.",
+                faltantes.Count);
+            throw new ArchivoFuenteNoEncontradoException(
+                CodigoError.FuenteNoEncontrada,
+                FormateadorInsumosFaltantes.Mensaje(solicitud.Periodo, faltantes));
         }
 
         var datos = new List<(Ase ase, RecaudoComponenteR1 r1, SaldosFavorR2 r2, ReversionR4 r4)>();

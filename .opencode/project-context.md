@@ -108,6 +108,20 @@ Archivos INSUMOS (NO commitados). **HU-20 (nueva organización, `Consolidado/` E
 
 **Follow-ups vivos (fuera del Plan 25):** R4 espejo pendiente del Plan 21 (motor solo R1); R4-por-empresa Q2 (recorte HU-20/G2-D1); CF/DV del reanclaje (W-4); `R-EXTRA-CONCEPTO` del Plan 23. R-AGREGADO-N: con 1 o 3+ filas `Aplicacion` la sumatoria D-C queda validada por decisión sin evidencia runtime (su propio T0 con fuente real si cambia la semántica).
 
+## Doctrina Preflight de insumos del período (Plan 26 — vigente)
+
+**Principio rector (`validar TODO antes de procesar`):** ante un período con insumos incompletos, el flujo aborta en segundos —antes de abrir cualquier workbook— con UN solo error `ERR-FUENTE-NO-ENCONTRADA` (salida 2) que enumera **de una vez TODOS los faltantes**, en vez de procesar 5 ASE para descubrir al final un faltante por corrida. El preflight es una puerta de **existencia en filesystem**: NO valida contenido (headers/estructura/coherencia numérica siguen fallando en sus readers como hoy).
+
+**Superficie verificada = superficie que el runtime resuelve (ni un archivo más ni uno menos):** por ASE, R1 + R2 + R4 + banco + balance SIEMPRE; `SaldosaFavorAplicadosPorNotas` y `RetribuciónNegativa` SOLO si `Periodo.NumeroQuincena == 2` (gobierno por dominio, nunca por detección de contenido). De período: las **5 conciliaciones SIEMPRE (Q1 y Q2)** — la lectura `Recaudo *` está fuera de toda rama por quincena (§V3) — + R10 SIEMPRE (oráculo obligatorio G3 en ambas quincenas). `RecaudosReversados` queda **FUERA**: el runtime no lo consume (sin finder ni lectura, §V9); exigirlo sería inventar un requisito.
+
+**Finders intactos; el preflight valida, no resuelve (D-C):** `ValidadorInsumosPeriodo` REUTILIZA los finders de `ILocalizadorArchivosAse` (mismo prefijo case-insensitive, misma normalización de diacríticos, mismo `TopDirectoryOnly`); no duplica lógica de match ni reemplaza la resolución runtime. Los `?? throw` intermedios de los procesadores **permanecen** como defensa en profundidad. Si UAESP agrega o retira un insumo que el runtime resuelve, se agrega/retira en la lista del validador con su finder (checklist de paridad preflight↔runtime).
+
+**Mensaje en lenguaje administrativo (D-E):** encabezado `Faltan insumos para el período {AAAAMMQ} (quincena {1|2}). No se procesó ningún ASE.` + lista numerada; cada ítem dice QUÉ falta (nombre que el usuario reconoce: ASE, reporte, carpeta), DÓNDE debe ir (ruta y nombre exacto o inicio de nombre esperado) y QUÉ hacer (solicitar/generar, colocar, reejecutar). **Jerga de código PROHIBIDA** en el texto de los ítems (`prefijo`, `matcher`, `finder`, `TopDirectoryOnly`, nombres de clase o código interno). Si falta la carpeta `Conciliaciones/` completa, UN solo ítem la nombra + enumera los 5 archivos esperados (no 6 líneas redundantes); igual para una carpeta ASE ausente. Orden estable: ASE 1..5 (carpeta, luego reportes en el orden R1, R2, R4, banco, balance, [Q2] saldos-notas, retribución), luego `Conciliaciones/`, luego R10.
+
+**Integración:** `ProcesadorPeriodo.Ejecutar` corre el preflight tras resolver las 5 carpetas ASE y ANTES del loop por ASE (`progreso?.Report` + `Log.Warning`; doctrina HU-14); con faltantes NO se lee, no se calcula y no se escribe. `ProcesadorRemuneracion.Ejecutar` (single-ASE) solo verifica existencia (`File.Exists`) de R1/R2/R4 — guardrail mínimo; NUNCA exige banco/balance/conciliaciones/R10/saldos. Sin faltantes el flujo es bit-idéntico al actual (cero-geometría: ningún valor ni fórmula cambia; el diff es el servicio/modelo Core + 2 puntos de llamada).
+
+**Follow-up explícito (fuera del Plan 26):** validación de CONTENIDO anticipada (headers/estructura antes de procesar) requiere su propio T0: abre workbooks, bloquea archivos y duplica readers (descartado por diseño, no por olvido).
+
 ## Estructura de Directorios
 ```
 Automatización/

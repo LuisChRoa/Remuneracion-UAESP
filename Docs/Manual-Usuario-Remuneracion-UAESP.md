@@ -204,6 +204,8 @@ Los hitos intermedios van a stdout; el detalle completo va al log con el mismo `
 | `WARN-CANCELADO` | Proceso cancelado | Proceso cancelado por decisión del usuario. |
 | `ERR-INESPERADO` | Error inesperado | Búsquelo en el log con el RunId de esta ejecución. |
 
+> **Preflight de insumos (nuevo):** antes de procesar cualquier ASE, la App verifica los insumos del período y, si falta algo, se detiene de inmediato con **un solo** mensaje `ERR-FUENTE-NO-ENCONTRADA` que **enumera de una vez todos** los faltantes (qué falta, dónde debe ir y qué hacer). Ya no descubre un faltante por corrida al final: no se procesa ningún ASE ni se genera archivo hasta que estén todos los insumos.
+
 ### 6.2 RunId — cómo filtrar una ejecución
 
 Cada ejecución genera un **RunId** (GUID) que se adjunta a todos los eventos de esa corrida en el log. Para aislar una ejecución:
@@ -266,7 +268,7 @@ La hoja `INTERVENTORIA` (bloque K25:N32) es una **tabla anual estática** que **
 
 **¿Puedo ejecutar dos veces sobre la misma salida?** No sin confirmación: si la salida existe, la UI pregunta y el CLI exige `--sobrescribir` (sin él, salida 5).
 
-**¿Qué pasa si falta un archivo fuente?** Fail-fast con `ERR-FUENTE-NO-ENCONTRADA` (salida 2) nombrando el ASE y el reporte. No se genera salida parcial certificada.
+**¿Qué pasa si falta un archivo fuente?** Fail-fast con `ERR-FUENTE-NO-ENCONTRADA` (salida 2) **antes de procesar**: el preflight enumera de una vez todos los faltantes (nombrando ASE, reporte o carpeta). No se genera salida parcial certificada.
 
 **¿Cómo sé que los valores escritos son los correctos?** Compare en Excel contra el golden del período (criterio ±0.5) siguiendo `Docs/Instructivo-Capa-B.md`.
 
