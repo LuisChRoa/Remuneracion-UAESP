@@ -142,8 +142,16 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                     ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene WorkbookPart válido.");
                 ValidarFormulasProtegidas(workbookPart, nameof(GenerarWorkbook));
                 EscribirCeldasLeaf(workbookPart, leafInputs);
+
+                // Plan 28 (Unidad F): sella las fechas del período desde el R10 (solo si el
+                // orquestador las aportó). El path single-ASE sin R10 no trae fechas → no-op.
+                EscribirFechasPeriodo(workbookPart, resultado);
+
                 var workbookXml = workbookPart.Workbook
                     ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene metadata Workbook válida.");
+
+                // Plan 28 (Unidad S): punto único de guardado — saneamiento calcChain + fullCalcOnLoad.
+                SaneadorCadenaCalculo.Sanear(workbookPart);
                 workbookXml.Save();
             }
 
@@ -282,8 +290,14 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                     EscribirCeldasDetRetriQ2(workbookPart, leafInputs);
                 }
 
+                // Plan 28 (Unidad F): sello de fechas del período desde el R10 del período.
+                EscribirFechasPeriodo(workbookPart, resultado);
+
                 var workbookXml = workbookPart.Workbook
                     ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene metadata Workbook válida.");
+
+                // Plan 28 (Unidad S): punto único de guardado — saneamiento calcChain + fullCalcOnLoad.
+                SaneadorCadenaCalculo.Sanear(workbookPart);
                 workbookXml.Save();
             }
 
@@ -1251,6 +1265,57 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         {
             EscribirValorNumerico(workbookPart, HojaRetribucionNegativa, celda, valor, $"RetribucionNegativa.ASE{leaf.Ase.Id}.{celda}");
         }
+    }
+
+    /// <summary>
+    /// Plan 28 (Unidad F / D-C/D-D/D-E): sella las fechas del período en
+    /// <c>CONSOLIDADO_TOTAL RECAUDO</c>: <c>FechaDesde → G7</c> y <c>FechaHasta → K7</c>
+    /// (columna REAL del template; T0 fijó K7 — J7 es el rótulo "Feha Hasta:").
+    ///
+    /// SOLO valores (seriales OADate) sobre celdas estáticas, con el guard anti-fórmula de
+    /// <see cref="EscribirValorNumerico"/> como red (celda destino fórmula → ERR-PLANTILLA
+    /// nombrando hoja+celda, sin escritura). Si el resultado no trae fechas (path single-ASE sin
+    /// R10) es no-op; si trae una sola, fail-fast (nunca sello a medias). El origen es el R10 ya
+    /// leído por <c>ProcesadorPeriodo</c>; este método no lee I/O.
+    /// </summary>
+    internal static void EscribirFechasPeriodo(WorkbookPart workbookPart, ResultadoRemuneracion resultado)
+    {
+        ArgumentNullException.ThrowIfNull(workbookPart);
+        ArgumentNullException.ThrowIfNull(resultado);
+
+        if (!resultado.FechaDesde.HasValue && !resultado.FechaHasta.HasValue)
+        {
+            return; // Path single-ASE sin R10: comportamiento previo intacto (no se inventan fechas).
+        }
+
+        if (!resultado.FechaDesde.HasValue || !resultado.FechaHasta.HasValue)
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"El sello de fechas del período {resultado.Periodo.CodigoCompleto} requiere 'Fecha Desde' y 'Fecha Hasta'; se recibió una sola. Fail-fast, nunca se sella a medias.");
+        }
+
+        EscribirFechaSerie(workbookPart, "G7", resultado.FechaDesde.Value, "FechaDesde");
+        EscribirFechaSerie(workbookPart, "K7", resultado.FechaHasta.Value, "FechaHasta");
+    }
+
+    /// <summary>
+    /// Plan 28 (Unidad F): escribe una fecha como serial OADate (double→decimal) sobre una celda
+    /// EXISTENTE de <c>CONSOLIDADO_TOTAL RECAUDO</c>. No crea celdas ni toca estilos: preserva el
+    /// formato de fecha de la celda (T0: G7/K7 traen estilo s=9, numFmt 14). Fail-fast si la celda
+    /// no existe; el guard de <see cref="EscribirValorNumerico"/> cubre el caso celda-fórmula.
+    /// </summary>
+    private static void EscribirFechaSerie(WorkbookPart workbookPart, string celda, DateTime fecha, string etiqueta)
+    {
+        var worksheet = ObtenerHoja(workbookPart, HojaConsolidado, nameof(GenerarWorkbook));
+        if (ObtenerCelda(worksheet, celda) is null)
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"La celda '{HojaConsolidado}!{celda}' no existe en la plantilla para sellar '{etiqueta}' del período. Fail-fast, nunca se inventa la celda.");
+        }
+
+        EscribirValorNumerico(workbookPart, HojaConsolidado, celda, (decimal)fecha.ToOADate(), $"{etiqueta}.{HojaConsolidado}.{celda}");
     }
 
     private static void EscribirValorNumerico(WorkbookPart workbookPart, string hoja, string celda, decimal valor, string nombre)

@@ -65,26 +65,17 @@ public sealed class ProcesadorRemuneracion : IProcesadorRemuneracion
         // Plan 26 (T2, R-F-5/S5): guardrail de existencia de R1/R2/R4 con el mismo código y
         // formateador del preflight de período, ANTES de leer nada. El flujo single-ASE NO consume
         // banco/balance/conciliaciones/R10/saldos (§V7): solo verifica estas 3 rutas explícitas.
+        // Plan 27 (T2, D-F): además de existir, cada ruta se firma-chequea con el mismo helper;
+        // un archivo no-Excel se reporta como ítem administrativo (nunca se intenta leer).
         var faltantes = new List<InsumoFaltante>();
-        if (!File.Exists(solicitud.RutaR1))
-        {
-            faltantes.Add(FormateadorInsumosFaltantes.ReporteAseRuta(solicitud.Ase.Id, solicitud.RutaR1, ReporteInsumoAse.R1));
-        }
-
-        if (!File.Exists(solicitud.RutaR2))
-        {
-            faltantes.Add(FormateadorInsumosFaltantes.ReporteAseRuta(solicitud.Ase.Id, solicitud.RutaR2, ReporteInsumoAse.R2));
-        }
-
-        if (!File.Exists(solicitud.RutaR4))
-        {
-            faltantes.Add(FormateadorInsumosFaltantes.ReporteAseRuta(solicitud.Ase.Id, solicitud.RutaR4, ReporteInsumoAse.R4));
-        }
+        AgregarSiNoDisponible(solicitud.RutaR1, solicitud.Ase.Id, ReporteInsumoAse.R1, faltantes);
+        AgregarSiNoDisponible(solicitud.RutaR2, solicitud.Ase.Id, ReporteInsumoAse.R2, faltantes);
+        AgregarSiNoDisponible(solicitud.RutaR4, solicitud.Ase.Id, ReporteInsumoAse.R4, faltantes);
 
         if (faltantes.Count > 0)
         {
             Log.Warning(
-                "Preflight single-ASE: faltan {CantidadInsumos} insumo(s); no se inicia el procesamiento.",
+                "Preflight single-ASE: faltan o son inválidos {CantidadInsumos} insumo(s); no se inicia el procesamiento.",
                 faltantes.Count);
             throw new ArchivoFuenteNoEncontradoException(
                 CodigoError.FuenteNoEncontrada,
@@ -127,5 +118,39 @@ public sealed class ProcesadorRemuneracion : IProcesadorRemuneracion
             Leaf = leaf,
             RutaSalida = solicitud.RutaSalida
         };
+    }
+
+    /// <summary>
+    /// Plan 27 (T2, D-F): si la ruta no existe, agrega el ítem de faltante vigente (Plan 26); si
+    /// existe pero su firma no es de Excel, agrega el ítem administrativo de archivo inválido
+    /// (D-E). Un archivo no-Excel equivale a un insumo no utilizable: mismo código y formateador.
+    /// </summary>
+    private static void AgregarSiNoDisponible(
+        string ruta,
+        int aseId,
+        ReporteInsumoAse reporte,
+        List<InsumoFaltante> faltantes)
+    {
+        if (!File.Exists(ruta))
+        {
+            faltantes.Add(FormateadorInsumosFaltantes.ReporteAseRuta(aseId, ruta, reporte));
+            return;
+        }
+
+        var resultado = InspectorFirmaExcel.Inspeccionar(ruta);
+        if (resultado.Firma == FirmaExcel.Valida)
+        {
+            return;
+        }
+
+        Log.Warning(
+            "Preflight single-ASE: el archivo {Archivo} no tiene firma de Excel ({Firma}); primeros bytes {PrimerosBytes}.",
+            ruta,
+            resultado.Firma,
+            resultado.PrimerosBytes.Length == 0 ? "(vacío)" : Convert.ToHexString(resultado.PrimerosBytes));
+
+        faltantes.Add(resultado.Firma == FirmaExcel.NoExcelPareceCopiaWeb
+            ? FormateadorInsumosFaltantes.ArchivoNoEsExcelPareceWeb($"ASE {aseId}", ruta, $"la ruta \"{ruta}\"")
+            : FormateadorInsumosFaltantes.ArchivoNoEsExcelFormatoDesconocido($"ASE {aseId}", ruta, $"la ruta \"{ruta}\""));
     }
 }

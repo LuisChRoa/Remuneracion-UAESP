@@ -299,6 +299,31 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         Log.Information("Leyendo R10 del período ({Archivo}) como oráculo de DetRetri...", Path.GetFileName(rutaR10));
         var r10 = _detRetriR10Reader.LeerDetRetri(solicitud.Periodo, rutaR10);
 
+        // Plan 28 (Unidad F / D-E): el sello de fechas del período exige que el R10 traiga
+        // 'Fecha Desde' (G7) y 'Fecha Hasta' (J7) legibles. Sin fechas → fail-fast que nombra
+        // período + archivo + celda; NUNCA se sellan fechas silenciosas de otro período ni se
+        // generan salidas con el rango de la plantilla.
+        if (r10.FechaDesde == default || r10.FechaHasta == default)
+        {
+            var celdasFaltantes = new List<string>();
+            if (r10.FechaDesde == default)
+            {
+                celdasFaltantes.Add("G7 ('Fecha Desde')");
+            }
+
+            if (r10.FechaHasta == default)
+            {
+                celdasFaltantes.Add("J7 ('Fecha Hasta')");
+            }
+
+            throw new CalculoInvalidoException(
+                CodigoError.FormatoFuente,
+                $"El R10 del período {solicitud.Periodo.CodigoCompleto} ({Path.GetFileName(rutaR10)}) no trae fecha legible en la celda {string.Join(" y ", celdasFaltantes)} de la hoja DetRetri{solicitud.Periodo.CodigoCompleto}; no se puede sellar el período y no se genera salida.");
+        }
+
+        resultado.FechaDesde = r10.FechaDesde;
+        resultado.FechaHasta = r10.FechaHasta;
+
         progreso?.Report("Validando coherencia multi-ASE...");
         Log.Information("Validando coherencia multi-ASE...");
         var errores = _validador.Validar(resultado, leafs);

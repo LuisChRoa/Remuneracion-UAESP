@@ -149,6 +149,39 @@ public static class FormateadorInsumosFaltantes
     }
 
     /// <summary>
+    /// Plan 27 (T2, D-E): el archivo existe pero su firma es de una página web (MHTML/HTML
+    /// renombrado a <c>.xlsx</c>). Ítem administrativo en la MISMA lista numerada que los
+    /// faltantes: nombra el archivo real, dónde debe ir el correcto y qué hacer. Sin jerga.
+    /// </summary>
+    internal static InsumoFaltante ArchivoNoEsExcelPareceWeb(string alcance, string rutaArchivo, string descripcionUbicacion) =>
+        ArchivoNoEsExcel(alcance, rutaArchivo, descripcionUbicacion, pareceWeb: true);
+
+    /// <summary>
+    /// Plan 27 (T2, D-E): el archivo existe pero su firma no es un Excel reconocible (ni xlsx/xls
+    /// ni texto web). Misma acción administrativa que la variante web.
+    /// </summary>
+    internal static InsumoFaltante ArchivoNoEsExcelFormatoDesconocido(string alcance, string rutaArchivo, string descripcionUbicacion) =>
+        ArchivoNoEsExcel(alcance, rutaArchivo, descripcionUbicacion, pareceWeb: false);
+
+    /// <summary>
+    /// Texto único de los dos ítems de archivo inválido (D-E): solo cambia el paréntesis de la
+    /// variante web. La ubicación la aporta el llamador en lenguaje administrativo.
+    /// </summary>
+    private static InsumoFaltante ArchivoNoEsExcel(string alcance, string rutaArchivo, string descripcionUbicacion, bool pareceWeb)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(rutaArchivo);
+        var nombre = Path.GetFileName(rutaArchivo);
+        var parentesis = pareceWeb ? " (parece una copia de una página web)" : string.Empty;
+        return new InsumoFaltante
+        {
+            Alcance = alcance,
+            QueFalta = $"El archivo '{nombre}' no es un Excel válido{parentesis}.",
+            DondeDebeIr = $"El archivo real debe estar en {descripcionUbicacion}.",
+            QueHacer = "Solicítelo al área encargada, colóquelo en esa ubicación y vuelva a ejecutar."
+        };
+    }
+
+    /// <summary>
     /// Nombre administrativo del reporte de ASE + inicio de nombre de archivo esperado (fuente
     /// única de los textos por reporte).
     /// </summary>

@@ -82,6 +82,11 @@ internal static class OpenXmlEspejoR1Mutador
         var workbookPart = workbook.WorkbookPart
             ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene WorkbookPart válido.");
         var resultado = AjustarEnWorkbook(workbookPart, bloques);
+
+        // Plan 28 (Unidad S): el espejo mueve filas y deja la calcChain de la plantilla
+        // inconsistente; se sanea en el punto de guardado del espejo standalone (mismo helper
+        // que el writer multi-ASE). No toca <f> ni <v>.
+        SaneadorCadenaCalculo.Sanear(workbookPart);
         workbookPart.Workbook?.Save();
         return resultado;
     }

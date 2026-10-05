@@ -25,35 +25,47 @@ public sealed class PreflightInsumosTests
     [Fact]
     public void Preflight_Prueba2SinConciliaciones_ListaLosCincoDeUnaVez_YNoInicia()
     {
+        // Plan 27: Prueba2 YA trae Conciliaciones/ (corregidas por el usuario); el escenario
+        // "carpeta ausente" del Plan 26 se reproduce sobre una copia temporal (insumo real).
+        var carpeta = CopiarPeriodo(Insumos.CarpetaInsumosAgosto);
+        Directory.Delete(Path.Combine(carpeta, "Conciliaciones"), recursive: true);
         var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-preflight-2026082-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(salidaDir);
         var salida = Path.Combine(salidaDir, "Remuneracion2026082.xlsx");
 
-        var procesador = CrearProcesadorPeriodo();
-        var ex = Assert.Throws<ArchivoFuenteNoEncontradoException>(() =>
-            procesador.Ejecutar(new SolicitudProcesoPeriodo
-            {
-                Periodo = new Periodo { CodigoAAAAMM = "202608", NumeroQuincena = 2 },
-                CarpetaPeriodo = Insumos.CarpetaInsumosAgosto, // Prueba2 real: SIN Conciliaciones/
-                RutaPlantilla = Insumos.PlantillaQ2,
-                RutaSalida = salida
-            }));
+        try
+        {
+            var procesador = CrearProcesadorPeriodo();
+            var ex = Assert.Throws<ArchivoFuenteNoEncontradoException>(() =>
+                procesador.Ejecutar(new SolicitudProcesoPeriodo
+                {
+                    Periodo = new Periodo { CodigoAAAAMM = "202608", NumeroQuincena = 2 },
+                    CarpetaPeriodo = carpeta,
+                    RutaPlantilla = Insumos.PlantillaQ2,
+                    RutaSalida = salida
+                }));
 
-        // Código idéntico al existente (D-B): compatibilidad de guía de pantalla/CLI.
-        Assert.Equal(CodigoError.FuenteNoEncontrada, ex.Codigo);
+            // Código idéntico al existente (D-B): compatibilidad de guía de pantalla/CLI.
+            Assert.Equal(CodigoError.FuenteNoEncontrada, ex.Codigo);
 
-        // UN solo error que lista los 5 archivos de conciliación DE UNA VEZ (D-F), no el primero.
-        Assert.Contains("2026082", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("No se procesó ningún ASE", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("Conciliaciones", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("Reciprocidad EAAB", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("ENEL", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("ENERBIT", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("Occidente Directa", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("Otros", ex.Message, StringComparison.Ordinal);
+            // UN solo error que lista los 5 archivos de conciliación DE UNA VEZ (D-F), no el primero.
+            Assert.Contains("2026082", ex.Message, StringComparison.Ordinal);
+            Assert.Contains("No se procesó ningún ASE", ex.Message, StringComparison.Ordinal);
+            Assert.Contains("Conciliaciones", ex.Message, StringComparison.Ordinal);
+            Assert.Contains("Reciprocidad EAAB", ex.Message, StringComparison.Ordinal);
+            Assert.Contains("ENEL", ex.Message, StringComparison.Ordinal);
+            Assert.Contains("ENERBIT", ex.Message, StringComparison.Ordinal);
+            Assert.Contains("Occidente Directa", ex.Message, StringComparison.Ordinal);
+            Assert.Contains("Otros", ex.Message, StringComparison.Ordinal);
 
-        // Cero procesamiento: no hay salida creada (el flujo no inicia).
-        Assert.False(File.Exists(salida), "El preflight debe abortar antes de leer/escribir cualquier workbook.");
+            // Cero procesamiento: no hay salida creada (el flujo no inicia).
+            Assert.False(File.Exists(salida), "El preflight debe abortar antes de leer/escribir cualquier workbook.");
+        }
+        finally
+        {
+            BorrarCarpeta(carpeta);
+            BorrarCarpeta(salidaDir);
+        }
     }
 
     // ── S2 / S3 / R-F-4: períodos completos → cero faltantes ────────────────────────────────────
@@ -189,18 +201,29 @@ public sealed class PreflightInsumosTests
     [Fact]
     public void Preflight_Mensaje_SinJergaTecnica_ConNombresReconocibles()
     {
-        var periodo = new Periodo { CodigoAAAAMM = "202608", NumeroQuincena = 2 };
-        var faltantes = new ValidadorInsumosPeriodo(new ArchivoFuenteLocator())
-            .Validar(Insumos.CarpetaInsumosAgosto, periodo);
-        var mensaje = FormateadorInsumosFaltantes.Mensaje(periodo, faltantes);
-
-        foreach (var prohibido in new[] { "prefijo", "matcher", "finder", "TopDirectoryOnly", "ValidadorInsumosPeriodo", "ArchivoFuenteLocator", "runtime" })
+        // Plan 27: Prueba2 ya trae Conciliaciones/; se reproduce el escenario incompleto en temp
+        // para que el mensaje siga ejercitando el ítem de la carpeta ausente con nombres reales.
+        var carpeta = CopiarPeriodo(Insumos.CarpetaInsumosAgosto);
+        Directory.Delete(Path.Combine(carpeta, "Conciliaciones"), recursive: true);
+        try
         {
-            Assert.DoesNotContain(prohibido, mensaje, StringComparison.OrdinalIgnoreCase);
-        }
+            var periodo = new Periodo { CodigoAAAAMM = "202608", NumeroQuincena = 2 };
+            var faltantes = new ValidadorInsumosPeriodo(new ArchivoFuenteLocator())
+                .Validar(carpeta, periodo);
+            var mensaje = FormateadorInsumosFaltantes.Mensaje(periodo, faltantes);
 
-        Assert.Contains("Conciliaciones", mensaje, StringComparison.Ordinal);
-        Assert.Contains("vuelva a ejecutar", mensaje, StringComparison.OrdinalIgnoreCase);
+            foreach (var prohibido in new[] { "prefijo", "matcher", "finder", "TopDirectoryOnly", "ValidadorInsumosPeriodo", "ArchivoFuenteLocator", "runtime" })
+            {
+                Assert.DoesNotContain(prohibido, mensaje, StringComparison.OrdinalIgnoreCase);
+            }
+
+            Assert.Contains("Conciliaciones", mensaje, StringComparison.Ordinal);
+            Assert.Contains("vuelva a ejecutar", mensaje, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            BorrarCarpeta(carpeta);
+        }
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────────

@@ -37,4 +37,19 @@ public class ResultadoRemuneracion
     /// Marca de tiempo de la generación del resultado.
     /// </summary>
     public DateTime Timestamp { get; set; } = DateTime.Now;
+
+    /// <summary>
+    /// Plan 28 (Unidad F): fecha de inicio del rango del período, leída del R10 (celda G7 de
+    /// <c>DetRetri{AAAAMMQ}</c>). La setea <c>ProcesadorPeriodo</c> tras leer el R10; el writer la
+    /// sella en <c>CONSOLIDADO_TOTAL RECAUDO!G7</c>. <c>null</c> = no se sella (path single-ASE
+    /// sin R10).
+    /// </summary>
+    public DateTime? FechaDesde { get; set; }
+
+    /// <summary>
+    /// Plan 28 (Unidad F): fecha de fin del rango del período, leída del R10 (celda J7). El writer
+    /// la sella en <c>CONSOLIDADO_TOTAL RECAUDO!K7</c> (columna real fijada por T0; J7 de la
+    /// plantilla es el rótulo). <c>null</c> = no se sella.
+    /// </summary>
+    public DateTime? FechaHasta { get; set; }
 }

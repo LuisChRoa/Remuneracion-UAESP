@@ -138,6 +138,30 @@ internal static class Insumos
     public static string R10Q2 => Path.Combine(CarpetaPeriodoQ2, "R10_Remuneracion_2026072.xlsx");
 
     /// <summary>
+    /// Plan 27 (T3): resuelve la conciliación por prefijo dentro de
+    /// <c>{carpetaPeriodo}/Conciliaciones/</c> (mismo criterio del locator: prefijo case-insensitive).
+    /// </summary>
+    public static string Conciliacion(string carpetaPeriodo, string prefijo)
+    {
+        var carpeta = Path.Combine(carpetaPeriodo, "Conciliaciones");
+        Assert.True(Directory.Exists(carpeta), $"Falta carpeta de conciliaciones: {carpeta}");
+        var archivo = Directory.EnumerateFiles(carpeta, "*.xlsx", SearchOption.TopDirectoryOnly)
+            .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).StartsWith(prefijo, StringComparison.OrdinalIgnoreCase));
+        Assert.True(archivo is not null, $"Falta la conciliación '{prefijo}' en {carpeta}");
+        return archivo!;
+    }
+
+    /// <summary>
+    /// Plan 27 (T3): las 15 conciliaciones reales en disco (5 Q1 + 5 Q2 + 5 agosto Prueba2).
+    /// </summary>
+    public static IReadOnlyList<string> ConciliacionesReales() =>
+    [
+        .. Directory.EnumerateFiles(CarpetaConciliaciones, "*.xlsx", SearchOption.TopDirectoryOnly),
+        .. Directory.EnumerateFiles(CarpetaConciliacionesQ2, "*.xlsx", SearchOption.TopDirectoryOnly),
+        .. Directory.EnumerateFiles(Path.Combine(CarpetaInsumosAgosto, "Conciliaciones"), "*.xlsx", SearchOption.TopDirectoryOnly)
+    ];
+
+    /// <summary>
     /// HU-11 (2.5): ruta del <c>Recaudoporcomponente_*.xlsx</c> del ASE Q2 (layout ASE1-4
     /// paritario con Q1; ASE5 diverge — recorte T0-0.6).
     /// </summary>
@@ -213,6 +237,9 @@ internal static class Insumos
     /// ejercitar la opcionalidad de <c>Vlr Intereses</c> (ASE2 sin la fila, T0d §5.1).
     /// </summary>
     public static string CarpetaInsumosAgosto => Path.Combine(Raiz(), "Docs", "Prueba2", "Insumos");
+
+    /// <summary>Plan 27 (T3): período de agosto Q2 (Prueba2, <c>2026082</c>).</summary>
+    public static Periodo PeriodoAgosto() => new() { CodigoAAAAMM = "202608", NumeroQuincena = 2 };
 
     public static string[] CarpetasAseAgosto => new[]
     {

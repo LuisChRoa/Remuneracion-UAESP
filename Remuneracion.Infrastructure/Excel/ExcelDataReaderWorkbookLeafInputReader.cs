@@ -872,13 +872,23 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
     }
 
     /// <summary>
+    /// Nombre exacto de la hoja de resumen de las conciliaciones por empresa
+    /// (<c>Conjunta *</c>/<c>Directa*</c>). Plan 27 (T1/D-A): la hoja se resuelve POR NOMBRE, no
+    /// por posición; julio trae una sola hoja con este nombre y agosto multi-hoja (2ª/3ª posición).
+    /// El match del navigator es case-insensitive.
+    /// </summary>
+    private const string NombreHojaResumenMes = "RESUMEN MES";
+
+    /// <summary>
     /// Lee una hoja <c>Recaudo *</c> desde el <c>RESUMEN MES</c> de la conciliación por empresa.
     ///
-    /// T0-0.6 / HU-20-T0a: los archivos <c>Conjunta *</c>/<c>Directa*</c> tienen UNA sola hoja
-    /// (RESUMEN MES). La estructura de bloques es uniforme (ASE1..5 + X + total) aunque los
-    /// encabezados varíen ("OPORTUNO"/"EXTEMP."/"TOTAL" en ENEL vs "Ciudad Limpia - Prestador"/
-    /// "EAAB - Prestador" en Otros). Se detectan los bloques por la corrida de filas con ASE 1..5
-    /// (col C).
+    /// Plan 27 (T1, D-A): la hoja se resuelve POR NOMBRE (<see cref="NombreHojaResumenMes"/>), no
+    /// "la primera a ciegas". T0-0.6/HU-20-T0a asumía UNA sola hoja; agosto trae multi-hoja
+    /// (<c>Oportuno | EXTEMPORANEO | RESUMEN MES</c>) y leer la primera devolvía el detalle crudo
+    /// (sin los 3 bloques). La sobrecarga por nombre falla si la hoja falta, nombrando archivo+hoja.
+    /// La estructura de bloques es uniforme (ASE1..5 + X + total) aunque los encabezados varíen
+    /// ("OPORTUNO"/"EXTEMP."/"TOTAL" en ENEL vs "Ciudad Limpia - Prestador"/"EAAB - Prestador" en
+    /// Otros). Se detectan los bloques por la corrida de filas con ASE 1..5 (col C).
     ///
     /// G2-D2 (quincena = dominio): el par de columnas leído se parametriza por
     /// <paramref name="esQuincena2"/>: Q1 → (3,4) = D/E (VALOR 1°Q / N° REG. 1°Q), Q2 → (5,6) =
@@ -887,7 +897,7 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
     /// </summary>
     private static RecaudoEmpresaInputs LeerRecaudoEmpresa(EmpresaFacturacion empresa, string rutaConciliacion, bool esQuincena2)
     {
-        var filas = ExcelWorksheetNavigator.LeerFilas(rutaConciliacion);
+        var filas = ExcelWorksheetNavigator.LeerFilas(rutaConciliacion, NombreHojaResumenMes);
         var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
 
         // Q1 → D/E (índices 3/4); Q2 → F/G (índices 5/6).

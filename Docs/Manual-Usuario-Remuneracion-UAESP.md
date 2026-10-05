@@ -3,7 +3,7 @@
 > **Norma de referencia:** Resolución UAESP 27 de 2018 — Reglamento Comercial y Financiero del servicio de aseo.
 > **Documento rector:** `Docs/Propuesta_Proyecto_Automatizacion_Remuneracion_UAESP.md` (Fase 3, it. 3.4 — "Manual de usuario y technical").
 > **Versión de la aplicación:** 1.0 (Fase 3 cerrada; HU-01..HU-17).
-> **Última actualización del manual:** 2026-09-16 (§3 sincronizada con la UI real).
+> **Última actualización del manual:** 2026-10-05 (§2.3/§3.4/§10: sello de fechas desde el R10 + regla de plantilla en ceros, Plan 28).
 
 ---
 
@@ -18,8 +18,9 @@ Concretamente:
 1. **Lee** los archivos fuente del período desde la carpeta de cada ASE (`Recaudoporcomponente`, `RerpoteDetalleSaldosaFavor`, `ReversiónPorComponente`, más los reportes de banco, balance y ajustes).
 2. **Calcula** el CONSOLIDADO por ASE: TOT_OPT, R2 Total Oportuno, EXTEMP, Reversión R4 y AJUSTES-SF-T (solo 2.ª quincena).
 3. **Escribe** los valores en las celdas hoja (leaf) de la plantilla copiada, **pegando solo valores** y sin tocar ninguna fórmula.
-4. **Valida** la coherencia entre hojas con tolerancia **±0.5** por redondeo.
-5. **Registra** cada paso de la ejecución en un log con un identificador de corrida (RunId).
+4. **Sella** las fechas del período (`Fecha Desde`/`Fecha Hasta`) en `CONSOLIDADO_TOTAL RECAUDO` a partir del R10 del período, y deja el libro forzando el recálculo al abrir.
+5. **Valida** la coherencia entre hojas con tolerancia **±0.5** por redondeo.
+6. **Registra** cada paso de la ejecución en un log con un identificador de corrida (RunId).
 
 ### 1.2 Qué NO hace
 
@@ -78,7 +79,7 @@ Dentro de cada carpeta de ASE, los archivos fuente se reconocen por **prefijo** 
 | Saldos por nota (Q2) | `SaldosaFavorAplicadosPorNotas_*.xlsx` |
 | Retribución negativa (Q2) | `RetribuciónNegativa_*.xlsx` |
 
-**Plantilla de origen:** el archivo `Remuneración AAAAMM-# Total.xlsx` completado de referencia (el "canónico"). La app lo **copia** y escribe en la copia; la plantilla **jamás se modifica**.
+**Plantilla de origen (regla de proceso):** use la **plantilla en ceros** del período (p. ej. `REMUNERACION AAAAMMQ/Plantilla_ Remuneracion AAAAMM-#.xlsx`), **no** una salida ya trabajada de otro período. La app **copia** la plantilla y escribe en la copia; la plantilla original **jamás se modifica**. La app **sella las fechas `Fecha Desde`/`Fecha Hasta` desde el R10** del período y **sanea la cadena de cálculo** al guardar; si parte de una salida trabajada de otro período, arrastraría las fechas y la cadena de cálculo de ese otro período (el defecto que la versión actual elimina).
 
 ---
 
@@ -114,7 +115,7 @@ Dentro de cada carpeta de ASE, los archivos fuente se reconocen por **prefijo** 
 
 ### 3.4 Salida
 
-El archivo resultante `Remuneración AAAAMM-# Total.xlsx` se genera en la carpeta de salida con la nomenclatura oficial. **Ábralo en Excel** para que recalcule las fórmulas (Capa B — ver `Docs/Instructivo-Capa-B.md`).
+El archivo resultante `Remuneración AAAAMM-# Total.xlsx` se genera en la carpeta de salida con la nomenclatura oficial. La salida lleva las **fechas del período selladas** en `CONSOLIDADO_TOTAL RECAUDO` (tomadas del R10 del período) y queda marcada para **recalcular al abrir**; por eso **no debe aparecer el diálogo de reparación de Excel** ("Registros quitados: Fórmula de /xl/calcChain.xml"). **Ábralo en Excel** para que recalcule las fórmulas (Capa B — ver `Docs/Instructivo-Capa-B.md`). Si Excel pide reparar el libro, no lo use: repórtelo (no debería ocurrir con la versión actual).
 
 ---
 
@@ -205,6 +206,8 @@ Los hitos intermedios van a stdout; el detalle completo va al log con el mismo `
 | `ERR-INESPERADO` | Error inesperado | Búsquelo en el log con el RunId de esta ejecución. |
 
 > **Preflight de insumos (nuevo):** antes de procesar cualquier ASE, la App verifica los insumos del período y, si falta algo, se detiene de inmediato con **un solo** mensaje `ERR-FUENTE-NO-ENCONTRADA` que **enumera de una vez todos** los faltantes (qué falta, dónde debe ir y qué hacer). Ya no descubre un faltante por corrida al final: no se procesa ningún ASE ni se genera archivo hasta que estén todos los insumos.
+>
+> **Archivo no válido (nuevo):** la App también revisa que cada insumo sea realmente un archivo de Excel. Si un archivo existe pero no lo es —por ejemplo, una página web guardada con extensión `.xlsx`— se detiene de inmediato con el mismo mensaje `ERR-FUENTE-NO-ENCONTRADA` y agrega en la lista un renglón como: *"El archivo 'Conjunta Recip -082026.xlsx' no es un Excel válido (parece una copia de una página web). Solicítelo al área encargada, colóquelo en esa ubicación y vuelva a ejecutar."* El detalle técnico del problema queda en el log; el mensaje en pantalla es el mismo tono administrativo de los faltantes.
 
 ### 6.2 RunId — cómo filtrar una ejecución
 
@@ -269,6 +272,10 @@ La hoja `INTERVENTORIA` (bloque K25:N32) es una **tabla anual estática** que **
 **¿Puedo ejecutar dos veces sobre la misma salida?** No sin confirmación: si la salida existe, la UI pregunta y el CLI exige `--sobrescribir` (sin él, salida 5).
 
 **¿Qué pasa si falta un archivo fuente?** Fail-fast con `ERR-FUENTE-NO-ENCONTRADA` (salida 2) **antes de procesar**: el preflight enumera de una vez todos los faltantes (nombrando ASE, reporte o carpeta). No se genera salida parcial certificada.
+
+**¿De dónde salen las fechas `Fecha Desde`/`Fecha Hasta` de la salida?** Del R10 del período (`R10_Remuneracion_AAAAMMQ.xlsx`, celdas G7/J7). La app las sella sola en `CONSOLIDADO_TOTAL RECAUDO`. Si el R10 no trae fechas legibles, la ejecución falla al inicio con `ERR-FORMATO-FUENTE` nombrando período, archivo y celda, y no se genera salida.
+
+**¿Qué plantilla debo usar?** Siempre la **plantilla en ceros** del período. No use una salida ya trabajada como plantilla: la app sella las fechas desde el R10 y sanea la cadena de cálculo, pero partir de una salida de otro período arrastra sus artefactos (fechas y cadena de cálculo ajenas).
 
 **¿Cómo sé que los valores escritos son los correctos?** Compare en Excel contra el golden del período (criterio ±0.5) siguiendo `Docs/Instructivo-Capa-B.md`.
 
