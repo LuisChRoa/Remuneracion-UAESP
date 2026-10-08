@@ -14,7 +14,7 @@ namespace Remuneracion.IntegrationTests;
 /// Plan 30 (T2, R-C-3/S3): fail-fast honesto cuando la plantilla NO trae la hoja Det del período.
 ///
 /// Cubre el escenario S3 («base equivocada»): se parte de la plantilla en ceros
-/// (<c>Docs/Plantilla_Remuneracion.xlsx</c>, byte-idéntica al canónico Q2), se renombra la hoja
+/// (<c>Docs/Prueba Julio-2/Plantilla_Remuneracion.xlsx</c>, byte-idéntica al canónico Q2), se renombra la hoja
 /// <c>DetRetri2026072</c> en <c>xl/workbook.xml</c> con ZIP+XML puro (BCL, sin Excel/COM ni OpenXML
 /// de escritura) y se llama DIRECTAMENTE al writer Q2 (<c>GenerarWorkbook</c>).
 /// La resolución de la hoja Det del período (validación protegida del writer y, en el flujo real

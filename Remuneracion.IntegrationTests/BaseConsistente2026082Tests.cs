@@ -8,7 +8,7 @@ namespace Remuneracion.IntegrationTests;
 
 /// <summary>
 /// Plan 30 (T3, R-B-1/S4): consistencia de la base canónica de agosto
-/// <c>Docs/Prueba2/Plantilla_Remuneracion_2026082.xlsx</c>, producida una sola vez (offline) por la
+/// <c>Docs/Prueba Agosto-2/Plantilla_Remuneracion.xlsx</c>, producida una sola vez (offline) por la
 /// herramienta <c>Herramientas/PreparadorBasePeriodo</c>.
 ///
 /// Verificación estructural ZIP+XML (mismo método del T0 del Plan 30): hojas nuevas, 0 apariciones

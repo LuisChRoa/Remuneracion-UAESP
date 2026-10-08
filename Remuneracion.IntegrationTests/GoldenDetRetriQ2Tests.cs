@@ -13,7 +13,8 @@ namespace Remuneracion.IntegrationTests;
 
 /// <summary>
 /// HU-12 (2.6 ampliada, plan §2.7 — Unidad 4/PR5): matriz Capa A Q2 COMPLETA contra el golden
-/// canónico (no se re-fija) y el caché de valores <c>Remuneracion 202607-2 Total.xlsx</c>.
+/// canónico (no se re-fija) y el caché de valores
+/// <c>Docs/Prueba Julio-2/Resultado/Remuneracion 202607-2 Total Administrativo.xlsx</c>.
 ///
 /// Incluye A6 (TotalAse/GranTotal Q2 vs caché D104:D109 ±0.5) que CIERRA el pendiente HU-11
 /// (recorte T0-0.6 levantado por el dispatch Q2 del reader + variante ASE5 V0.3) y A8/M1

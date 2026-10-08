@@ -21,7 +21,7 @@ namespace Remuneracion.IntegrationTests;
 /// </summary>
 public sealed class ValidadorInteriorR1GateTests
 {
-    private const string RutaPlantillaJulio = "Docs";
+    private static readonly string RutaPlantillaJulio = Insumos.PlantillaQ2;
 
     // S1 (R-G-1): julio-2026072 -> gate interior VERDE (identidad). Julio no trae clases L, así que el
     // fixture es 100% R-1 y el pase de julio reproduce byte-idénticas las <f>.
@@ -32,7 +32,7 @@ public sealed class ValidadorInteriorR1GateTests
         Ejecutar(
             new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 },
             Insumos.CarpetaInsumosJulioQ2,
-            Path.Combine(Insumos.Raiz(), RutaPlantillaJulio, "Plantilla_Remuneracion.xlsx"),
+            RutaPlantillaJulio,
             salida.Ruta);
 
         var gate = new ValidadorTotalesR1Workbook();

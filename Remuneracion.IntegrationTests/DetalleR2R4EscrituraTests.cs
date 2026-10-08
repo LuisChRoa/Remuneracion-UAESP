@@ -14,9 +14,10 @@ namespace Remuneracion.IntegrationTests;
 /// <summary>
 /// Plan 29 (T3, Unidad R — ESCRITURA): verifica END-TO-END que el desglose-detalle por componente
 /// de <c>Rem. Anticipos R2</c> y <c>Reversion Pagos R4</c> se escribe contra la plantilla canónica
-/// en ceros del período (julio: <c>Plantilla_ Remuneracion 202607-2.xlsx</c>, hash 95825422…;
-/// agosto: base <c>Plantilla_Remuneracion_2026082.xlsx</c>, Plan 30/T3), con los insumos REALES de
-/// julio-Q2 (<c>Docs/Prueba Julio-2/Insumos</c>) y agosto-Q2 (<c>Docs/Prueba2/Insumos</c>).
+/// en ceros del período (julio: <c>Docs/Prueba Julio-2/Plantilla_Remuneracion.xlsx</c>;
+/// agosto: base <c>Docs/Prueba Agosto-2/Plantilla_Remuneracion.xlsx</c>, Plan 30/T3), con los
+/// insumos REALES de julio-Q2 (<c>Docs/Prueba Julio-2/Insumos</c>) y agosto-Q2
+/// (<c>Docs/Prueba Agosto-2/Insumos</c>).
 ///
 /// Cobertura (S3/S4 + R-R-1/R-R-2/R-R-3):
 ///   - Julio: bloque-destino completo (todas las filas y columnas del mapa) contra el MANUAL del
@@ -37,14 +38,12 @@ public sealed class DetalleR2R4EscrituraTests
     private const string HojaR2 = WorkbookLeafCellMapDetalleR2R4.HojaR2;
     private const string HojaR4 = WorkbookLeafCellMapDetalleR2R4.HojaR4;
 
-    private static readonly string ManualJulio = Path.Combine(
-        Raiz(), "Docs", "Prueba Julio-2", "Resultado", "Remuneracion 202607-2 Total Administrativo.xlsx");
+    private static readonly string ManualJulio = Insumos.ManualJulioQ2;
 
-    private static readonly string ManualAgosto = Path.Combine(
-        Raiz(), "Docs", "Prueba2", "Resultado", "Resultado Manual por el administrativo", "Remuneracion 202608-2 Total_7721.xlsx");
+    private static readonly string ManualAgosto = Insumos.ManualAgosto2026082;
 
-    private static readonly string CarpetaJulio = Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Insumos");
-    private static readonly string CarpetaAgosto = Path.Combine(Raiz(), "Docs", "Prueba2", "Insumos");
+    private static readonly string CarpetaJulio = Insumos.CarpetaInsumosJulioQ2;
+    private static readonly string CarpetaAgosto = Insumos.CarpetaInsumosAgosto;
 
     // ── S3/S4: celdas citadas de la evidencia T0b (julio ASE1) ────────────────────────────────
 
@@ -313,22 +312,6 @@ public sealed class DetalleR2R4EscrituraTests
             .First(s => string.Equals(s.Name?.Value, nombre, StringComparison.OrdinalIgnoreCase));
         return ((WorksheetPart)workbookPart.GetPartById(sheet.Id!)).Worksheet
             ?? throw new InvalidOperationException($"La hoja '{nombre}' no tiene Worksheet.");
-    }
-
-    private static string Raiz()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            if (File.Exists(Path.Combine(dir.FullName, "AGENTS.md")) && Directory.Exists(Path.Combine(dir.FullName, "Docs")))
-            {
-                return dir.FullName;
-            }
-
-            dir = dir.Parent;
-        }
-
-        throw new DirectoryNotFoundException("No se encontró la raíz del repositorio (AGENTS.md + Docs).");
     }
 
     private static SalidaTemporal NuevaSalida() => new("remuneracion-detalle-" + Guid.NewGuid().ToString("N"));

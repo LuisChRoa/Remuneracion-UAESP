@@ -19,7 +19,7 @@ public sealed class AjustesSfTTests
     private const decimal Tolerancia = Insumos.Tolerancia;
 
     /// <summary>
-    /// Golden Q2 (T0-0.3, probado contra <c>Remuneracion 202607-2 Total.xlsx</c>): TotalAjustes
+    /// Golden Q2 (T0-0.3, probado contra <c>Remuneracion 202607-2 Total Administrativo.xlsx</c>): TotalAjustes
     /// por ASE = D85:D89 del CONSOLIDADO = AJUSTES-SF-T D47:D51.
     /// </summary>
     private static readonly decimal[] GoldenAjustes = [973693.46m, 216025.77m, 104231.83m, 35954.44m, 0m];
@@ -91,7 +91,7 @@ public sealed class AjustesSfTTests
         // HU-22 (Plan 23, R-F-1/T2, S1, T0d §5.1): la fuente de agosto de ASE2 NO trae la fila
         // 'Vlr Intereses' (5 conceptos). Antes lanzaba CalculoInvalidoException en el paso 2.5;
         // ahora la fila 16 del template se emite en 0 explícito y el resto del bloque procesa
-        // igual (Total real de la fuente). Insumo REAL de Docs/Prueba2/Insumos; sin golden de
+        // igual (Total real de la fuente). Insumo REAL de Docs/Prueba Agosto-2/Insumos; sin golden de
         // agosto (R-ORACULO-AGOSTO) solo se asertan invariantes, no valores de negocio nuevos.
         var reader = new ExcelDataReaderWorkbookLeafInputReader();
         var saldos = reader.LeerSaldosNotas(Insumos.Ase(2), Insumos.SaldosNotasAgosto(2));

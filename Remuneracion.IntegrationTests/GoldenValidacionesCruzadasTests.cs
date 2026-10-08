@@ -12,7 +12,8 @@ namespace Remuneracion.IntegrationTests;
 /// <summary>
 /// HU-13 (2.7, Plan 13 §2.7 — Unidad 4): Golden Capa A de VALIDACIONES en ambos períodos.
 /// A2: gates de dominio por ASE × validación vs CACHÉ GOLDEN de las hojas de validación
-/// (Q1 = Remuneracion 202607-1 Total.xlsx; Q2 valores = Remuneracion 202607-2 Total.xlsx).
+/// (Q1 = Docs/Prueba Julio-1/Plantilla_Remuneracion.xlsx; Q2 valores =
+/// Docs/Prueba Julio-2/Resultado/Remuneracion 202607-2 Total Administrativo.xlsx).
 /// A3: las hojas de validación siguen siendo fórmula en la SALIDA (mapa protegido extendido).
 /// A4: canónicos no mutados (hash). A5/A7: prohibido comparar caché de salida vs golden
 /// (OpenXML no recalcula) y la regresión sin snapshot = HU-12 puro (suite 128/128).

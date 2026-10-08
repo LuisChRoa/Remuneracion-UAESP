@@ -10,16 +10,16 @@ namespace Remuneracion.IntegrationTests;
 ///
 /// Corre el pase del espejo (<c>AjustarEnWorkbook</c>: dimensionalización 5→1 + recomposición de
 /// visibles + recomposición del interior) sobre una copia TEMP FRESCA de la base canónica de agosto
-/// <c>Docs/Prueba Agosto-2/Plantilla_Remuneracion_2026082.xlsx</c> con las fuentes R1 REALES de agosto,
+/// <c>Docs/Prueba Agosto-2/Plantilla_Remuneracion.xlsx</c> con las fuentes R1 REALES de agosto,
 /// y exige el texto de <c>&lt;f&gt;</c> del manual del administrativo (fixture congelado
 /// <see cref="InterioresR1Esperados.Agosto"/>) en:
 ///   - ASE4 <c>F461/F463/F466/F468/F476/F478</c> (empresa no-última: el defecto H2/F463),
 ///   - ASE2 <c>F199</c> (sinonímia RECIPROCIDAD↔NUEVO ESQUEMA, Plan 34) y <c>F204/F206</c>
 ///     (miscomposición silenciosa: 3 términos con quirk <c>--L</c> y 2 términos).
 ///
-/// Rutas EXPLÍCITAS (estilo Plan 33/34): no se usa <see cref="Insumos.Raiz"/> ni <c>Docs/Insumos</c>
-/// (borrados por el reorg <c>a867706</c>). La salida se lee con ZIP+XML BCL (sin Excel/COM); PROHIBIDO
-/// usar cachés <c>&lt;v&gt;</c> como oráculo. Tolerancia de valores ±0.5 (aquí el gate es textual).
+/// Rutas con los helpers de <see cref="Insumos"/> sobre la carpeta real <c>Docs/Prueba Agosto-2</c>.
+/// La salida se lee con ZIP+XML BCL (sin Excel/COM); PROHIBIDO usar cachés <c>&lt;v&gt;</c> como
+/// oráculo. Tolerancia de valores ±0.5 (aquí el gate es textual).
 /// </summary>
 public sealed class MotorR1GuardianesTests
 {
@@ -86,7 +86,7 @@ public sealed class MotorR1GuardianesTests
 
     private static SalidaTemporal EjecutarAgosto()
     {
-        var baseCanonica = Path.Combine(Raiz(), "Docs", "Prueba Agosto-2", "Plantilla_Remuneracion_2026082.xlsx");
+        var baseCanonica = Insumos.PlantillaAgosto2026082;
         var salida = new SalidaTemporal(baseCanonica);
 
         var reader = new ExcelDataReaderWorkbookLeafInputReader();
@@ -105,29 +105,13 @@ public sealed class MotorR1GuardianesTests
 
     private static string R1Agosto(int aseId)
     {
-        var carpeta = Path.Combine(Raiz(), "Docs", "Prueba Agosto-2", "Insumos", CarpetasAse[aseId - 1]);
+        var carpeta = Path.Combine(Insumos.CarpetaInsumosAgosto, CarpetasAse[aseId - 1]);
         Assert.True(Directory.Exists(carpeta), $"Falta la carpeta de insumos de agosto: {carpeta}");
         var archivo = Directory.EnumerateFiles(carpeta, "*.xlsx", SearchOption.TopDirectoryOnly)
             .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f)
                 .StartsWith("Recaudoporcomponente", StringComparison.OrdinalIgnoreCase));
         Assert.True(archivo is not null, $"Falta la fuente R1 (Recaudoporcomponente_*) del ASE {aseId} en {carpeta}");
         return archivo!;
-    }
-
-    private static string Raiz()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            if (File.Exists(Path.Combine(dir.FullName, "AGENTS.md")))
-            {
-                return dir.FullName;
-            }
-
-            dir = dir.Parent;
-        }
-
-        throw new DirectoryNotFoundException("No se encontró la raíz del repositorio (AGENTS.md).");
     }
 
     private sealed class SalidaTemporal : IDisposable

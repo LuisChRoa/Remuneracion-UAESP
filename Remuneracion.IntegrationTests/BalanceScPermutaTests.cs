@@ -16,8 +16,8 @@ namespace Remuneracion.IntegrationTests;
 /// "D=CONTRIBUCION" quedó refutado). Solo insumos REALES:
 ///   - julio-Q2: <c>Docs/Prueba Julio-2/Insumos</c> (5 ASE + Conciliaciones + R10) + salida actual
 ///     de la app <c>Docs/Prueba Julio-2/Resultado/Resultado1/Remuneración 202607-2 Total.xlsx</c>;
-///   - agosto-Q2: <c>Docs/Prueba2/Insumos</c> + salida actual
-///     <c>Docs/Prueba2/Resultado/Remuneración 202608-2 Total.xlsx</c>.
+///   - agosto-Q2: <c>Docs/Prueba Agosto-2/Insumos</c> + salida actual
+///     <c>Docs/Prueba Agosto-2/Resultado/Resultado2/Remuneración 202608-2 Total.xlsx</c>.
 /// El "TOTAL GENERAL" de la fuente se localiza por LABEL (patrón Plan 25: roles por firma, no por
 /// dirección fija). <c>F = D + E</c> queda invariante vs la salida actual (la permuta es
 /// conmutativa, así que el dinero aguas abajo no cambia). Julio-ASE5 sigue fuente-fiel (R39): la
@@ -31,18 +31,16 @@ public sealed class BalanceScPermutaTests
     [Fact]
     public void JulioQ2_PermutaBce_SubsidioAD_ContribucionAE_VsFuente_E2E() =>
         VerificarPermutaPorPeriodo(
-            carpetaInsumos: Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Insumos"),
-            salidaActualApp: Path.Combine(
-                Raiz(), "Docs", "Prueba Julio-2", "Resultado", "Resultado1", "Remuneración 202607-2 Total.xlsx"),
+            carpetaInsumos: Insumos.CarpetaInsumosJulioQ2,
+            salidaActualApp: Insumos.ResultadoJulioQ2(1),
             rutaPlantilla: Insumos.PlantillaQ2,
             periodo: new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 });
 
     [Fact]
     public void AgostoQ2_PermutaBce_SubsidioAD_ContribucionAE_VsFuente_E2E() =>
         VerificarPermutaPorPeriodo(
-            carpetaInsumos: Path.Combine(Raiz(), "Docs", "Prueba2", "Insumos"),
-            salidaActualApp: Path.Combine(
-                Raiz(), "Docs", "Prueba2", "Resultado", "Remuneración 202608-2 Total.xlsx"),
+            carpetaInsumos: Insumos.CarpetaInsumosAgosto,
+            salidaActualApp: Insumos.ResultadoAgostoQ2(2),
             rutaPlantilla: Insumos.PlantillaAgosto2026082,
             periodo: new Periodo { CodigoAAAAMM = "202608", NumeroQuincena = 2 });
 
@@ -56,16 +54,14 @@ public sealed class BalanceScPermutaTests
     [Fact]
     public void JulioAse5Bce_ManualDivergeDeLaFuente_ConstanteDocumentada()
     {
-        var rutaFuente = LocalizarBalance(
-            Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Insumos"), aseId: 5);
+        var rutaFuente = LocalizarBalance(Insumos.CarpetaInsumosJulioQ2, aseId: 5);
         var (subsidioFuente, contribucionFuente, _) = LeerTotalGeneralPorLabel(rutaFuente);
 
         // La fuente R39 respalda a la app: Subsidio negativo en E, Contribución positiva en F.
         Assert.InRange(subsidioFuente - (-3615845886.78m), -Tolerancia, Tolerancia);
         Assert.InRange(contribucionFuente - 2322461234.81m, -Tolerancia, Tolerancia);
 
-        var rutaManual = Path.Combine(
-            Raiz(), "Docs", "Prueba Julio-2", "Resultado", "Remuneracion 202607-2 Total Administrativo.xlsx");
+        var rutaManual = Insumos.ManualJulioQ2;
         Assert.True(File.Exists(rutaManual), $"Falta el manual de julio: {rutaManual}");
         var manualD7 = LeerCeldaNumerica(rutaManual, HojaBce, "D7");
         var manualE7 = LeerCeldaNumerica(rutaManual, HojaBce, "E7");
@@ -246,23 +242,6 @@ public sealed class BalanceScPermutaTests
         }
 
         return sb.ToString();
-    }
-
-    private static string Raiz()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            if (File.Exists(Path.Combine(dir.FullName, "AGENTS.md"))
-                && Directory.Exists(Path.Combine(dir.FullName, "Docs")))
-            {
-                return dir.FullName;
-            }
-
-            dir = dir.Parent;
-        }
-
-        throw new DirectoryNotFoundException("No se encontró la raíz del repositorio (AGENTS.md + Docs).");
     }
 
     private static void Borrar(string ruta)

@@ -23,9 +23,8 @@ namespace Remuneracion.IntegrationTests;
 /// canónica <c>2026082</c> copiada a una ruta TEMP FRESCA. Pre-fix el pase aborta con el throw exacto
 /// (ROJO de T1); post-fix compone <c>F199</c> con el texto del manual (VERDE de T2).
 ///
-/// Rutas por EXPLICITA construcción (estilo Plan 33): NO se usa <see cref="Insumos.Raiz"/> (exige
-/// <c>Docs/Insumos</c>, borrado por el reorg <c>a867706</c>) ni ninguna resolución de raíz de fixtures
-/// pre-existente. PROHIBIDO usar cachés <c>&lt;v&gt;</c> como oráculo.
+/// Rutas por EXPLICITA construcción (estilo Plan 33): se usan los helpers de <see cref="Insumos"/>
+/// sobre la carpeta real <c>Docs/Prueba Agosto-2</c>. PROHIBIDO usar cachés <c>&lt;v&gt;</c> como oráculo.
 /// </summary>
 public sealed class F199SinonimoTests
 {
@@ -214,12 +213,11 @@ public sealed class F199SinonimoTests
         return bloques;
     }
 
-    private static string PlantillaAgosto2026082() =>
-        Path.Combine(Raiz(), "Docs", "Prueba Agosto-2", "Plantilla_Remuneracion_2026082.xlsx");
+    private static string PlantillaAgosto2026082() => Insumos.PlantillaAgosto2026082;
 
     private static string R1Agosto(int aseId)
     {
-        var carpeta = Path.Combine(Raiz(), "Docs", "Prueba Agosto-2", "Insumos", CarpetasAse[aseId - 1]);
+        var carpeta = Path.Combine(Insumos.CarpetaInsumosAgosto, CarpetasAse[aseId - 1]);
         Assert.True(Directory.Exists(carpeta), $"Falta la carpeta de insumos de agosto: {carpeta}");
         var archivo = Directory.EnumerateFiles(carpeta, "*.xlsx", SearchOption.TopDirectoryOnly)
             .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f)
@@ -239,22 +237,6 @@ public sealed class F199SinonimoTests
         var celda = worksheet.Descendants<Cell>()
             .FirstOrDefault(c => string.Equals(c.CellReference?.Value, referencia, StringComparison.OrdinalIgnoreCase));
         return celda?.CellFormula?.Text;
-    }
-
-    private static string Raiz()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            if (File.Exists(Path.Combine(dir.FullName, "AGENTS.md")))
-            {
-                return dir.FullName;
-            }
-
-            dir = dir.Parent;
-        }
-
-        throw new DirectoryNotFoundException("No se encontró la raíz del repositorio (AGENTS.md).");
     }
 
     private sealed class CopiaTemporal : IDisposable

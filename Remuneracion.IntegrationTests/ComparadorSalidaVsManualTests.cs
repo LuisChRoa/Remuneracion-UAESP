@@ -13,8 +13,8 @@ namespace Remuneracion.IntegrationTests;
 /// <see cref="ComparadorSalidaVsManual"/> para los dos períodos con manual del administrativo.
 ///
 /// Por período (julio-Q2 y agosto-Q2) corre UNA sola vez el flujo 5-ASE contra la PLANTILLA EN
-/// CEROS del período (julio: <c>Docs/Plantilla_Remuneracion.xlsx</c>; agosto: base
-/// <c>Plantilla_Remuneracion_2026082.xlsx</c>, Plan 30/T3) hacia una ruta TEMPORAL (jamás
+/// CEROS del período (julio: <c>Docs/Prueba Julio-2/Plantilla_Remuneracion.xlsx</c>; agosto: base
+/// <c>Docs/Prueba Agosto-2/Plantilla_Remuneracion.xlsx</c>, Plan 30/T3) hacia una ruta TEMPORAL (jamás
 /// sobrescribe <c>Docs/</c>) con los insumos REALES, y compara la salida contra el manual con el
 /// comparador BCL (sin Excel/COM). Aserta que TODA divergencia cae en una BRECHA DECLARADA
 /// (versionada abajo con su cita al plan/T0): cualquier divergencia fuera de ese conjunto falla
@@ -36,7 +36,7 @@ public sealed class ComparadorSalidaVsManualTests
     private const string HojaBce = "BCE SC POR FACT.";
     private const string HojaControl = "Valida - Control Recaudo";
 
-    private static readonly string Plantilla = Path.Combine(Insumos.Raiz(), "Docs", "Plantilla_Remuneracion.xlsx");
+    private static readonly string Plantilla = Insumos.PlantillaQ2;
 
     private static readonly Regex ReferenciaCelda = new(@"^(?<col>[A-Za-z]+)(?<fila>\d+)$", RegexOptions.Compiled);
 
@@ -266,12 +266,12 @@ public sealed class ComparadorSalidaVsManualTests
         "julio" => (
             new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 },
             Insumos.CarpetaInsumosJulioQ2,
-            Path.Combine(Insumos.Raiz(), "Docs", "Prueba Julio-2", "Resultado", "Remuneracion 202607-2 Total Administrativo.xlsx"),
+            Insumos.ManualJulioQ2,
             Plantilla),
         "agosto" => (
             new Periodo { CodigoAAAAMM = "202608", NumeroQuincena = 2 },
             Insumos.CarpetaInsumosAgosto,
-            Path.Combine(Insumos.Raiz(), "Docs", "Prueba2", "Resultado", "Resultado Manual por el administrativo", "Remuneracion 202608-2 Total_7721.xlsx"),
+            Insumos.ManualAgosto2026082,
             Insumos.PlantillaAgosto2026082),
         _ => throw new ArgumentOutOfRangeException(nameof(etiqueta), etiqueta, "Período no soportado por la regresión del comparador.")
     };

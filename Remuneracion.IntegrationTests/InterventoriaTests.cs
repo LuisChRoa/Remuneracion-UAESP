@@ -10,7 +10,7 @@ namespace Remuneracion.IntegrationTests;
 /// L-Especiales menores (D3a/D3b) contra ambos canónicos y las fuentes R1 reales. Nada HU-16
 /// entra al código sin estas tablas:
 /// - T0-INTERVENTORIA: bloque por ASE (filas 26..30) en VALORES con L=Id ASE; totales 31 y gran
-///   total 32 en FÓRMULA; idéntico en Q1/Q2/Q2-raíz; SIN fuente en Docs/Insumos → D2b declarado.
+///   total 32 en FÓRMULA; idéntico en Q1/Q2/Q2-raíz; SIN fuente en las carpetas de insumos → D2b declarado.
 /// - T0-L-ESPECIALES: la columna L del template espeja la columna SERVICIO ESPECIALES de la
 ///   fuente R1; toda celda L numérica fuera de V4/HU-08/Q2-map/mapa D3a es CERO en ambos
 ///   canónicos (A8 stale-guard).
@@ -53,12 +53,17 @@ public sealed class InterventoriaTests
     [Fact]
     public void T0_Interventoria_SinFuenteEnInsumos_V8()
     {
-        // T0-0.3: búsqueda exhaustiva normalizada de archivos de interventoría en Docs/Insumos
-        // (ambos períodos). Ninguna fuente → D2b (insumo externo declarado), sin finder.
-        var raiz = Insumos.Raiz();
-        var carpeta = Path.Combine(raiz, "Docs", "Insumos");
-        Assert.True(Directory.Exists(carpeta), "Falta Docs/Insumos.");
-        var encontrados = Directory.EnumerateFiles(carpeta, "*.*", SearchOption.AllDirectories)
+        // T0-0.3: búsqueda exhaustiva normalizada de archivos de interventoría en las carpetas de
+        // insumos reales (los tres períodos en disco). Ninguna fuente → D2b (insumo externo
+        // declarado), sin finder.
+        var carpetas = new[] { Insumos.CarpetaPeriodo, Insumos.CarpetaPeriodoQ2, Insumos.CarpetaInsumosAgosto };
+        foreach (var carpeta in carpetas)
+        {
+            Assert.True(Directory.Exists(carpeta), $"Falta la carpeta de insumos: {carpeta}");
+        }
+
+        var encontrados = carpetas
+            .SelectMany(carpeta => Directory.EnumerateFiles(carpeta, "*.*", SearchOption.AllDirectories))
             .Where(f => Normalizar(Path.GetFileNameWithoutExtension(f)).Contains("nterventoria", StringComparison.Ordinal))
             .Select(f => Path.GetFileName(f))
             .ToArray();

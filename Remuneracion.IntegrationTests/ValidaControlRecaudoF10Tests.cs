@@ -17,9 +17,9 @@ namespace Remuneracion.IntegrationTests;
 /// <c>VALIDACION_TOTAL!C15 = (C14 = C9)</c> queda satisfecha.
 ///
 /// Flujo 5-ASE Q2 real (<see cref="ProcesadorPeriodo"/>) contra la plantilla canónica en ceros del
-/// período (julio: <c>Docs/Plantilla_Remuneracion.xlsx</c>, SHA 95825422…; agosto: base
-/// <c>Plantilla_Remuneracion_2026082.xlsx</c>, Plan 30/T3), con los insumos REALES de julio
-/// (<c>Docs/Prueba Julio-2/Insumos</c>) y agosto (<c>Docs/Prueba2/Insumos</c>).
+/// período (julio: <c>Docs/Prueba Julio-2/Plantilla_Remuneracion.xlsx</c>; agosto: base
+/// <c>Docs/Prueba Agosto-2/Plantilla_Remuneracion.xlsx</c>, Plan 30/T3), con los insumos REALES de
+/// julio (<c>Docs/Prueba Julio-2/Insumos</c>) y agosto (<c>Docs/Prueba Agosto-2/Insumos</c>).
 ///
 /// Oráculos independientes:
 ///   - FUENTE: Σ <c>RecaudoEmpresaInputs.Total</c> leída por el reader desde las conciliaciones
@@ -36,16 +36,14 @@ public sealed class ValidaControlRecaudoF10Tests
     private const string CeldaControl = WorkbookLeafCellMapValidaciones.CeldaControlRecaudoTotal;
     private const string HojaValidacionTotal = WorkbookLeafCellMapValidaciones.HojaValidacionTotal;
 
-    private static readonly string Plantilla = Path.Combine(Raiz(), "Docs", "Plantilla_Remuneracion.xlsx");
+    private static readonly string Plantilla = Insumos.PlantillaQ2;
 
-    private static readonly string CarpetaJulio = Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Insumos");
-    private static readonly string CarpetaAgosto = Path.Combine(Raiz(), "Docs", "Prueba2", "Insumos");
+    private static readonly string CarpetaJulio = Insumos.CarpetaInsumosJulioQ2;
+    private static readonly string CarpetaAgosto = Insumos.CarpetaInsumosAgosto;
 
-    private static readonly string ManualJulio = Path.Combine(
-        Raiz(), "Docs", "Prueba Julio-2", "Resultado", "Remuneracion 202607-2 Total Administrativo.xlsx");
+    private static readonly string ManualJulio = Insumos.ManualJulioQ2;
 
-    private static readonly string ManualAgosto = Path.Combine(
-        Raiz(), "Docs", "Prueba2", "Resultado", "Resultado Manual por el administrativo", "Remuneracion 202608-2 Total_7721.xlsx");
+    private static readonly string ManualAgosto = Insumos.ManualAgosto2026082;
 
     [Fact]
     public void JulioQ2_F10_IgualaFuenteYManual()
@@ -231,22 +229,6 @@ public sealed class ValidaControlRecaudoF10Tests
             .First(s => string.Equals(s.Name?.Value, nombre, StringComparison.OrdinalIgnoreCase));
         return ((WorksheetPart)workbookPart.GetPartById(sheet.Id!)).Worksheet
             ?? throw new InvalidOperationException($"La hoja '{nombre}' no tiene Worksheet.");
-    }
-
-    private static string Raiz()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            if (File.Exists(Path.Combine(dir.FullName, "AGENTS.md")) && Directory.Exists(Path.Combine(dir.FullName, "Docs")))
-            {
-                return dir.FullName;
-            }
-
-            dir = dir.Parent;
-        }
-
-        throw new DirectoryNotFoundException("No se encontró la raíz del repositorio (AGENTS.md + Docs).");
     }
 
     private sealed class SalidaTemporal : IDisposable

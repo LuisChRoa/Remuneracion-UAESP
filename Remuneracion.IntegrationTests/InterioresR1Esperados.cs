@@ -8,7 +8,7 @@ namespace Remuneracion.IntegrationTests;
 /// (sub-visibles por empresa), transcritos EXACTAMENTE de los manuales del administrativo (solo lectura
 /// ZIP+XML BCL, sin Excel/COM) y con cita de archivo + hoja + celda por valor.
 ///
-/// Fuente agosto: <c>Docs/Prueba2/Resultado/Resultado Manual por el administrativo/Remuneracion 202608-2 Total_7721.xlsx</c>
+/// Fuente agosto: <c>Docs/Prueba Agosto-2/Resultado/Resultado Manual por el administrativo/Remuneracion 202608-2 Total_7721.xlsx</c>
 /// Fuente julio:  <c>Docs/Prueba Julio-2/Resultado/Remuneracion 202607-2 Total Administrativo.xlsx</c>
 ///
 /// El conjunto se congeló por lectura directa del disco (método zip+XML del T0 §0.1): TODAS las celdas

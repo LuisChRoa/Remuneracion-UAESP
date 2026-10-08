@@ -11,7 +11,7 @@ namespace Remuneracion.IntegrationTests;
 
 /// <summary>
 /// Plan 25 (WU-2 = T3, R-R-2/D-E): regresión END-TO-END del período 2026082 (agosto Q2) modo
-/// 5 ASE vía <see cref="ProcesadorPeriodo"/>, con los insumos REALES de <c>Docs/Prueba2/Insumos</c>.
+/// 5 ASE vía <see cref="ProcesadorPeriodo"/>, con los insumos REALES de <c>Docs/Prueba Agosto-2/Insumos</c>.
 ///
 /// Contexto y límites (decisión del Ingeniero, memoria <c>verificacion/2026082-sin-oraculo</c>):
 /// UAESP no entregó plantilla ni salida de agosto; el R10 SÍ existe
@@ -22,9 +22,10 @@ namespace Remuneracion.IntegrationTests;
 ///   - Δ por bloque = {ASE1 −3, ASE2 −9, ASE3 −6, ASE4 +6, ASE5 +8} y fórmulas preservadas.
 ///   - sin asserts de negocio contra salida de agosto fuera del R10 (prohibido inventar golden).
 ///
-/// La plantilla destino es la base canónica de agosto (<c>Plantilla_Remuneracion_2026082.xlsx</c>,
+/// La plantilla destino es la base canónica de agosto
+/// (<c>Docs/Prueba Agosto-2/Plantilla_Remuneracion.xlsx</c>,
 /// hojas <c>DetRetri2026082</c>/<c>DetValiRetri2026082</c>): el espejo R1 la redimensiona a la
-/// forma de agosto. <c>Docs/Prueba2/Insumos</c> NO trae <c>Conciliaciones/</c> (limitación
+/// forma de agosto. <c>Docs/Prueba Agosto-2/Insumos</c> NO trae <c>Conciliaciones/</c> (limitación
 /// declarada); se aporta una copia temporal con las conciliaciones REALES del canónico Q2 de julio
 /// (mismo layout RESUMEN MES, G2-D2).
 ///
@@ -168,9 +169,9 @@ public sealed class Regresion2026082Tests
             new ExcelDataReaderDetRetriR10Reader());
 
     /// <summary>
-    /// Copia temporal del período 2026082: insumos REALES de <c>Docs/Prueba2/Insumos</c>
+    /// Copia temporal del período 2026082: insumos REALES de <c>Docs/Prueba Agosto-2/Insumos</c>
     /// (5 ASE + R10) más las conciliaciones reales del canónico Q2 de julio (limitación declarada:
-    /// Prueba2 no trae <c>Conciliaciones/</c>).
+    /// la carpeta de agosto no trae <c>Conciliaciones/</c>).
     /// </summary>
     private static string PrepararPeriodoAgosto()
     {

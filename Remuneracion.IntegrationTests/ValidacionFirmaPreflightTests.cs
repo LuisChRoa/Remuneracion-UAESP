@@ -10,7 +10,7 @@ namespace Remuneracion.IntegrationTests;
 
 /// <summary>
 /// Plan 27 (T3, Unidad B por firma + Unidad A por nombre de hoja) con insumos REALES:
-///   - R-F-1/S5: las 15 conciliaciones reales tienen firma válida y Prueba2 corregida no trae
+///   - R-F-1/S5: las 15 conciliaciones reales tienen firma válida y Agosto-2 corregida no trae
 ///     faltantes ni inválidos.
 ///   - R-F-3/S3: un MHTML en temp (patrón real "Saved by Blink") produce UN
 ///     <see cref="ArchivoFuenteNoEncontradoException"/> previo a todo I/O Excel, sin salida.
@@ -18,7 +18,7 @@ namespace Remuneracion.IntegrationTests;
 ///   - R-F-5/S6: guardrail single-ASE con el mismo código y formateador.
 ///   - R-F-2/S7: sin jerga técnica en el mensaje; el detalle va al log.
 ///   - R-A-1/S1: <c>RESUMEN MES</c> por nombre en la conciliación multi-hoja de agosto.
-///   - R-R-3: Prueba2 corregida supera la lectura de conciliaciones.
+///   - R-R-3: Agosto-2 corregida supera la lectura de conciliaciones.
 /// </summary>
 public sealed class ValidacionFirmaPreflightTests
 {
@@ -36,7 +36,7 @@ public sealed class ValidacionFirmaPreflightTests
     }
 
     [Fact]
-    public void Preflight_Prueba2Corregida_SinFaltantesNiInvalidos()
+    public void Preflight_AgostoCorregida_SinFaltantesNiInvalidos()
     {
         // S5: con las conciliaciones corregidas por el usuario, la lista queda vacía.
         var faltantes = new ValidadorInsumosPeriodo(new ArchivoFuenteLocator())
@@ -203,7 +203,7 @@ public sealed class ValidacionFirmaPreflightTests
     }
 
     [Fact]
-    public void FlujoPrueba2Corregida_AvanzaMasAlaDeConciliaciones()
+    public void FlujoAgostoCorregida_AvanzaMasAlaDeConciliaciones()
     {
         // R-R-3/S5: con las conciliaciones corregidas por el usuario, el flujo supera la lectura
         // de conciliaciones (puede fallar más adelante por otra causa del período; se reporta).
@@ -225,7 +225,7 @@ public sealed class ValidacionFirmaPreflightTests
 
             // El preflight no debe ser el que corta (puede fallar más adelante por otra causa).
             Assert.False(fallo is ArchivoFuenteNoEncontradoException,
-                $"El preflight de insumos no debe fallar en Prueba2 corregida: {fallo}");
+                $"El preflight de insumos no debe fallar en Agosto-2 corregida: {fallo}");
             // Llegó más allá de la lectura de conciliaciones: anunció el cálculo del consolidado.
             Assert.Contains(progreso.Lineas, l => l.Contains("Leyendo hojas Recaudo", StringComparison.Ordinal));
             Assert.Contains(progreso.Lineas, l => l.Contains("Calculando consolidados", StringComparison.Ordinal));

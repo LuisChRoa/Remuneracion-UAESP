@@ -22,8 +22,8 @@ namespace Remuneracion.IntegrationTests;
 ///   (b) agosto: el espejo escribe la columna L de TODA la secuencia fuente del período (no queda
 ///       ninguna fila del bloque con L residual del template).
 ///
-/// Solo insumos REALES de <c>Docs/Insumos</c> y <c>Docs/Prueba2/Insumos</c>; no hay fixtures
-/// sintéticas ni golden inventado de agosto.
+/// Solo insumos REALES de <c>Docs/Prueba Julio-1/Insumos</c> y <c>Docs/Prueba Agosto-2/Insumos</c>;
+/// no hay fixtures sintéticas ni golden inventado de agosto.
 /// </summary>
 public sealed class EspejoR1AbsorcionTests
 {
@@ -60,7 +60,7 @@ public sealed class EspejoR1AbsorcionTests
     }
 
     /// <summary>
-    /// (b) Agosto-Prueba2: el espejo gobierna la columna L de TODA la secuencia fuente del período.
+    /// (b) Agosto: el espejo gobierna la columna L de TODA la secuencia fuente del período.
     /// Se aplica el espejo de agosto a la plantilla Q2 y, para cada ASE, se contrasta la celda L de
     /// cada fila del bloque resultante contra el valor <c>SERVICIO ESPECIALES</c> de la fila fuente
     /// correspondiente (por posición de secuencia). Ninguna fila conserva L residual del template.
@@ -116,7 +116,7 @@ public sealed class EspejoR1AbsorcionTests
 
     private static string AgostoR1(int aseId)
     {
-        var carpeta = Path.Combine(Insumos.Raiz(), "Docs", "Prueba2", "Insumos");
+        var carpeta = Insumos.CarpetaInsumosAgosto;
         var dir = Directory.EnumerateDirectories(carpeta)
             .First(d => Path.GetFileName(d).StartsWith($"{aseId}-", StringComparison.OrdinalIgnoreCase));
         return Directory.EnumerateFiles(dir, "Recaudoporcomponente*.xlsx", SearchOption.TopDirectoryOnly).First();

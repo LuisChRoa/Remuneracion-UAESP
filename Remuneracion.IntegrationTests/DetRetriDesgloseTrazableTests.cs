@@ -15,9 +15,10 @@ namespace Remuneracion.IntegrationTests;
 /// Plan 29 (T4, Unidad D — desglose trazable): verifica END-TO-END que el writer escribe las
 /// columnas de <c>DetRetri{AAAAMMQ}</c>/<c>DetValiRetri{AAAAMMQ}</c> cuyo origen workbook-interno
 /// es de UNA arista (gate T0d, <c>plans/29-T0-Evidencia-B.md</c> §1.4) contra la plantilla canónica
-/// en ceros del período (julio: <c>Plantilla_ Remuneracion 202607-2.xlsx</c>; agosto: base
-/// <c>Plantilla_Remuneracion_2026082.xlsx</c>, Plan 30/T3), con los insumos REALES de julio-Q2
-/// (<c>Docs/Prueba Julio-2/Insumos</c>) y agosto-Q2 (<c>Docs/Prueba2/Insumos</c>).
+/// en ceros del período (julio: <c>Docs/Prueba Julio-2/Plantilla_Remuneracion.xlsx</c>; agosto:
+/// base <c>Docs/Prueba Agosto-2/Plantilla_Remuneracion.xlsx</c>, Plan 30/T3), con los insumos
+/// REALES de julio-Q2 (<c>Docs/Prueba Julio-2/Insumos</c>) y agosto-Q2
+/// (<c>Docs/Prueba Agosto-2/Insumos</c>).
 ///
 /// Cobertura (R-D-1 + S5):
 ///   - DetRetri J ← BCE F3 (Subsidio + Contribución): igual a ROUND(D+E) de la salida y, salvo la
@@ -39,14 +40,12 @@ public sealed class DetRetriDesgloseTrazableTests
     private static readonly string HojaDetRetri = WorkbookLeafCellMapDetRetri.HojaDetRetri(PeriodoQ2);
     private static readonly string HojaDetValiRetri = WorkbookLeafCellMapDetRetri.HojaDetValiRetri(PeriodoQ2);
 
-    private static readonly string ManualJulio = Path.Combine(
-        Raiz(), "Docs", "Prueba Julio-2", "Resultado", "Remuneracion 202607-2 Total Administrativo.xlsx");
+    private static readonly string ManualJulio = Insumos.ManualJulioQ2;
 
-    private static readonly string ManualAgosto = Path.Combine(
-        Raiz(), "Docs", "Prueba2", "Resultado", "Resultado Manual por el administrativo", "Remuneracion 202608-2 Total_7721.xlsx");
+    private static readonly string ManualAgosto = Insumos.ManualAgosto2026082;
 
-    private static readonly string CarpetaJulio = Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Insumos");
-    private static readonly string CarpetaAgosto = Path.Combine(Raiz(), "Docs", "Prueba2", "Insumos");
+    private static readonly string CarpetaJulio = Insumos.CarpetaInsumosJulioQ2;
+    private static readonly string CarpetaAgosto = Insumos.CarpetaInsumosAgosto;
 
     // Hojas del período de agosto (sufijo 2026082): la base canónica 2026082 las trae y el writer
     // las resuelve por período (Plan 30/T1); el manual del administrativo usa el mismo sufijo.
@@ -257,22 +256,6 @@ public sealed class DetRetriDesgloseTrazableTests
             .First(s => string.Equals(s.Name?.Value, nombre, StringComparison.OrdinalIgnoreCase));
         return ((WorksheetPart)workbookPart.GetPartById(sheet.Id!)).Worksheet
             ?? throw new InvalidOperationException($"La hoja '{nombre}' no tiene Worksheet.");
-    }
-
-    private static string Raiz()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            if (File.Exists(Path.Combine(dir.FullName, "AGENTS.md")) && Directory.Exists(Path.Combine(dir.FullName, "Docs")))
-            {
-                return dir.FullName;
-            }
-
-            dir = dir.Parent;
-        }
-
-        throw new DirectoryNotFoundException("No se encontró la raíz del repositorio (AGENTS.md + Docs).");
     }
 
     private static SalidaTemporal NuevaSalida() => new("remuneracion-detretri-" + Guid.NewGuid().ToString("N"));

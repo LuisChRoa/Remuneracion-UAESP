@@ -418,7 +418,7 @@ public sealed class ProcesadorPeriodoTests
 
     private static string AgostoR1(int aseId)
     {
-        var carpeta = Path.Combine(Insumos.Raiz(), "Docs", "Prueba2", "Insumos");
+        var carpeta = Insumos.CarpetaInsumosAgosto;
         var dir = Directory.EnumerateDirectories(carpeta)
             .First(d => Path.GetFileName(d).StartsWith($"{aseId}-", StringComparison.OrdinalIgnoreCase));
         return Directory.EnumerateFiles(dir, "Recaudoporcomponente*.xlsx", SearchOption.TopDirectoryOnly).First();

@@ -12,7 +12,7 @@ namespace Remuneracion.IntegrationTests;
 /// Plan 21 — PR 3 (T3): capacidad de escritura espejo R1 en <see cref="OpenXmlPlantillaWriter"/>.
 ///
 /// Evidencia: <c>plans/21 - T0 Evidencia.md</c> §2 (conteos), §4 (fórmulas), §6 (invariantes).
-/// Solo se usan insumos REALES de <c>Docs/Insumos</c> y <c>Docs/Prueba2/Insumos</c>: los goldens
+/// Solo se usan insumos REALES de <c>Docs/Prueba Julio-1/Insumos</c> y <c>Docs/Prueba Agosto-2/Insumos</c>: los goldens
 /// de julio para el caso Δ=0 (bit-compatible) y la fuente de agosto contra la plantilla Q2 de
 /// julio para el caso Δ≠0 (dimensionado + invariantes). NO se inventan fixtures sintéticas.
 /// </summary>
@@ -453,7 +453,7 @@ public sealed class EspejoR1MutadorTests
 
     private static string AgostoR1(int aseId)
     {
-        var carpeta = Path.Combine(Insumos.Raiz(), "Docs", "Prueba2", "Insumos");
+        var carpeta = Insumos.CarpetaInsumosAgosto;
         var dir = Directory.EnumerateDirectories(carpeta)
             .First(d => Path.GetFileName(d).StartsWith($"{aseId}-", StringComparison.OrdinalIgnoreCase));
         return Directory.EnumerateFiles(dir, "Recaudoporcomponente*.xlsx", SearchOption.TopDirectoryOnly).First();

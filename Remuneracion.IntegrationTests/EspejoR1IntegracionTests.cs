@@ -9,7 +9,7 @@ namespace Remuneracion.IntegrationTests;
 /// Plan 21 — PR 3 (T4): integración del espejo estructural R1.
 ///
 /// El caso de regresión 2026082 (agosto) no tiene golden ni plantilla propia y
-/// <c>Docs/Prueba2/Insumos</c> no trae <c>Conciliaciones/</c> (requeridas por el flujo completo de
+/// <c>Docs/Prueba Agosto-2/Insumos</c> no trae <c>Conciliaciones/</c> (requeridas por el flujo completo de
 /// período), por lo que el smoke es ESTRUCTURAL sobre las capas del espejo: la lectura
 /// <c>LeerEspejoR1</c> + la escritura <c>EscribirEspejoR1</c> resuelven el defecto que rompía
 /// <c>LeerLEspecialesMenores</c> (slot <c>TotalD_E</c> ocurrencia 2 ausente en ASE1) SIN
@@ -236,7 +236,7 @@ public sealed class EspejoR1IntegracionTests
 
     private static string AgostoR1(int aseId)
     {
-        var carpeta = Path.Combine(Insumos.Raiz(), "Docs", "Prueba2", "Insumos");
+        var carpeta = Insumos.CarpetaInsumosAgosto;
         Assert.True(Directory.Exists(carpeta), $"Falta la carpeta de agosto: {carpeta}");
         var dir = Directory.EnumerateDirectories(carpeta)
             .First(d => Path.GetFileName(d).StartsWith($"{aseId}-", StringComparison.OrdinalIgnoreCase));

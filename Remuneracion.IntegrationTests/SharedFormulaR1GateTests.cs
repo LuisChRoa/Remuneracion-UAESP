@@ -19,10 +19,9 @@ namespace Remuneracion.IntegrationTests;
 ///   - <b>Resultado1</b> pre-commit (control sano): VERDE siempre.
 ///   - <b>salida agosto existente sana</b> (workbook-wide, E7): VERDE.
 ///
-/// Nota de entorno (2026-10-08, commit <c>a867706</c> "Limpieza de archivos"): la reorg movió
-/// <c>Docs/Insumos</c> y <c>Docs/Prueba2</c> → <c>Docs/Prueba Agosto-2</c>, por lo que <see cref="Insumos.Raiz"/>
-/// (que exige <c>Docs/Insumos</c>) no resuelve. Este gate resuelve la raíz por <c>AGENTS.md</c> y usa
-/// las rutas REALES vigentes, para no depender del fixture base roto. La regen fresca de agosto NO es
+/// Nota de entorno (2026-10-08): los insumos vigentes viven en <c>Docs/Prueba Julio-1</c>,
+/// <c>Docs/Prueba Julio-2</c> y <c>Docs/Prueba Agosto-2</c>. Este gate resuelve la raíz por
+/// <c>AGENTS.md</c> y usa las rutas REALES vigentes. La regen fresca de agosto NO es
 /// posible hoy: el pipeline aborta antes en <c>F199 [SUB_EMP] [Mes0]</c> (sujeto del T0/T4 de la Fase 2).
 /// </summary>
 public sealed class SharedFormulaR1GateTests

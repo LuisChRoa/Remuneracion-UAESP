@@ -14,7 +14,7 @@ namespace Remuneracion.IntegrationTests;
 /// HU-15 (W-2.3, D5): códigos explícitos del writer. Cada fallo de plantilla/escritura porta el
 /// código correcto (ERR-PLANTILLA → salida 2 / ERR-ESCRITURA → salida 3 con InnerException), la
 /// atomicidad (borrar parcial) se conserva y los gates de coherencia siguen ERR-VALIDACION (1).
-/// Solo usa copias en temp; <c>Docs/Insumos/</c> jamás es destino.
+/// Solo usa copias en temp; las carpetas de insumos jamás son destino.
 /// </summary>
 public sealed class EscrituraCodigosTests
 {

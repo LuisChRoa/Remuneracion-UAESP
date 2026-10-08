@@ -11,7 +11,7 @@ namespace Remuneracion.IntegrationTests;
 /// <summary>
 /// Plan 26 (WU-1, T1+T2): preflight de insumos del período con insumos REALES (nunca fixtures
 /// sintéticas). Cubre:
-///   - R-F-1/R-F-2/R-F-3 (S1): Prueba2 2026082 → UN error con los 5 archivos de conciliación
+///   - R-F-1/R-F-2/R-F-3 (S1): Agosto-2 2026082 → UN error con los 5 archivos de conciliación
 ///     enumerados de una vez, en lenguaje administrativo, sin iniciar el procesamiento.
 ///   - R-F-4 (S2/S3): períodos completos Q1/Q2 → CERO faltantes; Q1 no exige reportes de Q2.
 ///   - R-F-2 (S4/S6): agregación de faltantes múltiples y carpeta parcial.
@@ -20,12 +20,12 @@ namespace Remuneracion.IntegrationTests;
 /// </summary>
 public sealed class PreflightInsumosTests
 {
-    // ── S1 / R-F-1 / R-F-2 / R-F-3: el caso real Prueba2 ───────────────────────────────────────
+    // ── S1 / R-F-1 / R-F-2 / R-F-3: el caso real Agosto-2 ───────────────────────────────────────
 
     [Fact]
-    public void Preflight_Prueba2SinConciliaciones_ListaLosCincoDeUnaVez_YNoInicia()
+    public void Preflight_AgostoSinConciliaciones_ListaLosCincoDeUnaVez_YNoInicia()
     {
-        // Plan 27: Prueba2 YA trae Conciliaciones/ (corregidas por el usuario); el escenario
+        // Plan 27: Agosto-2 YA trae Conciliaciones/ (corregidas por el usuario); el escenario
         // "carpeta ausente" del Plan 26 se reproduce sobre una copia temporal (insumo real).
         var carpeta = CopiarPeriodo(Insumos.CarpetaInsumosAgosto);
         Directory.Delete(Path.Combine(carpeta, "Conciliaciones"), recursive: true);
@@ -201,7 +201,7 @@ public sealed class PreflightInsumosTests
     [Fact]
     public void Preflight_Mensaje_SinJergaTecnica_ConNombresReconocibles()
     {
-        // Plan 27: Prueba2 ya trae Conciliaciones/; se reproduce el escenario incompleto en temp
+        // Plan 27: Agosto-2 ya trae Conciliaciones/; se reproduce el escenario incompleto en temp
         // para que el mensaje siga ejercitando el ítem de la carpeta ausente con nombres reales.
         var carpeta = CopiarPeriodo(Insumos.CarpetaInsumosAgosto);
         Directory.Delete(Path.Combine(carpeta, "Conciliaciones"), recursive: true);

@@ -16,17 +16,18 @@ namespace Remuneracion.IntegrationTests;
 /// reorganización de insumos (T6 bloqueado y la plantilla control Q2 eliminada a propósito).
 ///
 /// B1 (S4, G2): el RESUMEN MES de <c>{2026072}/Conciliaciones/</c> (VALOR 2°Q en F/G) es copia
-/// 1:1 (dif 0) de las hojas <c>Recaudo *</c> del golden Q2 <c>Remuneracion 202607-2 Total.xlsx</c>.
+/// 1:1 (dif 0) de las hojas <c>Recaudo *</c> del golden Q2
+/// <c>Docs/Prueba Julio-2/Resultado/Remuneracion 202607-2 Total Administrativo.xlsx</c>.
 /// B2 (S3, regresión Q1): idem con <c>{2026071}/Conciliaciones/</c> (VALOR 1°Q en D/E) contra el
-/// golden Q1 <c>Remuneracion 202607-1 Total.xlsx</c>.
+/// canónico Q1 <c>Docs/Prueba Julio-1/Plantilla_Remuneracion.xlsx</c>.
 /// B3 (S6/R-G3-2): el reader R10 expone el DetRetri por ASE (D9:D13) + total (D14) de ambos
 /// períodos (58.210.094.822 Q1 / 72.441.209.168 Q2; rangos 01-15/07 y 16-31/07).
 /// B4 (S7): fail-fast sin R10 (nombra período + ruta) y divergencia &gt;±0.5 del DetRetri
 /// calculado contra el R10 (nombra período + archivo + ambos valores), sobre fixtures temporales.
 ///
-/// Todos los insumos referenciados EXISTEN en <c>Docs/Insumos</c> (nunca <c>Consolidado/</c> ni
-/// plantillas eliminadas). Los casos negativos copian el período a temp: <c>Docs/Insumos</c> no se
-/// toca.
+/// Todos los insumos referenciados EXISTEN en disco (nunca <c>Consolidado/</c> ni plantillas
+/// eliminadas). Los casos negativos copian el período a temp: las carpetas de insumos no se
+/// tocan.
 /// </summary>
 public sealed class GoldenResumenMesYR10Tests
 {

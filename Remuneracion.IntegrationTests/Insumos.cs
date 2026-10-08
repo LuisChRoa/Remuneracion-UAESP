@@ -5,8 +5,9 @@ using Xunit;
 namespace Remuneracion.IntegrationTests;
 
 /// <summary>
-/// Fixtures compartidos de los insumos reales Q1 (Docs/Insumos). Nombres reales de carpeta
-/// (cuidado con la tilde de "5-Área Limpia") y archivos prefix-based (mismo patrón del locator).
+/// Fixtures compartidos de los insumos reales Q1 (<c>Docs/Prueba Julio-1/Insumos</c>). Nombres
+/// reales de carpeta (cuidado con la tilde de "5-Área Limpia") y archivos prefix-based (mismo
+/// patrón del locator).
 /// </summary>
 internal static class Insumos
 {
@@ -17,7 +18,7 @@ internal static class Insumos
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            if (File.Exists(Path.Combine(dir.FullName, "AGENTS.md")) && Directory.Exists(Path.Combine(dir.FullName, "Docs", "Insumos")))
+            if (File.Exists(Path.Combine(dir.FullName, "AGENTS.md")))
             {
                 return dir.FullName;
             }
@@ -25,12 +26,13 @@ internal static class Insumos
             dir = dir.Parent;
         }
 
-        throw new DirectoryNotFoundException("No se encontró la raíz del repositorio con Docs/Insumos.");
+        throw new DirectoryNotFoundException("No se encontró la raíz del repositorio (AGENTS.md).");
     }
 
-    public static string Plantilla => Path.Combine(Raiz(), "Docs", "Insumos", "Remuneracion 202607-1 Total.xlsx");
+    /// <summary>Plantilla canónica en ceros del período Q1 (<c>Docs/Prueba Julio-1</c>).</summary>
+    public static string Plantilla => Path.Combine(Raiz(), "Docs", "Prueba Julio-1", "Plantilla_Remuneracion.xlsx");
 
-    public static string CarpetaPeriodo => Path.Combine(Raiz(), "Docs", "Insumos", "REMUNERACION 2026071");
+    public static string CarpetaPeriodo => Path.Combine(Raiz(), "Docs", "Prueba Julio-1", "Insumos");
 
     public static string[] CarpetasAse => new[]
     {
@@ -102,19 +104,43 @@ internal static class Insumos
     // ── HU-11 (2.5): insumos Q2 ──────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// HU-11 (2.5, T0-0.1): golden canónico Q2 (coincide con la referencia en los valores
-    /// cacheados de validación). SHA256 95825422… HU-20-T0: la reorganización de insumos lo
-    /// renombró a <c>Plantilla_ Remuneracion 202607-2.xlsx</c> (mismo hash canónico).
+    /// HU-11 (2.5, T0-0.1): plantilla canónica en ceros Q2 (fórmulas sin caché),
+    /// <c>Docs/Prueba Julio-2/Plantilla_Remuneracion.xlsx</c>.
     /// </summary>
-    public static string PlantillaQ2 => Path.Combine(Raiz(), "Docs", "Insumos", "REMUNERACION 2026072", "Plantilla_ Remuneracion 202607-2.xlsx");
+    public static string PlantillaQ2 => Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Plantilla_Remuneracion.xlsx");
 
     /// <summary>
     /// HU-11 (2.5, T0-0.1): golden de VALORES Q2 (referencia completada) usado como caché en la
-    /// Capa A (D85:D89, D104:D109, AJUSTES-SF-T). SHA256 58431010…
+    /// Capa A (D85:D89, D104:D109, AJUSTES-SF-T). Es el manual del administrativo
+    /// <c>Docs/Prueba Julio-2/Resultado/Remuneracion 202607-2 Total Administrativo.xlsx</c>,
+    /// byte-idéntico al golden Q2 previo a la reorganización de insumos (mismo SHA256 58431010…,
+    /// verificado en disco).
     /// </summary>
-    public static string GoldenQ2 => Path.Combine(Raiz(), "Docs", "Insumos", "Remuneracion 202607-2 Total.xlsx");
+    public static string GoldenQ2 => ManualJulioQ2;
 
-    public static string CarpetaPeriodoQ2 => Path.Combine(Raiz(), "Docs", "Insumos", "REMUNERACION 2026072");
+    /// <summary>
+    /// Manual del administrativo de julio-Q2
+    /// (<c>Docs/Prueba Julio-2/Resultado/Remuneracion 202607-2 Total Administrativo.xlsx</c>):
+    /// golden de valores y referencia de brechas del comparador.
+    /// </summary>
+    public static string ManualJulioQ2 => Path.Combine(
+        Raiz(), "Docs", "Prueba Julio-2", "Resultado", "Remuneracion 202607-2 Total Administrativo.xlsx");
+
+    /// <summary>
+    /// Plan 29 (T5): salida de la app del período Q2 de julio
+    /// (<c>Docs/Prueba Julio-2/Resultado/Resultado{numero}/Remuneración 202607-2 Total.xlsx</c>).
+    /// </summary>
+    public static string ResultadoJulioQ2(int numero) => Path.Combine(
+        Raiz(), "Docs", "Prueba Julio-2", "Resultado", $"Resultado{numero}", "Remuneración 202607-2 Total.xlsx");
+
+    /// <summary>
+    /// Plan 29 (T5): salida de la app del período Q2 de agosto
+    /// (<c>Docs/Prueba Agosto-2/Resultado/Resultado{numero}/Remuneración 202608-2 Total.xlsx</c>).
+    /// </summary>
+    public static string ResultadoAgostoQ2(int numero) => Path.Combine(
+        Raiz(), "Docs", "Prueba Agosto-2", "Resultado", $"Resultado{numero}", "Remuneración 202608-2 Total.xlsx");
+
+    public static string CarpetaPeriodoQ2 => Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Insumos");
 
     public static string[] CarpetasAseQ2 => new[]
     {
@@ -152,7 +178,7 @@ internal static class Insumos
     }
 
     /// <summary>
-    /// Plan 27 (T3): las 15 conciliaciones reales en disco (5 Q1 + 5 Q2 + 5 agosto Prueba2).
+    /// Plan 27 (T3): las 15 conciliaciones reales en disco (5 Q1 + 5 Q2 + 5 agosto).
     /// </summary>
     public static IReadOnlyList<string> ConciliacionesReales() =>
     [
@@ -230,15 +256,15 @@ internal static class Insumos
         return archivo!;
     }
 
-    // ── HU-22 (Plan 23): insumos de agosto (Docs/Prueba2/Insumos) ───────────────────────────
+    // ── HU-22 (Plan 23): insumos de agosto (Docs/Prueba Agosto-2/Insumos) ────────────────────
 
     /// <summary>
-    /// HU-22 (Plan 23): raíz de los insumos de agosto (<c>Docs/Prueba2/Insumos</c>), usados para
-    /// ejercitar la opcionalidad de <c>Vlr Intereses</c> (ASE2 sin la fila, T0d §5.1).
+    /// HU-22 (Plan 23): raíz de los insumos de agosto (<c>Docs/Prueba Agosto-2/Insumos</c>),
+    /// usados para ejercitar la opcionalidad de <c>Vlr Intereses</c> (ASE2 sin la fila, T0d §5.1).
     /// </summary>
-    public static string CarpetaInsumosAgosto => Path.Combine(Raiz(), "Docs", "Prueba2", "Insumos");
+    public static string CarpetaInsumosAgosto => Path.Combine(Raiz(), "Docs", "Prueba Agosto-2", "Insumos");
 
-    /// <summary>Plan 27 (T3): período de agosto Q2 (Prueba2, <c>2026082</c>).</summary>
+    /// <summary>Plan 27 (T3): período de agosto Q2 (<c>2026082</c>).</summary>
     public static Periodo PeriodoAgosto() => new() { CodigoAAAAMM = "202608", NumeroQuincena = 2 };
 
     /// <summary>
@@ -248,14 +274,14 @@ internal static class Insumos
     /// <see cref="BaseConsistente2026082Tests"/>.
     /// </summary>
     public static string PlantillaAgosto2026082 =>
-        Path.Combine(Raiz(), "Docs", "Prueba2", "Plantilla_Remuneracion_2026082.xlsx");
+        Path.Combine(Raiz(), "Docs", "Prueba Agosto-2", "Plantilla_Remuneracion.xlsx");
 
     /// <summary>
     /// Plan 30 (T3, D-E): manual del administrativo de agosto (<c>202608-2</c>), fuente de los
     /// metadatos de período y de las columnas Q1 (D:E) que la base hereda celda por celda.
     /// </summary>
     public static string ManualAgosto2026082 => Path.Combine(
-        Raiz(), "Docs", "Prueba2", "Resultado", "Resultado Manual por el administrativo",
+        Raiz(), "Docs", "Prueba Agosto-2", "Resultado", "Resultado Manual por el administrativo",
         "Remuneracion 202608-2 Total_7721.xlsx");
 
     public static string[] CarpetasAseAgosto => new[]
@@ -300,8 +326,8 @@ internal static class Insumos
     }
 
     // ── Plan 29 (T2, Unidad R): insumos julio-Q2 (Docs/Prueba Julio-2/Insumos) ──────────────
-    // Mismos archivos que el canónico REMUNERACION 2026072 (byte-idénticos), expuestos con la
-    // ruta literal que cita la evidencia T0b (`plans/29-T0-Evidencia-B.md`).
+    // Es la misma carpeta que el período Q2 (CarpetaPeriodoQ2), expuesta con la ruta literal que
+    // cita la evidencia T0b (`plans/29-T0-Evidencia-B.md`).
 
     /// <summary>Plan 29 (T2): raíz de los insumos de julio-Q2 (<c>Docs/Prueba Julio-2/Insumos</c>).</summary>
     public static string CarpetaInsumosJulioQ2 => Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Insumos");
@@ -329,7 +355,7 @@ internal static class Insumos
 
     /// <summary>
     /// Plan 29 (T2): <c>RerpoteDetalleSaldosaFavor_*</c> de agosto-Q2 (R2) del ASE
-    /// (<c>Docs/Prueba2/Insumos</c>).
+    /// (<c>Docs/Prueba Agosto-2/Insumos</c>).
     /// </summary>
     public static string R2AgostoQ2(int aseId) =>
         Buscar(CarpetasAseAgosto[aseId - 1], "RerpoteDetalleSaldosaFavor", $"R2 agosto-Q2 ASE{aseId}");

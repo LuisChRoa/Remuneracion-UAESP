@@ -92,11 +92,8 @@ public sealed class WorkbookLeafInputsTests
 
     private static (string Plantilla, string R1, string R2, string R4) ResolverInsumos()
     {
-        var raiz = BuscarRaizRepo()
-            ?? throw new DirectoryNotFoundException("No se encontró la raíz del repositorio con Docs/Insumos.");
-
-        var plantilla = Path.Combine(raiz, "Docs", "Insumos", "Remuneracion 202607-1 Total.xlsx");
-        var carpeta = Path.Combine(raiz, "Docs", "Insumos", "REMUNERACION 2026071", "1-Promoambiental");
+        var plantilla = Insumos.Plantilla;
+        var carpeta = Path.Combine(Insumos.CarpetaPeriodo, "1-Promoambiental");
         var r1 = Path.Combine(carpeta, "Recaudoporcomponente_to_date01072026ddMMyyyy_to_date15072026ddMMyyyy___20267161653925.xlsx");
         var r2 = Path.Combine(carpeta, "RerpoteDetalleSaldosaFavor_to_date01072026ddMMyyyy_to_date15072026ddMMyyyy___202671616325453.xlsx");
         var r4 = Path.Combine(carpeta, "ReversiónPorComponente_to_date01072026ddMMyyyy_to_date15072026ddMMyyyy___2026716163221489.xlsx");
@@ -106,21 +103,5 @@ public sealed class WorkbookLeafInputsTests
         Assert.True(File.Exists(r2), $"Falta R2: {r2}");
         Assert.True(File.Exists(r4), $"Falta R4: {r4}");
         return (plantilla, r1, r2, r4);
-    }
-
-    private static string? BuscarRaizRepo()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            if (File.Exists(Path.Combine(dir.FullName, "AGENTS.md")) && Directory.Exists(Path.Combine(dir.FullName, "Docs", "Insumos")))
-            {
-                return dir.FullName;
-            }
-
-            dir = dir.Parent;
-        }
-
-        return null;
     }
 }

@@ -8,7 +8,7 @@ namespace Remuneracion.IntegrationTests;
 /// (TOT_OPT F, total TDF G, EXTEMP F) por ASE, transcritos EXACTAMENTE de los manuales del
 /// administrativo (solo lectura ZIP+XML BCL, sin Excel/COM) y con cita de archivo + celda por valor.
 ///
-/// Fuente agosto: <c>Docs/Prueba2/Resultado/Resultado Manual por el administrativo/Remuneracion 202608-2 Total_7721.xlsx</c>
+/// Fuente agosto: <c>Docs/Prueba Agosto-2/Resultado/Resultado Manual por el administrativo/Remuneracion 202608-2 Total_7721.xlsx</c>
 /// Fuente julio:  <c>Docs/Prueba Julio-2/Resultado/Remuneracion 202607-2 Total Administrativo.xlsx</c>
 ///
 /// <see cref="TotalesR1EsperadosTests"/> re-lee el disco y delata cualquier drift del manual contra
@@ -33,7 +33,7 @@ internal static class TotalesR1Esperados
     public sealed record VisibleR1(int AseId, string Celda, string Etiqueta, string? Formula, string Cita);
 
     public const string Hoja = "Reporte Componentes R1";
-    public const string ManualAgostoRelativo = @"Docs\Prueba2\Resultado\Resultado Manual por el administrativo\Remuneracion 202608-2 Total_7721.xlsx";
+    public const string ManualAgostoRelativo = @"Docs\Prueba Agosto-2\Resultado\Resultado Manual por el administrativo\Remuneracion 202608-2 Total_7721.xlsx";
     public const string ManualJulioRelativo = @"Docs\Prueba Julio-2\Resultado\Remuneracion 202607-2 Total Administrativo.xlsx";
 
     /// <summary>Manual agosto 202608-2 (E2 congelado: TOT_OPT / TDF / EXTEMP por ASE).</summary>

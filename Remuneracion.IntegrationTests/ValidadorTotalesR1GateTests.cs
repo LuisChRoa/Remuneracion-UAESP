@@ -11,8 +11,9 @@ namespace Remuneracion.IntegrationTests;
 /// T2 (recomposición por firma en el pase final del mutador) cierra el rojo intencional de T1.
 ///
 /// Corre el flujo 5-ASE end-to-end contra la plantilla en ceros del período (julio:
-/// <c>Docs/Plantilla_Remuneracion.xlsx</c>; agosto: base <c>Plantilla_Remuneracion_2026082.xlsx</c>,
-/// Plan 30/T3) hacia una ruta TEMPORAL con insumos REALES, y luego valida con
+/// <c>Docs/Prueba Julio-2/Plantilla_Remuneracion.xlsx</c>; agosto: base
+/// <c>Docs/Prueba Agosto-2/Plantilla_Remuneracion.xlsx</c>, Plan 30/T3) hacia una ruta TEMPORAL con
+/// insumos REALES, y luego valida con
 /// <see cref="ValidadorTotalesR1Workbook"/> contra los leafs (dominio por firma):
 ///   - Julio-2026072 (geometría = plantilla): el gate CIERRA (identidad, D-E).
 ///   - Agosto-2026082 (la fuente recorta en la cabeza): tras T2 el gate CIERRA: los visibles
@@ -22,7 +23,7 @@ namespace Remuneracion.IntegrationTests;
 /// </summary>
 public sealed class ValidadorTotalesR1GateTests
 {
-    private const string RutaPlantillaJulio = "Docs";
+    private static readonly string RutaPlantillaJulio = Insumos.PlantillaQ2;
 
     // S1 (R-G-1): julio-2026072 -> gate VERDE contra la salida base de julio.
     [Fact]
@@ -32,7 +33,7 @@ public sealed class ValidadorTotalesR1GateTests
         var resultado = Ejecutar(
             new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 },
             Insumos.CarpetaInsumosJulioQ2,
-            Path.Combine(Insumos.Raiz(), RutaPlantillaJulio, "Plantilla_Remuneracion.xlsx"),
+            RutaPlantillaJulio,
             salida.Ruta);
 
         var gate = new ValidadorTotalesR1Workbook();

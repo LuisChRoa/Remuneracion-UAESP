@@ -17,7 +17,8 @@ namespace Remuneracion.IntegrationTests;
 ///
 /// Evidencia: <c>plans/25 - roles-r1-q2-por-firma-sobre-secuencia-espejo.md</c> y
 /// <c>plans/24 - T0 Evidencia.md</c>. Verificación SOLO con insumos reales de
-/// <c>Docs/Insumos</c> (julio) y <c>Docs/Prueba2</c> (agosto); sin fixtures de valores.
+/// <c>Docs/Prueba Julio-1/Insumos</c> (julio) y <c>Docs/Prueba Agosto-2/Insumos</c> (agosto); sin
+/// fixtures de valores.
 /// </summary>
 public sealed class R1Q2ResolucionPorFirmaTests
 {
@@ -167,9 +168,9 @@ public sealed class R1Q2ResolucionPorFirmaTests
     }
 
     /// <summary>
-    /// Copia temporal del período 2026082: insumos REALES de <c>Docs/Prueba2/Insumos</c> (5 ASE +
-    /// R10) más las conciliaciones reales del canónico Q2 de julio (limitación declarada: Prueba2
-    /// no trae <c>Conciliaciones/</c>).
+    /// Copia temporal del período 2026082: insumos REALES de <c>Docs/Prueba Agosto-2/Insumos</c> (5 ASE +
+    /// R10) más las conciliaciones reales del canónico Q2 de julio (limitación declarada: la carpeta de
+    /// agosto no trae <c>Conciliaciones/</c>).
     /// </summary>
     private static string PrepararPeriodoAgosto()
     {

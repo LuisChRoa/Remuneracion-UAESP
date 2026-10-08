@@ -11,7 +11,7 @@ namespace Remuneracion.IntegrationTests;
 /// <summary>
 /// HU-12 (2.6 ampliada, plan §4 Fase 0 — Unidad 0/PR1): EVIDENCIA T0 réplica-HU-07 sobre Q2.
 /// Congela <see cref="WorkbookLeafCellMapQ2"/> contra el canónico
-/// (<c>Plantilla_ Remuneracion 202607-2.xlsx</c>) con dumps valor-vs-fórmula:
+/// (<c>Docs/Prueba Julio-2/Plantilla_Remuneracion.xlsx</c>) con dumps valor-vs-fórmula:
 /// operandos editables = VALORES, visibles R1/R2/R4-Q2 + CONSOLIDADO + DetRetri/DetValiRetri +
 /// protegidas adicionales = FÓRMULA con los fragmentos exactos, y M1 estructural
 /// (<c>ProtegidasBceParaPeriodo(true)</c> matchea celdas reales del canónico).

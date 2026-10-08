@@ -7,7 +7,7 @@ namespace Remuneracion.IntegrationTests;
 /// <summary>
 /// Plan 29 (T2, Unidad R — SOLO LECTURA): el lector de detalle R2/R4 extrae la matriz por
 /// componente de las fuentes REALES (julio-Q2 <c>Docs/Prueba Julio-2/Insumos</c> y agosto-Q2
-/// <c>Docs/Prueba2/Insumos</c>), resolviendo las filas por LABEL (A–D) y las columnas por
+/// <c>Docs/Prueba Agosto-2/Insumos</c>), resolviendo las filas por LABEL (A–D) y las columnas por
 /// ENCABEZADO de componente, tolerante a la deriva de la malla entre períodos (veredicto T0b).
 ///
 /// Cubre: S3 (detalle R2 ASE1-julio: Vlr Servicio/Total = 104754634.94), S4 (detalle R4 ASE1-julio:

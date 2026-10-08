@@ -12,10 +12,10 @@ namespace Remuneracion.IntegrationTests;
 /// <summary>
 /// HU-11 (2.5, plan §2.7 Capa A Q2): matriz golden contra el golden canónico Q2.
 ///
-/// Golden canónico (T0-0.1): <c>Plantilla_ Remuneracion 202607-2.xlsx</c>
-/// (coincide con la referencia en los valores cacheados de validación; SHA256 95825422…).
-/// Golden de VALORES (caché): <c>Remuneracion 202607-2 Total.xlsx</c> (D85:D89, D104:D109,
-/// AJUSTES-SF-T D47:D51). La otra plantilla = control, NUNCA oráculo (G6/D8).
+/// Golden canónico (T0-0.1): <c>Docs/Prueba Julio-2/Plantilla_Remuneracion.xlsx</c> (fórmulas).
+/// Golden de VALORES (caché): <c>Docs/Prueba Julio-2/Resultado/Remuneracion 202607-2 Total
+/// Administrativo.xlsx</c> (D85:D89, D104:D109, AJUSTES-SF-T D47:D51). La otra plantilla = control,
+/// NUNCA oráculo (G6/D8).
 ///
 /// RECORTE HONESTO T0-0.6 (Riesgo 5): el path completo del PROCESADOR Q2 no es certificable
 /// end-to-end porque el R1 de ASE5-Q2 DIVERGE del Q1 (solo 2 filas Mes/Total vs 3 que exige el

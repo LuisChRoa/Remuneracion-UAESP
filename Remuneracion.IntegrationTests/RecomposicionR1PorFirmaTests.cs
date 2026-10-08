@@ -74,7 +74,7 @@ public sealed class RecomposicionR1PorFirmaTests
     public void S4_Julio_IdentidadByteIdenticaYTextoManual()
     {
         using var salida = new SalidaTemporal("remuneracion-recomp-r1-julio-");
-        var plantilla = Path.Combine(Insumos.Raiz(), "Docs", "Plantilla_Remuneracion.xlsx");
+        var plantilla = Insumos.PlantillaQ2;
         Ejecutar(
             new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 },
             Insumos.CarpetaInsumosJulioQ2,

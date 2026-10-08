@@ -161,7 +161,7 @@ public sealed class EspejoR1Tests
 
     private static string AgostoR1(int aseId)
     {
-        var carpeta = Path.Combine(Insumos.Raiz(), "Docs", "Prueba2", "Insumos");
+        var carpeta = Insumos.CarpetaInsumosAgosto;
         Assert.True(Directory.Exists(carpeta), $"Falta la carpeta de agosto: {carpeta}");
         var dir = Directory.EnumerateDirectories(carpeta)
             .First(d => Path.GetFileName(d).StartsWith($"{aseId}-", StringComparison.OrdinalIgnoreCase));
