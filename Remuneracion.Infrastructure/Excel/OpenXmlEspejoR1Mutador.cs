@@ -1059,7 +1059,11 @@ internal static class OpenXmlEspejoR1Mutador
 
     /// <summary>
     /// Filas-dato OPORTUNO del sub-bloque de <paramref name="empresa"/> (firma <c>EsDatoEmpresa</c> que
-    /// NO cierra una sección de <c>Aplicacion nuevos x reversion</c>), descendente (forma del manual).
+    /// la frontera de sección clasifica como Oportuno, no como Aplicación), descendente (forma del
+    /// manual). Plan 35 (T2, D-A): la clasificación la resuelve el predicado puro único
+    /// <see cref="R1FirmaInterior.EsAplicacionPorFrontera"/> (regla E2) — antes era un predicado de
+    /// adyacencia (<c>Filas[i+1].EsAplicacionTotal</c>) que fallaba cuando la empresa-dato no cerraba su
+    /// sección (causa F463).
     /// </summary>
     private static IReadOnlyList<int> MesOportuno(BloqueEspejoAseInputs bloque, IReadOnlyList<Row> dataRows, string empresa)
     {
@@ -1071,7 +1075,7 @@ internal static class OpenXmlEspejoR1Mutador
                 continue;
             }
 
-            if (i + 1 < bloque.Filas.Count && bloque.Filas[i + 1].EsAplicacionTotal)
+            if (EsAplicacionDeFila(bloque, empresa, i))
             {
                 continue;
             }
@@ -1085,7 +1089,9 @@ internal static class OpenXmlEspejoR1Mutador
     /// <summary>
     /// Filas-dato de <c>Aplicacion nuevos x reversion</c> del sub-bloque. Con contexto TOTAL (o vacío)
     /// son las filas <c>EsAplicacionTotal</c> del bloque; con una empresa, las <c>EsDatoEmpresa</c> que
-    /// cierran una sección de Aplicacion. Descendente (forma del manual).
+    /// la frontera de sección clasifica como Aplicación. Descendente (forma del manual). Plan 35 (T2,
+    /// D-A): comparte el predicado puro <see cref="R1FirmaInterior.EsAplicacionPorFrontera"/> con
+    /// <see cref="MesOportuno"/> (un solo punto de verdad).
     /// </summary>
     private static IReadOnlyList<int> FilasAplic(BloqueEspejoAseInputs bloque, IReadOnlyList<Row> dataRows, string empresa)
     {
@@ -1096,9 +1102,7 @@ internal static class OpenXmlEspejoR1Mutador
             var fila = bloque.Filas[i];
             var aplica = global
                 ? fila.EsAplicacionTotal
-                : R1FirmaInterior.EsDatoEmpresa(fila, empresa)
-                    && i + 1 < bloque.Filas.Count
-                    && bloque.Filas[i + 1].EsAplicacionTotal;
+                : R1FirmaInterior.EsDatoEmpresa(fila, empresa) && EsAplicacionDeFila(bloque, empresa, i);
             if (aplica)
             {
                 resultado.Add(IndiceDe(dataRows[i]));
@@ -1106,6 +1110,25 @@ internal static class OpenXmlEspejoR1Mutador
         }
 
         return resultado.OrderByDescending(r => r).ToList();
+    }
+
+    /// <summary>
+    /// Plan 35 (T2, D-A): clasifica la fila-dato de empresa <paramref name="indice"/> como Aplicación
+    /// (<c>true</c>) u Oportuno (<c>false</c>) con la regla de frontera E2 (próxima
+    /// <c>EsMesTotal || EsAplicacionTotal</c> por debajo). Fail-fast enriquecido si la frontera no
+    /// resuelve (nunca 0 silencioso): nombra ASE + empresa + firma de la fila.
+    /// </summary>
+    private static bool EsAplicacionDeFila(BloqueEspejoAseInputs bloque, string empresa, int indice)
+    {
+        var clasificacion = R1FirmaInterior.EsAplicacionPorFrontera(bloque.Filas, indice);
+        if (clasificacion is null)
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"Espejo R1 (Plan 35/T2-interior): ASE {bloque.Ase.Id}: la fila-dato '{empresa}' (índice {indice}, firma '{bloque.Filas[indice].Firma}') no tiene frontera EsMes/EsAplic por debajo; no se puede clasificar.");
+        }
+
+        return clasificacion.Value;
     }
 
     /// <summary>

@@ -108,6 +108,37 @@ public static class R1FirmaInterior
             && EsTotal(fila.E);
     }
 
+    /// <summary>
+    /// Plan 35 (T2, D-A — regla E2): clasifica la fila-dato de empresa <paramref name="indice"/> como
+    /// <c>true</c> (Aplicación) o <c>false</c> (Oportuno) según la <b>frontera de sección</b>: la
+    /// próxima fila por debajo que sea <see cref="FilaEspejoR1.EsMesTotal"/> o
+    /// <see cref="FilaEspejoR1.EsAplicacionTotal"/>. Si esa próxima frontera es <c>Aplicacion</c>, la
+    /// fila-dato pertenece a la sección de Aplicación; si es <c>Mes</c>, pertenece a Oportuno.
+    ///
+    /// Es un predicado PURO (sin I/O, sin OpenXML, sin períodos — D-F) y el ÚNICO punto de verdad de la
+    /// clasificación: lo consumen <c>MesOportuno</c> y <c>FilasAplic</c> del mutador del espejo (el
+    /// defecto F463 vivía duplicado como predicado de adyacencia en ambos). Devuelve <c>null</c> si no
+    /// hay ninguna frontera por debajo (el caller decide el fail-fast que nombra ASE + celda + filas —
+    /// nunca 0 silencioso).
+    /// </summary>
+    public static bool? EsAplicacionPorFrontera(IReadOnlyList<FilaEspejoR1> filas, int indice)
+    {
+        ArgumentNullException.ThrowIfNull(filas);
+        ArgumentOutOfRangeException.ThrowIfNegative(indice);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(indice, filas.Count);
+
+        for (var j = indice + 1; j < filas.Count; j++)
+        {
+            var frontera = filas[j];
+            if (frontera.EsMesTotal || frontera.EsAplicacionTotal)
+            {
+                return frontera.EsAplicacionTotal;
+            }
+        }
+
+        return null;
+    }
+
     private static bool EsTotal(string? texto) =>
         string.Equals(texto, "TOTAL", StringComparison.OrdinalIgnoreCase);
 }
