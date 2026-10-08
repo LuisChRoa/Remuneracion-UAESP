@@ -324,6 +324,32 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         resultado.FechaDesde = r10.FechaDesde;
         resultado.FechaHasta = r10.FechaHasta;
 
+        // Plan 31 (T3, R-S-1/R-S-2/D-F): sello de proceso (Fecha de Proceso / Hora) del encabezado
+        // del R10. El mini-T0 congeló que D6/D7 son LITERALES (nunca <f>) y su origen es el propio
+        // R10 (coinciden exactamente con el manual del administrativo: julio 04/08/2026 10:15 AM,
+        // agosto 02/09/2026 07:42 AM). Sin ese sello legible no se inventa una hora de corrida:
+        // fail-fast que nombra período + archivo + celda, sin salida parcial.
+        if (r10.FechaProceso is null || r10.HoraProceso is null)
+        {
+            var celdasProcesoFaltantes = new List<string>();
+            if (r10.FechaProceso is null)
+            {
+                celdasProcesoFaltantes.Add("D6 ('Fecha de Proceso')");
+            }
+
+            if (r10.HoraProceso is null)
+            {
+                celdasProcesoFaltantes.Add("D7 ('Hora')");
+            }
+
+            throw new CalculoInvalidoException(
+                CodigoError.FormatoFuente,
+                $"El R10 del período {solicitud.Periodo.CodigoCompleto} ({Path.GetFileName(rutaR10)}) no trae fecha/hora de proceso legible en la celda {string.Join(" y ", celdasProcesoFaltantes)} de la hoja DetRetri{solicitud.Periodo.CodigoCompleto}; no se puede sellar el proceso y no se genera salida.");
+        }
+
+        resultado.FechaProceso = r10.FechaProceso;
+        resultado.HoraProceso = r10.HoraProceso;
+
         progreso?.Report("Validando coherencia multi-ASE...");
         Log.Information("Validando coherencia multi-ASE...");
         var errores = _validador.Validar(resultado, leafs);

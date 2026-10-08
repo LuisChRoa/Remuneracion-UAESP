@@ -34,10 +34,20 @@ public static class WorkbookLeafCellMapQ2
     public const string HojaR1 = WorkbookLeafCellMap.HojaR1;
     public const string HojaR2 = WorkbookLeafCellMap.HojaR2;
     public const string HojaR4 = WorkbookLeafCellMap.HojaR4;
-    public const string HojaDetRetri = "DetRetri2026072";
-    public const string HojaDetValiRetri = "DetValiRetri2026072";
     public const string HojaInterventoria = "INTERVENTORIA";
     public const string HojaAntExtRev = "ANT EXT-REV";
+
+    /// <summary>
+    /// Hoja DetRetri del período (D-A, Plan 30): se compone del dominio vía
+    /// <see cref="NombresHojaPeriodo.DetRetri(Periodo)"/>, nunca se detecta enumerando hojas.
+    /// </summary>
+    public static string HojaDetRetri(Periodo periodo) => NombresHojaPeriodo.DetRetri(periodo);
+
+    /// <summary>
+    /// Hoja DetValiRetri del período (D-A, Plan 30): se compone del dominio vía
+    /// <see cref="NombresHojaPeriodo.DetValiRetri(Periodo)"/>.
+    /// </summary>
+    public static string HojaDetValiRetri(Periodo periodo) => NombresHojaPeriodo.DetValiRetri(periodo);
 
     /// <summary>
     /// Rol de la fila de la fuente R1-Q2 que alimenta una celda operando del template (T0-0.3).
@@ -101,6 +111,13 @@ public static class WorkbookLeafCellMapQ2
     /// Fórmulas visibles R1-Q2 protegidas por ASE (TOT_OPT + EXTEMP) con sus fragmentos exactos
     /// (T0-0.2). El writer falla si alguna deja de ser fórmula. F46/F48/F519/F521 del mapa Q1
     /// NO están aquí: en Q2 son VALORES 0 (V0.2) y se excluyen de protegidas-fórmula (D5).
+    ///
+    /// Plan 31 (T2, D-B): <b>derogación para las visibles recompuestas</b>. Con el espejo R1
+    /// desplazado (Δ≠0, agosto) estas direcciones/fragmentos congelados a julio dejan de describir
+    /// la geometría real; el pase final del mutador (<c>OpenXmlEspejoR1Mutador.RecomponerVisibles</c>)
+    /// recompone por firma los visibles TOT_OPT/TDF/EXTEMP y el sucesor del gate salteado
+    /// (<c>ValidadorTotalesR1Workbook.ExigirFormaRecompuesta</c>) los valida contra las filas REALES
+    /// del bloque. En julio (Δ=0) esta lista sigue vigente y se valida por dirección absoluta.
     /// </summary>
     public static readonly IReadOnlyDictionary<int, (string Celda, string[] Fragmentos)[]> R1Q2ProtectedPorAse =
         new Dictionary<int, (string, string[])[]>
@@ -245,32 +262,37 @@ public static class WorkbookLeafCellMapQ2
     /// CONSOLIDADO (D23:D28 / D16:D21) y verificaciones booleanas de composición (D32:D36 /
     /// D24:D29). Nunca se escriben; el writer falla si alguna deja de ser fórmula.
     /// </summary>
-    public static readonly (string Hoja, string Celda, string[] Fragmentos)[] DetRetriProtected =
-    [
-        (HojaDetRetri, "D23", ["D9", "CONSOLIDADO_TOTAL RECAUDO", "D104"]),
-        (HojaDetRetri, "D24", ["D10", "CONSOLIDADO_TOTAL RECAUDO", "D105"]),
-        (HojaDetRetri, "D25", ["D11", "CONSOLIDADO_TOTAL RECAUDO", "D106"]),
-        (HojaDetRetri, "D26", ["D12", "CONSOLIDADO_TOTAL RECAUDO", "D107"]),
-        (HojaDetRetri, "D27", ["D13", "CONSOLIDADO_TOTAL RECAUDO", "D108"]),
-        (HojaDetRetri, "D28", ["D14", "CONSOLIDADO_TOTAL RECAUDO", "D109"]),
-        (HojaDetRetri, "D32", ["D23", "F53", "E43", "D73", "F55", "AJUSTES", "D47", "D9"]),
-        (HojaDetRetri, "D33", ["D24", "F206", "E139", "D168", "F208", "AJUSTES", "D48", "D10"]),
-        (HojaDetRetri, "D34", ["D25", "F343", "F345", "E256", "D205", "AJUSTES", "D49", "D11"]),
-        (HojaDetRetri, "D35", ["D26", "F468", "F470", "E358", "D320", "AJUSTES", "D50", "D12"]),
-        (HojaDetRetri, "D36", ["D27", "F558", "F560", "E438", "D355", "AJUSTES", "D51", "D13"]),
-        (HojaDetValiRetri, "D16", ["D9", "CONSOLIDADO_TOTAL RECAUDO", "U104"]),
-        (HojaDetValiRetri, "D17", ["D10", "CONSOLIDADO_TOTAL RECAUDO", "U105"]),
-        (HojaDetValiRetri, "D18", ["D11", "CONSOLIDADO_TOTAL RECAUDO", "U106"]),
-        (HojaDetValiRetri, "D19", ["D12", "CONSOLIDADO_TOTAL RECAUDO", "U107"]),
-        (HojaDetValiRetri, "D20", ["D13", "CONSOLIDADO_TOTAL RECAUDO", "U108"]),
-        (HojaDetValiRetri, "D21", ["D14", "CONSOLIDADO_TOTAL RECAUDO", "U109"]),
-        (HojaDetValiRetri, "D24", ["M53", "M55", "L43", "J73", "D16", "AJUSTES", "U47", "D9"]),
-        (HojaDetValiRetri, "D25", ["M206", "L139", "J168", "M208", "D17", "AJUSTES", "U48", "D10"]),
-        (HojaDetValiRetri, "D26", ["M343", "M345", "L256", "J205", "D18", "AJUSTES", "U49", "D11"]),
-        (HojaDetValiRetri, "D27", ["M468", "M470", "L358", "J320", "D19", "AJUSTES", "U50", "D12"]),
-        (HojaDetValiRetri, "D28", ["M558", "M560", "L438", "J355", "D20", "AJUSTES", "U51", "D13"]),
-        (HojaDetValiRetri, "D29", ["M53", "L43", "J73", "M206", "L139", "J168", "M343", "L256", "J205", "M468", "L358", "J320", "M558", "L438", "J355", "D21", "AJUSTES", "U52", "D14"])
-    ];
+    public static (string Hoja, string Celda, string[] Fragmentos)[] DetRetriProtected(Periodo periodo)
+    {
+        var hojaDetRetri = HojaDetRetri(periodo);
+        var hojaDetValiRetri = HojaDetValiRetri(periodo);
+        return
+        [
+            (hojaDetRetri, "D23", ["D9", "CONSOLIDADO_TOTAL RECAUDO", "D104"]),
+            (hojaDetRetri, "D24", ["D10", "CONSOLIDADO_TOTAL RECAUDO", "D105"]),
+            (hojaDetRetri, "D25", ["D11", "CONSOLIDADO_TOTAL RECAUDO", "D106"]),
+            (hojaDetRetri, "D26", ["D12", "CONSOLIDADO_TOTAL RECAUDO", "D107"]),
+            (hojaDetRetri, "D27", ["D13", "CONSOLIDADO_TOTAL RECAUDO", "D108"]),
+            (hojaDetRetri, "D28", ["D14", "CONSOLIDADO_TOTAL RECAUDO", "D109"]),
+            (hojaDetRetri, "D32", ["D23", "F53", "E43", "D73", "F55", "AJUSTES", "D47", "D9"]),
+            (hojaDetRetri, "D33", ["D24", "F206", "E139", "D168", "F208", "AJUSTES", "D48", "D10"]),
+            (hojaDetRetri, "D34", ["D25", "F343", "F345", "E256", "D205", "AJUSTES", "D49", "D11"]),
+            (hojaDetRetri, "D35", ["D26", "F468", "F470", "E358", "D320", "AJUSTES", "D50", "D12"]),
+            (hojaDetRetri, "D36", ["D27", "F558", "F560", "E438", "D355", "AJUSTES", "D51", "D13"]),
+            (hojaDetValiRetri, "D16", ["D9", "CONSOLIDADO_TOTAL RECAUDO", "U104"]),
+            (hojaDetValiRetri, "D17", ["D10", "CONSOLIDADO_TOTAL RECAUDO", "U105"]),
+            (hojaDetValiRetri, "D18", ["D11", "CONSOLIDADO_TOTAL RECAUDO", "U106"]),
+            (hojaDetValiRetri, "D19", ["D12", "CONSOLIDADO_TOTAL RECAUDO", "U107"]),
+            (hojaDetValiRetri, "D20", ["D13", "CONSOLIDADO_TOTAL RECAUDO", "U108"]),
+            (hojaDetValiRetri, "D21", ["D14", "CONSOLIDADO_TOTAL RECAUDO", "U109"]),
+            (hojaDetValiRetri, "D24", ["M53", "M55", "L43", "J73", "D16", "AJUSTES", "U47", "D9"]),
+            (hojaDetValiRetri, "D25", ["M206", "L139", "J168", "M208", "D17", "AJUSTES", "U48", "D10"]),
+            (hojaDetValiRetri, "D26", ["M343", "M345", "L256", "J205", "D18", "AJUSTES", "U49", "D11"]),
+            (hojaDetValiRetri, "D27", ["M468", "M470", "L358", "J320", "D19", "AJUSTES", "U50", "D12"]),
+            (hojaDetValiRetri, "D28", ["M558", "M560", "L438", "J355", "D20", "AJUSTES", "U51", "D13"]),
+            (hojaDetValiRetri, "D29", ["M53", "L43", "J73", "M206", "L139", "J168", "M343", "L256", "J205", "M468", "L358", "J320", "M558", "L438", "J355", "D21", "AJUSTES", "U52", "D14"])
+        ];
+    }
 
     /// <summary>
     /// Fórmulas protegidas adicionales Q2 (Requirement 5, T0-0.5): REMUNERACION_* por empresa (bloques

@@ -87,6 +87,8 @@ public sealed class ExcelDataReaderDetRetriR10Reader : IDetRetriR10Reader
             CodigoRemuneracion = LeerCodigoRemuneracion(filas, periodo),
             FechaDesde = BuscarFecha(filas, "Fecha Desde", columnaEtiqueta: 5, columnaValor: 6) ?? default,
             FechaHasta = BuscarFecha(filas, "Fecha Hasta", columnaEtiqueta: 8, columnaValor: 9) ?? default,
+            FechaProceso = BuscarFecha(filas, "Fecha de Proceso", columnaEtiqueta: 2, columnaValor: 3),
+            HoraProceso = BuscarHora(filas, "Hora", columnaEtiqueta: 2, columnaValor: 3),
             DetRetriPorAse = porAse,
             Total = total.Value
         };
@@ -158,6 +160,63 @@ public sealed class ExcelDataReaderDetRetriR10Reader : IDetRetriR10Reader
         return DateTime.TryParseExact(texto, formatos, CultureInfo.GetCultureInfo("es-CO"), DateTimeStyles.None, out var exacta)
             ? exacta
             : DateTime.TryParse(texto, CultureInfo.GetCultureInfo("es-CO"), DateTimeStyles.None, out var general) ? general : null;
+    }
+
+    /// <summary>
+    /// Plan 31 (T3, R-S-1): busca la celda de hora cuya etiqueta sea igual al texto normalizado
+    /// esperado ("Hora") y devuelve la hora-del-día de la columna contigua. El R10 la almacena como
+    /// TEXTO en formato 12h (<c>"07:42 AM"</c>). Devuelve <c>null</c> si no existe/no parsea.
+    /// </summary>
+    private static TimeSpan? BuscarHora(List<object?[]> filas, string etiquetaEsperada, int columnaEtiqueta, int columnaValor)
+    {
+        var esperado = Normalizar(etiquetaEsperada);
+        foreach (var fila in filas)
+        {
+            if (!Normalizar(ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(columnaEtiqueta)))
+                .Equals(esperado, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            return ParsearHora(fila.ElementAtOrDefault(columnaValor));
+        }
+
+        return null;
+    }
+
+    private static TimeSpan? ParsearHora(object? valor)
+    {
+        if (valor is TimeSpan hora)
+        {
+            return hora;
+        }
+
+        if (valor is DateTime fecha)
+        {
+            return fecha.TimeOfDay;
+        }
+
+        if (valor is double oa)
+        {
+            // Fracción de día de Excel (0 = 00:00, 0.5 = 12:00).
+            return TimeSpan.FromDays(oa);
+        }
+
+        var texto = ExcelWorksheetNavigator.CeldaTexto(valor)?.Trim();
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            return null;
+        }
+
+        var formatos = new[] { "hh:mm tt", "h:mm tt", "hh:mm:ss tt", "HH:mm", "H:mm", "HH:mm:ss" };
+        if (DateTime.TryParseExact(texto, formatos, CultureInfo.InvariantCulture, DateTimeStyles.None, out var exacta))
+        {
+            return exacta.TimeOfDay;
+        }
+
+        return DateTime.TryParse(texto, CultureInfo.InvariantCulture, DateTimeStyles.None, out var general)
+            ? general.TimeOfDay
+            : null;
     }
 
     /// <summary>

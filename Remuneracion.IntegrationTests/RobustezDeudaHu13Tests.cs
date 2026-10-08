@@ -31,7 +31,7 @@ public sealed class RobustezDeudaHu13Tests
             : (Insumos.GoldenQ2, Insumos.PeriodoQ2());
 
         // Assert protegido: las celdas están en el mapa con presencia de <f> (W2).
-        var protegidas = WorkbookLeafCellMapValidaciones.ProtegidasValidacionesParaPeriodo(quincena);
+        var protegidas = WorkbookLeafCellMapValidaciones.ProtegidasValidacionesParaPeriodo(periodo);
         foreach (var celda in WorkbookLeafCellMapValidaciones.SubBloquesValidacionTotal)
         {
             Assert.Contains(protegidas, p => p.Hoja == WorkbookLeafCellMapValidaciones.HojaValidacionTotal && p.Celda == celda);

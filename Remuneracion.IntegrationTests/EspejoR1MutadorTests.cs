@@ -89,7 +89,11 @@ public sealed class EspejoR1MutadorTests
         {
             new OpenXmlPlantillaWriter().EscribirEspejoR1(Insumos.GoldenQ2, salida, bloques);
             var despues = ContarFormulas(salida, "Reporte Componentes R1");
-            Assert.Equal(antes, despues); // el dimensionado no crea ni destruye fórmulas
+            // Plan 31 (T2): el dimensionado no crea ni destruye fórmulas del bloque; la única
+            // celda-fórmula que cambia de clase es el EXTEMP visible de ASE3-agosto (sin filas
+            // Aplicacion): el pase final de recomposición por firma lo deja como literal 0 (contrato
+            // §2.3 / E2). Neto: una fórmula menos.
+            Assert.Equal(antes - 1, despues);
         }
         finally
         {

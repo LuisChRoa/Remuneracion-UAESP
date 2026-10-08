@@ -50,8 +50,38 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             R4 = esQuincena2 ? MapearR4Q2(ase, filasR4) : MapearR4(ase, filasR4)
         };
 
+        // Plan 29 (T2, Unidad R — SOLO LECTURA): el desglose-detalle por componente de R2/R4 se
+        // construye desde la MISMA observación ya cargada (no re-lee el archivo; R-DOBLE-FUENTE) y
+        // solo en Q2 (alcance T0b: 2026072/2026082 — el detalle es un artefacto del 2° quincena).
+        // Viaja dentro del leaf para que la ESCRITURA de T3 lo consuma; aquí NO se escribe nada.
+        if (esQuincena2)
+        {
+            leaf.DetalleR2 = ConstruirDetalleR2(ase, rutaR2, filasR2);
+            leaf.DetalleR4 = ConstruirDetalleR4(ase, rutaR4, filasR4);
+        }
+
         WorkbookLeafCoherence.ValidarContraFuentes(leaf, r1, r2, r4);
         return leaf;
+    }
+
+    /// <inheritdoc />
+    public DetalleR2AseInputs LeerDetalleR2(Ase ase, string rutaR2)
+    {
+        ArgumentNullException.ThrowIfNull(ase);
+        ArgumentNullException.ThrowIfNull(rutaR2);
+
+        var filas = ExcelWorksheetNavigator.LeerFilas(rutaR2);
+        return ConstruirDetalleR2(ase, rutaR2, filas);
+    }
+
+    /// <inheritdoc />
+    public DetalleR4AseInputs LeerDetalleR4(Ase ase, string rutaR4)
+    {
+        ArgumentNullException.ThrowIfNull(ase);
+        ArgumentNullException.ThrowIfNull(rutaR4);
+
+        var filas = ExcelWorksheetNavigator.LeerFilas(rutaR4);
+        return ConstruirDetalleR4(ase, rutaR4, filas);
     }
 
     /// <inheritdoc />
@@ -291,8 +321,10 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
 
         var fila = filas[indiceTotalGeneral];
 
-        // Veredicto T0-0.2 (hipótesis líder PROBADA en los 5 ASE Q1): template-D (CONTRIBUCION,
-        // positivo) ← columna F-fuente; template-E (SUBSIDIO, negativo) ← columna E-fuente.
+        // Lectura fuente-fiel (header de la fuente, T0a): columnas E=Subsidio (negativo) y
+        // F=Contribución (positivo) de la fila "TOTAL GENERAL". El DESTINO en la plantilla se
+        // corrigió en Plan 29 T1 / T0-V4 (D=SUBSIDIO, E=CONTRIBUCION); este reader NO cambia
+        // (el veredicto viejo del Plan 10 "template-D=CONTRIBUCION" quedó refutado por el header).
         // Columna G-fuente (Valor) = contraparte del gate D5(i) BCE = fuente.
         var subsidio = ExcelWorksheetNavigator.CeldaNumero(fila.ElementAtOrDefault(WorkbookLeafCellMapBalanceSc.ColumnaSubsidioFuente));
         var contribucion = ExcelWorksheetNavigator.CeldaNumero(fila.ElementAtOrDefault(WorkbookLeafCellMapBalanceSc.ColumnaContribucionFuente));
@@ -1712,5 +1744,224 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         }
 
         return 0m;
+    }
+
+    /// <summary>
+    /// Plan 29 (T2, Unidad R): construye la matriz de detalle R2 desde las filas crudas de
+    /// <c>Sheet1</c>. Localiza: (a) la primera fila <c>Vlr Servicio</c> (col D) como corte superior;
+    /// (b) la fila de ENCABEZADOS de componente inmediatamente superior (col E..); (c) la fila de
+    /// cierre <c>Total</c> (col A). Resuelve columnas por NOMBRE de encabezado (nunca índice fijo),
+    /// por lo que sirve para julio (E..P) y agosto (E..Q, con <c>Especiales</c>). Fail-fast que
+    /// nombra ASE + archivo si falta alguna de las tres referencias (nunca valor inventado).
+    /// </summary>
+    private static DetalleR2AseInputs ConstruirDetalleR2(Ase ase, string rutaR2, List<object?[]> filas)
+    {
+        var indicePrimeraFila = filas.FindIndex(f =>
+            ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(3)).Equals("Vlr Servicio", StringComparison.OrdinalIgnoreCase));
+        if (indicePrimeraFila <= 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: la fuente R2 ({Path.GetFileName(rutaR2)}) no trae la fila 'Vlr Servicio' (col D) que delimita el inicio del detalle.");
+        }
+
+        var indiceHeader = indicePrimeraFila - 1;
+        while (indiceHeader > 0 && !FilaTieneTextoDesde(filas[indiceHeader], 4))
+        {
+            indiceHeader--;
+        }
+
+        var (componentes, indicesPorEncabezado) = MapearEncabezadosDesde(filas[indiceHeader], 4);
+        if (componentes.Count == 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: la fuente R2 ({Path.GetFileName(rutaR2)}) no trae encabezados de componente (col E..) en la fila {indiceHeader + 1}.");
+        }
+
+        var indiceTotal = -1;
+        for (var i = indicePrimeraFila; i < filas.Count; i++)
+        {
+            if (ExcelWorksheetNavigator.CeldaTexto(filas[i].ElementAtOrDefault(0)).Equals("Total", StringComparison.OrdinalIgnoreCase))
+            {
+                indiceTotal = i;
+                break;
+            }
+        }
+
+        if (indiceTotal < 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: la fuente R2 ({Path.GetFileName(rutaR2)}) no trae la fila de cierre 'Total' (col A) del detalle.");
+        }
+
+        var tieneEspeciales = indicesPorEncabezado.Keys.Any(k => NormalizarEtiqueta(k) == "especiales");
+        var filasDetalle = new List<DetalleR2Fila>();
+
+        for (var i = indicePrimeraFila; i <= indiceTotal; i++)
+        {
+            var fila = filas[i];
+            var valores = new Dictionary<string, decimal?>(StringComparer.OrdinalIgnoreCase);
+            foreach (var componente in componentes)
+            {
+                valores[componente] = CeldaNumeroONulo(fila.ElementAtOrDefault(indicesPorEncabezado[componente]));
+            }
+
+            var a = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(0));
+            var b = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(1));
+            var c = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(2));
+            var d = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(3));
+
+            var hayTexto = !(string.IsNullOrWhiteSpace(a) && string.IsNullOrWhiteSpace(b)
+                && string.IsNullOrWhiteSpace(c) && string.IsNullOrWhiteSpace(d));
+            var hayValor = componentes.Any(componente => valores[componente] is not null);
+            if (!hayTexto && !hayValor)
+            {
+                continue; // fila fantasma vacía: no forma parte de la secuencia observada
+            }
+
+            // Columna 'Especiales' ausente en la fuente (julio) → 0 explícito por fila (invariante).
+            if (!tieneEspeciales)
+            {
+                valores["Especiales"] = 0m;
+            }
+
+            filasDetalle.Add(new DetalleR2Fila { A = a, B = b, C = c, D = d, ValoresPorComponente = valores });
+        }
+
+        return new DetalleR2AseInputs
+        {
+            Ase = ase,
+            Componentes = componentes,
+            TieneColumnaEspeciales = tieneEspeciales,
+            Filas = filasDetalle
+        };
+    }
+
+    /// <summary>
+    /// Plan 29 (T2, Unidad R): construye la matriz de detalle R4 desde las filas crudas de
+    /// <c>Sheet1</c>. Misma mecánica que <see cref="ConstruirDetalleR2"/>, con la firma A–C
+    /// (concepto en col C) y las columnas de componente a partir de la col D. Fail-fast que nombra
+    /// ASE + archivo si falta la primera <c>Vlr Servicio</c>, la fila de encabezados o el cierre
+    /// <c>Total</c>.
+    /// </summary>
+    private static DetalleR4AseInputs ConstruirDetalleR4(Ase ase, string rutaR4, List<object?[]> filas)
+    {
+        var indicePrimeraFila = filas.FindIndex(f =>
+            ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(2)).Equals("Vlr Servicio", StringComparison.OrdinalIgnoreCase));
+        if (indicePrimeraFila <= 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: la fuente R4 ({Path.GetFileName(rutaR4)}) no trae la fila 'Vlr Servicio' (col C) que delimita el inicio del detalle.");
+        }
+
+        var indiceHeader = indicePrimeraFila - 1;
+        while (indiceHeader > 0 && !FilaTieneTextoDesde(filas[indiceHeader], 3))
+        {
+            indiceHeader--;
+        }
+
+        var (componentes, indicesPorEncabezado) = MapearEncabezadosDesde(filas[indiceHeader], 3);
+        if (componentes.Count == 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: la fuente R4 ({Path.GetFileName(rutaR4)}) no trae encabezados de componente (col D..) en la fila {indiceHeader + 1}.");
+        }
+
+        var indiceTotal = -1;
+        for (var i = indicePrimeraFila; i < filas.Count; i++)
+        {
+            if (ExcelWorksheetNavigator.CeldaTexto(filas[i].ElementAtOrDefault(0)).Equals("Total", StringComparison.OrdinalIgnoreCase))
+            {
+                indiceTotal = i;
+                break;
+            }
+        }
+
+        if (indiceTotal < 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: la fuente R4 ({Path.GetFileName(rutaR4)}) no trae la fila de cierre 'Total' (col A) del detalle.");
+        }
+
+        var filasDetalle = new List<DetalleR4Fila>();
+        for (var i = indicePrimeraFila; i <= indiceTotal; i++)
+        {
+            var fila = filas[i];
+            var valores = new Dictionary<string, decimal?>(StringComparer.OrdinalIgnoreCase);
+            foreach (var componente in componentes)
+            {
+                valores[componente] = CeldaNumeroONulo(fila.ElementAtOrDefault(indicesPorEncabezado[componente]));
+            }
+
+            var a = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(0));
+            var b = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(1));
+            var c = ExcelWorksheetNavigator.CeldaTexto(fila.ElementAtOrDefault(2));
+
+            var hayTexto = !(string.IsNullOrWhiteSpace(a) && string.IsNullOrWhiteSpace(b) && string.IsNullOrWhiteSpace(c));
+            var hayValor = componentes.Any(componente => valores[componente] is not null);
+            if (!hayTexto && !hayValor)
+            {
+                continue;
+            }
+
+            filasDetalle.Add(new DetalleR4Fila { A = a, B = b, C = c, ValoresPorComponente = valores });
+        }
+
+        return new DetalleR4AseInputs
+        {
+            Ase = ase,
+            Componentes = componentes,
+            Filas = filasDetalle
+        };
+    }
+
+    /// <summary>
+    /// Plan 29 (T2): verdad si la fila tiene texto en alguna columna desde <paramref name="desde"/>
+    /// (0-based). Se usa para localizar la fila de encabezados subiendo desde la primera fila de datos.
+    /// </summary>
+    private static bool FilaTieneTextoDesde(object?[]? fila, int desde)
+    {
+        if (fila is null)
+        {
+            return false;
+        }
+
+        for (var j = desde; j < fila.Length; j++)
+        {
+            if (!string.IsNullOrWhiteSpace(ExcelWorksheetNavigator.CeldaTexto(fila[j])))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Plan 29 (T2): encabezados de columna desde <paramref name="desde"/> (0-based) en orden físico,
+    /// con su índice 0-based. Los vacíos se omiten y los duplicados se conservan una sola vez.
+    /// </summary>
+    private static (List<string> Encabezados, Dictionary<string, int> Indices) MapearEncabezadosDesde(object?[] filaHeader, int desde)
+    {
+        var encabezados = new List<string>();
+        var indices = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var j = desde; j < filaHeader.Length; j++)
+        {
+            var texto = ExcelWorksheetNavigator.CeldaTexto(filaHeader[j]);
+            if (string.IsNullOrWhiteSpace(texto))
+            {
+                continue;
+            }
+
+            var encabezado = texto.Trim();
+            if (indices.ContainsKey(encabezado))
+            {
+                continue;
+            }
+
+            indices[encabezado] = j;
+            encabezados.Add(encabezado);
+        }
+
+        return (encabezados, indices);
     }
 }

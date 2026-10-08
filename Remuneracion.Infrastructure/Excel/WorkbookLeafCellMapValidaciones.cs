@@ -36,20 +36,31 @@ public static class WorkbookLeafCellMapValidaciones
     public const string HojaValidaControlRecaudo = "Valida - Control Recaudo";
 
     /// <summary>
+    /// Plan 29 (T5, Unidad P — R-P-3/T0f): celda <c>'Valida - Control Recaudo'!F10</c>, literal de
+    /// control que <c>VALIDACION_TOTAL!C14</c> consume en la cadena <c>C15 = C14 = C9</c>. Su origen
+    /// workbook-interno (por TEXTO de fórmula, D-E) es <c>VALIDACION_TOTAL!C9 = SUM(C3:C8)</c>, donde
+    /// <c>C3:C8</c> = Σ de las hojas <c>Recaudo *</c> <c>F21:F26</c> (bloque TOTAL). El writer la
+    /// puebla como literal; sin ella, C9 (que recibe los recaudos del app) ≠ 0 = F10 ⇒ C15 False.
+    /// </summary>
+    public const string CeldaControlRecaudoTotal = "F10";
+
+    /// <summary>
     /// HU-14 (W-1): sub-bloques booleanos de <c>VALIDACION_TOTAL</c> gateados TRUE exacto por
     /// ASE. Amparo T0-0.4 HU-13 (TRUE en ambos goldens; re-verificado por los tests W-1).
     /// </summary>
     public static readonly IReadOnlyList<string> SubBloquesValidacionTotal = ["C15", "D25", "O25", "D34", "F34"];
 
     /// <summary>
-    /// Sufijo de las hojas DetRetri/DetValiRetri por período: Q1 = 2026071, Q2 = 2026072.
+    /// Hoja DetRetri del período (D-A, Plan 30): se compone del dominio vía
+    /// <see cref="NombresHojaPeriodo.DetRetri(Periodo)"/>, nunca se detecta enumerando hojas.
     /// </summary>
-    public static string SufijoHojasDetRetri(int numeroQuincena) =>
-        numeroQuincena == 2 ? "2026072" : "2026071";
+    public static string HojaDetRetri(Periodo periodo) => NombresHojaPeriodo.DetRetri(periodo);
 
-    public static string HojaDetRetri(int numeroQuincena) => $"DetRetri{SufijoHojasDetRetri(numeroQuincena)}";
-
-    public static string HojaDetValiRetri(int numeroQuincena) => $"DetValiRetri{SufijoHojasDetRetri(numeroQuincena)}";
+    /// <summary>
+    /// Hoja DetValiRetri del período (D-A, Plan 30): se compone del dominio vía
+    /// <see cref="NombresHojaPeriodo.DetValiRetri(Periodo)"/>.
+    /// </summary>
+    public static string HojaDetValiRetri(Periodo periodo) => NombresHojaPeriodo.DetValiRetri(periodo);
 
     /// <summary>
     /// Fila de la hoja VALIDACION_* / VALIDACION_TOTAL que corresponde a un ASE
@@ -74,7 +85,7 @@ public static class WorkbookLeafCellMapValidaciones
     /// DetValiRetri-Q2 ya cubiertos); suma lo que faltaba: P3 y filas 4..7 de VALIDACION_*,
     /// VALIDACION_TOTAL O/P, detalle col-D DetRetri/DetValiRetri Q1 y representantes Valida -*.
     /// </summary>
-    public static IReadOnlyList<(string Hoja, string Celda, string[] Fragmentos)> ProtegidasValidacionesParaPeriodo(int numeroQuincena)
+    public static IReadOnlyList<(string Hoja, string Celda, string[] Fragmentos)> ProtegidasValidacionesParaPeriodo(Periodo periodo)
     {
         var lista = new List<(string, string, string[])>();
 
@@ -108,10 +119,10 @@ public static class WorkbookLeafCellMapValidaciones
         // Detalle Q1 (mapa Q2 ya cubierto por WorkbookLeafCellMapQ2.DetRetriProtected):
         // DetRetri2026071 D23..D28 (diferencias vs CONSOLIDADO D104:D109) y D32..D36
         // (booleanos de composición); DetValiRetri2026071 D16..D21/D24..D29 (columna D).
-        if (numeroQuincena == 1)
+        if (periodo.NumeroQuincena == 1)
         {
-            var hojaDetRetri = HojaDetRetri(1);
-            var hojaDetValiRetri = HojaDetValiRetri(1);
+            var hojaDetRetri = HojaDetRetri(periodo);
+            var hojaDetValiRetri = HojaDetValiRetri(periodo);
             for (var i = 0; i < 6; i++)
             {
                 var fila = 23 + i;

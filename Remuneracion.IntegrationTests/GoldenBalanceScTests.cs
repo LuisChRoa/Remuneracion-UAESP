@@ -12,9 +12,10 @@ namespace Remuneracion.IntegrationTests;
 
 /// <summary>
 /// HU-10 (2.4, plan §2.7): Golden Capa A extendida a 2.4 con insumos Q1 reales.
-/// A1: celdas BCE escritas en la SALIDA (D3:E7 en valores) vs mismas celdas leaf del golden ±0.5.
-/// A2: visibles de DOMINIO por ASE (BCE = fuente con asignación T0; F=D+E; H≈F; sumas fila 11)
-///     vs caché golden de filas 3–7 + fila 11.
+/// A1: celdas BCE escritas en la SALIDA (D3:E7 en valores) con la asignación corregida
+///     T0-V4/Plan 29 (D=SUBSIDIO, E=CONTRIBUCION) — el golden Q1 trae el orden viejo (D=Contribución,
+///     E=Subsidio), se compara por dominio y se verifica F=D+E invariante (permuta conmutativa).
+/// A2: visibles de DOMINIO por ASE (BCE = fuente; F=D+E; H≈F; sumas fila 11) vs caché golden.
 /// A3: F3:F7/H3:H7/I3:I7 + filas 9/10/11/12/13 + bloque 18–24 + CONSOLIDADO J/K/M + refs
 ///     DetRetri/DetValiRetri siguen siendo fórmula en la salida.
 /// A4: SHA256 plantilla origen igual antes/después.
@@ -27,7 +28,10 @@ public sealed class GoldenBalanceScTests
     private const string HojaBce = WorkbookLeafCellMapBalanceSc.HojaBce;
 
     /// <summary>
-    /// Golden Q1 filas 3–7 (caché template, T0-0.5): D=Contribución(+), E=Subsidio(−), F=D+E, H.
+    /// Golden Q1 filas 3–7 (caché template, T0-0.5). ATENCIÓN (Plan 29 T1 / T0-V4): este golden se
+    /// generó con la app ANTES del fix, así que sus celdas visibles traen el orden viejo
+    /// D=Contribución(+), E=Subsidio(−). Los valores de dominio siguen siendo los mismos:
+    /// D (y por tanto <c>d</c>) = Contribución; E (y <c>e</c>) = Subsidio.
     /// </summary>
     private static readonly (int Ase, decimal D, decimal E, decimal F, decimal H)[] Golden =
     [
@@ -79,23 +83,33 @@ public sealed class GoldenBalanceScTests
                 -Tolerancia, Tolerancia); // BCE = fuente (gate D5-i)
         }
 
-        // ---- A1: celdas BCE escritas en la SALIDA (D/E en valores) vs mismas celdas leaf del golden ----
+        // ---- A1: celdas BCE escritas en la SALIDA (D=SUBSIDIO, E=CONTRIBUCION) vs los valores de
+        // dominio de la fuente (e=Subsidio, d=Contribución). Plan 29 T1 / T0-V4: el header de la
+        // plantilla manda; el golden Q1 tiene D/E en el orden viejo (lo generó la app antes del
+        // fix), así que NO se compara celda-golden contra celda-salida sino contra el dominio, y
+        // se verifica que F = D + E queda invariante (permuta conmutativa). ----
         foreach (var (aseId, d, e, _, _) in Golden)
         {
             var celdaD = $"D{aseId + 2}";
             var celdaE = $"E{aseId + 2}";
             var escritoD = LeerCeldaNumerica(salida, HojaBce, celdaD);
             var escritoE = LeerCeldaNumerica(salida, HojaBce, celdaE);
-            var goldenD = LeerCeldaNumerica(insumos, HojaBce, celdaD);
-            var goldenE = LeerCeldaNumerica(insumos, HojaBce, celdaE);
 
-            Assert.InRange(escritoD - goldenD, -Tolerancia, Tolerancia);
-            Assert.InRange(escritoE - goldenE, -Tolerancia, Tolerancia);
-            Assert.InRange(escritoD - d, -Tolerancia, Tolerancia);
-            Assert.InRange(escritoE - e, -Tolerancia, Tolerancia);
+            // D = SUBSIDIO (e, negativo); E = CONTRIBUCIÓN (d, positivo).
+            Assert.InRange(escritoD - e, -Tolerancia, Tolerancia);
+            Assert.InRange(escritoE - d, -Tolerancia, Tolerancia);
             Assert.False(CeldaEsFormula(salida, HojaBce, celdaD), $"{HojaBce}!{celdaD} debió ser valor en la salida.");
             Assert.False(CeldaEsFormula(salida, HojaBce, celdaE), $"{HojaBce}!{celdaE} debió ser valor en la salida.");
+
+            // El golden Q1 conserva el orden viejo (D=Contribución d, E=Subsidio e); el par es el mismo.
+            var goldenD = LeerCeldaNumerica(insumos, HojaBce, celdaD);
+            var goldenE = LeerCeldaNumerica(insumos, HojaBce, celdaE);
+            Assert.InRange(goldenD - d, -Tolerancia, Tolerancia);
+            Assert.InRange(goldenE - e, -Tolerancia, Tolerancia);
             Assert.False(CeldaEsFormula(insumos, HojaBce, celdaD), $"Golden {HojaBce}!{celdaD} debía ser valor.");
+
+            // F = D + E invariante: la permuta de D/E no altera el total.
+            Assert.InRange((escritoD + escritoE) - (goldenD + goldenE), -Tolerancia, Tolerancia);
         }
 
         // Columna C (id ASE) ya venía en el template y se conserva (valor 1..5).
@@ -109,7 +123,7 @@ public sealed class GoldenBalanceScTests
         {
             var fila = resultado.Leafs.Single(l => l.Ase.Id == aseId).BalanceSc!.Ases[0];
 
-            // BCE = fuente con asignación T0 (Contribucion→D, Subsidio→E).
+            // BCE = fuente (el mapa de destino corregido T0-V4 rutea Subsidio→D, Contribución→E).
             Assert.InRange(fila.Contribucion - d, -Tolerancia, Tolerancia);
             Assert.InRange(fila.Subsidio - e, -Tolerancia, Tolerancia);
             // F = D+E (aritmética de dominio) == caché golden F.

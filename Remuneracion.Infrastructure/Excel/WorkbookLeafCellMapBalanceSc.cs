@@ -11,9 +11,13 @@ namespace Remuneracion.Infrastructure.Excel;
 ///   D3:D7 / E3:E7 = VALORES editables (contribución/subsidio); F3:F7 = fórmulas <c>Dn+En</c>;
 ///   H3:H7 = fórmulas <c>DetRetri2026071!J9..J13</c>; I3:I7 = fórmulas <c>Fn-Hn</c>; filas 9/10/11/12/13
 ///   y bloque 18–24 = fórmulas → TODAS protegidas.
-/// - T0-0.2 veredicto D/E = HIPÓTESIS LÍDER PROBADA en los 5 ASE (fuente vs golden ±0.5):
-///   template-D (CONTRIBUCION, positivo) ← columna F-fuente; template-E (SUBSIDIO, negativo) ←
-///   columna E-fuente. El texto del doc base (D=subsidio/E=contribución) queda descartado por prueba.
+/// - T0-0.2 veredicto D/E = <b>CORREGIDO (Plan 29 T1 / T0-V4)</b>: el header de la plantilla
+///   MANDA — <c>D2=SUBSIDIO</c>, <c>E2=CONTRIBUCION</c>. Por tanto template-D ← columna E-fuente
+///   (Subsidio, negativo) y template-E ← columna F-fuente (Contribución, positivo).
+///   El veredicto original del Plan 10 ("template-D = CONTRIBUCION") quedó refutado por el header
+///   + el archivo manual (10/10 celdas en ambos períodos, T0 V4); como <c>F = D + E</c> es
+///   conmutativa, el golden ±0.5 vigente no podía detectar el swap (solo permuta D/E visibles).
+///   El reader NUNCA estuvo invertido (<see cref="ColumnaSubsidioFuente"/> = 4 = E-fuente).
 /// - T0-0.6 veredicto H = D2(b): H es FÓRMULA → protegida, jamás se escribe; solo gate H≈F (Capa A).
 ///
 /// Columnas fuente (V7 + T0-0.3): B=productor, C=usuarios-res, D=usuarios-no-res, E=Subsidio,
@@ -41,18 +45,20 @@ public static class WorkbookLeafCellMapBalanceSc
 
     /// <summary>
     /// Celdas editables por ASE (T0-0.7): fila = 2 + <see cref="Ase.Id"/> (C3=1..C7=5 en el
-    /// template). D = CONTRIBUCION (← F-fuente), E = SUBSIDIO (← E-fuente) según veredicto
-    /// T0-0.2. La columna C (id ASE) ya trae el valor correcto en el template → solo se verifica.
-    /// La columna H (SISTEMA) es fórmula (D2(b)) → fuera de editables.
+    /// template). D = SUBSIDIO (← E-fuente), E = CONTRIBUCION (← F-fuente) según el header de la
+    /// plantilla y el veredicto corregido T0-V4 del Plan 29. La tupla conserva los nombres de
+    /// dominio (<c>Contribucion</c>/<c>Subsidio</c>): <c>Subsidio</c> resuelve a la celda D y
+    /// <c>Contribucion</c> a la celda E. La columna C (id ASE) ya trae el valor correcto en el
+    /// template → solo se verifica. La columna H (SISTEMA) es fórmula (D2(b)) → fuera de editables.
     /// </summary>
     public static readonly IReadOnlyDictionary<int, (string Contribucion, string Subsidio)> EditablesPorAse =
         new Dictionary<int, (string, string)>
         {
-            [1] = ("D3", "E3"),
-            [2] = ("D4", "E4"),
-            [3] = ("D5", "E5"),
-            [4] = ("D6", "E6"),
-            [5] = ("D7", "E7")
+            [1] = ("E3", "D3"),
+            [2] = ("E4", "D4"),
+            [3] = ("E5", "D5"),
+            [4] = ("E6", "D6"),
+            [5] = ("E7", "D7")
         };
 
     /// <summary>
@@ -168,7 +174,7 @@ public static class WorkbookLeafCellMapBalanceSc
     ];
 
     /// <summary>
-    /// Obtiene las celdas editables (D=Contribucion, E=Subsidio) de un ASE; lanza si no está soportado.
+    /// Obtiene las celdas editables (D=Subsidio, E=Contribucion) de un ASE; lanza si no está soportado.
     /// </summary>
     public static (string Contribucion, string Subsidio) ObtenerEditables(int aseId) =>
         EditablesPorAse.TryGetValue(aseId, out var mapa)

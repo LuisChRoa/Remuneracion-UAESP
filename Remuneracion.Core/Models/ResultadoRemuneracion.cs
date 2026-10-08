@@ -52,4 +52,19 @@ public class ResultadoRemuneracion
     /// plantilla es el rótulo). <c>null</c> = no se sella.
     /// </summary>
     public DateTime? FechaHasta { get; set; }
+
+    /// <summary>
+    /// Plan 31 (T3, R-S-1/R-S-2): "Fecha de Proceso" leída del encabezado del R10 (celda D6 de
+    /// <c>DetRetri{AAAAMMQ}</c>), sello de la corrida administrativa. El writer la propaga a
+    /// <c>DetRetri*/DetValiRetri*!D6</c> (texto <c>dd/MM/yyyy</c>, estilo de celda preservado).
+    /// <c>null</c> = no se sella (path single-ASE sin R10).
+    /// </summary>
+    public DateTime? FechaProceso { get; set; }
+
+    /// <summary>
+    /// Plan 31 (T3, R-S-1/R-S-2): "Hora" del proceso leída del R10 (celda D7), hora-del-día del
+    /// sello administrativo. El writer la propaga a <c>DetRetri*/DetValiRetri*!D7</c> (texto
+    /// <c>hh:mm AM/PM</c>). <c>null</c> = no se sella.
+    /// </summary>
+    public TimeSpan? HoraProceso { get; set; }
 }

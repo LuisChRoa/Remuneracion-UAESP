@@ -639,9 +639,9 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
             // nota J9:J13 y K/M calculan por fórmulas (Capa B). Delta mínimo, sin restyle.
             if (resultadoProceso.Leafs.Any(l => l.BalanceSc is not null))
             {
-                AppendLogLine("BCE SC POR FACT. (esperado post-Excel; asignación D/E = veredicto T0: D←Contribución F-fuente, E←Subsidio E-fuente):");
+                AppendLogLine("BCE SC POR FACT. (esperado post-Excel; asignación D/E = veredicto T0-V4 Plan 29: D←Subsidio E-fuente, E←Contribución F-fuente):");
                 Log.ForContext("Hoja", "BCE SC POR FACT.")
-                    .Information("BCE SC POR FACT.: esperados post-Excel por ASE (veredicto D/E T0 hipótesis líder).");
+                    .Information("BCE SC POR FACT.: esperados post-Excel por ASE (veredicto D/E T0-V4 Plan 29: D←Subsidio, E←Contribución).");
                 foreach (var leaf in resultadoProceso.Leafs.OrderBy(l => l.Ase.Id))
                 {
                     if (leaf.BalanceSc is null)
@@ -651,7 +651,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
 
                     foreach (var bloque in leaf.BalanceSc.Ases)
                     {
-                        var lineaBce = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: CONTRIBUCION(D)={bloque.Contribucion:0.##}; SUBSIDIO(E)={bloque.Subsidio:0.##}; TOTAL BSC(F)={bloque.TotalBsc:0.##}; H≈F por fórmula (DetRetri J{8 + leaf.Ase.Id})";
+                        var lineaBce = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: SUBSIDIO(D)={bloque.Subsidio:0.##}; CONTRIBUCION(E)={bloque.Contribucion:0.##}; TOTAL BSC(F)={bloque.TotalBsc:0.##}; H≈F por fórmula (DetRetri J{8 + leaf.Ase.Id})";
                         AppendLogLine(lineaBce);
                         Log.ForContext("Hoja", "BCE SC POR FACT.")
                             .ForContext("AseId", leaf.Ase.Id)
@@ -691,8 +691,11 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
             // en DetRetri2026072 D9:D13; D14 = total) — solo en Q2 (leaf.DetRetriQ2 != null).
             if (resultadoProceso.Leafs.Any(l => l.DetRetriQ2 is not null))
             {
+                // Plan 30 (D-A): el nombre de hoja del log se resuelve del período (no de un literal).
+                var hojaDetRetriPeriodo = Remuneracion.Core.Models.NombresHojaPeriodo.DetRetri(
+                    resultadoProceso.Leafs.First(l => l.DetRetriQ2 is not null).Periodo.CodigoCompleto);
                 AppendLogLine("DetRetri Q2 (esperado post-Excel; entero ROUND(D104:D108,0) escrito en valores):");
-                Log.ForContext("Hoja", "DetRetri2026072")
+                Log.ForContext("Hoja", hojaDetRetriPeriodo)
                     .Information("DetRetri Q2: esperados post-Excel por ASE (composición V0.4).");
                 foreach (var leaf in resultadoProceso.Leafs.OrderBy(l => l.Ase.Id))
                 {
@@ -704,7 +707,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
                     var detalle = leaf.DetRetriQ2;
                     var lineaDetRetri = $"  ASE {leaf.Ase.Id} {leaf.Ase.NombreCompleto}: D104:D108={detalle.TotalD104:0.##}; DetRetri-D(D{8 + leaf.Ase.Id})={detalle.Detalle:0}";
                     AppendLogLine(lineaDetRetri);
-                    Log.ForContext("Hoja", "DetRetri2026072")
+                    Log.ForContext("Hoja", hojaDetRetriPeriodo)
                         .ForContext("AseId", leaf.Ase.Id)
                         .Debug("ASE {AseId}: {Linea}", leaf.Ase.Id, lineaDetRetri);
                 }

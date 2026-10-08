@@ -63,8 +63,11 @@ public interface IWorkbookLeafInputReader
     /// del ASE indicado (búsqueda dinámica desde el final, match normalizado — D1). Fail-fast:
     /// si falta la etiqueta o la coherencia E+F vs columna G no cierra ±0.5, lanza
     /// <c>CalculoInvalidoException</c> que nombra el ASE (nunca valor inventado). La asignación
-    /// D/E aplicada es la del veredicto T0-0.2 (hipótesis líder probada): template-D
-    /// (CONTRIBUCION) ← columna F-fuente; template-E (SUBSIDIO) ← columna E-fuente.
+    /// D/E aplicada es la del veredicto Plan 29 (T1, Unidad B — «header-manda»): template-D
+    /// (SUBSIDIO) ← columna E-fuente; template-E (CONTRIBUCION) ← columna F-fuente. El veredicto
+    /// T0-0.2 del Plan 10 («D=CONTRIBUCION») quedó refutado por V4: el header de la plantilla
+    /// (D2=SUBSIDIO / E2=CONTRIBUCION), el manual y la fuente lo contradicen, y como F=D+E es
+    /// conmutativa, el golden ±0.5 no podía detectar el swap.
     /// Columna H (SISTEMA) = D2(b): es fórmula en el template → <see cref="BalanceScAseInputs.Sistema"/>
     /// queda null y H entra al mapa de fórmulas protegidas.
     /// </summary>
@@ -117,4 +120,31 @@ public interface IWorkbookLeafInputReader
     /// <param name="rutaR1">Ruta del archivo fuente R1 del ASE.</param>
     /// <returns>Bloque espejo del ASE (secuencia de filas + encabezados detectados).</returns>
     BloqueEspejoAseInputs LeerEspejoR1(Ase ase, string rutaR1);
+
+    /// <summary>
+    /// Plan 29 (T2, Unidad R — SOLO LECTURA): lee la matriz de detalle por componente de la fuente
+    /// R2 (<c>RerpoteDetalleSaldosaFavor_*</c>, hoja <c>Sheet1</c>). Localiza las filas por LABEL
+    /// (A–D) y las columnas por ENCABEZADO de componente (col E..), tolerante a la deriva de la
+    /// malla entre períodos (julio E..P sin <c>Especiales</c>; agosto E..Q con <c>Especiales</c> —
+    /// T0b §2.1). Fail-fast con archivo+fila si falta la primera <c>Vlr Servicio</c>, la fila de
+    /// encabezados de componente o la fila de cierre <c>Total</c>. La columna <c>Especiales</c>
+    /// ausente se emite como <c>0</c> explícito (nunca inventada). Esta lectura NO escribe nada.
+    /// </summary>
+    /// <param name="ase">ASE asociado.</param>
+    /// <param name="rutaR2">Ruta del archivo fuente R2 del ASE.</param>
+    /// <returns>Matriz de detalle R2 (filas tipadas + componentes por encabezado).</returns>
+    DetalleR2AseInputs LeerDetalleR2(Ase ase, string rutaR2);
+
+    /// <summary>
+    /// Plan 29 (T2, Unidad R — SOLO LECTURA): lee la matriz de detalle por componente de la fuente
+    /// R4 (<c>ReversiónPorComponente_*</c>, hoja <c>Sheet1</c>). Localiza las filas por LABEL (A–C)
+    /// y las columnas por ENCABEZADO de componente (col D..), tolerante a la deriva de la malla
+    /// entre períodos (agosto reduce las filas de PROMO/CIUDAD/BOGOTA — T0b §2.3). Fail-fast con
+    /// archivo+fila si falta la primera <c>Vlr Servicio</c>, la fila de encabezados o la fila de
+    /// cierre <c>Total</c>. Esta lectura NO escribe nada.
+    /// </summary>
+    /// <param name="ase">ASE asociado.</param>
+    /// <param name="rutaR4">Ruta del archivo fuente R4 del ASE.</param>
+    /// <returns>Matriz de detalle R4 (filas tipadas + componentes por encabezado).</returns>
+    DetalleR4AseInputs LeerDetalleR4(Ase ase, string rutaR4);
 }

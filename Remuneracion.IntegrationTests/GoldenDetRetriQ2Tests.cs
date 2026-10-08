@@ -71,19 +71,19 @@ public sealed class GoldenDetRetriQ2Tests
         {
             var celda = WorkbookLeafCellMapQ2.ObtenerDetRetriDestino(aseId);
             Assert.InRange(
-                LeerCeldaNumerica(salida, WorkbookLeafCellMapQ2.HojaDetRetri, celda)
-                    - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaDetRetri, celda),
+                LeerCeldaNumerica(salida, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2()), celda)
+                    - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2()), celda),
                 -Tolerancia, Tolerancia);
         }
 
         Assert.InRange(
-            LeerCeldaNumerica(salida, WorkbookLeafCellMapQ2.HojaDetRetri, WorkbookLeafCellMapQ2.DetRetriTotal)
-                - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaDetRetri, WorkbookLeafCellMapQ2.DetRetriTotal),
+            LeerCeldaNumerica(salida, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2()), WorkbookLeafCellMapQ2.DetRetriTotal)
+                - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2()), WorkbookLeafCellMapQ2.DetRetriTotal),
             -Tolerancia, Tolerancia);
 
         // A8: BCE parametrizado al período (2026072) matchea celdas reales del canónico — el
         // writer YA lo validó (ValidarFormulasProtegidasMultiAseQ2); se re-asegura explícito.
-        foreach (var (hoja, celda, _) in ProtegidasBceParaPeriodo(true))
+        foreach (var (hoja, celda, _) in ProtegidasBceParaPeriodo(Insumos.PeriodoQ2()))
         {
             Assert.True(CeldaEsFormula(Insumos.PlantillaQ2, hoja, celda), $"{hoja}!{celda} (BCE Q2) debió ser fórmula en el canónico.");
         }
@@ -98,7 +98,7 @@ public sealed class GoldenDetRetriQ2Tests
         foreach (var leaf in leafs)
         {
             var detalle = leaf.DetRetriQ2 ?? throw new InvalidOperationException($"ASE {leaf.Ase.Id}: falta DetRetriQ2.");
-            var golden = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaDetRetri, WorkbookLeafCellMapQ2.ObtenerDetRetriDestino(leaf.Ase.Id));
+            var golden = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2()), WorkbookLeafCellMapQ2.ObtenerDetRetriDestino(leaf.Ase.Id));
             Assert.InRange(detalle.Detalle - golden, -Tolerancia, Tolerancia);
         }
     }
@@ -111,7 +111,7 @@ public sealed class GoldenDetRetriQ2Tests
         // (el writer no las toca; Requirement 5).
         var (_, _, salida) = EjecutarWriterQ2();
 
-        foreach (var (hoja, celda, _) in WorkbookLeafCellMapQ2.DetRetriProtected)
+        foreach (var (hoja, celda, _) in WorkbookLeafCellMapQ2.DetRetriProtected(Insumos.PeriodoQ2()))
         {
             Assert.True(CeldaEsFormula(salida, hoja, celda), $"{hoja}!{celda} debió seguir siendo fórmula en la salida Q2.");
         }
@@ -279,19 +279,16 @@ public sealed class GoldenDetRetriQ2Tests
     }
 
     /// <summary>
-    /// Espejo de <c>OpenXmlPlantillaWriter.ProtegidasBceParaPeriodo</c> (no toca el mapa HU-10).
+    /// Espejo de <c>OpenXmlPlantillaWriter.ProtegidasBceParaPeriodo</c> (no toca el mapa HU-10):
+    /// sustituye el ancla-Q1 del mapa por <c>periodo.CodigoCompleto</c> (Plan 30/D-A).
     /// </summary>
-    private static IEnumerable<(string Hoja, string Celda, string[] Fragmentos)> ProtegidasBceParaPeriodo(bool esQuincena2)
+    private static IEnumerable<(string Hoja, string Celda, string[] Fragmentos)> ProtegidasBceParaPeriodo(Periodo periodo)
     {
-        if (!esQuincena2)
-        {
-            return WorkbookLeafCellMapBalanceSc.Protegidas;
-        }
-
+        var codigoCompleto = periodo.CodigoCompleto;
         return WorkbookLeafCellMapBalanceSc.Protegidas
             .Select(p => (
-                p.Hoja.Replace("2026071", "2026072", StringComparison.Ordinal),
+                p.Hoja.Replace("2026071", codigoCompleto, StringComparison.Ordinal),
                 p.Celda,
-                p.Fragmentos.Select(f => f.Replace("2026071", "2026072", StringComparison.Ordinal)).ToArray()));
+                p.Fragmentos.Select(f => f.Replace("2026071", codigoCompleto, StringComparison.Ordinal)).ToArray()));
     }
 }

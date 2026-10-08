@@ -121,9 +121,11 @@ public sealed class EspejoR1IntegracionTests
                 Assert.Equal(deltasEsperados[aseId - 1], ConteoAgosto[aseId - 1] - conteoPlantillaQ2[aseId - 1]);
             }
 
-            // Fórmulas preservadas: el dimensionado 5-ASE no crea ni destruye fórmulas en R1.
+            // Fórmulas preservadas: el dimensionado 5-ASE no crea ni destruye fórmulas del bloque.
+            // Plan 31 (T2): el EXTEMP visible de ASE3-agosto (sin filas Aplicacion) pasa a literal 0
+            // por la recomposición por firma → una fórmula menos (antes/después, resto idéntico).
             Assert.Equal(
-                ContarFormulas(Insumos.PlantillaQ2, "Reporte Componentes R1"),
+                ContarFormulas(Insumos.PlantillaQ2, "Reporte Componentes R1") - 1,
                 ContarFormulas(salida, "Reporte Componentes R1"));
         }
         finally

@@ -41,10 +41,13 @@ public sealed class ValidacionOracleReader : IValidacionOracleReader
             var workbookPart = workbook.WorkbookPart
                 ?? throw new CalculoInvalidoException(CodigoError.FormatoFuente, "El workbook del oráculo no tiene WorkbookPart válido.");
 
-            var hojaDetValiRetri = WorkbookLeafCellMapValidaciones.HojaDetValiRetri(periodo.NumeroQuincena);
+            // Plan 30 (D-A): el nombre de la hoja se compone del período (no de un literal).
+            var hojaDetValiRetri = NombresHojaPeriodo.DetValiRetri(periodo);
 
             // W2: la hoja DetValiRetri y la fila Total (D21/D29) se verifican UNA vez (compartidas).
-            _ = ObtenerHoja(workbookPart, hojaDetValiRetri, "oráculo");
+            // Plan 30 (T2, D-C/R-C-3): si la hoja DetValiRetri del período no existe, el fail-fast
+            // es ERR-PLANTILLA y nombra hoja esperada + período + operación (sin fallback).
+            _ = ObtenerHoja(workbookPart, hojaDetValiRetri, "oráculo DetValiRetri D21/D29", CodigoError.Plantilla, periodo.CodigoCompleto);
             _ = ObtenerCeldaFormula(workbookPart, hojaDetValiRetri, "D21", "oráculo");
             _ = ObtenerCeldaFormula(workbookPart, hojaDetValiRetri, "D29", "oráculo");
 
@@ -261,17 +264,18 @@ public sealed class ValidacionOracleReader : IValidacionOracleReader
             $"La celda-oráculo '{hoja}!{celda}' tiene un valor booleano no reconocido: '{texto}' (se esperaba 1/0 o true/false). (S-1)");
     }
 
-    private static Worksheet ObtenerHoja(WorkbookPart workbookPart, string nombreHoja, string operacion)
+    private static Worksheet ObtenerHoja(WorkbookPart workbookPart, string nombreHoja, string operacion, string codigo = CodigoError.FormatoFuente, string? codigoPeriodo = null)
     {
+        var sufijoPeriodo = string.IsNullOrWhiteSpace(codigoPeriodo) ? string.Empty : $" (período {codigoPeriodo})";
         var workbook = workbookPart.Workbook ?? throw new CalculoInvalidoException(CodigoError.FormatoFuente, $"El workbook para {operacion} no tiene metadata Workbook válida.");
         var sheet = workbook.Descendants<Sheet>()
             .FirstOrDefault(s => string.Equals(s.Name?.Value, nombreHoja, StringComparison.OrdinalIgnoreCase))
-            ?? throw new CalculoInvalidoException(CodigoError.FormatoFuente, $"La hoja-oráculo '{nombreHoja}' no existe en el workbook para {operacion}. (W2: sin asserts no hay snapshot.)");
+            ?? throw new CalculoInvalidoException(codigo, $"La hoja-oráculo '{nombreHoja}' no existe en el workbook para {operacion}{sufijoPeriodo}. (W2: sin asserts no hay snapshot.)");
 
         var worksheetPart = workbookPart.GetPartById(sheet.Id!) as WorksheetPart
-            ?? throw new CalculoInvalidoException(CodigoError.FormatoFuente, $"No se pudo resolver la hoja '{nombreHoja}' en el workbook para {operacion}.");
+            ?? throw new CalculoInvalidoException(codigo, $"No se pudo resolver la hoja '{nombreHoja}' en el workbook para {operacion}{sufijoPeriodo}.");
 
-        return worksheetPart.Worksheet ?? throw new CalculoInvalidoException(CodigoError.FormatoFuente, $"La hoja '{nombreHoja}' no tiene Worksheet válido.");
+        return worksheetPart.Worksheet ?? throw new CalculoInvalidoException(codigo, $"La hoja '{nombreHoja}' no tiene Worksheet válido para {operacion}{sufijoPeriodo}.");
     }
 
     /// <summary>

@@ -22,8 +22,10 @@ public sealed class BalanceScTests
     private const decimal Tolerancia = Insumos.Tolerancia;
 
     /// <summary>
-    /// Golden Q1 de la hoja BCE SC POR FACT. (caché template, filas 3–7; T0-0.5).
-    /// Contribucion = template-D (positivo, ← F-fuente); Subsidio = template-E (negativo, ← E-fuente).
+    /// Golden Q1 de la hoja BCE SC POR FACT. (caché template, filas 3–7; T0-0.5). Valores de
+    /// dominio: <c>Contribucion</c> = F-fuente (positivo); <c>Subsidio</c> = E-fuente (negativo).
+    /// El golden Q1 los tiene en celdas con el orden viejo (template-D = Contribución), superseded
+    /// por el header de la plantilla (T0-V4/Plan 29: D = SUBSIDIO, E = CONTRIBUCION).
     /// </summary>
     private static readonly (int Ase, decimal D, decimal E, decimal F, decimal H)[] Golden =
     [
@@ -117,15 +119,16 @@ public sealed class BalanceScTests
     [InlineData(3)]
     [InlineData(4)]
     [InlineData(5)]
-    public void AsignacionDE_MapaCongelado_ContribucionADySubsidioAE(int aseId)
+    public void AsignacionDE_MapaCongelado_SubsidioADyContribucionAE(int aseId)
     {
-        // Requirement 2 / veredicto T0-0.2 (hipótesis líder probada): el MAPA fija la asignación
-        // template: Contribucion → celda D (CONTRIBUCION), Subsidio → celda E (SUBSIDIO).
-        // El MODELO es neutro (propiedades por significado de dominio); si el veredicto hubiera
-        // sido inverso, solo cambiaría este mapa, no el modelo.
+        // Plan 29 T1 / veredicto corregido T0-V4: el header de la plantilla (D2=SUBSIDIO,
+        // E2=CONTRIBUCION) MANDA. El mapa fija Subsidio → celda D (SUBSIDIO) y Contribución →
+        // celda E (CONTRIBUCION). El veredicto original del Plan 10 (D=Contribución) quedó
+        // refutado; se corrigió este aserto porque F=D+E es conmutativa y el golden ±0.5 no podía
+        // detectar la permuta. El MODELO es neutro (propiedades por significado de dominio).
         var editables = WorkbookLeafCellMapBalanceSc.ObtenerEditables(aseId);
-        Assert.Equal($"D{aseId + 2}", editables.Contribucion);
-        Assert.Equal($"E{aseId + 2}", editables.Subsidio);
+        Assert.Equal($"D{aseId + 2}", editables.Subsidio);
+        Assert.Equal($"E{aseId + 2}", editables.Contribucion);
     }
 
     [Fact]
@@ -142,21 +145,21 @@ public sealed class BalanceScTests
             Subsidio = -1223871491.13m
         };
 
-        // Desenlace líder (T0-0.2 PROBADO): Contribucion → D, Subsidio → E.
-        Assert.InRange(ValorPorCelda(modelo, "D3", inverso: false) - 3256235169.97m, -Tolerancia, Tolerancia);
-        Assert.InRange(ValorPorCelda(modelo, "E3", inverso: false) - (-1223871491.13m), -Tolerancia, Tolerancia);
+        // Desenlace líder (T0-V4 Plan 29 PROBADO): Subsidio → D, Contribución → E.
+        Assert.InRange(ValorPorCelda(modelo, "D3", inverso: false) - (-1223871491.13m), -Tolerancia, Tolerancia);
+        Assert.InRange(ValorPorCelda(modelo, "E3", inverso: false) - 3256235169.97m, -Tolerancia, Tolerancia);
 
-        // Desenlace inverso (hipotético, texto del doc base): Contribucion → E, Subsidio → D.
-        Assert.InRange(ValorPorCelda(modelo, "E3", inverso: true) - 3256235169.97m, -Tolerancia, Tolerancia);
-        Assert.InRange(ValorPorCelda(modelo, "D3", inverso: true) - (-1223871491.13m), -Tolerancia, Tolerancia);
+        // Desenlace histórico (Plan 10, refutado): Contribución → D, Subsidio → E.
+        Assert.InRange(ValorPorCelda(modelo, "D3", inverso: true) - 3256235169.97m, -Tolerancia, Tolerancia);
+        Assert.InRange(ValorPorCelda(modelo, "E3", inverso: true) - (-1223871491.13m), -Tolerancia, Tolerancia);
     }
 
     private static decimal ValorPorCelda(BalanceScAseInputs modelo, string celda, bool inverso) => (celda, inverso) switch
     {
-        ("D3", false) => modelo.Contribucion,
-        ("E3", false) => modelo.Subsidio,
-        ("E3", true) => modelo.Contribucion,
-        ("D3", true) => modelo.Subsidio,
+        ("D3", false) => modelo.Subsidio,
+        ("E3", false) => modelo.Contribucion,
+        ("D3", true) => modelo.Contribucion,
+        ("E3", true) => modelo.Subsidio,
         _ => throw new ArgumentOutOfRangeException(nameof(celda), $"Celda no mapeada en el test: {celda}.")
     };
 

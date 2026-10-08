@@ -88,4 +88,21 @@ public sealed class WorkbookLeafInputs
     /// 15/15 (EspejoR1AbsorcionTests).
     /// </summary>
     public BloqueEspejoAseInputs? EspejoR1 { get; set; }
+
+    /// <summary>
+    /// Plan 29 (T2, Unidad R — SOLO LECTURA): matriz de detalle por componente de la hoja
+    /// <c>Rem. Anticipos R2</c> leída de la fuente <c>RerpoteDetalleSaldosaFavor_*</c> (rows por
+    /// label A–D + valores por encabezado de componente). <c>null</c> en Q1 (el desglose-detalle es
+    /// un artefacto del 2° quincena, alcance T0b: 2026072/2026082); en Q2 el leaf-reader SIEMPRE lo
+    /// puebla. La ESCRITURA a celdas-destino es T3 (este modelo solo transporta la lectura).
+    /// </summary>
+    public DetalleR2AseInputs? DetalleR2 { get; set; }
+
+    /// <summary>
+    /// Plan 29 (T2, Unidad R — SOLO LECTURA): matriz de detalle por componente de la hoja
+    /// <c>Reversion Pagos R4</c> leída de la fuente <c>ReversiónPorComponente_*</c> (rows por label
+    /// A–C + valores por encabezado de componente). <c>null</c> en Q1; en Q2 el leaf-reader SIEMPRE
+    /// lo puebla. La ESCRITURA a celdas-destino es T3.
+    /// </summary>
+    public DetalleR4AseInputs? DetalleR4 { get; set; }
 }

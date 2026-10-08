@@ -22,10 +22,11 @@ namespace Remuneracion.IntegrationTests;
 ///   - Δ por bloque = {ASE1 −3, ASE2 −9, ASE3 −6, ASE4 +6, ASE5 +8} y fórmulas preservadas.
 ///   - sin asserts de negocio contra salida de agosto fuera del R10 (prohibido inventar golden).
 ///
-/// La plantilla destino es la maestra Q2 de julio (<c>Plantilla_ Remuneracion 202607-2.xlsx</c>):
-/// el espejo R1 la redimensiona a la forma de agosto. <c>Docs/Prueba2/Insumos</c> NO trae
-/// <c>Conciliaciones/</c> (limitación declarada); se aporta una copia temporal con las
-/// conciliaciones REALES del canónico Q2 de julio (mismo layout RESUMEN MES, G2-D2).
+/// La plantilla destino es la base canónica de agosto (<c>Plantilla_Remuneracion_2026082.xlsx</c>,
+/// hojas <c>DetRetri2026082</c>/<c>DetValiRetri2026082</c>): el espejo R1 la redimensiona a la
+/// forma de agosto. <c>Docs/Prueba2/Insumos</c> NO trae <c>Conciliaciones/</c> (limitación
+/// declarada); se aporta una copia temporal con las conciliaciones REALES del canónico Q2 de julio
+/// (mismo layout RESUMEN MES, G2-D2).
 ///
 /// Los blockers 2.5 (SALDOS POR NOTA, Plan 23) y R1-Q2 (Plan 25, WU-1) quedaron RESUELTOS: el
 /// flujo 5-ASE de agosto corre END-TO-END sin <c>ERR-VALIDACION</c>. Regresión dura: ninguno de
@@ -65,7 +66,7 @@ public sealed class Regresion2026082Tests
                 {
                     Periodo = new Periodo { CodigoAAAAMM = "202608", NumeroQuincena = 2 },
                     CarpetaPeriodo = carpetaPeriodo,
-                    RutaPlantilla = Insumos.PlantillaQ2,
+                    RutaPlantilla = Insumos.PlantillaAgosto2026082,
                     RutaSalida = salida
                 });
             }
@@ -114,9 +115,40 @@ public sealed class Regresion2026082Tests
             }
 
             // Fórmulas preservadas: el dimensionado del espejo no crea ni destruye fórmulas en R1.
-            Assert.Equal(
-                ContarFormulas(Insumos.PlantillaQ2, "Reporte Componentes R1"),
-                ContarFormulas(salida, "Reporte Componentes R1"));
+            // Excepción única del contrato T2 (Plan 31, §2.3 / escenario S5): el EXTEMP del
+            // ASE3-agosto (0 filas Aplicacion) se escribe como literal 0 auditado, en vez de
+            // conservar la fórmula del template (que apuntaba a filas de otro rol). Por eso el
+            // conteo baja EXACTAMENTE en 1 (base 1155 -> salida 1154). No es regresión: es el
+            // contrato funcionando.
+            var formulasBase = ContarFormulas(Insumos.PlantillaAgosto2026082, "Reporte Componentes R1");
+            var formulasSalida = ContarFormulas(salida, "Reporte Componentes R1");
+            Assert.Equal(formulasBase - 1, formulasSalida);
+
+            // El único visible que cambió: Reporte Componentes R1!F327 (EXTEMP ASE3-agosto) es
+            // literal 0 sin <f> (S5); el resto de los visibles conserva su fórmula.
+            Assert.True(
+                EsLiteralSinFormula(salida, "Reporte Componentes R1", "F327", "0"),
+                "Reporte Componentes R1!F327 (EXTEMP ASE3-agosto) debe quedar como literal 0 sin <f> (contrato T2 §2.3/S5).");
+
+            // Invariante fuerte de "ninguna otra fórmula desapareció": el conteo de fórmulas POR
+            // COLUMNA es invariante a la geometría del espejo, que desplaza filas (nunca columnas);
+            // el set de referencias absolutas base-vs-salida NO es comparable porque cada bloque R1
+            // cambia de filas al dimensionar. El único delta admisible es la columna F = base - 1
+            // (F327). Cualquier otra columna que cambiara su conteo delataría una fórmula creada o
+            // destruida fuera del contrato T2.
+            var porColumnaBase = ContarFormulasPorColumna(Insumos.PlantillaAgosto2026082, "Reporte Componentes R1");
+            var porColumnaSalida = ContarFormulasPorColumna(salida, "Reporte Componentes R1");
+            foreach (var columna in porColumnaBase.Keys.Union(porColumnaSalida.Keys).OrderBy(c => c, StringComparer.Ordinal))
+            {
+                var esperado = porColumnaBase.TryGetValue(columna, out var enBase) ? enBase : 0;
+                if (string.Equals(columna, "F", StringComparison.Ordinal))
+                {
+                    esperado -= 1;
+                }
+
+                var real = porColumnaSalida.TryGetValue(columna, out var enSalida) ? enSalida : 0;
+                Assert.Equal(esperado, real);
+            }
         }
         finally
         {
@@ -213,6 +245,58 @@ public sealed class Regresion2026082Tests
         using var workbook = SpreadsheetDocument.Open(ruta, false);
         var workbookPart = workbook.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
         return Hoja(workbookPart, hojaNombre).Descendants<Cell>().Count(c => c.CellFormula is not null);
+    }
+
+    /// <summary>
+    /// Plan 31 (T2, §2.3/S5): cuenta las fórmulas de una hoja agrupadas por columna. Es el
+    /// invariante fuerte de "ninguna otra fórmula desapareció" tras el dimensionado del espejo:
+    /// el espejo desplaza filas (no columnas), de modo que el conteo por columna es estable y el
+    /// único delta legítimo es la columna F (F327 = literal 0 del EXTEMP ASE3-agosto).
+    /// </summary>
+    private static Dictionary<string, int> ContarFormulasPorColumna(string ruta, string hojaNombre)
+    {
+        using var workbook = SpreadsheetDocument.Open(ruta, false);
+        var workbookPart = workbook.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
+        var conteo = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var celda in Hoja(workbookPart, hojaNombre).Descendants<Cell>())
+        {
+            if (celda.CellFormula is null)
+            {
+                continue;
+            }
+
+            var columna = ColumnaDe(celda.CellReference?.Value);
+            conteo[columna] = conteo.TryGetValue(columna, out var actual) ? actual + 1 : 1;
+        }
+
+        return conteo;
+    }
+
+    /// <summary>
+    /// Plan 31 (T2, §2.3/S5): true si la celda indicada es un literal con el valor esperado y NO
+    /// tiene <c>&lt;f&gt;</c> (lectura ZIP+XML vía OpenXML, sin Excel/COM). Es el aserto específico
+    /// del único 0-Aplic de agosto (EXTEMP ASE3-agosto, <c>Reporte Componentes R1!F327</c>).
+    /// </summary>
+    private static bool EsLiteralSinFormula(string ruta, string hojaNombre, string referencia, string valorEsperado)
+    {
+        using var workbook = SpreadsheetDocument.Open(ruta, false);
+        var workbookPart = workbook.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
+        var celda = Hoja(workbookPart, hojaNombre).Descendants<Cell>()
+            .FirstOrDefault(c => string.Equals(c.CellReference?.Value, referencia, StringComparison.OrdinalIgnoreCase));
+        return celda is not null
+            && celda.CellFormula is null
+            && string.Equals(celda.CellValue?.InnerText, valorEsperado, StringComparison.Ordinal);
+    }
+
+    private static string ColumnaDe(string? referencia)
+    {
+        var letras = new string((referencia ?? string.Empty).Where(char.IsLetter).ToArray());
+        if (letras.Length == 0)
+        {
+            throw new InvalidOperationException($"Celda sin referencia de columna: '{referencia}'.");
+        }
+
+        return letras.ToUpperInvariant();
     }
 
     private static bool EsTotalFinal(WorkbookPart workbookPart, Row fila) =>

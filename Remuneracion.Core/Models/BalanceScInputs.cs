@@ -3,11 +3,11 @@ namespace Remuneracion.Core.Models;
 /// <summary>
 /// HU-10 (2.4): una fila ASE (3–7) de la hoja <c>BCE SC POR FACT.</c>.
 /// Los valores provienen de la fila "Total General" del <c>R4-BalanceSubsidioyContribuciones_*.xlsx</c>
-/// con la asignación D/E del veredicto T0-0.2 (hipótesis líder PROBADA contra golden Q1):
-/// template-D (CONTRIBUCION, positivo) ← columna F-fuente; template-E (SUBSIDIO, negativo) ←
-/// columna E-fuente. El modelo usa <see cref="Contribucion"/>/<see cref="Subsidio"/> por
-/// significado de dominio; el mapa (<c>WorkbookLeafCellMapBalanceSc</c>) fija qué propiedad va
-/// a qué columna template. Si T0 hubiera probado la asignación inversa, solo cambia el mapa.
+/// con la asignación D/E del veredicto Plan 29 (T1, Unidad B — «header-manda»; refuta el T0-0.2 del Plan 10):
+/// template-D (SUBSIDIO, negativo) ← columna E-fuente; template-E (CONTRIBUCION, positiva) ←
+/// columna F-fuente (header de la plantilla D2=SUBSIDIO / E2=CONTRIBUCION). El modelo usa
+/// <see cref="Contribucion"/>/<see cref="Subsidio"/> por significado de dominio; el mapa
+/// (<c>WorkbookLeafCellMapBalanceSc</c>) fija qué propiedad va a qué columna template.
 /// </summary>
 public sealed class BalanceScAseInputs
 {
@@ -17,12 +17,12 @@ public sealed class BalanceScAseInputs
     public Ase Ase { get; set; } = new();
 
     /// <summary>
-    /// Contribución de la quincena (columna F-fuente del "Total General"; template-D, positiva).
+    /// Contribución de la quincena (columna F-fuente del "Total General"; template-E, positiva).
     /// </summary>
     public decimal Contribucion { get; set; }
 
     /// <summary>
-    /// Subsidio de la quincena (columna E-fuente del "Total General"; template-E, negativa).
+    /// Subsidio de la quincena (columna E-fuente del "Total General"; template-D, negativa).
     /// </summary>
     public decimal Subsidio { get; set; }
 

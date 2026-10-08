@@ -106,7 +106,7 @@ public sealed class R1Q2ResolucionPorFirmaTests
             {
                 Periodo = new Periodo { CodigoAAAAMM = "202608", NumeroQuincena = 2 },
                 CarpetaPeriodo = carpetaPeriodo,
-                RutaPlantilla = Insumos.PlantillaQ2,
+                RutaPlantilla = Insumos.PlantillaAgosto2026082,
                 RutaSalida = salida
             });
 

@@ -3,7 +3,7 @@
 > **Norma de referencia:** Resolución UAESP 27 de 2018 — Reglamento Comercial y Financiero del servicio de aseo.
 > **Documento rector:** `Docs/Propuesta_Proyecto_Automatizacion_Remuneracion_UAESP.md` (Fase 3, it. 3.4 — "Manual de usuario y technical").
 > **Versión de la aplicación:** 1.0 (Fase 3 cerrada; HU-01..HU-17).
-> **Última actualización del manual:** 2026-10-05 (§2.3/§3.4/§10: sello de fechas desde el R10 + regla de plantilla en ceros, Plan 28).
+> **Última actualización del manual:** 2026-10-07 (§3.4/§10: sello de proceso D6/D7 desde el R10 + cómo leer un FAIL del gate de totales R1, Plan 31).
 
 ---
 
@@ -81,6 +81,23 @@ Dentro de cada carpeta de ASE, los archivos fuente se reconocen por **prefijo** 
 
 **Plantilla de origen (regla de proceso):** use la **plantilla en ceros** del período (p. ej. `REMUNERACION AAAAMMQ/Plantilla_ Remuneracion AAAAMM-#.xlsx`), **no** una salida ya trabajada de otro período. La app **copia** la plantilla y escribe en la copia; la plantilla original **jamás se modifica**. La app **sella las fechas `Fecha Desde`/`Fecha Hasta` desde el R10** del período y **sanea la cadena de cálculo** al guardar; si parte de una salida trabajada de otro período, arrastraría las fechas y la cadena de cálculo de ese otro período (el defecto que la versión actual elimina).
 
+### 2.4 Proceso por quincena (Q1 → Q2)
+
+Cada quincena se ejecuta desde **su base del período** (plantilla en ceros + R10 de la quincena). Para el **acumulado del mes**, encadene Q1 → Q2 en el mismo libro (use la salida de Q1 como base de Q2). Para **comparar quincena contra quincena**, use **bases separadas** (una corrida por quincena, cada una desde la plantilla en ceros).
+
+Cada corrida escribe **solo las columnas de su quincena**: en las hojas `Recaudo *`, la 1.ª quincena usa `VALOR 1°Q`/`N° REG. 1°Q` (columnas D/E) y la 2.ª usa `VALOR 2°Q`/`N° REG. 2°Q` (columnas F/G). Por eso, en una corrida **aislada de Q2** las celdas de la 1.ª quincena —`D3:E3` y las siguientes de esa rejilla— quedan en **0**; es **correcto por diseño**, no un error: la app no escribe la quincena que no está liquidando.
+
+**Plantilla canónica del proyecto:** `Docs/Plantilla_Remuneracion.xlsx` (período 2026072, 40 hojas) — plantilla en ceros de referencia.
+
+**Base por mes (qué base usar según el período):** la base del período debe traer las hojas **`DetRetri{código}`** / `DetValiRetri{código}` **del código del período** que va a liquidar (el nombre de la hoja se compone del período seleccionado; no se busca por parecido).
+
+| Mes a liquidar | Base a usar |
+|---|---|
+| Julio (período 2026072) | base de julio — trae `DetRetri2026072` |
+| Agosto (período 2026082) | `Docs/Prueba2/Plantilla_Remuneracion_2026082.xlsx` — trae `DetRetri2026082` |
+
+Si usa la base de otro mes (p. ej. selecciona agosto pero carga la base de julio), la ejecución se detiene al inicio con `ERR-PLANTILLA` y **no escribe nada**; el mensaje nombra la hoja del período esperada (ver §10).
+
 ---
 
 ## 3. Modo UI (Windows Forms)
@@ -116,6 +133,15 @@ Dentro de cada carpeta de ASE, los archivos fuente se reconocen por **prefijo** 
 ### 3.4 Salida
 
 El archivo resultante `Remuneración AAAAMM-# Total.xlsx` se genera en la carpeta de salida con la nomenclatura oficial. La salida lleva las **fechas del período selladas** en `CONSOLIDADO_TOTAL RECAUDO` (tomadas del R10 del período) y queda marcada para **recalcular al abrir**; por eso **no debe aparecer el diálogo de reparación de Excel** ("Registros quitados: Fórmula de /xl/calcChain.xml"). **Ábralo en Excel** para que recalcule las fórmulas (Capa B — ver `Docs/Instructivo-Capa-B.md`). Si Excel pide reparar el libro, no lo use: repórtelo (no debería ocurrir con la versión actual).
+
+**Qué sella cada corrida (origen: el R10 del período):**
+
+| Hoja / celdas | Qué sella | Representación |
+|---|---|---|
+| `CONSOLIDADO_TOTAL RECAUDO!G7` / `!K7` | `Fecha Desde` / `Fecha Hasta` del período (rango) | serial de fecha (se muestra con el formato de fecha de la celda) |
+| `DetRetri{AAAAMMQ}!D6` / `!D7` y `DetValiRetri{AAAAMMQ}!D6` / `!D7` | `Fecha de Proceso` (D6) / `Hora` (D7) del proceso | **texto** (`dd/MM/yyyy` y `hh:mm AM/PM`), como la base/manual/R10 |
+
+Las fechas de proceso se toman del **R10** (`DetRetri{AAAAMMQ}`: encabezados `Fecha de Proceso` y `Hora`); si no son legibles, la ejecución falla al inicio con `ERR-FORMATO-FUENTE` (período + archivo + celda) y **no hay salida parcial**. El `CONSOLIDADO_TOTAL RECAUDO!D6` **no se duplica** (ya viene en la base). La base a usar depende del mes que se liquida (ver §2.4).
 
 ---
 
@@ -245,6 +271,7 @@ El mismo RunId aparece en la línea `RESULTADO OK/ERROR` del CLI, en la barra de
 | Retribuciones vacías leídas como 0 | "Leído 0" es un cero legítimo de la fuente (no confundir con "slot ausente", que sí falla nombrando la celda). |
 | Q2 en modo 1-ASE falla con salida 1 | Fail-fast por diseño: la ruta Q2 completa (AJUSTES-SF-T/DetRetri) vive en modo 5 ASE. |
 | `AJUSTES-SF-T` en blanco en Q1 | Los ajustes solo aplican a la 2.ª quincena; en Q1 la app escribe 0. |
+| Celdas de la 1.ª quincena en 0 en una corrida aislada de Q2 (`Recaudo *` D/E) | Cada quincena escribe solo sus columnas (`Periodo.NumeroQuincena`); en Q2 las columnas `VALOR 1°Q`/`N° REG. 1°Q` quedan en 0 por diseño (ver §2.4). El acumulado Q1+Q2 se obtiene encadenando Q1→Q2. |
 | El valor de una celda de visible cambia al abrir en Excel | Correcto: las fórmulas recalculan; la app solo pega valores (Capa B verifica el resultado post-Excel). |
 
 ---
@@ -276,6 +303,10 @@ La hoja `INTERVENTORIA` (bloque K25:N32) es una **tabla anual estática** que **
 **¿De dónde salen las fechas `Fecha Desde`/`Fecha Hasta` de la salida?** Del R10 del período (`R10_Remuneracion_AAAAMMQ.xlsx`, celdas G7/J7). La app las sella sola en `CONSOLIDADO_TOTAL RECAUDO`. Si el R10 no trae fechas legibles, la ejecución falla al inicio con `ERR-FORMATO-FUENTE` nombrando período, archivo y celda, y no se genera salida.
 
 **¿Qué plantilla debo usar?** Siempre la **plantilla en ceros** del período. No use una salida ya trabajada como plantilla: la app sella las fechas desde el R10 y sanea la cadena de cálculo, pero partir de una salida de otro período arrastra sus artefactos (fechas y cadena de cálculo ajenas).
+
+**¿Qué significa `ERR-PLANTILLA` con "La hoja 'DetRetri{código}' no existe en el workbook…"?** Que está usando una **base de otro período**: la base no trae las hojas del período seleccionado (p. ej. correr agosto sobre una base de julio — caso S3). El mensaje nombra la **hoja esperada del período** y la **operación**, y **no hay escritura parcial**. No es un error de datos: es la base equivocada. Corrija cargando la base del período (ver §2.4) y vuelva a ejecutar.
+
+**¿Qué significa un FAIL de la verificación de totales R1 (gate S1)?** Los totales visibles de `Reporte Componentes R1` —TOT_OPT (columna `F`), total TDF (columna `G`) y EXTEMP (columna `F`) de cada ASE— se verifican contra el **workbook generado**: se lee la fórmula escrita, se evalúan sus valores y se contrasta con el resultado calculado por la app con tolerancia ±0.5. Un FAIL nombra **ASE + celda** (p. ej. `ASE 1 Reporte Componentes R1!F50`) y **es una regresión real**: el total quedó anclado a filas que no son las del período (solo ocurre cuando la fuente recorta filas en la cabeza del bloque). Debe reportarse; con la versión actual no debería ocurrir (julio no se mueve). Ojo: las celdas **interiores** de cada bloque de R1 (subvisibles de empresa, fuera de esos 3 visibles) son una **brecha conocida y pendiente** (follow-up F-T4-1) y **no** son un FAIL del gate: se corrigen en un cambio posterior.
 
 **¿Cómo sé que los valores escritos son los correctos?** Compare en Excel contra el golden del período (criterio ±0.5) siguiendo `Docs/Instructivo-Capa-B.md`.
 
@@ -317,7 +348,7 @@ Las hojas `DetRetri2026071/2026072` y `DetValiRetri2026071/2026072` existen **po
 
 ### 11.5 Veredicto D/E del BCE
 
-En `BCE SC POR FACT.` (filas 3–7 por ASE): **D = CONTRIBUCION** (positiva), **E = SUBSIDIO** (negativa), **F = D+E** (TOTAL BSC), **H = SISTEMA** (redondeado) con diferencia I ≈ ±0.4. El veredicto T0 (D←Contribución F-fuente, E←Subsidio E-fuente) se fijó con el golden; `CONSOLIDADO J9:J13` y K/M calculan por fórmulas desde BCE F3:F7 (verificar post-Excel en Capa B).
+En `BCE SC POR FACT.` (filas 3–7 por ASE): **D = SUBSIDIO** (negativa), **E = CONTRIBUCION** (positiva), **F = D+E** (TOTAL BSC), **H = SISTEMA** (redondeado) con diferencia I ≈ ±0.4. La asignación la fija el **header de la plantilla** (`D2=SUBSIDIO` / `E2=CONTRIBUCION`): template-D ← columna E-fuente (Subsidio), template-E ← columna F-fuente (Contribución) — veredicto Plan 29 (T1, Unidad B, «header-manda»), que refuta el T0-0.2 del Plan 10 («D=CONTRIBUCION»). Como F=D+E es conmutativa, el golden ±0.5 no detectaba el swap; `CONSOLIDADO J9:J13` y K/M calculan por fórmulas desde BCE F3:F7 (verificar post-Excel en Capa B).
 
 ### 11.6 Golden honesto (Capa A)
 

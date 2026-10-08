@@ -241,6 +241,23 @@ internal static class Insumos
     /// <summary>Plan 27 (T3): período de agosto Q2 (Prueba2, <c>2026082</c>).</summary>
     public static Periodo PeriodoAgosto() => new() { CodigoAAAAMM = "202608", NumeroQuincena = 2 };
 
+    /// <summary>
+    /// Plan 30 (T3, R-B-1): base canónica de agosto <c>2026082</c>, producida UNA vez de forma
+    /// offline por <c>Herramientas/PreparadorBasePeriodo</c> (rename de hojas + reescritura del
+    /// token de período + metadatos/Q1 del manual). Su consistencia la fija
+    /// <see cref="BaseConsistente2026082Tests"/>.
+    /// </summary>
+    public static string PlantillaAgosto2026082 =>
+        Path.Combine(Raiz(), "Docs", "Prueba2", "Plantilla_Remuneracion_2026082.xlsx");
+
+    /// <summary>
+    /// Plan 30 (T3, D-E): manual del administrativo de agosto (<c>202608-2</c>), fuente de los
+    /// metadatos de período y de las columnas Q1 (D:E) que la base hereda celda por celda.
+    /// </summary>
+    public static string ManualAgosto2026082 => Path.Combine(
+        Raiz(), "Docs", "Prueba2", "Resultado", "Resultado Manual por el administrativo",
+        "Remuneracion 202608-2 Total_7721.xlsx");
+
     public static string[] CarpetasAseAgosto => new[]
     {
         Path.Combine(CarpetaInsumosAgosto, "1-Promoambiental"),
@@ -280,6 +297,60 @@ internal static class Insumos
             .FirstOrDefault(f => Normalizar(Path.GetFileNameWithoutExtension(f)).StartsWith("reversionporcomponente", StringComparison.Ordinal));
         Assert.True(r4 is not null, $"Falta R4 agosto ASE{aseId} en {carpeta}");
         return r4!;
+    }
+
+    // ── Plan 29 (T2, Unidad R): insumos julio-Q2 (Docs/Prueba Julio-2/Insumos) ──────────────
+    // Mismos archivos que el canónico REMUNERACION 2026072 (byte-idénticos), expuestos con la
+    // ruta literal que cita la evidencia T0b (`plans/29-T0-Evidencia-B.md`).
+
+    /// <summary>Plan 29 (T2): raíz de los insumos de julio-Q2 (<c>Docs/Prueba Julio-2/Insumos</c>).</summary>
+    public static string CarpetaInsumosJulioQ2 => Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Insumos");
+
+    public static string[] CarpetasAseJulioQ2 => new[]
+    {
+        Path.Combine(CarpetaInsumosJulioQ2, "1-Promoambiental"),
+        Path.Combine(CarpetaInsumosJulioQ2, "2-Lime"),
+        Path.Combine(CarpetaInsumosJulioQ2, "3-Ciudad Limpia"),
+        Path.Combine(CarpetaInsumosJulioQ2, "4-Bogota Limpia"),
+        Path.Combine(CarpetaInsumosJulioQ2, "5-Área Limpia")
+    };
+
+    /// <summary>Plan 29 (T2): <c>RerpoteDetalleSaldosaFavor_*</c> de julio-Q2 (R2) del ASE.</summary>
+    public static string R2JulioQ2(int aseId) =>
+        Buscar(CarpetasAseJulioQ2[aseId - 1], "RerpoteDetalleSaldosaFavor", $"R2 julio-Q2 ASE{aseId}");
+
+    /// <summary>Plan 29 (T2): <c>Recaudoporcomponente_*</c> de julio-Q2 (R1) del ASE.</summary>
+    public static string R1JulioQ2(int aseId) =>
+        Buscar(CarpetasAseJulioQ2[aseId - 1], "Recaudoporcomponente", $"R1 julio-Q2 ASE{aseId}");
+
+    /// <summary>Plan 29 (T2): <c>ReversiónPorComponente_*</c> de julio-Q2 (R4) del ASE (diacríticos en disco).</summary>
+    public static string R4JulioQ2(int aseId) =>
+        BuscarR4(CarpetasAseJulioQ2[aseId - 1], $"R4 julio-Q2 ASE{aseId}");
+
+    /// <summary>
+    /// Plan 29 (T2): <c>RerpoteDetalleSaldosaFavor_*</c> de agosto-Q2 (R2) del ASE
+    /// (<c>Docs/Prueba2/Insumos</c>).
+    /// </summary>
+    public static string R2AgostoQ2(int aseId) =>
+        Buscar(CarpetasAseAgosto[aseId - 1], "RerpoteDetalleSaldosaFavor", $"R2 agosto-Q2 ASE{aseId}");
+
+    /// <summary>
+    /// Plan 29 (T2): <c>ReversiónPorComponente_*</c> de agosto-Q2 (R4) del ASE (alias explícito de
+    /// <see cref="R4Agosto"/>; diacríticos en disco).
+    /// </summary>
+    public static string R4AgostoQ2(int aseId) => R4Agosto(aseId);
+
+    /// <summary>
+    /// Localiza el <c>ReversiónPorComponente_*</c> (R4) en una carpeta por prefijo normalizado
+    /// (sin diacríticos, case-insensitive). Fail-fast si falta.
+    /// </summary>
+    private static string BuscarR4(string carpeta, string etiqueta)
+    {
+        Assert.True(Directory.Exists(carpeta), $"Falta carpeta: {carpeta}");
+        var archivo = Directory.EnumerateFiles(carpeta, "*.xlsx", SearchOption.TopDirectoryOnly)
+            .FirstOrDefault(f => Normalizar(Path.GetFileNameWithoutExtension(f)).StartsWith("reversionporcomponente", StringComparison.Ordinal));
+        Assert.True(archivo is not null, $"Falta {etiqueta} en {carpeta}");
+        return archivo!;
     }
 
     /// <summary>

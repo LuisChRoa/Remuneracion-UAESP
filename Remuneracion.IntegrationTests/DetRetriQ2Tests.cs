@@ -123,7 +123,7 @@ public sealed class DetRetriQ2Tests
             };
 
             var goldenD104 = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMap.HojaConsolidado, $"D{103 + aseId}");
-            var goldenDetalle = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaDetRetri, WorkbookLeafCellMapQ2.ObtenerDetRetriDestino(aseId));
+            var goldenDetalle = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2()), WorkbookLeafCellMapQ2.ObtenerDetRetriDestino(aseId));
 
             Assert.InRange(detretri.TotalD104 - goldenD104, -Tolerancia, Tolerancia);
             Assert.InRange(detretri.Detalle - goldenDetalle, -Tolerancia, Tolerancia);
@@ -132,7 +132,7 @@ public sealed class DetRetriQ2Tests
 
         // D14 = total: ROUND(Σ D104:D108) == golden DetRetri D14.
         var totalDetalle = DetRetriRounder.Round(SumarGoldenD104());
-        Assert.InRange(totalDetalle - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaDetRetri, WorkbookLeafCellMapQ2.DetRetriTotal), -Tolerancia, Tolerancia);
+        Assert.InRange(totalDetalle - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2()), WorkbookLeafCellMapQ2.DetRetriTotal), -Tolerancia, Tolerancia);
     }
 
     [Fact]

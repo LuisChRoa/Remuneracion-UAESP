@@ -223,14 +223,14 @@ public sealed class ParidadCliTests : IDisposable
 
             // DetRetri-Q2: D9:D13 = ROUND(D104:D108) y D14 = ROUND(Σ).
             var celdaDetRetri = WorkbookLeafCellMapQ2.ObtenerDetRetriDestino(leaf.Ase.Id);
-            Assert.Equal(leaf.DetRetriQ2!.Detalle, LeerCelda(salidaCli, WorkbookLeafCellMapQ2.HojaDetRetri, celdaDetRetri));
-            Assert.Equal(leaf.DetRetriQ2.Detalle, LeerCelda(salidaDirecta, WorkbookLeafCellMapQ2.HojaDetRetri, celdaDetRetri));
+            Assert.Equal(leaf.DetRetriQ2!.Detalle, LeerCelda(salidaCli, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2()), celdaDetRetri));
+            Assert.Equal(leaf.DetRetriQ2.Detalle, LeerCelda(salidaDirecta, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2()), celdaDetRetri));
         }
 
         var totalD104 = resultadoDirecto.Leafs.Sum(l => l.DetRetriQ2!.TotalD104);
         var d14Esperado = DetRetriRounder.Round(totalD104);
-        Assert.Equal(d14Esperado, LeerCelda(salidaCli, WorkbookLeafCellMapQ2.HojaDetRetri, WorkbookLeafCellMapQ2.DetRetriTotal));
-        Assert.Equal(d14Esperado, LeerCelda(salidaDirecta, WorkbookLeafCellMapQ2.HojaDetRetri, WorkbookLeafCellMapQ2.DetRetriTotal));
+        Assert.Equal(d14Esperado, LeerCelda(salidaCli, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2()), WorkbookLeafCellMapQ2.DetRetriTotal));
+        Assert.Equal(d14Esperado, LeerCelda(salidaDirecta, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2()), WorkbookLeafCellMapQ2.DetRetriTotal));
 
         AssertSnapshotsIguales(salidaCli, salidaDirecta, Insumos.PeriodoQ2());
     }

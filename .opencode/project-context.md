@@ -134,6 +134,89 @@ Archivos INSUMOS (NO commitados). **HU-20 (nueva organización, `Consolidado/` E
 
 **Regla de proceso — SIEMPRE plantilla en ceros.** Se corre desde la **plantilla en ceros** (`REMUNERACION 2026072/Plantilla_ Remuneracion 202607-2.xlsx`), **NUNCA** desde una salida ya trabajada de otro período: la salida trabajada arrastra fechas y cadena de cálculo ajenas (el defecto que Plan 28 cierra). Veredicto T0/D-G: **sin guardrail de bloqueo** (documentación + regla de proceso; un detector "salida trabajada" arriesgaría falsos positivos). El sello hace que cada período escriba SU rango desde su R10.
 
+## Doctrina de paridad app-vs-manual (Plan 29 — vigente)
+
+**Principio rector (`lo que el workbook puede derivar de los insumos, la app lo escribe; lo que es proceso, se documenta`):** la salida de la app debe ser indistinguible del archivo manual del administrativo en todo lo que el workbook puede derivar de los insumos. El Plan 29 cierra la brecha con un T0 bloqueante que arbitró cada categoría en disco: **no hay una única causa** (D-A). Cero fórmulas tocadas (`<f>` intacto en todo el diff) y DetRetri-D 5/5 vs R10 intacto por construcción.
+
+### Tabla de causas V2..V7 (veredicto T0)
+
+| # | Hallazgo en disco | Tipo | Consecuencia |
+|---|---|---|---|
+| V2 | Agregados R2/R4 idénticos app vs manual al centavo (`E17/E28/K17`, `D15/P15`; post-recálculo `E43=E17+E28-K17`, `D73=D15-P15`) | **No-brecha** — no se toca | El encargo comparó celdas Q1 literal-0 y cachés `<v>` stale pre-recálculo; el writer SÍ usa el mapa Q2 |
+| V3 | Recaudo por empresa: columnas de 2.ª quincena (F/G) idénticas; las de 1.ª quincena (D/E) quedan en 0 en una corrida Q2 aislada | **No-brecha por diseño** — no se toca | Cada quincena escribe SOLO sus columnas (`Periodo.NumeroQuincena`: D/E en Q1, F/G en Q2). Comparar D/E es comparar quincenas distintas (el manual acumula Q1+Q2) |
+| V4 | BCE ASE1-4: swap D/E puro (F=D+E idéntico). **Corregido en T1** | Causa 1 | Header manda: template-D = SUBSIDIO ← columna E-fuente; template-E = CONTRIBUCION ← columna F-fuente. Refuta el T0-0.2 del Plan 10 («D=CONTRIBUCION»); F conmutativa → el golden ±0.5 no detectaba el swap |
+| V5 | BCE julio-ASE5: los `D7/E7` del manual no aparecen en ningún insumo (48 xlsx + 40 pdf, 0 apariciones) | Causa 2 — **divergencia-del-manual** | La app es fuente-fiel (`D7/E7` == `TOTAL GENERAL` E39/F39 al centavo). NO se toca `LeerBalanceSc` por ASE5; se documenta (T0a / R-B-2 / S2) |
+| V6 | Detalle R2/R4 (filas `E3:R3` y `D3/D9`-style) en 0 en la app aunque la fuente lo trae fila a fila | Causa 3 — **Unidad R** | Se lee por LABEL (filas) + ENCABEZADO (columnas) y se escribe en la misma pasada atómica; `Especiales` ausente = 0 explícito. Sin insert/delete (las filas ya existen en ceros) |
+| V7 | `DetRetri`/`DetValiRetri` C..O en 0 en la app; el manual los trae literales | Causa 4 — **Unidad D** | **12/12 DetRetri y 11/12 DetValiRetri** con origen workbook-interno (`CONSOLIDADO_TOTAL RECAUDO` fila `104+k`) se escriben como literal redondeado. **SALE: `DetValiRetri!J9` (`AJUSTE A LA DECENA`, manual-externo)** con motivo |
+
+**Contexto V1/V8:** la plantilla trae las hojas leaf como literales-0 de captura y los consolidados como fórmulas (la app solo escribe literales; todo lo demás recalcula solo). `V8` (`VALIDACION_TOTAL!C15` False) se explica por el literal faltante `'Valida - Control Recaudo'!F10` (T0f), que la Unidad P puebla.
+
+**Comparador de regresión — exclusiones versionadas (D-E):** `ComparadorSalidaVsManual` (Infrastructure, BCL puro `System.IO.Compression` + `System.Xml`; sin Excel/COM/ExcelDataReader) demuestra paridad por (a) literales ±0.5 o igualdad de texto, y (b) **igualdad de texto de fórmula** (misma fórmula + mismos inputs ⇒ mismo resultado post-recálculo; `fullCalcOnLoad` garantizado por Plan 28). **Prohibido depender de cachés `<v>`** (stale por diseño: V2/V8). Exclusiones declaradas y versionadas (R-FALSO-POSITIVO): columnas de la otra quincena (V3), metadatos heredados de período (`N3`/nombres de hoja salvo proceso — H1) y `DetValiRetri!J9` (SALE de Unidad D).
+
+**Proceso por quincena (D-F, H1):** cada quincena corre desde **su base propia del período** (plantilla en ceros + R10 del período). Para acumulado: Q1→Q2 encadenado en el mismo workbook. Para comparar por quincena: bases separadas (una corrida por quincena desde la plantilla en ceros). Correr Q2 sobre la salida de otro período arrastra el sello de período (`N3`) y los nombres de hoja (H1: la salida de agosto heredó `2026072`), aunque `G7/K7` sí se sellan por corrida (Plan 28). **Sin guardrail de bloqueo** (doctrina Plan 28 D-G).
+
+## Doctrina de nombres de hoja dinámicos por período + base canónica (Plan 30 — vigente)
+
+**Principio rector (`el nombre de hoja se COMPONE del dominio, no se detecta`):** los nombres de hoja que dependen del período (`DetRetri{AAAAMMQ}`, `DetValiRetri{AAAAMMQ}`, `Informe AFaseo Recaudo {AAAAMM}-{Q}`) se resuelven desde el dominio con el helper puro de Core **`NombresHojaPeriodo`** (`Remuneracion.Core/Models/NombresHojaPeriodo.cs`): `DetRetri(codigoCompleto)` → `DetRetri2026082`; `DetValiRetri(codigoCompleto)`; `InformeAFaseo(codigoAAAAMM, quincena)` (con sobrecargas `(Periodo)`). **El sufijo ES `Periodo.CodigoCompleto`** (2026071, 2026072, 2026082). Prohibido resolver por enumeración de hojas del workbook ("la que empiece por `DetRetri`"): la detección por contenido es frágil ante hojas heredadas de otro período (defecto H1). Cero literales `2026xxx` de nombre de hoja en runtime de producción fuera del helper.
+
+**OCP hacia el futuro:** un período nuevo funciona con **cero cambios de código** — el mismo helper resuelve `DetRetri2026091` (septiembre 2026091) sin tocar nada; Q1/Q2-julio resuelven byte-idéntico a los literales históricos (regresión por goldens ±0.5). El sustituto Q1→Q2 de fragmentos "Protegidas" (`ProtegidasBceParaPeriodo`) aplica `Replace(ancla-Q1, periodo.CodigoCompleto)`, nunca un literal de quincena.
+
+### Base canónica por período (D-B/D-E)
+
+**Regla de proceso:** cada período corre desde **su base canónica** (plantilla en ceros) que trae las hojas `DetRetri{código}` / `DetValiRetri{código}` / `Informe AFaseo Recaudo {AAAAMM}-{Q}` **del período** e internamente consistente con el manual del administrativo (metadatos `N3`/fechas + columnas Q1 D:E heredadas del manual tal cual, sin recalcular).
+
+| Período | Base canónica |
+|---|---|
+| Julio (2026072) | base de julio (consistente, intacta) |
+| Agosto (2026082) | `Docs/Prueba2/Plantilla_Remuneracion_2026082.xlsx` — nombre propio (R-BASE-DOBLE); ejemplo de la doctrina |
+
+**Herramienta de preparación (offline, one-shot):** `Herramientas/PreparadorBasePeriodo/` (BCL puro `ZipArchive` + `Regex`, **fuera del runtime/pipeline**) convierte una copia de la plantilla base en la base canónica del período: renombra los 3 `<sheet name>`, reescribe el token de período en las 11 `<f>` que lo referencian, actualiza `docProps/app.xml` y copia metadatos/Q1 del manual celda por celda (allow-list, solo destinos sin fórmula). **El runtime NUNCA toca `<f>`** (invariante Plan 28/30): la reescritura mecánica de fórmulas corre UNA vez, offline; cero fórmulas de negocio cambiadas.
+
+### Fail-fast de hoja ausente (D-C)
+
+**Principio:** si la plantilla no trae la hoja esperada del período → `ERR-PLANTILLA` nombrando **hoja esperada + período + operación** (p. ej. `La hoja 'DetRetri2026082' no existe en el workbook para escritura DetRetri-Q2 (período 2026082).`). **Sin fallback** a hojas de otro período: un fallback silencioso escribiría el dinero del período en la hoja del período equivocado. Aplica en los 3 puntos de resolución de hoja Det (escritura Q2, Unidad D trazable, oráculo `DetValiRetri`); base equivocada → error accionable inmediato, sin escritura parcial.
+
+**Informe AFaseo — cero código (D-D):** el runtime ignora `Informe AFaseo Recaudo` por spec (no se lee ni se escribe; ninguna `<f>` lo referencia). Solo existe como hoja en la base; su nombre lo fija la doctrina de naming, pero no hay consumidor en código.
+
+## Doctrina de recomposición por firma de totales R1 + gate workbook-vs-dominio + sello de proceso (Plan 31 — vigente)
+
+**Principio rector (`las fórmulas visibles del espejo se COMPONEN por firma, no se reanclan por conteo; los gates leen el WORKBOOK, no solo el dominio`):** los totales visibles de `Reporte Componentes R1` (TOT_OPT `F`, total TDF `G` y EXTEMP `F` por ASE) se recomponen en un **pase final post-5→1** del mutador (**D-A**: el mutador posee la geometría final; el writer con `omitirR1` no la conoce) desde los roles reales de la fuente (firma, no cardinalidad ni borde). Es la única excepción legítima y acotada al invariante "NUNCA sobrescribir fórmulas" (D-D).
+
+### Causa cerrada (T0 — no re-investigar)
+
+El espejo estructural R1 **dimensiona por conteo** (`delta`) y **borra en el PIE** del bloque (`primeraBorrada = totalRowIdx - m`), reanclando solo `r >= primeraBorrada`; pero la fuente de agosto **recorta en la CABEZA** (Mes 12/32/48 → 9/29/45). Los DATOS se escriben bien por orden, pero las `<f>` de los visibles quedan ancladas a las filas de julio (`F50 = F32+F47+F12-L12-L32` en vez de `F29+F45+F9-L9-L29`) y nadie re-deriva las filas-ancla por firma. **ASE5 exige recomponer** (no reanclar): su fuente trae **3 filas `Mes`** (agosto) mientras la plantilla declara 2 términos — un mapa de filas no puede agregar un término (D-B). Era un defecto de **anclaje de `<f>`**, no de lectura ni de dominio: los datos app-vs-manual son idénticos fila a fila y el dominio C# ya calculaba `totOpt`/`extemp` correcto por firma.
+
+### Excepción `<f>` (D-D) — alcance exacto
+
+- Se reescriben **solo** las celdas visibles del contrato T2: `TOT_OPT F` = `ΣF(Mes) − ΣL(Mes menos la última)`; total TDF `G` = `ΣG(Mes)`; `EXTEMP F` = `ΣF(Aplic) − Esp(primera)` (0 Aplic → literal `0` auditado). Forma idéntica al dominio `MapearR1Q2`.
+- **Fuera de esas celdas el invariante sigue intacto:** el `Reanclar` mecánico se conserva para refs externas (`CONSOLIDADO!D9='R1'!F50`), nombres y merges; R2/R4-detalle, CONSOLIDADO y validaciones no se tocan.
+- **Julio-identidad (D-E):** con geometría de julio (delta 0) la recomposición reproduce byte-idéntica la fórmula canónica (`F53=F32+F48+F12-L12-L32`, …); si julio difiere, es regresión.
+- Auditoría término a término: texto de fórmula vs manual (f-vs-f) + evaluación BCL vs dominio ±0.5 (el gate).
+
+### Gate workbook-vs-dominio R1 (C, S1)
+
+`ValidadorTotalesR1Workbook` (Infrastructure, BCL/OpenXML en lectura — sin Excel/COM) lee el workbook **generado**, evalúa cada visible (texto-`<f>` + literales; **prohibido `<v>` stale**) y lo contrasta contra el dominio por firma (`TotalOportunoEsperadoPorAse`/`ExtemporaneoEsperadoPorAse`) ±0.5, con fail-fast que nombra ASE+celda si una ref no resuelve. Cubre el punto donde la validación de protegidas se **salteaba** con `espejoDesplazado=true`. **S1:** julio PASS siempre (identidad); agosto FAIL en el estado pre-T2 (reproduce el bug) y PASS tras T2. En paralelo, el comparador de regresión pierde la exención *blanket* de R1-agosto: `Reporte Componentes R1` vuelve a compararse f-vs-f (solo exclusiones versionadas con cita).
+
+### Sello de proceso D6/D7 (D-F) — texto, no serial
+
+`ProcesadorPeriodo` lee del R10 (`DetRetri{AAAAMMQ}`) **`Fecha de Proceso` → `FechaProceso`** y **`Hora` → `HoraProceso`**, con fail-fast `ERR-FORMATO-FUENTE` (período+archivo+celda) si ilegibles; el writer sella **`DetRetri{AAAAMMQ}!D6/D7`** y **`DetValiRetri{AAAAMMQ}!D6/D7`** (nombres por `NombresHojaPeriodo`) con guard anti-fórmula. **Desviación ratificada por el mini-T0 (R-S-1):** el plan D-F decía "valores OADate"; las 4 celdas traen formato **Texto** (`numFmtId=49`) y la base/manual/R10 guardan el sello como **texto** (`dd/MM/yyyy` + `hh:mm AM/PM`) — un serial OADate mostraría el número crudo. Se sella **texto** preservando el estilo (julio `04/08/2026` `10:15 AM`; agosto `02/09/2026` `07:42 AM`). Distinto del sello de **rango** del Plan 28 (`CONSOLIDADO G7/K7`, serial OADate). **`CONSOLIDADO!D6` NO se duplica** (ya sellado en la base; R-S-3).
+
+### Veredictos R2/R4+soporte (T4 — solo documenta, cero código de producción)
+
+| ID | Frente | Veredicto | Consecuencia (comparador / código) |
+|---|---|---|---|
+| R-D-1 | R2-detalle (`Rem. Anticipos R2`) | declarar-divergencia | Ya versionado (brecha ítem 9); código: nada |
+| R-D-2 | R4-detalle (`Reversion Pagos R4`) | declarar-divergencia | Ya versionado; código: nada (idem R-D-1) |
+| R-D-3 | SALDOS POR NOTA (detalle) | declarar-divergencia | Versionar la categoría (agosto); código: nada; re-encender al cerrar la malla (F-T4-2/3) |
+| R-D-4 | AJUSTES - SF-T + arrastre (`CONSOLIDADO_TOTAL RECAUDO`, `REMUNERACION_*`) | declarar-divergencia | Arrastre de R-D-1/2/3; versionar la categoría |
+| R-D-5 | R1-interior subvisible (`Reporte Componentes R1`, F/G/H interiores) | adoptar-geometría | NO versionar: los 96 quedan en ROJO como brecha viva; follow-up F-T4-1 |
+| R-D-6 | INTERVENTORIA R26 | declarar-divergencia (cosmética) | `=F15` vs `=H15`, mismo valor 189185988; versionar acotado a R26 |
+| R-D-7 | ANT EXT-REV / ANTICIPOS USUARIOS | fuera-de-alcance | Ya versionado (non-goal del Plan 29); sin cambio |
+
+**Follow-ups (fuera del Plan 31):** F-T4-1 (R-D-5: extender la recomposición por firma al INTERIOR de R1 — Plan 32, T0 propio); F-T4-2 (R-D-1/2: remesh de filas R2/R4 si el Ingeniero autoriza insert/delete o mapeo por label); F-T4-3 (R-D-3/4: re-encender o promover la exclusión a permanente); F-T4-4 (R-D-6: confirmar si `R26` es cosmética del manual). Tras las exclusiones temporales de T4, agosto pasa de 1272 → 96 divergencias inesperadas (todas R-D-5).
+
+**Lección (método):** los gates de coherencia eran **dominio-a-dominio** y el comparador eximía R1 en bloque → un total mal anclado se entregaba en silencio. Regla que queda: **un gate debe leer el WORKBOOK generado** (texto-`<f>` + literales), no solo los agregados C# del dominio.
+
 ## Estructura de Directorios
 ```
 Automatización/

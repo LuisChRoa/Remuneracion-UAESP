@@ -33,7 +33,7 @@ public sealed class GoldenValidacionesCruzadasTests
         Assert.Empty(errores);
 
         // A3-Q1: las hojas de validación siguen siendo fórmula en la salida (mapa 2.7).
-        foreach (var (hoja, celda, _) in WorkbookLeafCellMapValidaciones.ProtegidasValidacionesParaPeriodo(1))
+        foreach (var (hoja, celda, _) in WorkbookLeafCellMapValidaciones.ProtegidasValidacionesParaPeriodo(Insumos.Periodo()))
         {
             Assert.True(CeldaEsFormula(salida, hoja, celda), $"{hoja}!{celda} debió seguir siendo fórmula en la salida Q1.");
         }
@@ -56,7 +56,7 @@ public sealed class GoldenValidacionesCruzadasTests
 
         // A3-Q2: validaciones siguen siendo fórmula en la salida Q2 (extensión 2.7; el mapa Q2
         // DetRetriProtected ya cubierto por la suite HU-12).
-        foreach (var (hoja, celda, _) in WorkbookLeafCellMapValidaciones.ProtegidasValidacionesParaPeriodo(2))
+        foreach (var (hoja, celda, _) in WorkbookLeafCellMapValidaciones.ProtegidasValidacionesParaPeriodo(Insumos.PeriodoQ2()))
         {
             Assert.True(CeldaEsFormula(salida, hoja, celda), $"{hoja}!{celda} debió seguir siendo fórmula en la salida Q2.");
         }

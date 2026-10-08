@@ -80,7 +80,7 @@ public sealed class MapaValidacionesT0Tests
         foreach (var (ruta, quincena, etiqueta) in new[]
                  { (Insumos.Plantilla, 1, "Q1"), (Insumos.GoldenQ2, 2, "Q2") })
         {
-            var hoja = WorkbookLeafCellMapValidaciones.HojaDetValiRetri(quincena);
+            var hoja = WorkbookLeafCellMapValidaciones.HojaDetValiRetri(quincena == 2 ? Insumos.PeriodoQ2() : Insumos.Periodo());
             for (var aseId = 1; aseId <= 5; aseId++)
             {
                 var fila = WorkbookLeafCellMapValidaciones.FilaDiferenciaDetValiRetri(aseId);
@@ -95,8 +95,8 @@ public sealed class MapaValidacionesT0Tests
     {
         // D6: la fila Total D21 = D14 − CONSOLIDADO U109 NO cierra ±0.5 en NINGÚN canónico
         // (acumulado de ruido float de las 5 filas). Queda documentada y EXCLUIDA del gate.
-        var q1 = LeerCeldaNumerica(Insumos.Plantilla, WorkbookLeafCellMapValidaciones.HojaDetValiRetri(1), "D21");
-        var q2 = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapValidaciones.HojaDetValiRetri(2), "D21");
+        var q1 = LeerCeldaNumerica(Insumos.Plantilla, WorkbookLeafCellMapValidaciones.HojaDetValiRetri(Insumos.Periodo()), "D21");
+        var q2 = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapValidaciones.HojaDetValiRetri(Insumos.PeriodoQ2()), "D21");
         Assert.True(Math.Abs(q1) > Tolerancia, $"Q1 D21 = {q1}; se esperaba divergencia > ±0.5 (documentada).");
         Assert.True(Math.Abs(q2) > Tolerancia, $"Q2 D21 = {q2}; se esperaba divergencia > ±0.5 (documentada).");
     }
@@ -107,7 +107,7 @@ public sealed class MapaValidacionesT0Tests
         foreach (var (ruta, quincena, etiqueta) in new[]
                  { (Insumos.Plantilla, 1, "Q1"), (Insumos.GoldenQ2, 2, "Q2") })
         {
-            var hoja = WorkbookLeafCellMapValidaciones.HojaDetValiRetri(quincena);
+            var hoja = WorkbookLeafCellMapValidaciones.HojaDetValiRetri(quincena == 2 ? Insumos.PeriodoQ2() : Insumos.Periodo());
             for (var aseId = 1; aseId <= 5; aseId++)
             {
                 var fila = WorkbookLeafCellMapValidaciones.FilaVerificacionDetValiRetri(aseId);
@@ -127,11 +127,11 @@ public sealed class MapaValidacionesT0Tests
         // DetValiRetri D14 ≠ ROUND(CONSOLIDADO U109) en ambos canónicos → el gate NUNCA exige
         // ROUND sobre D9:D14 (prohibido "cerrarlos").
         var u109Q1 = LeerCeldaNumerica(Insumos.Plantilla, WorkbookLeafCellMap.HojaConsolidado, "U109");
-        var d14Q1 = LeerCeldaNumerica(Insumos.Plantilla, WorkbookLeafCellMapValidaciones.HojaDetValiRetri(1), "D14");
+        var d14Q1 = LeerCeldaNumerica(Insumos.Plantilla, WorkbookLeafCellMapValidaciones.HojaDetValiRetri(Insumos.Periodo()), "D14");
         Assert.NotEqual(decimal.Round(u109Q1, 0, MidpointRounding.AwayFromZero), d14Q1);
 
         var u109Q2 = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMap.HojaConsolidado, "U109");
-        var d14Q2 = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapValidaciones.HojaDetValiRetri(2), "D14");
+        var d14Q2 = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapValidaciones.HojaDetValiRetri(Insumos.PeriodoQ2()), "D14");
         Assert.NotEqual(decimal.Round(u109Q2, 0, MidpointRounding.AwayFromZero), d14Q2);
     }
 
@@ -160,10 +160,14 @@ public sealed class MapaValidacionesT0Tests
     {
         // G7/A8: las hojas DetRetri/DetValiRetri existen por NOMBRE con sufijo de período
         // (2026071 en Q1, 2026072 en Q2); nunca números 93/94.
-        Assert.True(HojaExiste(Insumos.Plantilla, "DetRetri2026071"), "DetRetri2026071 debió existir en Q1.");
-        Assert.True(HojaExiste(Insumos.Plantilla, "DetValiRetri2026071"), "DetValiRetri2026071 debió existir en Q1.");
-        Assert.True(HojaExiste(Insumos.GoldenQ2, "DetRetri2026072"), "DetRetri2026072 debió existir en Q2.");
-        Assert.True(HojaExiste(Insumos.GoldenQ2, "DetValiRetri2026072"), "DetValiRetri2026072 debió existir en Q2.");
+        var detRetriQ1 = WorkbookLeafCellMapValidaciones.HojaDetRetri(Insumos.Periodo());
+        var detValiRetriQ1 = WorkbookLeafCellMapValidaciones.HojaDetValiRetri(Insumos.Periodo());
+        var detRetriQ2 = WorkbookLeafCellMapValidaciones.HojaDetRetri(Insumos.PeriodoQ2());
+        var detValiRetriQ2 = WorkbookLeafCellMapValidaciones.HojaDetValiRetri(Insumos.PeriodoQ2());
+        Assert.True(HojaExiste(Insumos.Plantilla, detRetriQ1), $"{detRetriQ1} debió existir en Q1.");
+        Assert.True(HojaExiste(Insumos.Plantilla, detValiRetriQ1), $"{detValiRetriQ1} debió existir en Q1.");
+        Assert.True(HojaExiste(Insumos.GoldenQ2, detRetriQ2), $"{detRetriQ2} debió existir en Q2.");
+        Assert.True(HojaExiste(Insumos.GoldenQ2, detValiRetriQ2), $"{detValiRetriQ2} debió existir en Q2.");
     }
 
     [Fact]

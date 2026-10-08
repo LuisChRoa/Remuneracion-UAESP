@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using Remuneracion.Core.Models;
 using Remuneracion.Infrastructure.Excel;
 using Xunit;
 
@@ -107,13 +108,15 @@ public sealed class MapaQ2T0Tests
     public void T0_DetRetriQ2_D9D14Valores_Y_FormulaProtected()
     {
         // T0-0.4 / V0.4: DetRetri2026072 D9:D14 = VALORES 0 editables; D23:D28 + D32:D36 = FÓRMULA.
+        var hojaDetRetri = WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2());
+        var hojaDetValiRetri = WorkbookLeafCellMapQ2.HojaDetValiRetri(Insumos.PeriodoQ2());
         for (var fila = 9; fila <= 14; fila++)
         {
-            Assert.False(CeldaEsFormula(Insumos.PlantillaQ2, WorkbookLeafCellMapQ2.HojaDetRetri, $"D{fila}"),
-                $"DetRetri2026072!D{fila} debió ser VALOR editable en el canónico Q2.");
+            Assert.False(CeldaEsFormula(Insumos.PlantillaQ2, hojaDetRetri, $"D{fila}"),
+                $"{hojaDetRetri}!D{fila} debió ser VALOR editable en el canónico Q2.");
         }
 
-        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapQ2.DetRetriProtected)
+        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapQ2.DetRetriProtected(Insumos.PeriodoQ2()))
         {
             Assert.True(CeldaTieneFormulaConFragmentos(Insumos.PlantillaQ2, hoja, celda, fragmentos),
                 $"{hoja}!{celda} debió ser fórmula con fragmentos [{string.Join(",", fragmentos)}] en el canónico Q2.");
@@ -122,8 +125,8 @@ public sealed class MapaQ2T0Tests
         // DetValiRetri2026072 D9:D14 también VALORES (no escritas; 2.7 protegida por Requirement 5).
         for (var fila = 9; fila <= 14; fila++)
         {
-            Assert.False(CeldaEsFormula(Insumos.PlantillaQ2, WorkbookLeafCellMapQ2.HojaDetValiRetri, $"D{fila}"),
-                $"DetValiRetri2026072!D{fila} debió ser VALOR (no fórmula) en el canónico Q2.");
+            Assert.False(CeldaEsFormula(Insumos.PlantillaQ2, hojaDetValiRetri, $"D{fila}"),
+                $"{hojaDetValiRetri}!D{fila} debió ser VALOR (no fórmula) en el canónico Q2.");
         }
     }
 
@@ -141,12 +144,12 @@ public sealed class MapaQ2T0Tests
         for (var aseId = 1; aseId <= 5; aseId++)
         {
             var esperado = decimal.Round(goldenD104[aseId - 1], 0, MidpointRounding.AwayFromZero);
-            var goldenDetRetri = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaDetRetri, WorkbookLeafCellMapQ2.ObtenerDetRetriDestino(aseId));
+            var goldenDetRetri = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2()), WorkbookLeafCellMapQ2.ObtenerDetRetriDestino(aseId));
             Assert.InRange(esperado - goldenDetRetri, -Tolerancia, Tolerancia);
         }
 
         var totalEsperado = decimal.Round(goldenD104.Sum(), 0, MidpointRounding.AwayFromZero);
-        var goldenTotal = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaDetRetri, WorkbookLeafCellMapQ2.DetRetriTotal);
+        var goldenTotal = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2()), WorkbookLeafCellMapQ2.DetRetriTotal);
         Assert.InRange(totalEsperado - goldenTotal, -Tolerancia, Tolerancia);
     }
 
@@ -155,7 +158,7 @@ public sealed class MapaQ2T0Tests
     {
         // T0-0.5 / M1 a nivel estructura: ProtegidasBceParaPeriodo(true) + ProtegidasAdicionalesQ2
         // + cadena AJUSTES-SF-T matchean celdas reales del canónico Q2 (incl. sheets 36/37).
-        var bceQ2 = BalanceScProtegidasParaPeriodo(true);
+        var bceQ2 = BalanceScProtegidasParaPeriodo(Insumos.PeriodoQ2());
         foreach (var (hoja, celda, fragmentos) in bceQ2)
         {
             Assert.True(CeldaTieneFormulaConFragmentos(Insumos.PlantillaQ2, hoja, celda, fragmentos),
@@ -294,20 +297,17 @@ public sealed class MapaQ2T0Tests
     }
 
     /// <summary>
-    /// Espejo de <c>OpenXmlPlantillaWriter.ProtegidasBceParaPeriodo</c>: reemplaza el sufijo
-    /// 2026071 → 2026072 en el mapa HU-10 (no toca el mapa; solo su interpretación por período).
+    /// Espejo de <c>OpenXmlPlantillaWriter.ProtegidasBceParaPeriodo</c>: reemplaza el ancla-Q1
+    /// ("2026071", sufijo del mapa HU-10) por <c>periodo.CodigoCompleto</c> (Plan 30/D-A; no toca el
+    /// mapa, solo su interpretación por período).
     /// </summary>
-    private static IEnumerable<(string Hoja, string Celda, string[] Fragmentos)> BalanceScProtegidasParaPeriodo(bool esQuincena2)
+    private static IEnumerable<(string Hoja, string Celda, string[] Fragmentos)> BalanceScProtegidasParaPeriodo(Periodo periodo)
     {
-        if (!esQuincena2)
-        {
-            return WorkbookLeafCellMapBalanceSc.Protegidas;
-        }
-
+        var codigoCompleto = periodo.CodigoCompleto;
         return WorkbookLeafCellMapBalanceSc.Protegidas
             .Select(p => (
-                p.Hoja.Replace("2026071", "2026072", StringComparison.Ordinal),
+                p.Hoja.Replace("2026071", codigoCompleto, StringComparison.Ordinal),
                 p.Celda,
-                p.Fragmentos.Select(f => f.Replace("2026071", "2026072", StringComparison.Ordinal)).ToArray()));
+                p.Fragmentos.Select(f => f.Replace("2026071", codigoCompleto, StringComparison.Ordinal)).ToArray()));
     }
 }

@@ -28,6 +28,19 @@ public sealed class DetRetriInputs
     public DateTime FechaHasta { get; set; }
 
     /// <summary>
+    /// Plan 31 (T3, R-S-1): "Fecha de Proceso" (D6) del encabezado del R10 — es el sello de la
+    /// corrida administrativa que produjo el R10, no el rango del período (G7/J7). <c>null</c> si la
+    /// celda no existe o no parsea.
+    /// </summary>
+    public DateTime? FechaProceso { get; set; }
+
+    /// <summary>
+    /// Plan 31 (T3, R-S-1): "Hora" (D7) del encabezado del R10 — hora-del-día del sello de proceso
+    /// (fracción de día, p. ej. 07:42 → 0.3208…). <c>null</c> si no existe o no parsea.
+    /// </summary>
+    public TimeSpan? HoraProceso { get; set; }
+
+    /// <summary>
     /// DetRetri por ASE (clave = <see cref="Ase.Id"/> 1..5) leído de D9:D13.
     /// </summary>
     public IReadOnlyDictionary<int, decimal> DetRetriPorAse { get; set; } = new Dictionary<int, decimal>();

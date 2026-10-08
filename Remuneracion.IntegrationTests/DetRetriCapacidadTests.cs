@@ -39,12 +39,13 @@ public sealed class DetRetriCapacidadTests
         var plantillaFutura = Path.Combine(salidaDir, "plantilla-sin-D10.xlsx");
         File.Copy(Insumos.PlantillaQ2, plantillaFutura, overwrite: true);
 
-        QuitarCelda(plantillaFutura, "DetRetri2026072", "D10");
+        var hojaDetRetri = WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2());
+        QuitarCelda(plantillaFutura, hojaDetRetri, "D10");
 
         var ex = Assert.Throws<CalculoInvalidoException>(() =>
             new OpenXmlPlantillaWriter().GenerarWorkbook(plantillaFutura, Path.Combine(salidaDir, "salida.xlsx"), resultado, leafs));
 
-        Assert.Contains("DetRetri2026072", ex.Message);
+        Assert.Contains(hojaDetRetri, ex.Message);
         Assert.Contains("D10", ex.Message);
         Assert.False(File.Exists(Path.Combine(salidaDir, "salida.xlsx")), "No debe quedar salida parcial ante fallo (patrón existente).");
     }

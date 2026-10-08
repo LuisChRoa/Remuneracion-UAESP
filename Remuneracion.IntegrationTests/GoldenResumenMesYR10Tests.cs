@@ -178,7 +178,7 @@ public sealed class GoldenResumenMesYR10Tests
         // Calculado (bottom-up) ASE1 = ROUND(D104) = 17.450.228.673; el R10 se altera a ...673+1.000.
         const decimal calculadoAse1 = 17450228673m;
         const decimal r10Alterado = 17450229673m;
-        ModificarCeldaNumerica(rutaR10, "DetRetri2026072", "D9", r10Alterado);
+        ModificarCeldaNumerica(rutaR10, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2()), "D9", r10Alterado);
 
         var salida = Path.Combine(Path.GetTempPath(), "remuneracion-r10-divergente-salida-" + Guid.NewGuid().ToString("N"), Insumos.PeriodoQ2().NombreArchivo);
         var procesador = CrearProcesadorConR10();
@@ -213,7 +213,7 @@ public sealed class GoldenResumenMesYR10Tests
 
         const decimal calculadoAse1 = 16758167585m;
         const decimal r10Alterado = 16758168585m;
-        ModificarCeldaNumerica(rutaR10, "DetRetri2026071", "D9", r10Alterado);
+        ModificarCeldaNumerica(rutaR10, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.Periodo()), "D9", r10Alterado);
 
         var salida = Path.Combine(Path.GetTempPath(), "remuneracion-r10-divergente-q1-salida-" + Guid.NewGuid().ToString("N"), Insumos.Periodo().NombreArchivo);
         var procesador = CrearProcesadorConR10();
