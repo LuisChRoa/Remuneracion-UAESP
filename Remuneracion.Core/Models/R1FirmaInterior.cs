@@ -39,12 +39,15 @@ public static class R1FirmaInterior
 
     /// <summary>
     /// Igual que <see cref="EsDatoEmpresa(FilaEspejoR1)"/> pero exigiendo una empresa concreta de la
-    /// columna C (comparación case-insensitive; el catálogo sigue siendo abierto por construcción).
+    /// columna C. La comparación aprende la equivalencia de sinónimos legado↔vigente
+    /// (<see cref="SinonimosEmpresaR1.SonMismaEmpresa"/>): el rótulo del template <c>RECIPROCIDAD</c>
+    /// y el nombre de la fuente <c>NUEVO ESQUEMA</c> son la misma empresa. El catálogo sigue siendo
+    /// abierto por construcción: un rótulo no tabulado solo se iguala a sí mismo (Plan 34 D-A/D-B).
     /// </summary>
     public static bool EsDatoEmpresa(FilaEspejoR1 fila, string empresa)
     {
         ArgumentNullException.ThrowIfNull(fila);
-        return EsDatoEmpresa(fila) && string.Equals(fila.C, empresa, StringComparison.OrdinalIgnoreCase);
+        return EsDatoEmpresa(fila) && SinonimosEmpresaR1.SonMismaEmpresa(fila.C, empresa);
     }
 
     /// <summary>

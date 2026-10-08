@@ -954,9 +954,19 @@ internal static class OpenXmlEspejoR1Mutador
                 var faltantes = CompositorInteriorR1.AnclasFaltantes(etiqueta, filasPorFirma);
                 if (faltantes.Count > 0)
                 {
+                    // Plan 34 (T2, D-G): fail-fast ENRIQUECIDO — nunca 0 silencioso ni composición
+                    // parcial. Nombra AMBOS lados (rótulo del template + etiquetas de empresa
+                    // observadas en la fuente del bloque) para que el próximo T0 arbitre con evidencia
+                    // en vez de adivinar.
+                    var rotuloTemplate = RotuloEmpresaTemplate(workbookPart, sheetData, totalRowIdx, celda, etiqueta);
+                    var etiquetasFuente = bloque.Filas
+                        .Select(f => f.C)
+                        .Where(c => !string.IsNullOrWhiteSpace(c))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
                     throw new CalculoInvalidoException(
                         CodigoError.Plantilla,
-                        $"Espejo R1 (Plan 32/T2-interior): ASE {aseId} {HojaR1}!{celda} [{etiqueta}]: faltan las anclas [{string.Join(",", faltantes)}] del sub-bloque; no se escribe parcial.");
+                        $"Espejo R1 (Plan 32/T2-interior): ASE {aseId} {HojaR1}!{celda} [{etiqueta}]: faltan las anclas [{string.Join(",", faltantes)}] del sub-bloque (rótulo template: '{rotuloTemplate}'; etiquetas fuente observadas: [{string.Join(", ", etiquetasFuente)}]); no se escribe parcial.");
                 }
 
                 var texto = CompositorInteriorR1.ComponerInterior(aseId, celda, filasPorFirma);
@@ -1186,6 +1196,25 @@ internal static class OpenXmlEspejoR1Mutador
         return empresa;
     }
 
+    /// <summary>
+    /// Plan 34 (T2, D-G): rótulo de empresa del TEMPLATE del sub-bloque de una celda interior
+    /// (subtotales: la columna C de la fila destino; EXTEMP/SUBS: la empresa de contexto). Solo
+    /// alimenta el fail-fast enriquecido; NO participa del matching (el matching es el overload
+    /// <c>EsDatoEmpresa(fila, empresa)</c>).
+    /// </summary>
+    private static string RotuloEmpresaTemplate(WorkbookPart workbookPart, SheetData sheetData, int totalRowIdx, string celda, string etiqueta)
+    {
+        var filaDestino = FilaDeReferencia(celda);
+        return etiqueta switch
+        {
+            "SUB_EMP" or "SUB_TDF" or "SUB_L" => FilaPorIndice(sheetData, filaDestino) is { } fila
+                ? TextoDeCelda(workbookPart, fila, "C")
+                : string.Empty,
+            "EXT_INT" or "SUBS" => EmpresaContexto(workbookPart, sheetData, totalRowIdx, filaDestino),
+            _ => string.Empty
+        };
+    }
+
     private static void AsignarPrefijo(Dictionary<string, int> filas, string prefijo, IReadOnlyList<int> valores)
     {
         for (var i = 0; i < valores.Count; i++)
@@ -1206,10 +1235,10 @@ internal static class OpenXmlEspejoR1Mutador
     {
         var celda = ObtenerOCrearCeldaPorReferencia(sheetData, referencia);
         var antes = celda.CellFormula?.Text ?? celda.CellValue?.InnerText ?? "<vacío>";
-        celda.CellFormula = new CellFormula(texto);
+        EscribirFormulaPreservando(celda, texto);
         Serilog.Log.Debug(
-            "Espejo R1 (Plan 32/T2-interior): ASE {AseId} {Hoja}!{Celda} [{Etiqueta}] fórmula interior recompuesta por firma: '{Antes}' -> '{Despues}'.",
-            aseId, HojaR1, referencia, etiqueta, antes, texto);
+            "Espejo R1 (Plan 32/T2-interior / Plan 33/T2): ASE {AseId} {Hoja}!{Celda} [{Etiqueta}] fórmula interior recompuesta por firma ({Atributos}): '{Antes}' -> '{Despues}'.",
+            aseId, HojaR1, referencia, etiqueta, AtributosFormula(celda), antes, texto);
     }
 
     private static void EscribirLiteralInterior(SheetData sheetData, string referencia, int aseId, string etiqueta)
@@ -1511,11 +1540,32 @@ internal static class OpenXmlEspejoR1Mutador
     {
         var celda = ObtenerOCrearCeldaPorReferencia(sheetData, referencia);
         var antes = celda.CellFormula?.Text ?? celda.CellValue?.InnerText ?? "<vacío>";
-        celda.CellFormula = new CellFormula(texto);
+        EscribirFormulaPreservando(celda, texto);
         Serilog.Log.Debug(
-            "Espejo R1 (Plan 31/T2): ASE {AseId} {Hoja}!{Celda} [{Etiqueta}] fórmula visible recompuesta por firma: '{Antes}' -> '{Despues}'.",
-            aseId, HojaR1, referencia, etiqueta, antes, texto);
+            "Espejo R1 (Plan 31/T2 / Plan 33/T2): ASE {AseId} {Hoja}!{Celda} [{Etiqueta}] fórmula visible recompuesta por firma ({Atributos}): '{Antes}' -> '{Despues}'.",
+            aseId, HojaR1, referencia, etiqueta, AtributosFormula(celda), antes, texto);
     }
+
+    /// <summary>
+    /// Plan 33 (T2, D-A/D-B): escribe el texto de una fórmula preservando los atributos shared del
+    /// master de la plantilla cuando la celda YA traía <c>CellFormula</c> (<c>t</c>/<c>ref</c>/<c>si</c>
+    /// intactos); solo crea un <c>new CellFormula</c> cuando la celda nace sin fórmula (literales). La
+    /// regla es por EXISTENCIA, no por lista de celdas: un master nuevo futuro se preserva sin código.
+    /// </summary>
+    internal static void EscribirFormulaPreservando(Cell celda, string texto)
+    {
+        if (celda.CellFormula is not null)
+        {
+            celda.CellFormula.Text = texto;
+        }
+        else
+        {
+            celda.CellFormula = new CellFormula(texto);
+        }
+    }
+
+    private static string AtributosFormula(Cell celda) =>
+        $"t={celda.CellFormula?.FormulaType?.InnerText ?? "normal"}, ref={celda.CellFormula?.Reference?.Value ?? "-"}, si={celda.CellFormula?.SharedIndex?.Value.ToString(CultureInfo.InvariantCulture) ?? "-"}";
 
     private static void EscribirCeroVisible(SheetData sheetData, string referencia, int aseId, string etiqueta)
     {
