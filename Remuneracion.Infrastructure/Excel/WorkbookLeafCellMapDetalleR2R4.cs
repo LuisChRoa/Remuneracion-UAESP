@@ -30,11 +30,11 @@ public static class WorkbookLeafCellMapDetalleR2R4
     public static readonly IReadOnlyDictionary<int, (int FilaInicio, int FilaFin)> BloquesR2 =
         new Dictionary<int, (int, int)>
         {
-            [1] = (3, 29),
-            [2] = (63, 108),
-            [3] = (159, 188),
-            [4] = (276, 324),
-            [5] = (378, 411)
+            [1] = (3, 33),
+            [2] = (67, 113),
+            [3] = (164, 194),
+            [4] = (282, 328),
+            [5] = (382, 419)
         };
 
     /// <summary>
@@ -45,10 +45,10 @@ public static class WorkbookLeafCellMapDetalleR2R4
         new Dictionary<int, (int, int)>
         {
             [1] = (3, 15),
-            [2] = (93, 105),
-            [3] = (188, 200),
-            [4] = (225, 243),
-            [5] = (340, 352)
+            [2] = (93, 111),
+            [3] = (194, 206),
+            [4] = (231, 249),
+            [5] = (346, 358)
         };
 
     /// <summary>

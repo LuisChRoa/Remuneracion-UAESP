@@ -28,14 +28,14 @@ public static class WorkbookLeafCellMap
 
     public static readonly (string Hoja, string Celda, string[] Fragmentos)[] ProtectedFormulas =
     [
-        (HojaR1, "F46", ["F25", "F41", "L25"]),
-        (HojaR1, "F48", ["F30", "F10", "L10"]),
-        (HojaR2, "E41", ["E15", "E26", "K15"]),
-        (HojaR4, "D67", ["D9", "P9"]),
-        (HojaConsolidado, "D9", ["F46", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D28", ["E41", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D47", ["F48", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D66", ["D67", "Reversion Pagos R4"]),
+        (HojaR1, "F75", ["F47", "F70", "F16", "L16", "L47"]),
+        (HojaR1, "F77", ["F59", "F32", "L32"]),
+        (HojaR2, "E47", ["E21", "E32", "K21"]),
+        (HojaR4, "D73", ["D15", "P15"]),
+        (HojaConsolidado, "D9", ["F75", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D28", ["E47", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D47", ["F77", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D66", ["D73", "Reversion Pagos R4"]),
         (HojaConsolidado, "D104", ["D9", "D28", "D47", "D66", "D85"]),
         (HojaConsolidado, "D109", ["D104", "D108", "SUM"])
     ];

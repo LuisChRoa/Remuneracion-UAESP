@@ -133,18 +133,23 @@ public static class WorkbookLeafCellMapPorEmpresa
     public static readonly IReadOnlyDictionary<(int EmpresaId, int AseId), (string Celda, FuenteR2 Fuente)[]> EditablesR2PorEmpresa =
         new Dictionary<(int, int), (string, FuenteR2)[]>
         {
-            [(2, 1)] = [("E18", FuenteR2.SubsCont), ("E6", FuenteR2.Total), ("K6", FuenteR2.Especiales)],
-            [(4, 1)] = [("E14", FuenteR2.Total), ("E25", FuenteR2.SubsCont), ("K14", FuenteR2.Especiales)],
-            [(1, 2)] = [("E95", FuenteR2.SubsCont), ("E74", FuenteR2.Total), ("K74", FuenteR2.Especiales)],
-            [(2, 2)] = [("E88", FuenteR2.SubsCont), ("E64", FuenteR2.Total), ("K64", FuenteR2.Especiales)],
-            [(4, 2)] = [("E84", FuenteR2.Total), ("E102", FuenteR2.SubsCont), ("K84", FuenteR2.Especiales)],
-            [(2, 3)] = [("E170", FuenteR2.SubsCont), ("E158", FuenteR2.Total), ("K158", FuenteR2.Especiales)],
-            [(4, 3)] = [("E166", FuenteR2.Total), ("E177", FuenteR2.SubsCont), ("K166", FuenteR2.Especiales)],
-            [(1, 4)] = [("E300", FuenteR2.SubsCont), ("E279", FuenteR2.Total), ("K279", FuenteR2.Especiales)],
-            [(2, 4)] = [("E293", FuenteR2.SubsCont), ("E270", FuenteR2.Total), ("K270", FuenteR2.Especiales)],
-            [(4, 4)] = [("E289", FuenteR2.Total), ("E307", FuenteR2.SubsCont), ("K289", FuenteR2.Especiales)],
-            [(2, 5)] = [("E377", FuenteR2.SubsCont), ("E366", FuenteR2.Total), ("K366", FuenteR2.Especiales)],
-            [(4, 5)] = [("E373", FuenteR2.Total), ("E384", FuenteR2.SubsCont), ("K373", FuenteR2.Especiales)]
+            // Plan 38 (T2-continuación, R-ATRIBUCION): re-congeladas desde los bytes de la plantilla
+            // estandarizada única (mini-T0). Por empresa/ASE: la celda "Total" es la fila-dato de la
+            // empresa en el sub-bloque Componente y la "SubsCont" en el sub-bloque Subs/Cont; la
+            // "Especiales" es la col K de la fila Total. Derivadas de las fórmulas OPORTUNO del
+            // template (p. ej. ASE1 ENEL E53=E24+E10+E6-K6-K10 → Total E10, SubsCont E24, Esp K10).
+            [(2, 1)] = [("E24", FuenteR2.SubsCont), ("E10", FuenteR2.Total), ("K10", FuenteR2.Especiales)],
+            [(4, 1)] = [("E20", FuenteR2.Total), ("E31", FuenteR2.SubsCont), ("K20", FuenteR2.Especiales)],
+            [(1, 2)] = [("E104", FuenteR2.SubsCont), ("E83", FuenteR2.Total), ("K83", FuenteR2.Especiales)],
+            [(2, 2)] = [("E97", FuenteR2.SubsCont), ("E74", FuenteR2.Total), ("K74", FuenteR2.Especiales)],
+            [(4, 2)] = [("E93", FuenteR2.Total), ("E111", FuenteR2.SubsCont), ("K93", FuenteR2.Especiales)],
+            [(2, 3)] = [("E185", FuenteR2.SubsCont), ("E171", FuenteR2.Total), ("K171", FuenteR2.Especiales)],
+            [(4, 3)] = [("E181", FuenteR2.Total), ("E192", FuenteR2.SubsCont), ("K181", FuenteR2.Especiales)],
+            [(1, 4)] = [("E319", FuenteR2.SubsCont), ("E285", FuenteR2.Total), ("K285", FuenteR2.Especiales)],
+            [(2, 4)] = [("E312", FuenteR2.SubsCont), ("E289", FuenteR2.Total), ("K289", FuenteR2.Especiales)],
+            [(4, 4)] = [("E308", FuenteR2.Total), ("E326", FuenteR2.SubsCont), ("K308", FuenteR2.Especiales)],
+            [(2, 5)] = [("E407", FuenteR2.SubsCont), ("E389", FuenteR2.Total), ("K389", FuenteR2.Especiales)],
+            [(4, 5)] = [("E403", FuenteR2.Total), ("E417", FuenteR2.SubsCont), ("K403", FuenteR2.Especiales)]
         };
 
     /// <summary>
@@ -153,16 +158,22 @@ public static class WorkbookLeafCellMapPorEmpresa
     public static readonly IReadOnlyDictionary<(int EmpresaId, int AseId), (string Celda, FuenteR4 Fuente)[]> EditablesR4PorEmpresa =
         new Dictionary<(int, int), (string, FuenteR4)[]>
         {
-            [(4, 1)] = [("D8", FuenteR4.Total), ("P8", FuenteR4.P)],
-            [(1, 2)] = [("D97", FuenteR4.Total), ("P97", FuenteR4.P)],
-            [(2, 2)] = [("D92", FuenteR4.Total), ("P92", FuenteR4.P)],
-            [(2, 3)] = [("D186", FuenteR4.Total), ("P186", FuenteR4.P)],
-            [(4, 3)] = [("D192", FuenteR4.Total), ("P192", FuenteR4.P)],
-            [(1, 4)] = [("D229", FuenteR4.Total), ("P229", FuenteR4.P)],
-            [(2, 4)] = [("D223", FuenteR4.Total), ("P223", FuenteR4.P)],
-            [(4, 4)] = [("D235", FuenteR4.Total), ("P235", FuenteR4.P)],
-            [(2, 5)] = [("D337", FuenteR4.Total), ("P337", FuenteR4.P)],
-            [(4, 5)] = [("D343", FuenteR4.Total), ("P343", FuenteR4.P)]
+            // Plan 38 (T2-continuación, R-ATRIBUCION): direcciones re-congeladas desde los bytes de
+            // la plantilla estandarizada única (mini-T0, GeometriaPlantillaEstandarizadaT0Tests).
+            // Cada celda D es la fila-dato "Total" de la empresa en el bloque de detalle del ASE,
+            // la misma que referencian las fórmulas OPORTUNO del bloque (p. ej. ASE3 ENEL
+            // D217=D199-P199). El inventario de empresas por ASE lo manda la FUENTE R4 (Q1):
+            // ASE1/3/5 ENEL+OCCIDENTE; ASE2 ENEL+OCCIDENTE; ASE4 ENEL+NUEVO ESQUEMA+OCCIDENTE.
+            [(4, 1)] = [("D14", FuenteR4.Total), ("P14", FuenteR4.P)],
+            [(1, 2)] = [("D104", FuenteR4.Total), ("P104", FuenteR4.P)],
+            [(2, 2)] = [("D98", FuenteR4.Total), ("P98", FuenteR4.P)],
+            [(2, 3)] = [("D199", FuenteR4.Total), ("P199", FuenteR4.P)],
+            [(4, 3)] = [("D205", FuenteR4.Total), ("P205", FuenteR4.P)],
+            [(1, 4)] = [("D242", FuenteR4.Total), ("P242", FuenteR4.P)],
+            [(2, 4)] = [("D236", FuenteR4.Total), ("P236", FuenteR4.P)],
+            [(4, 4)] = [("D248", FuenteR4.Total), ("P248", FuenteR4.P)],
+            [(2, 5)] = [("D351", FuenteR4.Total), ("P351", FuenteR4.P)],
+            [(4, 5)] = [("D357", FuenteR4.Total), ("P357", FuenteR4.P)]
         };
 
     /// <summary>
@@ -191,7 +202,7 @@ public static class WorkbookLeafCellMapPorEmpresa
         {
             [1] = [86, 88], // ReciprocidadEaab
             [2] = [85, 87, 89], // Enel
-            [3] = [85, 87, 89], // Enerbit
+            [3] = [89], // Enerbit
             [4] = [], // OccidenteDirecta (todo valor 0)
             [5] = [] // EaabCiudadLimpia (todo valor 0)
         };

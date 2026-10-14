@@ -76,12 +76,12 @@ public static class WorkbookLeafCellMapInterventoria
 
     // Historial (Plan 21 T5): este archivo conservaba aquí el mapa L-menores por rol+ocurrencia
     // (enum RolLMenor + LMenoresPorAse/LMenoresPorAseQ2 + ObtenerLMenores) congelado por el
-    // T0-0.5 de HU-16. Ese path quedó SUPERSEDED por el espejo estructural R1
-    // (ExcelDataReaderWorkbookLeafInputReader.LeerEspejoR1 + OpenXmlEspejoR1Mutador): la columna L
-    // del template (encabezado 'SERVICIO ESPECIALES') la escribe el espejo por encabezado en toda
-    // la secuencia fuente, y la absorción se probó 15/15 (5 ASE × Q1/Q2/agosto) en
-    // EspejoR1AbsorcionTests. Retirado por Plan 21 T5; el resto del archivo (INTERVENTORIA D2b)
-    // sigue vigente.
+    // T0-0.5 de HU-16. Ese path quedó SUPERSEDED por la lectura espejo R1
+    // (ExcelDataReaderWorkbookLeafInputReader.LeerEspejoR1) + la escritura values-only por slot
+    // (EscritorValoresSlotR1, Plan 36/T2): la columna L del template (encabezado 'SERVICIO
+    // ESPECIALES') la pega el escritor en el slot del contrato; la absorción se probó 15/15
+    // (5 ASE × Q1/Q2/agosto) en EspejoR1AbsorcionTests antes del retiro del motor geométrico.
+    // Retirado por Plan 21 T5; el resto del archivo (INTERVENTORIA D2b) sigue vigente.
 
     /// <summary>
     /// Fórmulas protegidas del bloque INTERVENTORIA (D2b) — comunes a ambos períodos:

@@ -3,10 +3,9 @@ name: code-reviewer
 description: "Subagente de remuneracion-architect para revisión de calidad y spec compliance contra el plan SDD de plans/. Prioridad del proyecto: calidad senior."
 mode: subagent
 model: opencode-go/glm-5.3-flash
-hidden: true
-permission:
+permissions:
   edit: deny
-  bash:
+  shell:
     "dotnet build*": allow
     "dotnet test*": allow
     "git diff*": allow

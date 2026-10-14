@@ -33,9 +33,11 @@ public sealed class R1Q2ResolucionPorFirmaTests
             Insumos.R1Agosto(3), Insumos.R2Agosto(3), Insumos.R4Agosto(3));
 
         Assert.Equal(0m, leaf.R1.ExtemporaneoEsperadoPorAse);
-        Assert.Equal(0m, leaf.R1.CeldasPorAse["F250"]); // Aplic0
-        Assert.Equal(0m, leaf.R1.CeldasPorAse["F270"]); // Aplic1 (D-A)
-        Assert.Equal(0m, leaf.R1.CeldasPorAse["L250"]); // LAplic0
+        // Plan 38 (T3, R-B-4): celdas re-congeladas a la geometría nueva (mini-T0); mismo assert,
+        // nuevas direcciones del mapa R1Q2EditablesPorAse (ASE3: Aplic0=F315, Aplic1=F342, LAplic0=L315).
+        Assert.Equal(0m, leaf.R1.CeldasPorAse["F315"]); // Aplic0
+        Assert.Equal(0m, leaf.R1.CeldasPorAse["F342"]); // Aplic1 (D-A)
+        Assert.Equal(0m, leaf.R1.CeldasPorAse["L315"]); // LAplic0
 
         // TOT_OPT del espejo T0c §4.3 (3 filas Mes) — la ausencia de Aplic no lo altera.
         Assert.InRange(leaf.R1.TotalOportunoEsperadoPorAse - 16345751509.86m, -Tolerancia, Tolerancia);
@@ -49,12 +51,12 @@ public sealed class R1Q2ResolucionPorFirmaTests
         var reader = new ExcelDataReaderWorkbookLeafInputReader();
 
         var ase1 = reader.LeerLeafInputs(Insumos.Ase(1), Insumos.PeriodoQ2(), Insumos.R1Q2(1), Insumos.R2Q2(1), Insumos.R4Q2(1));
-        Assert.InRange(ase1.R1.CeldasPorAse["F37"] - 40364.31m, -Tolerancia, Tolerancia); // Aplic1 (D-A)
-        Assert.InRange(ase1.R1.CeldasPorAse["F17"] - 9215.69m, -Tolerancia, Tolerancia);  // Aplic0
-        Assert.Equal(0m, ase1.R1.CeldasPorAse["L17"]);
+        Assert.InRange(ase1.R1.CeldasPorAse["F59"] - 40364.31m, -Tolerancia, Tolerancia); // Aplic1 (D-A)
+        Assert.InRange(ase1.R1.CeldasPorAse["F32"] - 9215.69m, -Tolerancia, Tolerancia);  // Aplic0
+        Assert.Equal(0m, ase1.R1.CeldasPorAse["L32"]);
 
         var ase3 = reader.LeerLeafInputs(Insumos.Ase(3), Insumos.PeriodoQ2(), Insumos.R1Q2(3), Insumos.R2Q2(3), Insumos.R4Q2(3));
-        Assert.InRange(ase3.R1.CeldasPorAse["F270"] - 627141.97m, -Tolerancia, Tolerancia); // Aplic1 (D-A)
+        Assert.InRange(ase3.R1.CeldasPorAse["F342"] - 627141.97m, -Tolerancia, Tolerancia); // Aplic1 (D-A)
     }
 
     // S3 (Plan 25 §3.2, R-F-3): rol core `Mes` ausente → fail-fast que nombra ASE + reporte + celda.
@@ -72,7 +74,7 @@ public sealed class R1Q2ResolucionPorFirmaTests
         Assert.Contains("ASE 1", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("R1-Q2", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Mes2", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("F48", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("F70", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     // S5 (Plan 25 §3.2, D-D): el reader es compartido; la resolución por firma no depende del

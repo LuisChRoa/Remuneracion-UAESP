@@ -1656,24 +1656,24 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         {
             1 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
             {
-                ["E15"] = e15, ["E26"] = e26, ["K15"] = k15
+                ["E21"] = e15, ["E32"] = e26, ["K21"] = k15
             },
             2 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
             {
-                ["E85"] = e15, ["E103"] = e26, ["K85"] = k15
+                ["E94"] = e15, ["E112"] = e26, ["K94"] = k15
             },
             3 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
             {
-                ["E167"] = e15, ["E178"] = e26, ["K167"] = k15
+                ["E182"] = e15, ["E193"] = e26, ["K182"] = k15
             },
             4 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
             {
-                ["E290"] = e15, ["E308"] = e26, ["K290"] = k15
+                ["E309"] = e15, ["E327"] = e26, ["K309"] = k15
             },
             5 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
             {
-                // T0: template E374 = Componente (e15), E385 = Subs/Cont (e26); E413 = E385+E374-K374.
-                ["E374"] = e15, ["E385"] = e26, ["K374"] = k15
+                // T0: template E404 = Componente (e15), E418 = Subs/Cont (e26); E446 = E418+E404-K404.
+                ["E404"] = e15, ["E418"] = e26, ["K404"] = k15
             },
             _ => throw new CalculoInvalidoException($"ASE {ase.Id} no está soportado por el lector leaf.")
         };
@@ -1699,11 +1699,11 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
 
         var celdas = ase.Id switch
         {
-            1 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase) { ["D9"] = d9, ["P9"] = p9 },
-            2 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase) { ["D98"] = d9, ["P98"] = p9 },
-            3 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase) { ["D193"] = d9, ["P193"] = p9 },
-            4 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase) { ["D236"] = d9, ["P236"] = p9 },
-            5 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase) { ["D344"] = d9, ["P344"] = p9 },
+            1 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase) { ["D15"] = d9, ["P15"] = p9 },
+            2 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase) { ["D111"] = d9, ["P111"] = p9 },
+            3 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase) { ["D206"] = d9, ["P206"] = p9 },
+            4 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase) { ["D249"] = d9, ["P249"] = p9 },
+            5 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase) { ["D358"] = d9, ["P358"] = p9 },
             _ => throw new CalculoInvalidoException($"ASE {ase.Id} no está soportado por el lector leaf.")
         };
 

@@ -8,10 +8,10 @@ namespace Remuneracion.Infrastructure.Excel;
 /// <summary>
 /// Plan 28 (Unidad S, Alternativa A): sanea la cadena de cálculo del workbook de salida.
 ///
-/// El espejo estructural R1 (<see cref="OpenXmlEspejoR1Mutador"/>) inserta/borra filas pero la
-/// <c>CalculationChainPart</c> de la plantilla se preserva intacta; al abrir la salida Excel
-/// detecta entradas de la cadena que ya no corresponden a fórmulas (agosto: 1003 entradas
-/// inconsistentes) y muestra el diálogo de reparación. Saneamiento:
+/// La <c>CalculationChainPart</c> de la plantilla se preserva intacta y puede quedar inconsistente
+/// con las fórmulas de la salida; al abrir la salida Excel detecta entradas de la cadena que ya no
+/// corresponden a fórmulas (agosto: 1003 entradas inconsistentes) y muestra el diálogo de
+/// reparación. Saneamiento:
 ///   1. elimina <c>CalculationChainPart</c> si existe (tolerante: la plantilla puede no traerla);
 ///   2. setea <c>FullCalculationOnLoad=true</c> en <c>CalculationProperties</c> para que Excel
 ///      recalcule una vez al abrir con las fórmulas intactas.
@@ -19,7 +19,8 @@ namespace Remuneracion.Infrastructure.Excel;
 /// NUNCA toca <c>&lt;f&gt;</c> ni <c>&lt;v&gt;</c>: los valores cacheados quedan y el recálculo
 /// lo dispara Excel (fullCalcOnLoad). Se invoca en el punto único de guardado: los 2 <c>Save()</c>
 /// de <see cref="OpenXmlPlantillaWriter.GenerarWorkbook(string, string, Remuneracion.Core.Models.ResultadoRemuneracion, Remuneracion.Core.Models.WorkbookLeafInputs)"/>
-/// y el guardado del espejo standalone en <see cref="OpenXmlEspejoR1Mutador.Ajustar"/>.
+/// y el guardado del espejo standalone en
+/// <see cref="OpenXmlPlantillaWriter.EscribirEspejoR1(string, string, System.Collections.Generic.IReadOnlyList{Remuneracion.Core.Models.BloqueEspejoAseInputs})"/>.
 /// </summary>
 internal static class SaneadorCadenaCalculo
 {

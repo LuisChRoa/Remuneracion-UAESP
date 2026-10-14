@@ -129,3 +129,9 @@ Automatización/
 - `.opencode/opencode.jsonc` — permisos del agente principal (subtareas permitidas).
 - `plans/` — planes SDD (fuente única de verdad para implementación).
 - `requirements/` — requerimientos formales cuando la complejidad lo exige.
+
+### OpenCode v2 (Plan 37)
+- .opencode/opencode.jsonc: agents (plural), system (no prompt), permissions[{action:subagent}] sin wildcard, subagent_depth: 2.
+- Frontmatter: mode primary|subagent, SIN hidden:true (invisibiliza en v2); bash pasa a shell, permission pasa a permissions.
+- Colision global: si un ID existe en ~/.config/opencode/agents/, fijar hidden:false explicito en el local (caso ui-ux-specialist).
+- Verificar: opencode reload + opencode debug agents (los 6 con hidden=False).

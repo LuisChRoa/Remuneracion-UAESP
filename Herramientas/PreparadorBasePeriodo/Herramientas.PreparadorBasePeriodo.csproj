@@ -8,8 +8,16 @@
     <RootNamespace>Herramientas.PreparadorBasePeriodo</RootNamespace>
   </PropertyGroup>
 
-  <!-- Herramienta OFFLINE one-shot (Plan 30, T3, D-B). BCL puro: sin ProjectReference y sin
-       paquetes (PROHIBIDO OpenXML/ExcelDataReader/Excel/COM). Fuera del pipeline de runtime;
-       deliberadamente NO se agrega al .slnx (mismo criterio que Herramientas/VerificadorRecaudo). -->
+  <ItemGroup>
+    <!-- Plan 36 (T3, §2.3-A): la única referencia del proyecto es Core (pura, sin dependencias) para
+         COMPONER los nombres de hoja del período con la fuente única `NombresHojaPeriodo` (jamás
+         duplicar la regla de naming en la herramienta). La cirugía ZIP+XML sigue siendo BCL puro:
+         PROHIBIDO OpenXML/ExcelDataReader/Excel/COM y PROHIBIDO Infrastructure. -->
+    <ProjectReference Include="..\..\Remuneracion.Core\Remuneracion.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Herramienta OFFLINE one-shot (Plan 30 T3 D-B / Plan 36 T3). BCL puro para la cirugía de
+       bytes (sin paquetes). Fuera del pipeline de runtime; deliberadamente NO se agrega al .slnx
+       (mismo criterio que Herramientas/VerificadorRecaudo). -->
 
 </Project>

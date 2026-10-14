@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
+using Remuneracion.Core.Models;
 
 namespace Herramientas.PreparadorBasePeriodo;
 
@@ -56,6 +57,367 @@ internal static class Program
     private static readonly string[] MetadataConsolidado = ["N3", "D6", "G7", "K7"];
     private static readonly string[] MetadataDetRetri = ["G7", "J7"];
 
+    // ── Plan 36 (T3, R-B-5 / §2.3-A): modo plantilla estandarizada única ────────────────────────
+    //
+    // La plantilla única trae un período BASE interno (su filename dice 2026xx-x). Este modo produce
+    // la base canónica de un período P: reescribe los tokens de período UNA vez offline (hojas +
+    // <f> + docProps/app.xml + sharedStrings), sella el código de período en CONSOLIDADO!N3 y
+    // autoverifica que la base queda internamente consistente. El runtime NUNCA reescribe tokens de
+    // período (Plan 28/30 intactos): solo valida la base por preflight.
+
+    /// <summary>Hoja de metadatos base (mismo nombre que <c>WorkbookLeafCellMap.HojaConsolidado</c>).</summary>
+    private const string HojaConsolidado = "CONSOLIDADO_TOTAL RECAUDO";
+
+    /// <summary>Nombre de hoja DetRetri del período base en la plantilla única (detección por forma).</summary>
+    private static readonly Regex HojaDetRetriBase = new("^DetRetri(?<periodo>\\d{7})$", RegexOptions.Compiled);
+
+    private static readonly Regex ReferenciaHojaDet = new(
+        "(?:DetRetri(?<p1>\\d{7}))|(?:DetValiRetri(?<p2>\\d{7}))",
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// Modo Plan 36 (T3, §2.3-A): <c>--plantilla-unica &lt;ruta&gt; --periodo &lt;AAAAMMQ&gt;
+    /// [--base &lt;AAAAMMQ&gt;] [--salida &lt;ruta&gt;]</c>. Siempre sobre una COPIA (el origen
+    /// nunca se modifica); la salida se escribe de forma atómica (tmp + verificación + move).
+    /// </summary>
+    private static void EjecutarPlantillaUnica(string plantillaUnica, string[] args)
+    {
+        ArgumentNullException.ThrowIfNull(plantillaUnica);
+
+        var periodoDestino = ExigirPeriodo(Argumento(args, "--periodo"), "--periodo");
+        var salidaPath = Argumento(args, "--salida")
+            ?? Path.Combine(
+                Path.GetDirectoryName(Path.GetFullPath(plantillaUnica)) ?? ".",
+                $"Plantilla_Remuneracion_{periodoDestino}.xlsx");
+
+        Exigir(File.Exists(plantillaUnica), $"No existe la plantilla estandarizada única: {plantillaUnica}");
+        Exigir(!string.Equals(Path.GetFullPath(plantillaUnica), Path.GetFullPath(salidaPath), StringComparison.OrdinalIgnoreCase),
+            "La salida no puede ser la misma ruta que la plantilla única (el origen nunca se modifica).");
+
+        Console.WriteLine("=== Preparador de base canónica desde la plantilla estandarizada única (Plan 36, T3) ===");
+        Console.WriteLine($"Plantilla única : {plantillaUnica}");
+        Console.WriteLine($"Período destino : {periodoDestino}");
+        Console.WriteLine($"Salida          : {salidaPath}");
+        Console.WriteLine();
+
+        using var origenZip = ZipFile.OpenRead(plantillaUnica);
+
+        var entradasOrigen = new Dictionary<string, ZipArchiveEntry>(StringComparer.OrdinalIgnoreCase);
+        foreach (var e in origenZip.Entries)
+        {
+            Exigir(!entradasOrigen.ContainsKey(e.FullName), $"Entrada ZIP duplicada: {e.FullName}");
+            entradasOrigen[e.FullName] = e;
+        }
+
+        var workbookOriginal = LeerTexto(entradasOrigen[PartWorkbook]);
+        var basePeriodo = Argumento(args, "--base") is { Length: > 0 } baseArg
+            ? ExigirPeriodo(baseArg, "--base")
+            : DetectarPeriodoBase(workbookOriginal);
+        Console.WriteLine($"[base detectada] período interno de la plantilla única: {basePeriodo}");
+
+        var tokenBase = new Regex($"(?<![0-9]){basePeriodo}(?![0-9])", RegexOptions.Compiled);
+        var informeBase = $"{basePeriodo[..6]}-{basePeriodo[6]}";
+        var informeDestino = $"{periodoDestino[..6]}-{periodoDestino[6]}";
+        var hojaConsolidadoParte = ResolverParteDeHoja(origenZip, workbookOriginal, HojaConsolidado);
+        var hojaDetRetriBase = $"DetRetri{basePeriodo}";
+
+        var sharedBase = tokenBase.Replace(LeerTexto(entradasOrigen[PartShared]), periodoDestino);
+        var editorShared = new SharedStringsEditor(sharedBase);
+
+        var partes = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+        var resumen = new List<string>();
+        var formulasPeriodoBase = 0;
+
+        foreach (var entrada in origenZip.Entries)
+        {
+            var nombre = entrada.FullName;
+            if (string.Equals(nombre, PartShared, StringComparison.OrdinalIgnoreCase))
+            {
+                continue; // se emite al final, con los textos agregados.
+            }
+
+            var bytes = LeerBytes(entrada);
+            if (!EsParteTextoTransformable(nombre))
+            {
+                partes[nombre] = bytes;
+                continue;
+            }
+
+            var texto = Encoding.UTF8.GetString(bytes);
+            var nToken = tokenBase.Matches(texto).Count;
+            var nFormulaPeriodo = ContarFormulasConPeriodo(texto, basePeriodo);
+            formulasPeriodoBase += nFormulaPeriodo;
+
+            texto = tokenBase.Replace(texto, periodoDestino);
+            texto = texto.Replace(informeBase, informeDestino, StringComparison.Ordinal);
+
+            if (string.Equals(nombre, hojaConsolidadoParte, StringComparison.OrdinalIgnoreCase))
+            {
+                // Sello del código de período de la base (NUNCA sobre fórmula: si el destino trae
+                // <f>, SetValorNumerico lo rechaza y la autoverificación lo delata).
+                texto = SetValorNumerico(texto, "N3", periodoDestino, out var aplicado, out var motivo);
+                resumen.Add(aplicado
+                    ? $"  {nombre}: CONSOLIDADO!N3 = {periodoDestino} (sello de período de la base)"
+                    : $"  {nombre}: CONSOLIDADO!N3 OMITIDO ({motivo})");
+            }
+
+            partes[nombre] = Utf8SinBom.GetBytes(texto);
+
+            if (nToken > 0)
+            {
+                resumen.Add($"  {nombre}: token {basePeriodo}->{periodoDestino} x{nToken}; <f> del período x{nFormulaPeriodo}");
+            }
+        }
+
+        partes[PartShared] = Utf8SinBom.GetBytes(editorShared.Xml());
+
+        Console.WriteLine("[cambios]");
+        foreach (var linea in resumen)
+        {
+            Console.WriteLine(linea);
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("[autoverificación embebida]");
+        var lineas = VerificarBaseUnica(partes, entradasOrigen, basePeriodo, periodoDestino, hojaConsolidadoParte, formulasPeriodoBase);
+        foreach (var linea in lineas)
+        {
+            Console.WriteLine("  " + linea);
+        }
+
+        EscribirZipAtomico(origenZip, partes, salidaPath);
+        Console.WriteLine();
+        Console.WriteLine($"OK: base canónica del período {periodoDestino} escrita en {salidaPath}");
+    }
+
+    /// <summary>
+    /// Autoverificación (e) del modo plantilla única: 0 tokens del período base; las hojas del
+    /// período destino presentes en workbook.xml y docProps/app.xml; mismas <c>&lt;f&gt;</c> del
+    /// período que en la entrada; rIds/sheetIds intactos; N3 sellado con el período destino.
+    /// </summary>
+    private static List<string> VerificarBaseUnica(
+        IReadOnlyDictionary<string, byte[]> partes,
+        IReadOnlyDictionary<string, ZipArchiveEntry> entradasOrigen,
+        string basePeriodo,
+        string periodoDestino,
+        string hojaConsolidadoParte,
+        int formulasPeriodoBase)
+    {
+        var lineas = new List<string>();
+        var informeBase = $"{basePeriodo[..6]}-{basePeriodo[6]}";
+
+        if (string.Equals(basePeriodo, periodoDestino, StringComparison.Ordinal))
+        {
+            // Identidad: el período interno de la plantilla única ya ES el período destino.
+            lineas.Add($"identidad de período ({periodoDestino} == {basePeriodo}): los tokens del período se conservan tal cual");
+        }
+        else
+        {
+            var partesConToken = new List<string>();
+            foreach (var par in partes)
+            {
+                if (!HojaRegex.IsMatch(par.Key)
+                    && !string.Equals(par.Key, PartWorkbook, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(par.Key, PartApp, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(par.Key, PartShared, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var texto = Encoding.UTF8.GetString(par.Value);
+                var tokenSuelto = Regex.IsMatch(texto, $"(?<![0-9]){basePeriodo}(?![0-9])");
+                if (tokenSuelto || texto.Contains(informeBase, StringComparison.Ordinal))
+                {
+                    partesConToken.Add(par.Key);
+                }
+            }
+
+            Exigir(partesConToken.Count == 0, $"Quedaron apariciones del período base en: {string.Join(", ", partesConToken)}");
+            lineas.Add($"0 apariciones de '{basePeriodo}' en worksheets + workbook + app + sharedStrings: OK");
+        }
+
+        var formulasDestino = 0;
+        foreach (var par in partes)
+        {
+            if (!HojaRegex.IsMatch(par.Key))
+            {
+                continue;
+            }
+
+            formulasDestino += ContarFormulasConPeriodo(Encoding.UTF8.GetString(par.Value), periodoDestino);
+        }
+
+        Exigir(formulasDestino == formulasPeriodoBase,
+            $"Las <f> del período cambiaron de {formulasPeriodoBase} a {formulasDestino} (el reemplazo no debe crear ni destruir fórmulas).");
+        Exigir(formulasDestino > 0,
+            "La base no conserva ninguna <f> del período; el token de período no se reescribió donde debía.");
+        lineas.Add($"{formulasDestino} <f> del período {periodoDestino} (== entrada): OK");
+
+        var workbook = Encoding.UTF8.GetString(partes[PartWorkbook]);
+        var app = Encoding.UTF8.GetString(partes[PartApp]);
+        var nombresDestino = new[]
+        {
+            NombresHojaPeriodo.DetRetri(periodoDestino),
+            NombresHojaPeriodo.DetValiRetri(periodoDestino),
+            NombresHojaPeriodo.InformeAFaseo(periodoDestino[..6], int.Parse(periodoDestino[6..], CultureInfo.InvariantCulture)),
+        };
+
+        foreach (var nombre in nombresDestino)
+        {
+            Exigir(workbook.Contains(nombre, StringComparison.Ordinal), $"workbook.xml no contiene '{nombre}'.");
+            Exigir(app.Contains(nombre, StringComparison.Ordinal), $"docProps/app.xml no contiene '{nombre}'.");
+        }
+
+        lineas.Add($"hojas del período {periodoDestino} presentes en workbook.xml y app.xml: OK");
+
+        var hojasViejas = ExtraerHojas(LeerTexto(entradasOrigen[PartWorkbook]));
+        var hojasNuevas = ExtraerHojas(workbook);
+        Exigir(hojasViejas.Count == hojasNuevas.Count, "Cambió el número de hojas del workbook.");
+        for (var i = 0; i < hojasViejas.Count; i++)
+        {
+            Exigir(string.Equals(hojasViejas[i].SheetId, hojasNuevas[i].SheetId, StringComparison.Ordinal)
+                && string.Equals(hojasViejas[i].Rid, hojasNuevas[i].Rid, StringComparison.Ordinal),
+                $"Cambió sheetId/rId en la posición {i}: {hojasViejas[i].SheetId}/{hojasViejas[i].Rid} vs {hojasNuevas[i].SheetId}/{hojasNuevas[i].Rid}");
+        }
+
+        lineas.Add("rIds/sheetIds intactos: OK");
+
+        var consolidado = ParsearCeldas(
+            Encoding.UTF8.GetString(partes[hojaConsolidadoParte]),
+            ResolverSharedStrings(Encoding.UTF8.GetString(partes[PartShared])));
+        Exigir(consolidado.TryGetValue("N3", out var n3), $"La base producida no tiene {HojaConsolidado}!N3.");
+        Exigir(string.Equals(n3!.Texto, periodoDestino, StringComparison.Ordinal),
+            $"{HojaConsolidado}!N3 = '{n3.Texto}' != período '{periodoDestino}'.");
+        Exigir(!n3.TieneFormula, $"{HojaConsolidado}!N3 es fórmula (el sello debe ser un valor).");
+        lineas.Add($"{HojaConsolidado}!N3 == {periodoDestino}: OK");
+        Exigir(consolidado.ContainsKey("G7") && consolidado.ContainsKey("K7") && consolidado.ContainsKey("D6"),
+            $"La base producida no trae los sellos base {HojaConsolidado}!G7/K7/D6.");
+        Exigir(!consolidado["G7"].TieneFormula && !consolidado["K7"].TieneFormula && !consolidado["D6"].TieneFormula,
+            $"Los sellos base {HojaConsolidado}!G7/K7/D6 no deben ser fórmula.");
+        lineas.Add($"{HojaConsolidado}!G7/K7/D6 presentes y sin fórmula: OK");
+
+        return lineas;
+    }
+
+    /// <summary>Nº de <c>&lt;f&gt;</c> cuyo texto referencia una hoja <c>DetRetri/DetValiRetri</c> del período indicado.</summary>
+    private static int ContarFormulasConPeriodo(string xml, string periodo)
+    {
+        var total = 0;
+        foreach (Match match in FormulaRegex.Matches(xml))
+        {
+            var texto = match.Groups["texto"].Value;
+            foreach (Match referencia in ReferenciaHojaDet.Matches(texto))
+            {
+                var detectado = referencia.Groups["p1"].Success ? referencia.Groups["p1"].Value : referencia.Groups["p2"].Value;
+                if (string.Equals(detectado, periodo, StringComparison.Ordinal))
+                {
+                    total++;
+                }
+            }
+        }
+
+        return total;
+    }
+
+    /// <summary>Período interno de la plantilla única: el 7 dígitos de la hoja <c>DetRetri{AAAAMMQ}</c>.</summary>
+    private static string DetectarPeriodoBase(string workbookXml)
+    {
+        foreach (Match hoja in Regex.Matches(workbookXml, "<sheet name=\"(?<n>[^\"]*)\""))
+        {
+            var match = HojaDetRetriBase.Match(hoja.Groups["n"].Value);
+            if (match.Success)
+            {
+                return match.Groups["periodo"].Value;
+            }
+        }
+
+        throw new InvalidOperationException(
+            "La plantilla no trae una hoja 'DetRetri{AAAAMMQ}'; indique el período base con --base.");
+    }
+
+    /// <summary>Parte del ZIP de una hoja resuelta por NOMBRE (workbook.xml + rels), nunca por número.</summary>
+    private static string ResolverParteDeHoja(ZipArchive zip, string workbookXml, string nombreHoja)
+    {
+        var sheet = Regex.Match(
+            workbookXml,
+            $"<sheet name=\"{Regex.Escape(nombreHoja)}\"[^>]*r:id=\"(?<rid>[^\"]+)\"");
+        if (!sheet.Success)
+        {
+            sheet = Regex.Match(
+                workbookXml,
+                $"<sheet name=\"{Regex.Escape(nombreHoja)}\"[^>]*id=\"(?<rid>[^\"]+)\"");
+        }
+
+        Exigir(sheet.Success, $"La plantilla no trae la hoja '{nombreHoja}'.");
+
+        var rid = sheet.Groups["rid"].Value;
+        var rels = LeerTexto(zip.GetEntry("xl/_rels/workbook.xml.rels")
+            ?? throw new InvalidOperationException("La plantilla no trae xl/_rels/workbook.xml.rels."));
+        var rel = Regex.Match(rels, $"<Relationship[^>]*Id=\"{Regex.Escape(rid)}\"[^>]*Target=\"(?<target>[^\"]+)\"");
+        if (!rel.Success)
+        {
+            rel = Regex.Match(rels, $"<Relationship[^>]*Target=\"(?<target>[^\"]+)\"[^>]*Id=\"{Regex.Escape(rid)}\"");
+        }
+
+        Exigir(rel.Success, $"No se resolvió la relación '{rid}' de la hoja '{nombreHoja}'.");
+        var target = rel.Groups["target"].Value;
+        return target.StartsWith('/') ? target[1..] : "xl/" + target;
+    }
+
+    private static string ExigirPeriodo(string? valor, string argumento)
+    {
+        Exigir(!string.IsNullOrWhiteSpace(valor), $"Falta el argumento {argumento} (período AAAAMMQ).");
+        Exigir(Regex.IsMatch(valor!, "^\\d{7}$"), $"El argumento {argumento} debe ser AAAAMMQ (7 dígitos); se recibió '{valor}'.");
+        return valor!;
+    }
+
+    private static void EscribirZipAtomico(
+        ZipArchive origenZip,
+        IReadOnlyDictionary<string, byte[]> partes,
+        string salidaPath)
+    {
+        var tmpPath = salidaPath + ".tmp";
+        var tmpDir = Path.GetDirectoryName(salidaPath);
+        if (!string.IsNullOrEmpty(tmpDir))
+        {
+            Directory.CreateDirectory(tmpDir);
+        }
+
+        if (File.Exists(tmpPath))
+        {
+            File.Delete(tmpPath);
+        }
+
+        using (var fs = new FileStream(tmpPath, FileMode.Create, FileAccess.Write))
+        using (var salidaZip = new ZipArchive(fs, ZipArchiveMode.Create))
+        {
+            // Se recorre el orden original para preservar [Content_Types].xml como primera entrada.
+            foreach (var entrada in origenZip.Entries)
+            {
+                var nueva = salidaZip.CreateEntry(entrada.FullName, CompressionLevel.Optimal);
+                using var stream = nueva.Open();
+                stream.Write(partes[entrada.FullName]);
+            }
+        }
+
+        using (var relectura = ZipFile.OpenRead(tmpPath))
+        {
+            Exigir(relectura.Entries.Count == partes.Count,
+                $"El zip producido tiene {relectura.Entries.Count} entradas; se esperaban {partes.Count}.");
+            foreach (var nombre in new[] { PartWorkbook, PartApp, PartShared })
+            {
+                Exigir(relectura.GetEntry(nombre) is not null, $"El zip producido no contiene {nombre}.");
+            }
+        }
+
+        if (File.Exists(salidaPath))
+        {
+            File.Delete(salidaPath);
+        }
+
+        File.Move(tmpPath, salidaPath);
+    }
+
     private static readonly Regex TokenPeriodo = new(@"(?<![0-9])2026072(?![0-9])", RegexOptions.Compiled);
     private static readonly Regex CeldaRegex = new(
         "<c r=\"(?<ref>[A-Z]+\\d+)\"(?<attrs>[^>]*?)(?:/>|>(?<inner>.*?)</c>)",
@@ -88,6 +450,14 @@ internal static class Program
 
     private static void Ejecutar(string[] args)
     {
+        var plantillaUnica = Argumento(args, "--plantilla-unica");
+        if (!string.IsNullOrWhiteSpace(plantillaUnica))
+        {
+            // Plan 36 (T3, §2.3-A): modo plantilla estandarizada única.
+            EjecutarPlantillaUnica(plantillaUnica, args);
+            return;
+        }
+
         var raiz = Raiz();
         var origenPath = Argumento(args, "--origen")
             ?? Path.Combine(raiz, "Docs", "Prueba2", "Plantilla_Remuneracion.xlsx");

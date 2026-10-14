@@ -72,8 +72,8 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         var worksheet = ObtenerHoja(workbook, HojaR1, nameof(EscribirDetalleR1));
 
         ValidarHojaConLabelsEsperados(workbookPart, HojaR1, ["Componente", "Total", "Mes"]);
-        ValidarCeldaTieneFormula(workbookPart, worksheet, "F46", ["F25", "F41", "L25"], HojaR1, nameof(EscribirDetalleR1));
-        ValidarCeldaTieneFormula(workbookPart, worksheet, "F48", ["F30", "F10", "L10"], HojaR1, nameof(EscribirDetalleR1));
+        ValidarCeldaTieneFormula(workbookPart, worksheet, "F75", ["F47", "F70", "F16", "L16", "L47"], HojaR1, nameof(EscribirDetalleR1));
+        ValidarCeldaTieneFormula(workbookPart, worksheet, "F77", ["F59", "F32", "L32"], HojaR1, nameof(EscribirDetalleR1));
 
         LanzarPayloadInsuficiente(nameof(EscribirDetalleR1), HojaR1,
             "Se requiere un contrato de WorkbookLeafInputs que exponga los inputs reales detrás de F25,F41,L25,F30,F10,L10; el payload actual solo expone agregados TotOpt/Extemp y detalle parcial.");
@@ -91,7 +91,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         var worksheet = ObtenerHoja(workbook, HojaR2, nameof(EscribirDetalleR2));
 
         ValidarHojaConLabelsEsperados(workbookPart, HojaR2, ["Total", "Componente TDF"]);
-        ValidarCeldaTieneFormula(workbookPart, worksheet, "E41", ["E15", "E26", "K15"], HojaR2, nameof(EscribirDetalleR2));
+        ValidarCeldaTieneFormula(workbookPart, worksheet, "E47", ["E21", "E32", "K21"], HojaR2, nameof(EscribirDetalleR2));
 
         LanzarPayloadInsuficiente(nameof(EscribirDetalleR2), HojaR2,
             "Se requiere un contrato de WorkbookLeafInputs que exponga los inputs reales detrás de E15,E26,K15; el modelo actual solo expone GrandTotal y ServEspK.");
@@ -108,7 +108,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         var workbookPart = workbook.WorkbookPart ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene WorkbookPart válido.");
         var worksheet = ObtenerHoja(workbook, HojaR4, nameof(EscribirDetalleR4));
 
-        ValidarCeldaTieneFormula(workbookPart, worksheet, "D67", ["D9", "P9"], HojaR4, nameof(EscribirDetalleR4));
+        ValidarCeldaTieneFormula(workbookPart, worksheet, "D73", ["D15", "P15"], HojaR4, nameof(EscribirDetalleR4));
 
         LanzarPayloadInsuficiente(nameof(EscribirDetalleR4), HojaR4,
             "Se requiere un contrato de WorkbookLeafInputs que exponga los inputs reales detrás de D9 y P9; el modelo actual solo expone TotalReversiones agregado.");
@@ -232,10 +232,13 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         var periodoReferencia = leafInputs[0].Periodo;
         var esQuincena2 = leafInputs.Any(l => l.Periodo.NumeroQuincena == 2);
 
-        // Plan 21 (T4): si el orquestador adjuntó el bloque espejo R1 de los 5 ASE, la hoja
-        // Reporte Componentes R1 se gobierna por el espejo (dimensionado + escritura por
-        // encabezado); las celdas R1 del mapa absoluto HU-07/HU-12 quedan superseded dentro del
-        // bloque y NO se escriben por el mapa. El resto de las hojas queda intacto.
+        // Plan 21 (T4) / Plan 36 (T2, R-B-3/D-A/D-B): si el orquestador adjuntó el bloque espejo R1
+        // de los 5 ASE, la hoja Reporte Componentes R1 se gobierna por el ESCRITOR VALUES-ONLY POR
+        // SLOT (EscritorValoresSlotR1): pega SOLO <v> en los slots del contrato T0 de la plantilla
+        // estandarizada única (firma + frontera + sinonimia). Cero insert/delete, cero <f>, cero
+        // reanclaje: la geometría y las fórmulas del template quedan byte-idénticas (gate R-G-1).
+        // Las celdas R1 del mapa absoluto HU-07/HU-12 quedan superseded dentro del bloque y NO se
+        // escriben por el mapa. El resto de las hojas queda intacto.
         var bloquesEspejo = leafInputs
             .Where(l => l.EspejoR1 is not null)
             .Select(l => l.EspejoR1!)
@@ -257,37 +260,35 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
 
             File.Copy(origen, rutaSalida, overwrite: true);
 
-            // Plan 21 (T4): el gate de evidencia del espejo se computa ANTES de mutar el workbook
-            // (estado real de la plantilla respecto de la forma de la fuente) y se reutiliza en la
-            // validación post-escritura (CRITICAL #1: recomputarlo tras AjustarEnWorkbook siempre
-            // daría false con Δ≠0 → validación por direcciones absolutas sobre un R1 desplazado).
-            var espejoDesplazado = false;
-
             using (var workbook = SpreadsheetDocument.Open(rutaSalida, true))
             {
                 var workbookPart = workbook.WorkbookPart
                     ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene WorkbookPart válido.");
 
-                // Plan 21 (T4): el espejo se aplica ANTES de la escritura de hojas y solo cuando
-                // hace falta (algún bloque difiere de la forma de la fuente). Con Δ=0 (julio) el
-                // espejo reescribe el bloque ya dimensionado y las direcciones absolutas quedan
-                // intactas; la validación protegida corre normal. Con Δ≠0 (agosto) las direcciones
-                // R1 se desplazan y su validación por dirección fija queda superseded por el gate
-                // estructural del espejo (T3), evitando falsos ERR-PLANTILLA.
+                // Plan 36 (T2, Fase 1): el R1 se pega values-only por slot (mismo orden del espejo
+                // retirado: antes de la escritura de hojas y solo cuando están los 5 bloques). El
+                // writer recibe los bloques ya leídos y resuelve cada fila contra la geometría del
+                // template; fuente sin slot libre → ERR-SIN-SLOT (nunca insert, nunca remap).
                 if (espejoR1)
                 {
-                    espejoDesplazado = OpenXmlEspejoR1Mutador.RequiereAjuste(workbookPart, bloquesEspejo);
-                    OpenXmlEspejoR1Mutador.AjustarEnWorkbook(workbookPart, bloquesEspejo);
+                    // Plan 36 (T3, R-B-5/D-G): la base del período se valida ANTES de escribir
+                    // (hojas del período + N3 + sellos G7/K7/D6 + D6/D7 + 0 tokens de período stale
+                    // en <f>). Base equivocada → fail-fast sin salida parcial; el runtime NUNCA
+                    // reescribe tokens de período (eso lo hace el procedimiento offline, §2.3-A).
+                    ValidadorBasePeriodo.Exigir(workbookPart, periodoReferencia);
+
+                    foreach (var bloque in bloquesEspejo)
+                    {
+                        EscritorValoresSlotR1.Escribir(workbookPart, bloque);
+                    }
                 }
 
-                if (!espejoDesplazado)
-                {
-                    ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook), periodoReferencia);
-                }
+                // Plan 36 (T2, D-A/D-E): con el escritor values-only el bloque R1 NUNCA se
+                // desplaza, así que la validación PROTEGIDA por direcciones absolutas corre
+                // SIEMPRE: desaparece la rama "espejo desplazado" que la salteaba con Δ≠0 (y con
+                // ella su sucesor por FORMA recompuesta, que ya no se recompone nada).
+                ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook), periodoReferencia);
 
-                // Con Δ≠0 (espejo desplazado) NO se valida aquí por direcciones absolutas de julio
-                // (R1 se movió). La red es el gate de forma recompuesta, que corre POST-escritura
-                // (bloque de solo-lectura más abajo) porque el archivo sigue abierto en escritura.
                 foreach (var leaf in leafInputs.OrderBy(l => l.Ase.Id))
                 {
                     EscribirCeldasLeafPorAse(workbookPart, leaf, esQuincena2, omitirR1: espejoR1);
@@ -330,25 +331,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                 var workbookPart = workbook.WorkbookPart
                     ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook generado no tiene WorkbookPart válido.");
 
-                // CRITICAL #1 (auditoría PR3): reutilizar el resultado del PRIMER gate
-                // (espejoDesplazado) en lugar de recomputar RequiereAjuste aquí. Este bloque corre
-                // DESPUÉS de AjustarEnWorkbook, que ya mutó el workbook: recomputar devolvería
-                // false (los bloques ya coinciden con la fuente) y dispararía la validación por
-                // direcciones absolutas de julio sobre un R1 desplazado → ERR-PLANTILLA falso
-                // garantizado con Δ≠0. El gate de evidencia es el estado ANTES de mutar.
-                if (!espejoDesplazado)
-                {
-                    ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook), periodoReferencia);
-                }
-                else
-                {
-                    // Plan 31 (T2, R-B-3/D-B): con el espejo desplazado la validación por
-                    // direcciones absolutas de julio no aplica (R1 se movió); su sucesor valida la
-                    // FORMA RECOMPUESTA de los visibles (texto-fórmula por firma contra las filas
-                    // reales del bloque ya recompuesto por el mutador). Corre post-escritura, sobre
-                    // el archivo cerrado, con lectura BCL (sin Excel/COM).
-                    new ValidadorTotalesR1Workbook().ExigirFormaRecompuesta(rutaSalida, leafInputs);
-                }
+                // Plan 36 (T2): sin desplazamiento de R1 (values-only sobre la geometría del
+                // template) la validación protegida post-escritura es la MISMA que la pre-escritura,
+                // en ambos caminos y sin ramas por período ni por "espejo desplazado".
+                ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook), periodoReferencia);
             }
         }
         catch (Exception ex)
@@ -380,32 +366,60 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     }
 
     /// <summary>
-    /// Plan 21 (T3, R-E-2/R-E-3/R-E-4): aplica el espejo estructural R1 sobre una COPIA de la
-    /// plantilla: dimensiona cada bloque ASE a la forma de la fuente del período actual
-    /// (inserta/borra filas preservando estilos y fórmulas), reancla las referencias A1 afectadas
-    /// (fórmulas, rangos compartidos, celdas combinadas y nombres definidos) y escribe los valores
-    /// por ENCABEZADO de columna. No recalcula aritmética de negocio.
+    /// Plan 21 (T3, R-E-2/R-E-3/R-E-4) / Plan 36 (T2, R-B-3/D-A/D-B): aplica el bloque espejo R1
+    /// sobre una COPIA de la plantilla estandarizada única.
+    ///
+    /// Tras el retiro del motor geométrico (Plan 36/T2) la operación es <b>values-only por slot</b>:
+    /// pega SOLO <c>&lt;v&gt;</c> en los slots del contrato T0 de cada ASE (firma + frontera +
+    /// sinonimia), sin insertar/borrar filas y sin escribir <c>&lt;f&gt;</c>. La geometría y las
+    /// fórmulas del template quedan byte-idénticas; lo no entregado queda en el cero del template y
+    /// una fuente sin slot libre hace fail-fast <c>ERR-SIN-SLOT</c>. No recalcula aritmética de
+    /// negocio.
     /// </summary>
     /// <inheritdoc />
     public void EscribirEspejoR1(string rutaPlantillaOrigen, string rutaSalida, IReadOnlyList<BloqueEspejoAseInputs> bloques)
-    {
-        _ = EscribirEspejoR1ConResultado(rutaPlantillaOrigen, rutaSalida, bloques);
-    }
-
-    /// <summary>
-    /// Plan 21 (W-2, auditoría PR3): variante interna que devuelve la instrumentación del
-    /// reanclaje (Δ y referencias reancladas por bloque) para que los tests aserten evidencia
-    /// estructural. La API pública (<see cref="EscribirEspejoR1"/>) mantiene su firma <c>void</c>.
-    /// </summary>
-    internal EspejoR1MutacionResultado EscribirEspejoR1ConResultado(string rutaPlantillaOrigen, string rutaSalida, IReadOnlyList<BloqueEspejoAseInputs> bloques)
     {
         ArgumentNullException.ThrowIfNull(rutaPlantillaOrigen);
         ArgumentNullException.ThrowIfNull(rutaSalida);
         ArgumentNullException.ThrowIfNull(bloques);
 
+        if (bloques.Count == 0)
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                "El espejo R1 no recibió bloques de ASE; no hay nada que pegar en los slots del contrato.");
+        }
+
+        var origen = ValidarArchivo(rutaPlantillaOrigen, nameof(EscribirEspejoR1));
+        ValidarRutaSalida(rutaSalida);
+        ValidarNoInPlace(origen, rutaSalida);
+
         try
         {
-            return OpenXmlEspejoR1Mutador.Ajustar(rutaPlantillaOrigen, rutaSalida, bloques);
+            var directorioSalida = Path.GetDirectoryName(rutaSalida);
+            if (!string.IsNullOrWhiteSpace(directorioSalida))
+            {
+                Directory.CreateDirectory(directorioSalida);
+            }
+
+            File.Copy(origen, rutaSalida, overwrite: true);
+
+            using (var workbook = SpreadsheetDocument.Open(rutaSalida, true))
+            {
+                var workbookPart = workbook.WorkbookPart
+                    ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene WorkbookPart válido.");
+
+                foreach (var bloque in bloques.OrderBy(b => b.Ase.Id))
+                {
+                    EscritorValoresSlotR1.Escribir(workbookPart, bloque);
+                }
+
+                // Plan 28 (Unidad S): el espejo standalone ya no mueve filas, pero se conserva el
+                // punto de guardado con el saneamiento calcChain + fullCalcOnLoad (misma doctrina
+                // del writer multi-ASE). No toca <f> ni <v>.
+                SaneadorCadenaCalculo.Sanear(workbookPart);
+                workbookPart.Workbook?.Save();
+            }
         }
         catch (Exception ex)
         {
@@ -437,10 +451,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     {
         var reglas = new Dictionary<string, string[]>
         {
-            ["D9"] = ["F46", "Reporte Componentes R1"],
-            ["D28"] = ["E41", "Rem. Anticipos R2"],
-            ["D47"] = ["F48", "Reporte Componentes R1"],
-            ["D66"] = ["D67", "Reversion Pagos R4"],
+            ["D9"] = ["F75", "Reporte Componentes R1"],
+            ["D28"] = ["E47", "Rem. Anticipos R2"],
+            ["D47"] = ["F77", "Reporte Componentes R1"],
+            ["D66"] = ["D73", "Reversion Pagos R4"],
             ["D85"] = ["D47", "AJUSTES"],
             ["D104"] = ["D9", "D28", "D47", "D66", "D85"],
             ["D109"] = ["D104", "D108", "SUM"]
@@ -463,10 +477,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         var hojaR2 = ObtenerHoja(workbookPart, HojaR2, nameof(EscribirConsolidado));
         var hojaR4 = ObtenerHoja(workbookPart, HojaR4, nameof(EscribirConsolidado));
 
-        ValidarCeldaTieneFormula(workbookPart, hojaR1, "F46", ["F25", "F41", "L25"], HojaR1, nameof(EscribirConsolidado));
-        ValidarCeldaTieneFormula(workbookPart, hojaR1, "F48", ["F30", "F10", "L10"], HojaR1, nameof(EscribirConsolidado));
-        ValidarCeldaTieneFormula(workbookPart, hojaR2, "E41", ["E15", "E26", "K15"], HojaR2, nameof(EscribirConsolidado));
-        ValidarCeldaTieneFormula(workbookPart, hojaR4, "D67", ["D9", "P9"], HojaR4, nameof(EscribirConsolidado));
+        ValidarCeldaTieneFormula(workbookPart, hojaR1, "F75", ["F47", "F70", "F16", "L16", "L47"], HojaR1, nameof(EscribirConsolidado));
+        ValidarCeldaTieneFormula(workbookPart, hojaR1, "F77", ["F59", "F32", "L32"], HojaR1, nameof(EscribirConsolidado));
+        ValidarCeldaTieneFormula(workbookPart, hojaR2, "E47", ["E21", "E32", "K21"], HojaR2, nameof(EscribirConsolidado));
+        ValidarCeldaTieneFormula(workbookPart, hojaR4, "D73", ["D15", "P15"], HojaR4, nameof(EscribirConsolidado));
     }
 
     private static void ValidarHojaConLabelsEsperados(WorkbookPart workbookPart, string hoja, params string[] labelsEsperados)
@@ -965,26 +979,26 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     /// </summary>
     private static readonly (string Hoja, string Celda, string[] Fragmentos)[] WorkbookLeafCellMapPorAseProtectedConsolidado =
     [
-        (HojaConsolidado, "D9", ["F46", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D10", ["F176", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D11", ["F316", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D12", ["F437", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D13", ["F519", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D28", ["E41", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D29", ["E135", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D30", ["E247", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D31", ["E343", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D32", ["E413", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D47", ["F48", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D48", ["F178", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D49", ["F318", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D50", ["F439", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D51", ["F521", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D66", ["D67", "Reversion Pagos R4"]),
-        (HojaConsolidado, "D67", ["D161", "Reversion Pagos R4"]),
-        (HojaConsolidado, "D68", ["D198", "Reversion Pagos R4"]),
-        (HojaConsolidado, "D69", ["D312", "Reversion Pagos R4"]),
-        (HojaConsolidado, "D70", ["D347", "Reversion Pagos R4"]),
+        (HojaConsolidado, "D9", ["F75", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D10", ["F254", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D11", ["F415", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D12", ["F568", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D13", ["F680", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D28", ["E47", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D29", ["E144", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D30", ["E262", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D31", ["E362", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D32", ["E446", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D47", ["F77", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D48", ["F256", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D49", ["F417", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D50", ["F570", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D51", ["F682", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D66", ["D73", "Reversion Pagos R4"]),
+        (HojaConsolidado, "D67", ["D174", "Reversion Pagos R4"]),
+        (HojaConsolidado, "D68", ["D211", "Reversion Pagos R4"]),
+        (HojaConsolidado, "D69", ["D326", "Reversion Pagos R4"]),
+        (HojaConsolidado, "D70", ["D361", "Reversion Pagos R4"]),
         (HojaConsolidado, "D85", ["D47", "AJUSTES"]),
         (HojaConsolidado, "D86", ["D48", "AJUSTES"]),
         (HojaConsolidado, "D87", ["D49", "AJUSTES"]),

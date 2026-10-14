@@ -28,6 +28,9 @@ public static class CatalogoErrores
             CodigoError.FormatoFuente => (
                 "Formato de archivo fuente no compatible",
                 $"Un archivo fuente no tiene la estructura esperada: {detalle}. Revise el archivo, la hoja y la celda indicadas."),
+            CodigoError.SinSlot => (
+                "Fila fuente sin slot en la plantilla",
+                $"La fuente trae una empresa o fila sin slot asignado en la plantilla: {detalle}. No se colocó ningún valor fuera de slot; revise el contrato T0 y la fuente."),
             CodigoError.Validacion => (
                 "La validación no cierra",
                 $"La validación no cierra dentro de la tolerancia ±0.5: {detalle}."),
@@ -49,7 +52,7 @@ public static class CatalogoErrores
     public static int CodigoSalidaPara(string codigo) => codigo switch
     {
         CodigoError.Validacion => CodigosSalida.Validacion,
-        CodigoError.FuenteNoEncontrada or CodigoError.Plantilla or CodigoError.FormatoFuente => CodigosSalida.FuenteOPlantilla,
+        CodigoError.FuenteNoEncontrada or CodigoError.Plantilla or CodigoError.FormatoFuente or CodigoError.SinSlot => CodigosSalida.FuenteOPlantilla,
         CodigoError.Escritura => CodigosSalida.Escritura,
         CodigoError.CanceladoPorUsuario => CodigosSalida.CanceladoPorUsuario,
         _ => CodigosSalida.Inesperado

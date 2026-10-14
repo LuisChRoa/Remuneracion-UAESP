@@ -71,39 +71,45 @@ public static class WorkbookLeafCellMapQ2
     public static readonly IReadOnlyDictionary<int, (string Celda, R1Q2Fuente Fuente)[]> R1Q2EditablesPorAse =
         new Dictionary<int, (string, R1Q2Fuente)[]>
         {
+            // Plan 38 (T2-continuación, D-B): direcciones re-congeladas desde los bytes de la
+            // plantilla estandarizada única (mini-T0). Las celdas son los operandos-dato de la
+            // fórmula TOT_OPT/EXTEMP del template por ASE (p. ej. ASE1 F75=F47+F70+F16-L16-L47 →
+            // Mes0/1/2 = F16/F47/F70; EXTEMP F77=F59+F32-L32 → Aplic0/1 = F32/F59). El rol
+            // "no-referenciado" por su L (p. ej. F70/L70) es el "último" Mes (Mes2), coherente con
+            // la regla del reader (Σ Mes − Especiales de todas menos la última).
             [1] =
             [
-                ("F12", R1Q2Fuente.Mes0), ("L12", R1Q2Fuente.Lmes0),
-                ("F32", R1Q2Fuente.Mes1), ("L32", R1Q2Fuente.Lmes1),
-                ("F48", R1Q2Fuente.Mes2),
-                ("F37", R1Q2Fuente.Aplic1), ("F17", R1Q2Fuente.Aplic0), ("L17", R1Q2Fuente.LAplic0)
+                ("F16", R1Q2Fuente.Mes0), ("L16", R1Q2Fuente.Lmes0),
+                ("F47", R1Q2Fuente.Mes1), ("L47", R1Q2Fuente.Lmes1),
+                ("F70", R1Q2Fuente.Mes2),
+                ("F32", R1Q2Fuente.Aplic0), ("F59", R1Q2Fuente.Aplic1), ("L32", R1Q2Fuente.LAplic0)
             ],
             [2] =
             [
-                ("F94", R1Q2Fuente.Mes0), ("L94", R1Q2Fuente.Lmes0),
-                ("F132", R1Q2Fuente.Mes1), ("L132", R1Q2Fuente.Lmes1),
-                ("F160", R1Q2Fuente.Mes2),
-                ("F142", R1Q2Fuente.Aplic1), ("F107", R1Q2Fuente.Aplic0), ("L107", R1Q2Fuente.LAplic0)
+                ("F120", R1Q2Fuente.Mes0), ("L120", R1Q2Fuente.Lmes0),
+                ("F171", R1Q2Fuente.Mes1), ("L171", R1Q2Fuente.Lmes1),
+                ("F208", R1Q2Fuente.Mes2),
+                ("F146", R1Q2Fuente.Aplic0), ("F190", R1Q2Fuente.Aplic1), ("L146", R1Q2Fuente.LAplic0)
             ],
             [3] =
             [
-                ("F244", R1Q2Fuente.Mes0), ("L244", R1Q2Fuente.Lmes0),
-                ("F265", R1Q2Fuente.Mes1), ("L265", R1Q2Fuente.Lmes1),
-                ("F281", R1Q2Fuente.Mes2),
-                ("F270", R1Q2Fuente.Aplic1), ("F250", R1Q2Fuente.Aplic0), ("L250", R1Q2Fuente.LAplic0)
+                ("F299", R1Q2Fuente.Mes0), ("L299", R1Q2Fuente.Lmes0),
+                ("F330", R1Q2Fuente.Mes1), ("L330", R1Q2Fuente.Lmes1),
+                ("F353", R1Q2Fuente.Mes2),
+                ("F315", R1Q2Fuente.Aplic0), ("F342", R1Q2Fuente.Aplic1), ("L315", R1Q2Fuente.LAplic0)
             ],
             [4] =
             [
-                ("F384", R1Q2Fuente.Mes0), ("L384", R1Q2Fuente.Lmes0),
-                ("F422", R1Q2Fuente.Mes1), ("L422", R1Q2Fuente.Lmes1),
-                ("F448", R1Q2Fuente.Mes2),
-                ("F430", R1Q2Fuente.Aplic1), ("F397", R1Q2Fuente.Aplic0), ("L397", R1Q2Fuente.LAplic0)
+                ("F460", R1Q2Fuente.Mes0), ("L460", R1Q2Fuente.Lmes0),
+                ("F511", R1Q2Fuente.Mes1), ("L511", R1Q2Fuente.Lmes1),
+                ("F548", R1Q2Fuente.Mes2),
+                ("F486", R1Q2Fuente.Aplic0), ("F530", R1Q2Fuente.Aplic1), ("L486", R1Q2Fuente.LAplic0)
             ],
             [5] =
             [
-                ("F531", R1Q2Fuente.Mes0), ("L531", R1Q2Fuente.Lmes0),
-                ("F552", R1Q2Fuente.Mes1),
-                ("F538", R1Q2Fuente.Aplic1), ("F512", R1Q2Fuente.Aplic0), ("L512", R1Q2Fuente.LAplic0)
+                ("F613", R1Q2Fuente.Mes0), ("L613", R1Q2Fuente.Lmes0),
+                ("F648", R1Q2Fuente.Mes1),
+                ("F629", R1Q2Fuente.Aplic0), ("F660", R1Q2Fuente.Aplic1), ("L629", R1Q2Fuente.LAplic0)
             ]
         };
 
@@ -112,40 +118,39 @@ public static class WorkbookLeafCellMapQ2
     /// (T0-0.2). El writer falla si alguna deja de ser fórmula. F46/F48/F519/F521 del mapa Q1
     /// NO están aquí: en Q2 son VALORES 0 (V0.2) y se excluyen de protegidas-fórmula (D5).
     ///
-    /// Plan 31 (T2, D-B): <b>derogación para las visibles recompuestas</b>. Con el espejo R1
-    /// desplazado (Δ≠0, agosto) estas direcciones/fragmentos congelados a julio dejan de describir
-    /// la geometría real; el pase final del mutador (<c>OpenXmlEspejoR1Mutador.RecomponerVisibles</c>)
-    /// recompone por firma los visibles TOT_OPT/TDF/EXTEMP y el sucesor del gate salteado
-    /// (<c>ValidadorTotalesR1Workbook.ExigirFormaRecompuesta</c>) los valida contra las filas REALES
-    /// del bloque. En julio (Δ=0) esta lista sigue vigente y se valida por dirección absoluta.
+    /// Plan 36 (T2, R-B-3/D-B): <b>la derogación por desplazamiento queda sin objeto</b>. El espejo
+    /// dimensional (que movía filas con Δ≠0 y dejaba obsoletas estas direcciones congeladas a julio)
+    /// fue RETIRADO; el escritor values-only por slot (<c>EscritorValoresSlotR1</c>) pega solo
+    /// <c>&lt;v&gt;</c> y la geometría/fórmulas del template quedan byte-idénticas, así que la
+    /// validación protegida por dirección absoluta corre SIEMPRE. La vigencia de estas direcciones
+    /// contra la plantilla estandarizada única se re-arbitra en el T0/regresión del Plan 36.
     /// </summary>
     public static readonly IReadOnlyDictionary<int, (string Celda, string[] Fragmentos)[]> R1Q2ProtectedPorAse =
         new Dictionary<int, (string, string[])[]>
         {
             [1] =
             [
-                ("F53", ["F32", "F48", "F12", "L12", "L32"]),
-                ("F55", ["F37", "F17", "L17"])
+                ("F75", ["F47", "F70", "F16", "L16", "L47"]),
+                ("F77", ["F59", "F32", "L32"])
             ],
             [2] =
             [
-                ("F206", ["F132", "F160", "L132", "F94", "L94"]),
-                ("F208", ["F142", "F107", "L107"])
+                ("F254", ["F171", "F208", "L171", "F120", "L120"]),
+                ("F256", ["F190", "F146", "L146"])
             ],
             [3] =
             [
-                ("F343", ["F265", "F281", "F244", "L244", "L265"]),
-                ("F345", ["F270", "F250", "L250"])
+                ("F415", ["F330", "F353", "F299", "L299", "L330"]),
+                ("F417", ["F342", "F315", "L315"])
             ],
             [4] =
             [
-                ("F468", ["F422", "F448", "F384", "L384", "L422"]),
-                ("F470", ["F430", "F397", "L397"])
+                ("F568", ["F511", "F548", "F460", "L460", "L511"]),
+                ("F570", ["F530", "F486", "L486"])
             ],
             [5] =
             [
-                ("F558", ["F552", "F531", "L531"]),
-                ("F560", ["F538", "F512", "L512"])
+                ("F680", ["F674", "F648", "F613", "L613", "L648"])
             ]
         };
 
@@ -157,11 +162,11 @@ public static class WorkbookLeafCellMapQ2
     public static readonly IReadOnlyDictionary<int, (string Componente, string SubsCont, string Especiales)> R2Q2EditablesPorAse =
         new Dictionary<int, (string, string, string)>
         {
-            [1] = ("E17", "E28", "K17"),
-            [2] = ("E89", "E107", "K89"),
-            [3] = ("E176", "E187", "K176"),
-            [4] = ("E303", "E323", "K303"),
-            [5] = ("E396", "E410", "K396")
+            [1] = ("E21", "E32", "K21"),
+            [2] = ("E94", "E112", "K94"),
+            [3] = ("E182", "E193", "K182"),
+            [4] = ("E309", "E327", "K309"),
+            [5] = ("E404", "E418", "K404")
         };
 
     /// <summary>
@@ -170,11 +175,11 @@ public static class WorkbookLeafCellMapQ2
     public static readonly IReadOnlyDictionary<int, (string Celda, string[] Fragmentos)[]> R2Q2ProtectedPorAse =
         new Dictionary<int, (string, string[])[]>
         {
-            [1] = [("E43", ["E17", "E28", "K17"])],
-            [2] = [("E139", ["E89", "E107", "K89"])],
-            [3] = [("E256", ["E176", "E187", "K176"])],
-            [4] = [("E358", ["E303", "E323", "K303"])],
-            [5] = [("E438", ["E410", "E396", "K396"])]
+            [1] = [("E47", ["E21", "E32", "K21"])],
+            [2] = [("E144", ["E94", "E112", "K94"])],
+            [3] = [("E262", ["E182", "E193", "K182"])],
+            [4] = [("E362", ["E309", "E327", "K309"])],
+            [5] = [("E446", ["E418", "E404", "K404"])]
         };
 
     /// <summary>
@@ -185,10 +190,10 @@ public static class WorkbookLeafCellMapQ2
         new Dictionary<int, (string, string)>
         {
             [1] = ("D15", "P15"),
-            [2] = ("D105", "P105"),
-            [3] = ("D200", "P200"),
-            [4] = ("D243", "P243"),
-            [5] = ("D352", "P352")
+            [2] = ("D111", "P111"),
+            [3] = ("D206", "P206"),
+            [4] = ("D249", "P249"),
+            [5] = ("D358", "P358")
         };
 
     /// <summary>
@@ -198,10 +203,10 @@ public static class WorkbookLeafCellMapQ2
         new Dictionary<int, (string, string[])[]>
         {
             [1] = [("D73", ["D15", "P15"])],
-            [2] = [("D168", ["D105", "P105"])],
-            [3] = [("D205", ["D200", "P200"])],
-            [4] = [("D320", ["D243", "P243"])],
-            [5] = [("D355", ["D352", "P352"])]
+            [2] = [("D174", ["D111", "P111"])],
+            [3] = [("D211", ["D206", "P206"])],
+            [4] = [("D326", ["D249", "P249"])],
+            [5] = [("D361", ["D358", "P358"])]
         };
 
     /// <summary>
@@ -211,26 +216,26 @@ public static class WorkbookLeafCellMapQ2
     /// </summary>
     public static readonly (string Hoja, string Celda, string[] Fragmentos)[] ConsolidadoProtected =
     [
-        (HojaConsolidado, "D9", ["F53", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D10", ["F206", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D11", ["F343", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D12", ["F468", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D13", ["F558", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D28", ["E43", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D29", ["E139", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D30", ["E256", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D31", ["E358", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D32", ["E438", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D47", ["F55", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D48", ["F208", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D49", ["F345", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D50", ["F470", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D51", ["F560", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D9", ["F75", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D10", ["F254", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D11", ["F415", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D12", ["F568", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D13", ["F680", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D28", ["E47", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D29", ["E144", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D30", ["E262", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D31", ["E362", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D32", ["E446", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D47", ["F77", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D48", ["F256", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D49", ["F417", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D50", ["F570", "Reporte Componentes R1"]),
+        (HojaConsolidado, "D51", ["F682", "Reporte Componentes R1"]),
         (HojaConsolidado, "D66", ["D73", "Reversion Pagos R4"]),
-        (HojaConsolidado, "D67", ["D168", "Reversion Pagos R4"]),
-        (HojaConsolidado, "D68", ["D205", "Reversion Pagos R4"]),
-        (HojaConsolidado, "D69", ["D320", "Reversion Pagos R4"]),
-        (HojaConsolidado, "D70", ["D355", "Reversion Pagos R4"]),
+        (HojaConsolidado, "D67", ["D174", "Reversion Pagos R4"]),
+        (HojaConsolidado, "D68", ["D211", "Reversion Pagos R4"]),
+        (HojaConsolidado, "D69", ["D326", "Reversion Pagos R4"]),
+        (HojaConsolidado, "D70", ["D361", "Reversion Pagos R4"]),
         (HojaConsolidado, "D85", ["AJUSTES", "D47"]),
         (HojaConsolidado, "D86", ["AJUSTES", "D48"]),
         (HojaConsolidado, "D87", ["AJUSTES", "D49"]),
@@ -274,23 +279,23 @@ public static class WorkbookLeafCellMapQ2
             (hojaDetRetri, "D26", ["D12", "CONSOLIDADO_TOTAL RECAUDO", "D107"]),
             (hojaDetRetri, "D27", ["D13", "CONSOLIDADO_TOTAL RECAUDO", "D108"]),
             (hojaDetRetri, "D28", ["D14", "CONSOLIDADO_TOTAL RECAUDO", "D109"]),
-            (hojaDetRetri, "D32", ["D23", "F53", "E43", "D73", "F55", "AJUSTES", "D47", "D9"]),
-            (hojaDetRetri, "D33", ["D24", "F206", "E139", "D168", "F208", "AJUSTES", "D48", "D10"]),
-            (hojaDetRetri, "D34", ["D25", "F343", "F345", "E256", "D205", "AJUSTES", "D49", "D11"]),
-            (hojaDetRetri, "D35", ["D26", "F468", "F470", "E358", "D320", "AJUSTES", "D50", "D12"]),
-            (hojaDetRetri, "D36", ["D27", "F558", "F560", "E438", "D355", "AJUSTES", "D51", "D13"]),
+            (hojaDetRetri, "D32", ["D23", "F75", "E47", "D73", "F77", "AJUSTES", "D47", "D9"]),
+            (hojaDetRetri, "D33", ["D24", "F254", "E144", "D174", "F256", "AJUSTES", "D48", "D10"]),
+            (hojaDetRetri, "D34", ["D25", "F415", "F417", "E262", "D211", "AJUSTES", "D49", "D11"]),
+            (hojaDetRetri, "D35", ["D26", "F568", "F570", "E362", "D326", "AJUSTES", "D50", "D12"]),
+            (hojaDetRetri, "D36", ["D27", "F680", "F682", "E446", "D361", "AJUSTES", "D51", "D13"]),
             (hojaDetValiRetri, "D16", ["D9", "CONSOLIDADO_TOTAL RECAUDO", "U104"]),
             (hojaDetValiRetri, "D17", ["D10", "CONSOLIDADO_TOTAL RECAUDO", "U105"]),
             (hojaDetValiRetri, "D18", ["D11", "CONSOLIDADO_TOTAL RECAUDO", "U106"]),
             (hojaDetValiRetri, "D19", ["D12", "CONSOLIDADO_TOTAL RECAUDO", "U107"]),
             (hojaDetValiRetri, "D20", ["D13", "CONSOLIDADO_TOTAL RECAUDO", "U108"]),
             (hojaDetValiRetri, "D21", ["D14", "CONSOLIDADO_TOTAL RECAUDO", "U109"]),
-            (hojaDetValiRetri, "D24", ["M53", "M55", "L43", "J73", "D16", "AJUSTES", "U47", "D9"]),
-            (hojaDetValiRetri, "D25", ["M206", "L139", "J168", "M208", "D17", "AJUSTES", "U48", "D10"]),
-            (hojaDetValiRetri, "D26", ["M343", "M345", "L256", "J205", "D18", "AJUSTES", "U49", "D11"]),
-            (hojaDetValiRetri, "D27", ["M468", "M470", "L358", "J320", "D19", "AJUSTES", "U50", "D12"]),
-            (hojaDetValiRetri, "D28", ["M558", "M560", "L438", "J355", "D20", "AJUSTES", "U51", "D13"]),
-            (hojaDetValiRetri, "D29", ["M53", "L43", "J73", "M206", "L139", "J168", "M343", "L256", "J205", "M468", "L358", "J320", "M558", "L438", "J355", "D21", "AJUSTES", "U52", "D14"])
+            (hojaDetValiRetri, "D24", ["M75", "M77", "L47", "J73", "D16", "AJUSTES", "U47", "D9"]),
+            (hojaDetValiRetri, "D25", ["M254", "L144", "J174", "M256", "D17", "AJUSTES", "U48", "D10"]),
+            (hojaDetValiRetri, "D26", ["M415", "M417", "L262", "J211", "D18", "AJUSTES", "U49", "D11"]),
+            (hojaDetValiRetri, "D27", ["M568", "M570", "L362", "J326", "D19", "AJUSTES", "U50", "D12"]),
+            (hojaDetValiRetri, "D28", ["M680", "M682", "L446", "J361", "D20", "AJUSTES", "U51", "D13"]),
+            (hojaDetValiRetri, "D29", ["M75", "L47", "J73", "M254", "L144", "J174", "M415", "L262", "J211", "M568", "L362", "J326", "M680", "L446", "J361", "D21", "AJUSTES", "U52", "D14"])
         ];
     }
 

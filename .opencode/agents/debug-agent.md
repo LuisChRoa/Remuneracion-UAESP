@@ -3,10 +3,9 @@ name: debug-agent
 description: "Subagente de remuneracion-architect para análisis sistemático de causa raíz. NO arregla sin investigar primero. Prioridad: calidad senior."
 mode: subagent
 model: opencode-go/deepseek-v4.1-flash
-hidden: true
-permission:
+permissions:
   edit: deny
-  bash:
+  shell:
     "dotnet build*": allow
     "dotnet test*": allow
     "dotnet run*": allow

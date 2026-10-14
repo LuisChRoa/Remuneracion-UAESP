@@ -25,16 +25,18 @@ public sealed class DetRetriQ2Tests
     public void R1Q2_Ase5_Variante2Filas_SlotsV03YTotOptGolden()
     {
         // V0.3: la fuente ASE5-Q2 trae SOLO 2 filas Mes/Total; el reader despacha a la rama
-        // ASE5-Q2 y los slots F531/F552/L531 se pueblan; TOT_OPT = F558 = 12033011685.71 = D13.
+        // ASE5-Q2 y los slots F613/F648/L613 (geometría nueva, Plan 38 T3/R-B-4) se pueblan;
+        // TOT_OPT = F680 = 12033011685.71 = D13.
         var reader = new ExcelDataReaderWorkbookLeafInputReader();
         var leaf = reader.LeerLeafInputs(Insumos.Ase(5), Insumos.PeriodoQ2(), Insumos.R1Q2(5), Insumos.R2Q2(5), Insumos.R4Q2(5));
 
-        Assert.InRange(leaf.R1.CeldasPorAse["F531"] - 13084233937.44m, -Tolerancia, Tolerancia);
-        Assert.InRange(leaf.R1.CeldasPorAse["F552"] - (-1036320522.40m), -Tolerancia, Tolerancia);
-        Assert.InRange(leaf.R1.CeldasPorAse["L531"] - 14901729.33m, -Tolerancia, Tolerancia);
+        Assert.InRange(leaf.R1.CeldasPorAse["F613"] - 13084233937.44m, -Tolerancia, Tolerancia);
+        Assert.InRange(leaf.R1.CeldasPorAse["F648"] - (-1036320522.40m), -Tolerancia, Tolerancia);
+        Assert.InRange(leaf.R1.CeldasPorAse["L613"] - 14901729.33m, -Tolerancia, Tolerancia);
         Assert.InRange(leaf.R1.TotalOportunoEsperadoPorAse - 12033011685.71m, -Tolerancia, Tolerancia);
 
-        // EXTEMP ASE5-Q2: F560 = F538+F512-L512 = 441849 = D51 golden.
+        // EXTEMP ASE5-Q2: el template deja F682 en VALOR 0 (sin fórmula); el agregado del reader
+        // (Σ Aplicacion − Especiales de la primera) = 441849 = D51 golden.
         Assert.InRange(leaf.R1.ExtemporaneoEsperadoPorAse - 441849m, -Tolerancia, Tolerancia);
 
         // Coherencia contra la fuente (gate HU-02): F25 = primera fila Mes/Total = Extemporaneo.
@@ -44,14 +46,22 @@ public sealed class DetRetriQ2Tests
     [Fact]
     public void R1Q2_Los5_SlotsVsGoldenCache_5De5()
     {
-        // A1 leaf: cada celda operando R1-Q2 leída == misma celda del caché golden ±0.5.
+        // A1 leaf: cada celda operando R1-Q2 leída == su valor en el caché golden ±0.5.
+        //
+        // Plan 38 (T3, R-B-4): el caché golden (ManualJulioQ2) es la plantilla LEGACY — sus celdas
+        // operando viven en las direcciones legacy del mapa HU-12. La comparación se re-congela
+        // emparejando por ROL (Mes0/Lmes0/Mes1/Lmes1/Mes2/Aplic0/Aplic1/LAplic0): el golden se lee
+        // en la celda legacy del rol y el leaf en la celda nueva del mapa. Evidencia: la fórmula
+        // visible legacy `F53=F32+F48+F12-L12-L32` y `F55=F37+F17-L17` fija los roles; los valores
+        // del golden coinciden ±0.5 con la fuente (verificado celda a celda). NO se ajustan números.
         var reader = new ExcelDataReaderWorkbookLeafInputReader();
         for (var aseId = 1; aseId <= 5; aseId++)
         {
             var leaf = reader.LeerLeafInputs(Insumos.Ase(aseId), Insumos.PeriodoQ2(), Insumos.R1Q2(aseId), Insumos.R2Q2(aseId), Insumos.R4Q2(aseId));
-            foreach (var (celda, _) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(aseId))
+            foreach (var (celda, rol) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(aseId))
             {
-                var golden = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR1, celda);
+                var celdaGolden = GeometriaGoldenLegacy.R1Q2[(aseId, rol)];
+                var golden = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR1, celdaGolden);
                 Assert.InRange(leaf.R1.CeldasPorAse[celda] - golden, -Tolerancia, Tolerancia);
             }
         }
@@ -61,19 +71,25 @@ public sealed class DetRetriQ2Tests
     public void R2R4Q2_Los5_SlotsVsGoldenCache_5De5()
     {
         // A1 leaf: R2 (Componente/SubsCont/Especiales) y R4 (Total/P) vs caché golden.
+        //
+        // Plan 38 (T3, R-B-4 / D-C): el caché golden es la plantilla LEGACY; sus celdas-operando
+        // viven en las direcciones legacy. La comparación se re-congela emparejando por ROL contra
+        // las direcciones nuevas del mapa (GeometriaGoldenLegacy). No se ajustan números.
         var reader = new ExcelDataReaderWorkbookLeafInputReader();
         for (var aseId = 1; aseId <= 5; aseId++)
         {
             var leaf = reader.LeerLeafInputs(Insumos.Ase(aseId), Insumos.PeriodoQ2(), Insumos.R1Q2(aseId), Insumos.R2Q2(aseId), Insumos.R4Q2(aseId));
 
             var r2 = WorkbookLeafCellMapQ2.ObtenerR2Q2Editables(aseId);
-            Assert.InRange(leaf.R2.CeldasPorAse[r2.Componente] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR2, r2.Componente), -Tolerancia, Tolerancia);
-            Assert.InRange(leaf.R2.CeldasPorAse[r2.SubsCont] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR2, r2.SubsCont), -Tolerancia, Tolerancia);
-            Assert.InRange(leaf.R2.CeldasPorAse[r2.Especiales] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR2, r2.Especiales), -Tolerancia, Tolerancia);
+            var r2Legacy = GeometriaGoldenLegacy.R2Q2[aseId];
+            Assert.InRange(leaf.R2.CeldasPorAse[r2.Componente] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR2, r2Legacy.Componente), -Tolerancia, Tolerancia);
+            Assert.InRange(leaf.R2.CeldasPorAse[r2.SubsCont] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR2, r2Legacy.SubsCont), -Tolerancia, Tolerancia);
+            Assert.InRange(leaf.R2.CeldasPorAse[r2.Especiales] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR2, r2Legacy.Especiales), -Tolerancia, Tolerancia);
 
             var r4 = WorkbookLeafCellMapQ2.ObtenerR4Q2Editables(aseId);
-            Assert.InRange(leaf.R4.CeldasPorAse[r4.Total] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR4, r4.Total), -Tolerancia, Tolerancia);
-            Assert.InRange(leaf.R4.CeldasPorAse[r4.P] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR4, r4.P), -Tolerancia, Tolerancia);
+            var r4Legacy = GeometriaGoldenLegacy.R4Q2[aseId];
+            Assert.InRange(leaf.R4.CeldasPorAse[r4.Total] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR4, r4Legacy.Total), -Tolerancia, Tolerancia);
+            Assert.InRange(leaf.R4.CeldasPorAse[r4.P] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR4, r4Legacy.P), -Tolerancia, Tolerancia);
         }
     }
 

@@ -196,29 +196,29 @@ public static class WorkbookLeafCellMapAjustesSfT
     /// </summary>
     public static readonly (string Hoja, string Celda, string[] Fragmentos)[] Protegidas =
     [
-        // Visibles SALDOS-NOTAS: Cn-In (C9/C22/C34/C47/C60) con su fila Total del bloque.
-        (HojaSaldosNotas, "C9", ["C7", "I7"]),
-        (HojaSaldosNotas, "C22", ["C20", "I20"]),
-        (HojaSaldosNotas, "C34", ["C32", "I32"]),
-        (HojaSaldosNotas, "C47", ["C45", "I45"]),
-        (HojaSaldosNotas, "C60", ["C58", "I58"]),
-        // Visibles RETRIBUCION-NEGATIVA: Cn-In (C10/C23/C36/C49/C61).
+        // Visibles SALDOS-NOTAS: Cn-In (C10/C23/C36/C49/C62) con su fila Total del bloque.
+        (HojaSaldosNotas, "C10", ["C8", "I8"]),
+        (HojaSaldosNotas, "C23", ["C21", "I21"]),
+        (HojaSaldosNotas, "C36", ["C34", "I34"]),
+        (HojaSaldosNotas, "C49", ["C47", "I47"]),
+        (HojaSaldosNotas, "C62", ["C60", "I60"]),
+        // Visibles RETRIBUCION-NEGATIVA: Cn-In (C10/C23/C36/C49/C62).
         (HojaRetribucionNegativa, "C10", ["C8", "I8"]),
         (HojaRetribucionNegativa, "C23", ["C21", "I21"]),
         (HojaRetribucionNegativa, "C36", ["C34", "I34"]),
         (HojaRetribucionNegativa, "C49", ["C47", "I47"]),
-        (HojaRetribucionNegativa, "C61", ["C59", "I59"]),
+        (HojaRetribucionNegativa, "C62", ["C60", "I60"]),
         // AJUSTES-SF-T: sección SALDOS (D9:D13) y RETRIBUCION (D28:D32) + consolidado D47:D51.
-        (HojaAjustesSfT, "D9", ["SALDOSPORNOTA", "C9"]),
-        (HojaAjustesSfT, "D10", ["SALDOSPORNOTA", "C22"]),
-        (HojaAjustesSfT, "D11", ["SALDOSPORNOTA", "C34"]),
-        (HojaAjustesSfT, "D12", ["SALDOSPORNOTA", "C47"]),
-        (HojaAjustesSfT, "D13", ["SALDOSPORNOTA", "C60"]),
+        (HojaAjustesSfT, "D9", ["SALDOSPORNOTA", "C10"]),
+        (HojaAjustesSfT, "D10", ["SALDOSPORNOTA", "C23"]),
+        (HojaAjustesSfT, "D11", ["SALDOSPORNOTA", "C36"]),
+        (HojaAjustesSfT, "D12", ["SALDOSPORNOTA", "C49"]),
+        (HojaAjustesSfT, "D13", ["SALDOSPORNOTA", "C62"]),
         (HojaAjustesSfT, "D28", ["RETRIBUCIONNEGATIVA", "C10"]),
         (HojaAjustesSfT, "D29", ["RETRIBUCIONNEGATIVA", "C23"]),
         (HojaAjustesSfT, "D30", ["RETRIBUCIONNEGATIVA", "C36"]),
         (HojaAjustesSfT, "D31", ["RETRIBUCIONNEGATIVA", "C49"]),
-        (HojaAjustesSfT, "D32", ["RETRIBUCIONNEGATIVA", "C61"]),
+        (HojaAjustesSfT, "D32", ["RETRIBUCIONNEGATIVA", "C62"]),
         (HojaAjustesSfT, "D47", ["D9", "D28"]),
         (HojaAjustesSfT, "D48", ["D10", "D29"]),
         (HojaAjustesSfT, "D49", []), // shared follower de D48

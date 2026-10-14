@@ -100,7 +100,7 @@ public sealed class SharedFormulaR1GateTests
             SharedIndex = 0
         };
 
-        OpenXmlEspejoR1Mutador.EscribirFormulaPreservando(celda, "G32+G12");
+        PreservadorFormulaShared.EscribirPreservando(celda, "G32+G12");
 
         Assert.NotNull(celda.CellFormula);
         Assert.Equal("G32+G12", celda.CellFormula!.Text);
@@ -114,7 +114,7 @@ public sealed class SharedFormulaR1GateTests
     {
         var celda = new Cell { CellReference = "F53" };
 
-        OpenXmlEspejoR1Mutador.EscribirFormulaPreservando(celda, "F32+F12");
+        PreservadorFormulaShared.EscribirPreservando(celda, "F32+F12");
 
         Assert.NotNull(celda.CellFormula);
         Assert.Equal("F32+F12", celda.CellFormula!.Text);

@@ -16,8 +16,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Plan 21 (W-2, auditoría PR3): los tests asertan la instrumentación de reanclaje del
-         espejo R1 (EspejoR1MutacionResultado, internal) sin abrir la API pública. -->
+    <!-- Plan 36 (T1/T2): los tests asertan los tipos internos del escritor de valores por slot R1
+         (EscritorValoresSlotR1: rangos del contrato, clasificadores, resultado) y la disciplina
+         shared preservada (PreservadorFormulaShared) sin abrir la API pública. -->
     <InternalsVisibleTo Include="Remuneracion.IntegrationTests" />
   </ItemGroup>
 

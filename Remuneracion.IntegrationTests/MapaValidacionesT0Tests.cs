@@ -95,9 +95,12 @@ public sealed class MapaValidacionesT0Tests
     {
         // D6: la fila Total D21 = D14 − CONSOLIDADO U109 NO cierra ±0.5 en NINGÚN canónico
         // (acumulado de ruido float de las 5 filas). Queda documentada y EXCLUIDA del gate.
-        var q1 = LeerCeldaNumerica(Insumos.Plantilla, WorkbookLeafCellMapValidaciones.HojaDetValiRetri(Insumos.Periodo()), "D21");
+        //
+        // Plan 38 (T3, R-B-4): el canónico Q1 (`Insumos.Plantilla`) es ahora la base estandarizada
+        // en ceros del período 2026071 — no porta los valores que este T0 congeló (D21 = 0). El
+        // oráculo de valores Q1 vigente es el manual legacy (ManualJulioQ2, julio-Q2). Se re-congela
+        // la divergencia documentada sobre el manual (Q2); la lectura Q1-en-ceros no aporta señal.
         var q2 = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapValidaciones.HojaDetValiRetri(Insumos.PeriodoQ2()), "D21");
-        Assert.True(Math.Abs(q1) > Tolerancia, $"Q1 D21 = {q1}; se esperaba divergencia > ±0.5 (documentada).");
         Assert.True(Math.Abs(q2) > Tolerancia, $"Q2 D21 = {q2}; se esperaba divergencia > ±0.5 (documentada).");
     }
 
@@ -126,10 +129,10 @@ public sealed class MapaValidacionesT0Tests
         // (enteros escritos) que NO equivalen a ROUND(Σ float) en la fila Total. Documentado:
         // DetValiRetri D14 ≠ ROUND(CONSOLIDADO U109) en ambos canónicos → el gate NUNCA exige
         // ROUND sobre D9:D14 (prohibido "cerrarlos").
-        var u109Q1 = LeerCeldaNumerica(Insumos.Plantilla, WorkbookLeafCellMap.HojaConsolidado, "U109");
-        var d14Q1 = LeerCeldaNumerica(Insumos.Plantilla, WorkbookLeafCellMapValidaciones.HojaDetValiRetri(Insumos.Periodo()), "D14");
-        Assert.NotEqual(decimal.Round(u109Q1, 0, MidpointRounding.AwayFromZero), d14Q1);
-
+        //
+        // Plan 38 (T3, R-B-4): el canónico Q1 (`Insumos.Plantilla`) es ahora la base estandarizada
+        // en ceros (D14 = U109 = 0 ⇒ 0 == ROUND(0)); el oráculo de valores vigente es el manual
+        // legacy (ManualJulioQ2). Se re-congela sobre el manual, que sí porta los valores fuente.
         var u109Q2 = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMap.HojaConsolidado, "U109");
         var d14Q2 = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapValidaciones.HojaDetValiRetri(Insumos.PeriodoQ2()), "D14");
         Assert.NotEqual(decimal.Round(u109Q2, 0, MidpointRounding.AwayFromZero), d14Q2);

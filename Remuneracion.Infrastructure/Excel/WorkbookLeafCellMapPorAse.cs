@@ -27,38 +27,38 @@ public static class WorkbookLeafCellMapPorAse
             [
                 (HojaR1, "F25", "R1.F25"), (HojaR1, "F41", "R1.F41"), (HojaR1, "L25", "R1.L25"),
                 (HojaR1, "F30", "R1.F30"), (HojaR1, "F10", "R1.F10"), (HojaR1, "L10", "R1.L10"),
-                (HojaR2, "E15", "R2.E15"), (HojaR2, "E26", "R2.E26"), (HojaR2, "K15", "R2.K15"),
-                (HojaR4, "D9", "R4.D9"), (HojaR4, "P9", "R4.P9")
+                (HojaR2, "E21", "R2.E21"), (HojaR2, "E32", "R2.E32"), (HojaR2, "K21", "R2.K21"),
+                (HojaR4, "D15", "R4.D15"), (HojaR4, "P15", "R4.P15")
             ],
             [2] =
             [
                 (HojaR1, "F113", "R1.F113"), (HojaR1, "F130", "R1.F130"), (HojaR1, "L113", "R1.L113"),
                 (HojaR1, "F90", "R1.F90"), (HojaR1, "L90", "R1.L90"),
-                (HojaR2, "E85", "R2.E85"), (HojaR2, "E103", "R2.E103"), (HojaR2, "K85", "R2.K85"),
-                (HojaR4, "D98", "R4.D98"), (HojaR4, "P98", "R4.P98")
+                (HojaR2, "E94", "R2.E94"), (HojaR2, "E112", "R2.E112"), (HojaR2, "K94", "R2.K94"),
+                (HojaR4, "D111", "R4.D111"), (HojaR4, "P111", "R4.P111")
             ],
             [3] =
             [
                 (HojaR1, "F238", "R1.F238"), (HojaR1, "F254", "R1.F254"), (HojaR1, "F217", "R1.F217"),
                 (HojaR1, "L217", "R1.L217"), (HojaR1, "L238", "R1.L238"),
                 (HojaR1, "F243", "R1.F243"), (HojaR1, "F223", "R1.F223"), (HojaR1, "L223", "R1.L223"),
-                (HojaR2, "E167", "R2.E167"), (HojaR2, "E178", "R2.E178"), (HojaR2, "K167", "R2.K167"),
-                (HojaR4, "D193", "R4.D193"), (HojaR4, "P193", "R4.P193")
+                (HojaR2, "E182", "R2.E182"), (HojaR2, "E193", "R2.E193"), (HojaR2, "K182", "R2.K182"),
+                (HojaR4, "D206", "R4.D206"), (HojaR4, "P206", "R4.P206")
             ],
             [4] =
             [
                 (HojaR1, "F391", "R1.F391"), (HojaR1, "F417", "R1.F417"), (HojaR1, "F357", "R1.F357"),
                 (HojaR1, "L357", "R1.L357"), (HojaR1, "L391", "R1.L391"),
                 (HojaR1, "F401", "R1.F401"), (HojaR1, "F369", "R1.F369"), (HojaR1, "L369", "R1.L369"),
-                (HojaR2, "E290", "R2.E290"), (HojaR2, "E308", "R2.E308"), (HojaR2, "K290", "R2.K290"),
-                (HojaR4, "D236", "R4.D236"), (HojaR4, "P236", "R4.P236")
+                (HojaR2, "E309", "R2.E309"), (HojaR2, "E327", "R2.E327"), (HojaR2, "K309", "R2.K309"),
+                (HojaR4, "D249", "R4.D249"), (HojaR4, "P249", "R4.P249")
             ],
             [5] =
             [
                 (HojaR1, "F513", "R1.F513"), (HojaR1, "F498", "R1.F498"), (HojaR1, "F478", "R1.F478"),
                 (HojaR1, "L478", "R1.L478"), (HojaR1, "L498", "R1.L498"),
-                (HojaR2, "E385", "R2.E385"), (HojaR2, "E374", "R2.E374"), (HojaR2, "K374", "R2.K374"),
-                (HojaR4, "D344", "R4.D344"), (HojaR4, "P344", "R4.P344")
+                (HojaR2, "E404", "R2.E404"), (HojaR2, "E418", "R2.E418"), (HojaR2, "K404", "R2.K404"),
+                (HojaR4, "D358", "R4.D358"), (HojaR4, "P358", "R4.P358")
             ]
         };
 
@@ -71,64 +71,64 @@ public static class WorkbookLeafCellMapPorAse
         {
             [1] =
             [
-                (HojaR1, "F46", ["F25", "F41", "L25"]),
-                (HojaR1, "F48", ["F30", "F10", "L10"]),
-                (HojaR2, "E41", ["E15", "E26", "K15"]),
-                (HojaR4, "D67", ["D9", "P9"]),
-                (HojaConsolidado, "D9", ["F46", "Reporte Componentes R1"]),
-                (HojaConsolidado, "D28", ["E41", "Rem. Anticipos R2"]),
-                (HojaConsolidado, "D47", ["F48", "Reporte Componentes R1"]),
-                (HojaConsolidado, "D66", ["D67", "Reversion Pagos R4"]),
+                (HojaR1, "F75", ["F47", "F70", "F16", "L16", "L47"]),
+                (HojaR1, "F77", ["F59", "F32", "L32"]),
+                (HojaR2, "E47", ["E21", "E32", "K21"]),
+                (HojaR4, "D73", ["D15", "P15"]),
+                (HojaConsolidado, "D9", ["F75", "Reporte Componentes R1"]),
+                (HojaConsolidado, "D28", ["E47", "Rem. Anticipos R2"]),
+                (HojaConsolidado, "D47", ["F77", "Reporte Componentes R1"]),
+                (HojaConsolidado, "D66", ["D73", "Reversion Pagos R4"]),
                 (HojaConsolidado, "D104", ["D9", "D28", "D47", "D66", "D85"]),
                 (HojaConsolidado, "D109", ["D104", "D108", "SUM"])
             ],
             [2] =
             [
-                (HojaR1, "F176", ["F113", "F130", "L113", "F90", "L90"]),
-                (HojaR2, "E135", ["E85", "E103", "K85"]),
-                (HojaR4, "D161", ["D98", "P98"]),
-                (HojaConsolidado, "D10", ["F176", "Reporte Componentes R1"]),
-                (HojaConsolidado, "D29", ["E135", "Rem. Anticipos R2"]),
-                (HojaConsolidado, "D48", ["F178", "Reporte Componentes R1"]),
-                (HojaConsolidado, "D67", ["D161", "Reversion Pagos R4"]),
+                (HojaR1, "F254", ["F171", "F208", "L171", "F120", "L120"]),
+                (HojaR2, "E144", ["E94", "E112", "K94"]),
+                (HojaR4, "D174", ["D111", "P111"]),
+                (HojaConsolidado, "D10", ["F254", "Reporte Componentes R1"]),
+                (HojaConsolidado, "D29", ["E144", "Rem. Anticipos R2"]),
+                (HojaConsolidado, "D48", ["F256", "Reporte Componentes R1"]),
+                (HojaConsolidado, "D67", ["D174", "Reversion Pagos R4"]),
                 (HojaConsolidado, "D105", ["D10", "D29", "D48", "D67", "D86"]),
                 (HojaConsolidado, "D109", ["D104", "D108", "SUM"])
             ],
             [3] =
             [
-                (HojaR1, "F316", ["F238", "F254", "F217", "L217", "L238"]),
-                (HojaR1, "F318", ["F243", "F223", "L223"]),
-                (HojaR2, "E247", ["E167", "E178", "K167"]),
-                (HojaR4, "D198", ["D193", "P193"]),
-                (HojaConsolidado, "D11", ["F316", "Reporte Componentes R1"]),
-                (HojaConsolidado, "D30", ["E247", "Rem. Anticipos R2"]),
-                (HojaConsolidado, "D49", ["F318", "Reporte Componentes R1"]),
-                (HojaConsolidado, "D68", ["D198", "Reversion Pagos R4"]),
+                (HojaR1, "F415", ["F330", "F353", "F299", "L299", "L330"]),
+                (HojaR1, "F417", ["F342", "F315", "L315"]),
+                (HojaR2, "E262", ["E182", "E193", "K182"]),
+                (HojaR4, "D211", ["D206", "P206"]),
+                (HojaConsolidado, "D11", ["F415", "Reporte Componentes R1"]),
+                (HojaConsolidado, "D30", ["E262", "Rem. Anticipos R2"]),
+                (HojaConsolidado, "D49", ["F417", "Reporte Componentes R1"]),
+                (HojaConsolidado, "D68", ["D211", "Reversion Pagos R4"]),
                 (HojaConsolidado, "D106", []), // shared follower del maestro D104 (texto vacío; solo presencia de fórmula)
                 (HojaConsolidado, "D109", ["D104", "D108", "SUM"])
             ],
             [4] =
             [
-                (HojaR1, "F437", ["F391", "F417", "F357", "L357", "L391"]),
-                (HojaR1, "F439", ["F401", "F369", "L369"]),
-                (HojaR2, "E343", ["E290", "E308", "K290"]),
-                (HojaR4, "D312", ["D236", "P236"]),
-                (HojaConsolidado, "D12", ["F437", "Reporte Componentes R1"]),
-                (HojaConsolidado, "D31", ["E343", "Rem. Anticipos R2"]),
-                (HojaConsolidado, "D50", ["F439", "Reporte Componentes R1"]),
-                (HojaConsolidado, "D69", ["D312", "Reversion Pagos R4"]),
+                (HojaR1, "F568", ["F511", "F548", "F460", "L460", "L511"]),
+                (HojaR1, "F570", ["F530", "F486", "L486"]),
+                (HojaR2, "E362", ["E309", "E327", "K309"]),
+                (HojaR4, "D326", ["D249", "P249"]),
+                (HojaConsolidado, "D12", ["F568", "Reporte Componentes R1"]),
+                (HojaConsolidado, "D31", ["E362", "Rem. Anticipos R2"]),
+                (HojaConsolidado, "D50", ["F570", "Reporte Componentes R1"]),
+                (HojaConsolidado, "D69", ["D326", "Reversion Pagos R4"]),
                 (HojaConsolidado, "D107", ["D12", "D31", "D50", "D69", "D88"]),
                 (HojaConsolidado, "D109", ["D104", "D108", "SUM"])
             ],
             [5] =
             [
-                (HojaR1, "F519", ["F513", "F498", "F478", "L478", "L498"]),
-                (HojaR2, "E413", ["E385", "E374", "K374"]),
-                (HojaR4, "D347", ["D344", "P344"]),
-                (HojaConsolidado, "D13", ["F519", "Reporte Componentes R1"]),
-                (HojaConsolidado, "D32", ["E413", "Rem. Anticipos R2"]),
-                (HojaConsolidado, "D51", ["F521", "Reporte Componentes R1"]),
-                (HojaConsolidado, "D70", ["D347", "Reversion Pagos R4"]),
+                (HojaR1, "F680", ["F674", "F648", "F613", "L613", "L648"]),
+                (HojaR2, "E446", ["E418", "E404", "K404"]),
+                (HojaR4, "D361", ["D358", "P358"]),
+                (HojaConsolidado, "D13", ["F680", "Reporte Componentes R1"]),
+                (HojaConsolidado, "D32", ["E446", "Rem. Anticipos R2"]),
+                (HojaConsolidado, "D51", ["F682", "Reporte Componentes R1"]),
+                (HojaConsolidado, "D70", ["D361", "Reversion Pagos R4"]),
                 (HojaConsolidado, "D108", ["D13", "D32", "D51", "D70", "D89"]),
                 (HojaConsolidado, "D109", ["D104", "D108", "SUM"])
             ]

@@ -2,8 +2,9 @@ namespace Remuneracion.Core.Models;
 
 /// <summary>
 /// Plan 32 (T1, pieza b — R-B-1/D-B): firmas puras del INTERIOR de <c>Reporte Componentes R1</c>
-/// (sub-visibles por empresa). Declaraciones puras — el consumidor (la recomposición por firma del
-/// pase final del mutador) llega en T2.
+/// (sub-visibles por empresa). Declaraciones puras: el resolutor de slots del escritor values-only
+/// (Plan 36/T1-T2) las usa como LOCALIZADORES de fila; la composición de <c>&lt;f&gt;</c> por firma
+/// (Plan 32/T2) quedó retirada con el motor del espejo (Plan 36/T2).
 ///
 /// Causa (T0c, evidencia en disco 2026-10-08): los anclajes del interior son MIXTOS. Parte resuelve
 /// con las firmas vigentes de <see cref="FilaEspejoR1"/> (<c>EsMesTotal</c> =
@@ -116,10 +117,12 @@ public static class R1FirmaInterior
     /// fila-dato pertenece a la sección de Aplicación; si es <c>Mes</c>, pertenece a Oportuno.
     ///
     /// Es un predicado PURO (sin I/O, sin OpenXML, sin períodos — D-F) y el ÚNICO punto de verdad de la
-    /// clasificación: lo consumen <c>MesOportuno</c> y <c>FilasAplic</c> del mutador del espejo (el
-    /// defecto F463 vivía duplicado como predicado de adyacencia en ambos). Devuelve <c>null</c> si no
-    /// hay ninguna frontera por debajo (el caller decide el fail-fast que nombra ASE + celda + filas —
-    /// nunca 0 silencioso).
+    /// clasificación: lo consume el escritor de valores por slot
+    /// (<c>EscritorValoresSlotR1</c>, Plan 36/T1-T2) para separar Oportuno de Aplicación al resolver
+    /// el slot de cada fila-dato (antes lo consumían <c>MesOportuno</c> y <c>FilasAplic</c> del
+    /// mutador del espejo, retirado en el Plan 36/T2; el defecto F463 vivía duplicado como predicado
+    /// de adyacencia en ambos). Devuelve <c>null</c> si no hay ninguna frontera por debajo (el caller
+    /// decide el fail-fast que nombra ASE + celda + filas — nunca 0 silencioso).
     /// </summary>
     public static bool? EsAplicacionPorFrontera(IReadOnlyList<FilaEspejoR1> filas, int indice)
     {

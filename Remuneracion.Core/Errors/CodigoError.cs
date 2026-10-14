@@ -29,4 +29,11 @@ public static class CodigoError
 
     /// <summary>Decisión del usuario que cancela (no es un fallo; nivel Warning).</summary>
     public const string CanceladoPorUsuario = "WARN-CANCELADO";
+
+    /// <summary>
+    /// Plan 36 (T1, R-B-2/D-A): la fuente R1 trae una fila (empresa × tipo) sin slot en el
+    /// contrato T0 de la plantilla estandarizada. Fail-fast con ASE + reporte + celda + slot
+    /// esperado; nunca remap silencioso, nunca insert, nunca 0 silencioso.
+    /// </summary>
+    public const string SinSlot = "ERR-SIN-SLOT";
 }

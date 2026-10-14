@@ -144,10 +144,7 @@ public static class WorkbookLeafCellMapReporteBanco
         (HojaBanco, "D62", ["C17", "C62"]),
         (HojaBanco, "E62", ["C17", "C62"]),
         (HojaBanco, "C75", ["$C$59", "Recaudo Directa Occidente"]),
-        (HojaBanco, "E75", ["H17", "C75"]),
-        // TOTAL RECAUDO (fila 81).
-        (HojaBanco, "C81", ["SUM", "C62"]),
-        (HojaBanco, "D81", ["C81", "I6"])
+        (HojaBanco, "E75", ["H17", "C75"])
     ];
 
     /// <summary>

@@ -29,8 +29,19 @@ internal static class Insumos
         throw new DirectoryNotFoundException("No se encontró la raíz del repositorio (AGENTS.md).");
     }
 
-    /// <summary>Plantilla canónica en ceros del período Q1 (<c>Docs/Prueba Julio-1</c>).</summary>
-    public static string Plantilla => Path.Combine(Raiz(), "Docs", "Prueba Julio-1", "Plantilla_Remuneracion.xlsx");
+    /// <summary>
+    /// Plan 36 (T4, R-R-1): base canónica del período, preparada UNA vez offline desde la plantilla
+    /// estandarizada única con <c>Herramientas/PreparadorBasePeriodo --plantilla-unica</c>
+    /// (<c>Docs/BasesPreparadas/Plantilla_Remuneracion_{AAAAMMQ}.xlsx</c>). Reemplaza a las plantillas
+    /// legacy por mes, que NO son bases válidas del path de slots (el motor insert/delete fue retirado
+    /// en T2 y el runtime exige una base consistente con el período — ver <c>ValidadorBasePeriodo</c>).
+    /// </summary>
+    public static string BasePreparada(string periodo) =>
+        Path.Combine(Raiz(), "Docs", "BasesPreparadas", $"Plantilla_Remuneracion_{periodo}.xlsx");
+
+    /// <summary>Base canónica Q1 (período <c>2026071</c>) preparada desde la plantilla única.</summary>
+    public static string Plantilla => BasePreparada("2026071");
+
 
     public static string CarpetaPeriodo => Path.Combine(Raiz(), "Docs", "Prueba Julio-1", "Insumos");
 
@@ -107,7 +118,13 @@ internal static class Insumos
     /// HU-11 (2.5, T0-0.1): plantilla canónica en ceros Q2 (fórmulas sin caché),
     /// <c>Docs/Prueba Julio-2/Plantilla_Remuneracion.xlsx</c>.
     /// </summary>
-    public static string PlantillaQ2 => Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Plantilla_Remuneracion.xlsx");
+    /// <summary>
+    /// Plan 36 (T4): base canónica Q2 del período <c>2026072</c>, preparada desde la plantilla
+    /// estandarizada única (antes: la plantilla legacy <c>Docs/Prueba Julio-2/Plantilla_Remuneracion.xlsx</c>,
+    /// que ya no es base válida del path de slots).
+    /// </summary>
+    public static string PlantillaQ2 => BasePreparada("2026072");
+
 
     /// <summary>
     /// HU-11 (2.5, T0-0.1): golden de VALORES Q2 (referencia completada) usado como caché en la
@@ -273,8 +290,7 @@ internal static class Insumos
     /// token de período + metadatos/Q1 del manual). Su consistencia la fija
     /// <see cref="BaseConsistente2026082Tests"/>.
     /// </summary>
-    public static string PlantillaAgosto2026082 =>
-        Path.Combine(Raiz(), "Docs", "Prueba Agosto-2", "Plantilla_Remuneracion.xlsx");
+    public static string PlantillaAgosto2026082 => BasePreparada("2026082");
 
     /// <summary>
     /// Plan 30 (T3, D-E): manual del administrativo de agosto (<c>202608-2</c>), fuente de los

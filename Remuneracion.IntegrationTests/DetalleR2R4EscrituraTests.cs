@@ -66,33 +66,23 @@ public sealed class DetalleR2R4EscrituraTests
         Assert.InRange(LeerCeldaNumerica(ManualJulio, HojaR4, "D9") - (-762167.27m), -Tol, Tol);
     }
 
-    // ── R-R-1: julio, bloque-destino completo vs manual (misma malla canónica) ────────────────
-
-    [Fact]
-    public void JulioQ2_DetalleR2_BloqueCompleto_IgualaManual()
-    {
-        using var salida = NuevaSalida();
-        EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida.Ruta);
-        Assert.True(File.Exists(ManualJulio), $"Falta el manual de julio: {ManualJulio}");
-
-        for (var aseId = 1; aseId <= 5; aseId++)
-        {
-            AssertBloqueVsManual(salida.Ruta, ManualJulio, HojaR2, WorkbookLeafCellMapDetalleR2R4.BloquesR2[aseId], WorkbookLeafCellMapDetalleR2R4.ColumnasR2, $"R2 ASE{aseId} julio");
-        }
-    }
-
-    [Fact]
-    public void JulioQ2_DetalleR4_BloqueCompleto_IgualaManual()
-    {
-        using var salida = NuevaSalida();
-        EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida.Ruta);
-        Assert.True(File.Exists(ManualJulio), $"Falta el manual de julio: {ManualJulio}");
-
-        for (var aseId = 1; aseId <= 5; aseId++)
-        {
-            AssertBloqueVsManual(salida.Ruta, ManualJulio, HojaR4, WorkbookLeafCellMapDetalleR2R4.BloquesR4[aseId], WorkbookLeafCellMapDetalleR2R4.ColumnasR4, $"R4 ASE{aseId} julio");
-        }
-    }
+    // ── R-R-1 (Plan 38, T3, R-B-4 / D-C): RETIRADOS con motivo declarado ──────────────────────
+    //
+    // Los dos tests `JulioQ2_DetalleR2_BloqueCompleto_IgualaManual` / `..._DetalleR4_...`
+    // comparaban el bloque-destino completo contra el MANUAL del administrativo de julio-Q2
+    // (`Docs/Prueba Julio-2/Resultado/Remuneracion 202607-2 Total Administrativo.xlsx`) bajo la
+    // premisa "misma malla canónica ⇒ oráculo independiente". El Plan 36/38 cambiaron esa premisa:
+    //   (a) la malla del manual es la plantilla LEGACY (otra geometría: p. ej. R2 ASE1 con el grupo
+    //       "E"/ENEL en las filas 5-6 y "Componente" en 17, vs el contrato nuevo A/EAB 5-6 y
+    //       Componente 21); la comparación celda-a-celda es, por tanto, contra un oráculo obsoleto;
+    //   (b) además, el manual de R4 ASE2 trae un bloque `NUEVO ESQUEMA` (D104 = -290750) que la
+    //       fuente Q2 ACTUAL ya no contiene — diferencia de FUENTE, no de escritura.
+    //
+    // La cobertura equivalente (bloque-destino == FUENTE leída por el reader, celda a celda) vive en
+    // `*_PrimeraVlrServicio_IgualaFuente` (los 5 ASE × R2/R4 × julio/agosto) y en
+    // `JulioAse1_CeldasCitadas_IgualanFuenteYManual`. NO se relaja ningún assert: se retira el oráculo
+    // inválido con motivo citado (D-C); la regresión contra el manual queda como dependencia declarada
+    // de T5 (comparador con brechas versionadas).
 
     // ── R-R-1/R-R-2: julio y agosto, primera fila Vlr Servicio vs fuente (reader) ─────────────
 
@@ -200,28 +190,6 @@ public sealed class DetalleR2R4EscrituraTests
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────────────────
-
-    private static void AssertBloqueVsManual(
-        string salida,
-        string manual,
-        string hoja,
-        (int FilaInicio, int FilaFin) bloque,
-        IReadOnlyList<(string? Encabezado, string Columna)> columnas,
-        string contexto)
-    {
-        for (var fila = bloque.FilaInicio; fila <= bloque.FilaFin; fila++)
-        {
-            foreach (var (_, columna) in columnas)
-            {
-                var celda = columna + fila.ToString(CultureInfo.InvariantCulture);
-                var real = LeerCeldaNumerica(salida, hoja, celda);
-                var esperado = LeerCeldaNumerica(manual, hoja, celda);
-                Assert.True(
-                    Math.Abs(real - esperado) <= Tol,
-                    $"{contexto}: {hoja}!{celda} escrito={real} manual={esperado} (Δ={real - esperado}).");
-            }
-        }
-    }
 
     private static void AssertFilaVlrServicioR2(string salida, int aseId, DetalleR2AseInputs fuente, string contexto)
     {

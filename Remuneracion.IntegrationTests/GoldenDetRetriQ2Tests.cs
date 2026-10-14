@@ -41,28 +41,36 @@ public sealed class GoldenDetRetriQ2Tests
 
         foreach (var leaf in leafs)
         {
-            foreach (var (celda, _) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(leaf.Ase.Id))
+            // Plan 38 (T3, R-B-4 / D-C): el caché golden es la plantilla LEGACY; se empareja por ROL
+            // (GeometriaGoldenLegacy) — el leaf/escrita se lee en la celda nueva, el golden en la
+            // legacy. Mismo contrato (valores de operando == golden), sin ajustar números.
+            foreach (var (celda, rol) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(leaf.Ase.Id))
             {
                 var escrita = LeerCeldaNumerica(salida, WorkbookLeafCellMapQ2.HojaR1, celda);
-                var golden = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR1, celda);
+                var golden = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR1, GeometriaGoldenLegacy.R1Q2[(leaf.Ase.Id, rol)]);
                 Assert.InRange(escrita - golden, -Tolerancia, Tolerancia);
             }
 
             var r2 = WorkbookLeafCellMapQ2.ObtenerR2Q2Editables(leaf.Ase.Id);
-            foreach (var celda in new[] { r2.Componente, r2.SubsCont, r2.Especiales })
+            var r2Legacy = GeometriaGoldenLegacy.R2Q2[leaf.Ase.Id];
+            foreach (var (celda, celdaLegacy) in new[]
+            {
+                (r2.Componente, r2Legacy.Componente), (r2.SubsCont, r2Legacy.SubsCont), (r2.Especiales, r2Legacy.Especiales)
+            })
             {
                 Assert.InRange(
                     LeerCeldaNumerica(salida, WorkbookLeafCellMapQ2.HojaR2, celda)
-                        - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR2, celda),
+                        - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR2, celdaLegacy),
                     -Tolerancia, Tolerancia);
             }
 
             var r4 = WorkbookLeafCellMapQ2.ObtenerR4Q2Editables(leaf.Ase.Id);
-            foreach (var celda in new[] { r4.Total, r4.P })
+            var r4Legacy = GeometriaGoldenLegacy.R4Q2[leaf.Ase.Id];
+            foreach (var (celda, celdaLegacy) in new[] { (r4.Total, r4Legacy.Total), (r4.P, r4Legacy.P) })
             {
                 Assert.InRange(
                     LeerCeldaNumerica(salida, WorkbookLeafCellMapQ2.HojaR4, celda)
-                        - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR4, celda),
+                        - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR4, celdaLegacy),
                     -Tolerancia, Tolerancia);
             }
         }
