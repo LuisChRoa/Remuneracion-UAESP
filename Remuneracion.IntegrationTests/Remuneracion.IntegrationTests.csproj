@@ -26,4 +26,15 @@
     <ProjectReference Include="..\Remuneracion.Cli\Remuneracion.Cli.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Plan 42 (T3-UI): el presentador PURO de la superficie de reconocimiento de la UI se
+         compila también aquí (archivo vinculado, sin referencia al proyecto WinForms): los tests
+         verifican la misma unidad que compila el diálogo. Solo BCL + Core: compila en net10.0. -->
+    <Compile Include="..\Remuneracion.WinForms\ReconocimientoDivergencia.cs" Link="Vinculados\ReconocimientoDivergencia.cs" />
+    <!-- Plan 43 (O-1): la composición ÚNICA del host se compila también aquí (archivo vinculado,
+         sin referencia al proyecto WinForms). Solo Core + Infrastructure: compila en net10.0. Los
+         tests ejercitan la MISMA composición que arranca la aplicación. -->
+    <Compile Include="..\Remuneracion.WinForms\ComposicionServicios.cs" Link="Vinculados\ComposicionServicios.cs" />
+  </ItemGroup>
+
 </Project>

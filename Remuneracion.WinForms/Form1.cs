@@ -60,23 +60,21 @@ namespace Remuneracion.WinForms
             InicializarAse();
         }
 
+        /// <summary>
+        /// Plan 43 (O-1): composición por defecto para el diseñador / arranque sin inyección. Usa la
+        /// MISMA <see cref="ComposicionServicios"/> que <c>Program.cs</c>, que incluye SIEMPRE el
+        /// oráculo de validaciones y el emisor del reporte durable. Antes esta vía dejaba el oráculo
+        /// en <c>null</c> y un run habría cerrado en verde sin validar (trampa si cambiaba el
+        /// entrypoint).
+        /// </summary>
+        private static readonly Lazy<(IProcesadorRemuneracion Remuneracion, IProcesadorPeriodo Periodo, ArchivoFuenteLocator Locator)> ServiciosPorDefecto =
+            new(ComposicionServicios.Crear);
+
         public Form1()
             : this(
-                new Remuneracion.Core.Services.ProcesadorRemuneracion(
-                    new Remuneracion.Infrastructure.Excel.ExcelDataReaderRecaudoReader(),
-                    new Remuneracion.Infrastructure.Excel.ExcelDataReaderWorkbookLeafInputReader(),
-                    new Remuneracion.Core.Services.CalculoRemuneracion(),
-                    new Remuneracion.Core.Services.ValidadorBasico(),
-                    new Remuneracion.Infrastructure.Excel.OpenXmlPlantillaWriter()),
-                new Remuneracion.Core.Services.ProcesadorPeriodo(
-                    new Remuneracion.Infrastructure.Excel.ExcelDataReaderRecaudoReader(),
-                    new Remuneracion.Infrastructure.Excel.ExcelDataReaderWorkbookLeafInputReader(),
-                    new Remuneracion.Core.Services.CalculoRemuneracion(),
-                    new Remuneracion.Core.Services.ValidadorBasico(),
-                    new Remuneracion.Infrastructure.Excel.OpenXmlPlantillaWriter(),
-                    new ArchivoFuenteLocator(),
-                    new Remuneracion.Infrastructure.Excel.ExcelDataReaderDetRetriR10Reader()),
-                new ArchivoFuenteLocator())
+                ServiciosPorDefecto.Value.Remuneracion,
+                ServiciosPorDefecto.Value.Periodo,
+                ServiciosPorDefecto.Value.Locator)
         {
         }
 
@@ -451,49 +449,49 @@ namespace Remuneracion.WinForms
                 }
             }
 
+            var progreso = new Progress<string>(mensaje =>
+            {
+                AppendLogLine(mensaje);
+                // HU-14 (3.2): el detalle/mensaje va al archivo en Debug (el archivo ya tiene
+                // los hitos del procesador en Information; el box conserva todo como hoy, D4).
+                Log.Debug(mensaje);
+                progressBar.Value = Math.Min(progressBar.Value + 1, progressBar.Maximum);
+                lblProgresoPct.Text = $"{progressBar.Value * 100 / progressBar.Maximum} %";
+                lblAseActual.Text = mensaje;
+            });
+
             try
             {
-                var progreso = new Progress<string>(mensaje =>
-                {
-                    AppendLogLine(mensaje);
-                    // HU-14 (3.2): el detalle/mensaje va al archivo en Debug (el archivo ya tiene
-                    // los hitos del procesador en Information; el box conserva todo como hoy, D4).
-                    Log.Debug(mensaje);
-                    progressBar.Value = Math.Min(progressBar.Value + 1, progressBar.Maximum);
-                    lblProgresoPct.Text = $"{progressBar.Value * 100 / progressBar.Maximum} %";
-                    lblAseActual.Text = mensaje;
-                });
-
                 decimal granTotalCincoAse = 0m;
                 if (modoCincoAse)
                 {
-                    granTotalCincoAse = await EjecutarModoCincoAse(periodo, rutaSalida, progreso, runId);
+                    // Primera pasada SIN aceptaciones (R-RE-RUN-UI, D-D): si lo único pendiente es
+                    // una divergencia declarada, el procesador LANZA con la clasificación y el catch
+                    // dedicado presenta la superficie de reconocimiento.
+                    var pasada = await EjecutarModoCincoAse(periodo, rutaSalida, progreso, runId);
+                    granTotalCincoAse = pasada.GranTotal;
+                    CompletarExitoPeriodo(pasada.Resultado, granTotalCincoAse);
                 }
                 else
                 {
                     await EjecutarModoUnAse(periodo, rutaSalida, progreso, runId);
+                    UltimoCodigoSalida = CodigosSalida.Ok;
+                    toolStripStatusLabel.Text = $"Completado — archivo listo en {txtCarpetaSalida.Text}";
+                    ActualizarResumenHumano($"Período {PeriodoSeleccionado} · ASE {aseSeleccionada} · salida = {Path.GetFileName(rutaSalida)}");
                 }
 
                 progressBar.Value = progressBar.Maximum;
                 lblProgresoPct.Text = "100 %";
-                UltimoCodigoSalida = CodigosSalida.Ok;
-                toolStripStatusLabel.Text = $"Completado — archivo listo en {txtCarpetaSalida.Text}";
-                ActualizarResumenHumano(modoCincoAse
-                    ? $"Período {PeriodoSeleccionado} · 5 ASE · GranTotal ≈ {granTotalCincoAse:0.##}"
-                    : $"Período {PeriodoSeleccionado} · ASE {aseSeleccionada} · salida = {Path.GetFileName(rutaSalida)}");
+            }
+            catch (CalculoInvalidoException ex) when (ReconocimientoDivergencia.OfreceReconocimiento(ex))
+            {
+                // Plan 42 (T3-UI, R-RE-RUN-UI): SoloDeclaradas sin reconocer en esta corrida → la
+                // superficie de reconocimiento (acto consciente) y, con ella, la segunda pasada.
+                await GestionarReconocimientoDeclarada(ex, periodo, rutaSalida, progreso, runId);
             }
             catch (Exception ex)
             {
-                // HU-14 (3.1): código del catálogo (ex.Codigo ?? ERR-INESPERADO), log con
-                // [CÓDIGO] + RunId en contexto, MessageBox por catálogo (nunca ex.Message crudo)
-                // y status con código de salida registrado (D3).
-                var codigo = ObtenerCodigoError(ex);
-                UltimoCodigoSalida = CatalogoErrores.CodigoSalidaPara(codigo);
-                AppendLogLine($"ERROR [{codigo}]: {ex.GetType().Name} — {ex.Message}");
-                Log.Error(ex, "[{Codigo}] Error en la ejecución del proceso: {Mensaje}", codigo, ex.Message);
-                MostrarErrorUx(codigo, ex);
-                toolStripStatusLabel.Text = $"Error {codigo} — ver guía en pantalla";
-                ActualizarResumenHumano($"Período {PeriodoSeleccionado} · no completado (error inesperado) — ver guía en pantalla");
+                GestionarErrorEjecucion(ex);
             }
             finally
             {
@@ -517,6 +515,104 @@ namespace Remuneracion.WinForms
         {
             var (titulo, guia) = CatalogoErrores.Para(codigo, ex);
             MessageBox.Show($"{guia} Código: {codigo}.", titulo, MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+
+        /// <summary>
+        /// HU-14 (3.1): código del catálogo, log con [CÓDIGO] + RunId en contexto, MessageBox por
+        /// catálogo (nunca ex.Message crudo) y status con código de salida registrado (D3).
+        /// Punto único de tratamiento de errores de ejecución (primera y segunda pasada).
+        /// </summary>
+        private void GestionarErrorEjecucion(Exception ex)
+        {
+            var codigo = ObtenerCodigoError(ex);
+            UltimoCodigoSalida = CatalogoErrores.CodigoSalidaPara(codigo);
+            AppendLogLine($"ERROR [{codigo}]: {ex.GetType().Name} — {ex.Message}");
+            Log.Error(ex, "[{Codigo}] Error en la ejecución del proceso: {Mensaje}", codigo, ex.Message);
+            MostrarErrorUx(codigo, ex);
+            toolStripStatusLabel.Text = $"Error {codigo} — ver guía en pantalla";
+            ActualizarResumenHumano($"Período {PeriodoSeleccionado} · no completado (error inesperado) — ver guía en pantalla");
+        }
+
+        /// <summary>
+        /// Plan 42 (T3-UI, R-RE-RUN-UI, R-UI-1, D-D/D-F): la primera pasada lanzó con una
+        /// divergencia declarada aún no reconocida en esta corrida. Presenta la superficie de
+        /// reconocimiento (acto consciente, nada pre-marcado) y, solo con ella, ejecuta la segunda
+        /// pasada con los ids reconocidos. Sin acto no hay cierre (el bloqueo sigue siendo
+        /// ERR-VALIDACION). Con no-declaradas este método NUNCA se invoca (el filtro
+        /// <see cref="ReconocimientoDivergencia.OfreceReconocimiento"/> lo impide: FAIL duro).
+        /// </summary>
+        private async Task GestionarReconocimientoDeclarada(
+            CalculoInvalidoException bloqueo,
+            Periodo periodo,
+            string rutaSalida,
+            IProgress<string> progreso,
+            Guid runId)
+        {
+            var clasificacion = bloqueo.Clasificacion!;
+            AppendLogLine($"Divergencia declarada pendiente de reconocimiento explícito: {string.Join(", ", clasificacion.EntradasDeclaradas)}.");
+            Log.Warning(
+                "Cierre en espera: divergencia declarada sin reconocimiento explícito en esta corrida (entradas: {Entradas}).",
+                string.Join(", ", clasificacion.EntradasDeclaradas));
+
+            using var dialogo = new FormReconocimientoDivergencia(clasificacion);
+            if (dialogo.ShowDialog(this) != DialogResult.OK)
+            {
+                UltimoCodigoSalida = CodigosSalida.Validacion;
+                toolStripStatusLabel.Text = "No completado — pendiente de reconocimiento explícito";
+                ActualizarResumenHumano($"Período {PeriodoSeleccionado} · no completado (pendiente de reconocimiento explícito) — vuelva a ejecutar para revisar la divergencia");
+                return;
+            }
+
+            // Segunda pasada INTENCIONAL: el botón decía "Aceptar y cerrar" — no es un reintento
+            // por fallo. Mismo RunId y parámetros, más los ids reconocidos en el acto de ESTA
+            // corrida (patrón async/progreso existente: el procesador corre en Task.Run).
+            var aceptadas = dialogo.EntradasAceptadas;
+            AppendLogLine($"Reconocimiento registrado en esta corrida: {string.Join(", ", aceptadas)}. Cerrando…");
+            progressBar.Value = 0;
+            lblProgresoPct.Text = "0 %";
+            lblAseActual.Text = "Reconocimiento registrado — cerrando la corrida…";
+            toolStripStatusLabel.Text = "Cerrando con divergencia reconocida…";
+
+            try
+            {
+                var pasada = await EjecutarModoCincoAse(periodo, rutaSalida, progreso, runId, aceptadas);
+                progressBar.Value = progressBar.Maximum;
+                lblProgresoPct.Text = "100 %";
+                CompletarExitoPeriodo(pasada.Resultado, pasada.GranTotal);
+            }
+            catch (Exception exSegunda)
+            {
+                GestionarErrorEjecucion(exSegunda);
+            }
+        }
+
+        /// <summary>
+        /// Plan 42 (T3-UI, §2.3): cierre del modo período. SinDivergencias → flujo actual intacto
+        /// (cero fricción nueva). Declarada reconocida en esta corrida → salida registrada
+        /// <see cref="CodigosSalida.DivergenciaDeclaradaReconocida"/> (6, DISTINTA de Ok) y
+        /// entregables nombrados (archivo + reporte); las huellas (reporte + log) las emite el
+        /// procesador antes de devolver (sin reporte no hay ÉXITO).
+        /// </summary>
+        private void CompletarExitoPeriodo(ResultadoProcesoPeriodo resultado, decimal granTotal)
+        {
+            if (resultado.DivergenciasDeclaradas?.SoloDeclaradas == true
+                && !string.IsNullOrWhiteSpace(resultado.ReporteDivergenciasDeclaradas))
+            {
+                UltimoCodigoSalida = CodigosSalida.DivergenciaDeclaradaReconocida;
+                var nombreReporte = Path.GetFileName(resultado.ReporteDivergenciasDeclaradas);
+                AppendLogLine($"Cierre con divergencia declarada reconocida en esta corrida: {string.Join(", ", resultado.DivergenciasDeclaradas.EntradasDeclaradas)}. Reporte: {resultado.ReporteDivergenciasDeclaradas}");
+                Log.Information(
+                    "Cierre con divergencia declarada reconocida en esta corrida. Reporte: {Reporte}",
+                    resultado.ReporteDivergenciasDeclaradas);
+                toolStripStatusLabel.Text = $"Cierre con divergencia reconocida — archivo listo en {txtCarpetaSalida.Text}; reporte: {nombreReporte}";
+                ActualizarResumenHumano($"Período {PeriodoSeleccionado} · 5 ASE · GranTotal ≈ {granTotal:0.##} · cierre con divergencia reconocida (reporte: {nombreReporte})");
+            }
+            else
+            {
+                UltimoCodigoSalida = CodigosSalida.Ok;
+                toolStripStatusLabel.Text = $"Completado — archivo listo en {txtCarpetaSalida.Text}";
+                ActualizarResumenHumano($"Período {PeriodoSeleccionado} · 5 ASE · GranTotal ≈ {granTotal:0.##}");
+            }
         }
 
         private async Task EjecutarModoUnAse(Periodo periodo, string rutaSalida, IProgress<string> progreso, Guid runId)
@@ -551,7 +647,12 @@ namespace Remuneracion.WinForms
                 valorD9Esperado, valorF48Esperado, valorE41Esperado, valorD67Esperado, rutaSalida);
         }
 
-        private async Task<decimal> EjecutarModoCincoAse(Periodo periodo, string rutaSalida, IProgress<string> progreso, Guid runId)
+        private async Task<(decimal GranTotal, ResultadoProcesoPeriodo Resultado)> EjecutarModoCincoAse(
+            Periodo periodo,
+            string rutaSalida,
+            IProgress<string> progreso,
+            Guid runId,
+            IReadOnlyList<string>? divergenciasAceptadas = null)
         {
             var solicitud = new SolicitudProcesoPeriodo
             {
@@ -561,7 +662,12 @@ namespace Remuneracion.WinForms
                 RutaSalida = rutaSalida,
                 // HU-15 (W-2.1): el RunId de ESTA ejecución (hilo UI) se inyecta para que el
                 // procesador NO genere otro Guid: un solo RunId correlaciona UI → procesador → writer.
-                RunId = runId
+                RunId = runId,
+                // Plan 42 (T3-UI, R-RE-RUN-UI, D-D): ids reconocidos en el acto consciente de ESTA
+                // corrida (primera pasada: vacío; segunda pasada: los del diálogo). Nunca persistente.
+                DivergenciasDeclaradasAceptadas = divergenciasAceptadas ?? [],
+                // Plan 43 (O-3): el reporte/log registran el canal (UI) por el que se aceptó.
+                Canal = HuellaAceptacion.CanalUi
             };
 
             var resultadoProceso = await Task.Run(() => _procesadorPeriodo.Ejecutar(solicitud, progreso));
@@ -806,7 +912,7 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
             Log.Information("GranTotal CONSOLIDADO (Σ visibles post-Excel) = {GranTotal}; salida = {Salida}", granTotal, rutaSalida);
 
             // HU-19 (§2.4): el resumen humano 5-ASE reusa el GranTotal ya calculado (sin nuevo cálculo).
-            return granTotal;
+            return (granTotal, resultadoProceso);
         }
 
         private string ObtenerCarpetaAse(int idAse)

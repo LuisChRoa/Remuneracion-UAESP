@@ -71,6 +71,25 @@ public interface IValidador
     List<string> Validar(ResultadoRemuneracion resultado, IReadOnlyList<WorkbookLeafInputs> leafs, IReadOnlyList<ValidacionCruzadaSnapshot> snapshots);
 
     /// <summary>
+    /// Plan 42 (T1, R-CLS-1/R-CLS-2/R-CLS-3, D-B/D-F): clasifica los sub-bloques FALSE de
+    /// <c>VALIDACION_TOTAL</c> en declarados (entrada vigente de
+    /// <see cref="DivergenciasDeclaradasCatalogo"/>) vs NO declarados (defecto interno), y devuelve
+    /// el resto de errores de la validación cruzada que no son sub-bloques declarados. Es la ÚNICA
+    /// decisión de clasificación (Core): UI y CLI solo presentan el resultado.
+    ///
+    /// D-F (la declarada es la ÚLTIMA puerta): si <see cref="ClasificacionDivergenciasDeclaradas.HayNoDeclaradas"/>
+    /// es verdadero, el run debe fallar en duro aunque la declarada esté reconocida.
+    /// </summary>
+    /// <param name="resultado">Resultado con los consolidados por ASE.</param>
+    /// <param name="leafs">Inputs leaf, uno por ASE (5 en modo período).</param>
+    /// <param name="snapshots">Snapshots-oráculo leídos read-only del workbook, uno por ASE.</param>
+    /// <returns>Clasificación con los veredictos por ASE·celda y los errores no declarados.</returns>
+    ClasificacionDivergenciasDeclaradas ClasificarDivergenciasDeclaradas(
+        ResultadoRemuneracion resultado,
+        IReadOnlyList<WorkbookLeafInputs> leafs,
+        IReadOnlyList<ValidacionCruzadaSnapshot> snapshots);
+
+    /// <summary>
     /// HU-20 (G3): valida el DetRetri CALCULADO por ASE (<see cref="WorkbookLeafInputs.DetRetriQ2"/>,
     /// ROUND(D104:D108,0)) contra el oráculo <c>R10</c> del período, tolerancia ±0.5 tras el
     /// redondeo a entero (G3-D1: el R10 es oráculo de validación, NUNCA fuente de escritura).

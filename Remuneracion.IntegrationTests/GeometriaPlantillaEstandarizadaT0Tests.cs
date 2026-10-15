@@ -1,5 +1,8 @@
+using System.Globalization;
 using System.IO.Compression;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Remuneracion.Core.Constants;
 using Remuneracion.Core.Models;
 using Remuneracion.Infrastructure.Excel;
 using Xunit;
@@ -34,6 +37,7 @@ public sealed class GeometriaPlantillaEstandarizadaT0Tests
     private static readonly XNamespace Ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 
     private const string HojaConsolidado = "CONSOLIDADO_TOTAL RECAUDO";
+    private const string HojaValidacionTotal = "VALIDACION_TOTAL";
     private const string HojaR1 = "Reporte Componentes R1";
     private const string HojaR2 = "Rem. Anticipos R2";
     private const string HojaR4 = "Reversion Pagos R4";
@@ -164,6 +168,38 @@ public sealed class GeometriaPlantillaEstandarizadaT0Tests
         ("D32", "'RETRIBUCION NEGATIVA'!C62"),
         ("D47", "D9+D28"),
         ("D52", "SUM(D47:D51)")
+    ];
+
+    // ── Plan 39 (T0, R-T-1/R-T-2 — R-INTERV-Q): variantes L9:L13 por quincena + allow-list Phase 0 ──
+    // Congelado desde los bytes del oficial (dump BCL 2026-10-14). El TEXTO-<f> ES el oráculo; los
+    // cachés <v> solo DOCUMENTAN la variante (nunca la demuestran). La quincena es DOMINIO
+    // (Periodo.NumeroQuincena): Q1 -> N (Primera quincena), Q2 -> M (Segunda quincena). El oficial
+    // trae la forma Q2 (base interna 2026092). ASE4 es idéntico en ambas (120391083): el gate NO
+    // puede distinguir Q1/Q2 por ASE4 solo — la aserción es por texto-<f>, no por valor.
+    private static readonly (string Celda, string FormulaQ2, string FormulaQ1, string ValorQ2, string ValorQ1)[] VariantesL9L13 =
+    [
+        ("L9", "INTERVENTORIA!M26", "INTERVENTORIA!N26", "189185988", "189185987"),
+        ("L10", "INTERVENTORIA!M27", "INTERVENTORIA!N27", "266580256", "266580255"),
+        ("L11", "INTERVENTORIA!M28", "INTERVENTORIA!N28", "154788536", "154788535"),
+        ("L12", "INTERVENTORIA!M29", "INTERVENTORIA!N29", "120391083", "120391083"),
+        ("L13", "INTERVENTORIA!M30", "INTERVENTORIA!N30", "128990446", "128990445"),
+    ];
+
+    // Las 11 <f> del período base (token 2026092): BCE H3:H7/H10 + DetValiRetri K24:K28.
+    // (Dump BCL 2026-10-14; el parser de celdas respeta el autocierre `<c .../>`.)
+    private static readonly (string Hoja, string Celda, string Formula)[] TokensPeriodoFase0 =
+    [
+        ("BCE SC POR FACT.", "H3", "DetRetri2026092!J9"),
+        ("BCE SC POR FACT.", "H4", "DetRetri2026092!J10"),
+        ("BCE SC POR FACT.", "H5", "DetRetri2026092!J11"),
+        ("BCE SC POR FACT.", "H6", "DetRetri2026092!J12"),
+        ("BCE SC POR FACT.", "H7", "DetRetri2026092!J13"),
+        ("BCE SC POR FACT.", "H10", "H9=DetRetri2026092!J14"),
+        ("DetValiRetri2026092", "K24", "+DetRetri2026092!N32"),
+        ("DetValiRetri2026092", "K25", "+DetRetri2026092!N33"),
+        ("DetValiRetri2026092", "K26", "+DetRetri2026092!N34"),
+        ("DetValiRetri2026092", "K27", "+DetRetri2026092!N35"),
+        ("DetValiRetri2026092", "K28", "+DetRetri2026092!N36"),
     ];
 
     [Fact]
@@ -380,6 +416,287 @@ public sealed class GeometriaPlantillaEstandarizadaT0Tests
         }
     }
 
+    // ── Plan 39 (T0, R-T-1/R-T-2): R-INTERV-Q + allow-list Phase 0 ──────────────────────────────
+
+    [Fact]
+    public void T0_L9L13_VarianteQ2EnElOficial_YValoresInterventoriaPorQuincena()
+    {
+        // El oficial trae la variante Q2 (INTERVENTORIA!M26..M30) como texto-<f>. La variante Q1
+        // (INTERVENTORIA!N26..N30) se congela como la MISMA forma con la columna N; sus cachés son
+        // los valores N26:N30 leídos del disco (documentan la variante, no la demuestran).
+        using var zip = AbrirPlantilla();
+        var consolidado = Hoja(zip, HojaConsolidado);
+        foreach (var (celda, formulaQ2, formulaQ1, valorQ2, _) in VariantesL9L13)
+        {
+            Assert.Equal(formulaQ2, FormulaDe(consolidado, celda));
+            Assert.Equal(valorQ2, ValorDe(consolidado, celda));
+            Assert.Equal(formulaQ1, formulaQ2.Replace("!M", "!N", StringComparison.Ordinal));
+        }
+
+        // Columnas M/N de INTERVENTORIA = oráculo de cachés por variante (R-INTERV-Q §2.2 notas).
+        var interventoria = Hoja(zip, HojaInterventoria);
+        for (var i = 0; i < 5; i++)
+        {
+            var aseId = i + 1;
+            var fila = 26 + i;
+            Assert.Equal(
+                InterventoriaDeclarada.SegundaQuincenaPorAse[aseId].ToString(CultureInfo.InvariantCulture),
+                ValorDe(interventoria, $"M{fila}"));
+            Assert.Equal(
+                InterventoriaDeclarada.PrimeraQuincenaPorAse[aseId].ToString(CultureInfo.InvariantCulture),
+                ValorDe(interventoria, $"N{fila}"));
+        }
+    }
+
+    [Fact]
+    public void T0_InventarioPeriodo_Y11TokensFase0()
+    {
+        // Inventario de hojas de período + las 11 <f> del token base (2026092): la superficie exacta
+        // que Phase 0 reescribe por dominio (token -> periodo del run).
+        using var zip = AbrirPlantilla();
+        var hojas = NombresHojas(zip);
+        Assert.Equal("Informe AFaseo Recaudo 202609-2", hojas[16]);
+        Assert.Equal("DetRetri2026092", hojas[35]);
+        Assert.Equal("DetValiRetri2026092", hojas[36]);
+
+        Assert.Equal(11, TokensPeriodoFase0.Length);
+        foreach (var (hoja, celda, formula) in TokensPeriodoFase0)
+        {
+            Assert.Equal(formula, FormulaDe(Hoja(zip, hoja), celda));
+        }
+    }
+
+    [Fact]
+    public void T0_AllowListFase0_16Celdas()
+    {
+        // R-T-2: Phase 0 SOLO puede tocar estas <f>: 11 tokens de período + 5 L9:L13. Cualquier otra
+        // <f> tocada por cualquier fase = FAIL (grep de cierre por namespace/clase). La reescritura de
+        // tokens también toca partes NO-<f> (workbook.xml/app.xml/sharedStrings/definedNames): eso es
+        // la copia mecánica de período, fuera del alcance de esta allow-list de celdas-fórmula.
+        using var zip = AbrirPlantilla();
+        var allow = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (hoja, celda, _) in TokensPeriodoFase0)
+        {
+            allow.Add($"{hoja}!{celda}");
+        }
+
+        foreach (var (celda, _, _, _, _) in VariantesL9L13)
+        {
+            allow.Add($"{HojaConsolidado}!{celda}");
+        }
+
+        Assert.Equal(16, allow.Count);
+
+        foreach (var (hoja, celda, _) in TokensPeriodoFase0)
+        {
+            Assert.True(Celda(Hoja(zip, hoja), celda)?.Element(Ns + "f") is not null, $"{hoja}!{celda} debe ser <f> en el oficial.");
+        }
+
+        var consolidado = Hoja(zip, HojaConsolidado);
+        foreach (var (celda, _, _, _, _) in VariantesL9L13)
+        {
+            Assert.True(Celda(consolidado, celda)?.Element(Ns + "f") is not null, $"{HojaConsolidado}!{celda} debe ser <f> en el oficial.");
+        }
+
+        // El oficial SOLO trae 11 <f> con token de período: la allow-list de tokens es EXACTA.
+        var conToken = new List<string>();
+        foreach (var hoja in NombresHojas(zip))
+        {
+            foreach (var c in Hoja(zip, hoja).Descendants(Ns + "c"))
+            {
+                var texto = c.Element(Ns + "f")?.Value;
+                if (texto is not null && Regex.IsMatch(texto, @"Det(Retri|ValiRetri)\d{7}"))
+                {
+                    conToken.Add($"{hoja}!{c.Attribute("r")?.Value}");
+                }
+            }
+        }
+
+        Assert.Equal(11, conToken.Count);
+        Assert.All(conToken, celda => Assert.Contains(celda, allow));
+    }
+
+    // ── Plan 40 (T0, R-T-1): W-1 evalúa + sella — 5 sub-bloques + cadena C15 + diferencial de clase ──
+    // Congelado desde bytes (BCL) del oficial + la salida real de hoy (Resultado5). Cero código de
+    // producción en T0: estos asserts SON el contrato del gate evaluador (T1) y del sellado (T2).
+
+    private static readonly (string Celda, string Formula)[] Plan40SubBloques =
+    [
+        ("C15", "C14=C9"),
+        ("D25", "D24=C9"),
+        ("O25", "O24=N9"),
+        ("D34", "D33='CONSOLIDADO_TOTAL RECAUDO'!D109"),
+        ("F34", "F33='CONSOLIDADO_TOTAL RECAUDO'!D109+'CONSOLIDADO_TOTAL RECAUDO'!N109"),
+    ];
+
+    private static readonly (string Hoja, string Celda, string Formula)[] Plan40CadenasC15 =
+    [
+        (HojaValidacionTotal, "C14", "'Valida - Control Recaudo'!F10"),
+        (HojaValidacionTotal, "C9", "SUM(C3:C8)"),
+        (HojaValidacionTotal, "C3", "'Recaudo EAAB Reciprocidad'!F21+'Recaudo EAAB + Ciud Limp'!F21+'Recaudo Directa Occidente'!F21+'Recaudo ENEL'!F21+'Recaudo ENERBIT'!F21"),
+        (HojaValidacionTotal, "C8", "'Recaudo EAAB Reciprocidad'!F26+'Recaudo EAAB + Ciud Limp'!F26+'Recaudo Directa Occidente'!F26+'Recaudo ENEL'!F26+'Recaudo ENERBIT'!F26"),
+        (HojaValidacionTotal, "D24", "SUM(D20:D23)"),
+        (HojaValidacionTotal, "N9", "SUM(N3:N8)"),
+        (HojaValidacionTotal, "D33", "SUM(D29:D32)"),
+        (HojaValidacionTotal, "F33", "SUM(F29:F32)"),
+        (HojaConsolidado, "D109", "SUM(D104:D108)"),
+    ];
+
+    [Fact]
+    public void T0_Plan40_SubBloquesValidacionTotal_TextosYCadenas()
+    {
+        using var zip = AbrirPlantilla();
+        var hoja = Hoja(zip, HojaValidacionTotal);
+
+        // Los 5 sub-bloques con su <f> EXACTA; el fixture ES la fuente de FormasValidacionTotal.
+        foreach (var (celda, formula) in Plan40SubBloques)
+        {
+            Assert.Equal(formula, FormulaDe(hoja, celda));
+        }
+
+        // Consistencia fixture <-> tabla del gate (una deriva del código = FAIL accionable).
+        foreach (var (celda, textoEsperado) in FormasValidacionTotal.SubBloques)
+        {
+            Assert.Equal(textoEsperado, FormulaDe(hoja, celda));
+        }
+
+        // Cadenas de dependencia (recaudo + consolidado) que el resolutor del gate recorre.
+        foreach (var (nombreHoja, celda, formula) in Plan40CadenasC15)
+        {
+            Assert.Equal(formula, FormulaDe(Hoja(zip, nombreHoja), celda));
+        }
+
+        // O24 (shared si=5, maestro H24:O24) y N109 (shared si=61, maestro D109:N109): el resolutor
+        // los cubre por desplazamiento del maestro (no tienen texto propio).
+        Assert.Equal("SUM(H20:H23)", FormulaDe(hoja, "H24"));
+        Assert.Equal("SUM(D104:D108)", FormulaDe(Hoja(zip, HojaConsolidado), "D109"));
+    }
+
+    [Fact]
+    public void T0_Plan40_EstadoF10C9C14C15_OficialYHoy()
+    {
+        // Oficial: F10 = literal residual 73981716599; C14 cache = 73981716599; C9 cache = 0;
+        // C15 cache = 0 (FALSE heredado) — la cadena miente porque el caché nunca se recalculó.
+        using (var oficial = AbrirPlantilla())
+        {
+            var vt = Hoja(oficial, HojaValidacionTotal);
+            var control = Hoja(oficial, "Valida - Control Recaudo");
+            Assert.Null(FormulaDe(control, "F10"));
+            Assert.Equal("73981716599", ValorDe(control, "F10"));
+            Assert.Equal("'Valida - Control Recaudo'!F10", FormulaDe(vt, "C14"));
+            Assert.Equal("73981716599", ValorDe(vt, "C14"));
+            Assert.Equal("SUM(C3:C8)", FormulaDe(vt, "C9"));
+            Assert.Equal("0", ValorDe(vt, "C9"));
+            Assert.Equal("C14=C9", FormulaDe(vt, "C15"));
+            Assert.Equal("0", ValorDe(vt, "C15"));
+        }
+
+        // Hoy (Resultado5): la app ESCRIBIÓ F10 = 72497949967 (== Σ 'Recaudo *'!F21:F26), pero
+        // C14/C9/C15 conservan los cachés heredados (73981716599 / 0 / 0 = FALSE).
+        var rutaHoy = Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Resultado", "Resultado5", "Remuneración 202607-2 Total.xlsx");
+        using (var hoy = ZipFile.OpenRead(rutaHoy))
+        {
+            var vt = Hoja(hoy, HojaValidacionTotal);
+            var control = Hoja(hoy, "Valida - Control Recaudo");
+            Assert.Equal("72497949967", ValorDe(control, "F10"));
+            Assert.Equal("73981716599", ValorDe(vt, "C14")); // caché viejo
+            Assert.Equal("0", ValorDe(vt, "C9"));            // caché viejo
+            Assert.Equal("0", ValorDe(vt, "C15"));           // caché viejo (FALSE)
+        }
+    }
+
+    [Fact]
+    public void T0_Plan40_DiferencialClase_OficialVsHoy()
+    {
+        // Diferencial de TODAS las celdas de fórmula entre oficial y salida-hoy, alineando por
+        // ÍNDICE de hoja (el período renombra 3 hojas). Se separa: (a) <f> distinta (reescritura
+        // del token de período por Phase 0) y (b) <f> idéntica con <v> distinta (resello de N3).
+        // La clase "caché stale" del incidente NO se ve por este diff: la app nunca recalcula, así
+        // que C14/C9/C15 no cambian (0->0) — por eso el gate EVALÚA (no lee caché).
+        using var oficial = AbrirPlantilla();
+        var rutaHoy = Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Resultado", "Resultado5", "Remuneración 202607-2 Total.xlsx");
+        using var hoy = ZipFile.OpenRead(rutaHoy);
+
+        var nombresOficial = NombresHojas(oficial);
+        var nombresHoy = NombresHojas(hoy);
+        Assert.Equal(nombresOficial.Count, nombresHoy.Count);
+
+        var formulaDiff = 0;
+        var cacheDiff = 0;
+        for (var i = 0; i < nombresOficial.Count; i++)
+        {
+            var celdasOficial = CeldasFormula(Hoja(oficial, nombresOficial[i]));
+            var celdasHoy = CeldasFormula(Hoja(hoy, nombresHoy[i]));
+            foreach (var referencia in celdasOficial.Keys.Union(celdasHoy.Keys))
+            {
+                celdasOficial.TryGetValue(referencia, out var a);
+                celdasHoy.TryGetValue(referencia, out var b);
+                if (a.Formula != b.Formula)
+                {
+                    formulaDiff++;
+                }
+                else if (a.Valor != b.Valor)
+                {
+                    cacheDiff++;
+                }
+            }
+        }
+
+        Assert.Equal(11, formulaDiff); // 11 <f> del token de período (BCE H3:H7/H10 + DetValiRetri K24:K28)
+        Assert.Equal(103, cacheDiff);  // consumidores de N3 resellados por Phase 0 (REMUNERACION_*/GERENTES_*/AJUSTES/CONSOLIDADO/Valida -Remunera)
+
+        // C15 NO cambia entre oficial y hoy: su caché stale no se detecta por diff (doctrina D-A).
+        Assert.Equal(ValorDe(Hoja(oficial, HojaValidacionTotal), "C15"), ValorDe(Hoja(hoy, HojaValidacionTotal), "C15"));
+    }
+
+    [Fact]
+    public void T0_Plan40_AllowListFase0_YPropuestaFNew1()
+    {
+        // Allow-list Phase 0 vigente = 16 celdas <f> (11 tokens de período + 5 L9:L13), ya
+        // congelada por el T0 del Plan 39 (T0_AllowListFase0_16Celdas). Aquí se congela la
+        // PROPUESTA de ampliación para F-NEW-1 (T3, fuera de esta corrida): las 4 familias de
+        // auto-chequeo que hardcodean INTERVENTORIA!M26:M31 y quedarían FALSE en Q1.
+        using var zip = AbrirPlantilla();
+
+        var detRetri = Hoja(zip, "DetRetri2026092");
+        for (var fila = 32; fila <= 36; fila++)
+        {
+            Assert.Contains("INTERVENTORIA!M", FormulaDe(detRetri, $"L{fila}"), StringComparison.Ordinal);
+            Assert.Contains("INTERVENTORIA!M", FormulaDe(detRetri, $"O{fila}"), StringComparison.Ordinal);
+        }
+
+        var detVali = Hoja(zip, "DetValiRetri2026092");
+        for (var fila = 24; fila <= 29; fila++)
+        {
+            Assert.Contains("INTERVENTORIA!M", FormulaDe(detVali, $"I{fila}"), StringComparison.Ordinal);
+        }
+
+        var interventoria = Hoja(zip, "INTERVENTORIA");
+        // S26 es el maestro del bloque shared S26:S31 (Q26=R26); S27..S31 son followers sin texto.
+        Assert.Equal("Q26=R26", FormulaDe(interventoria, "S26")?.Replace("$", string.Empty, StringComparison.Ordinal));
+    }
+
+    private static Dictionary<string, (string Formula, string Valor)> CeldasFormula(XDocument hoja)
+    {
+        var mapa = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in hoja.Root?.Element(Ns + "sheetData")?.Elements(Ns + "row") ?? [])
+        {
+            foreach (var c in row.Elements(Ns + "c"))
+            {
+                var f = c.Element(Ns + "f");
+                if (f is null)
+                {
+                    continue;
+                }
+
+                var referencia = c.Attribute("r")?.Value ?? string.Empty;
+                mapa[referencia] = (f.Value, c.Element(Ns + "v")?.Value ?? string.Empty);
+            }
+        }
+
+        return mapa;
+    }
+
     private static (int Desde, int Hasta) VentanaR2(int aseId) =>
         (WorkbookLeafCellMapDetalleR2R4.BloquesR2[aseId].FilaInicio,
             WorkbookLeafCellMapDetalleR2R4.BloquesR2.TryGetValue(aseId + 1, out var sig) ? sig.FilaInicio - 1 : int.MaxValue);
@@ -467,6 +784,9 @@ public sealed class GeometriaPlantillaEstandarizadaT0Tests
 
     private static string? FormulaDe(XDocument hoja, string referencia) =>
         Celda(hoja, referencia)?.Element(Ns + "f")?.Value;
+
+    private static string ValorDe(XDocument hoja, string referencia) =>
+        Celda(hoja, referencia)?.Element(Ns + "v")?.Value ?? string.Empty;
 
     private static string TextoCelda(XDocument hoja, List<string> compartidas, string referencia)
     {

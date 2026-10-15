@@ -21,32 +21,49 @@ public sealed class RobustezDeudaHu13Tests
 {
     // ── W-1: sub-bloques booleanos de VALIDACION_TOTAL ────────────────────────────────────────
 
-    [Theory]
-    [InlineData("Q1", 1)]
-    [InlineData("Q2", 2)]
-    public void W1_SubBloquesValidacionTotal_TRUE_ConFormula_EnAmbosGoldens(string etiqueta, int quincena)
+    [Fact]
+    public void W1_SubBloquesValidacionTotal_ProtegidasYEvaluadas()
     {
-        var (ruta, periodo) = quincena == 1
-            ? (Insumos.Plantilla, Insumos.Periodo())
-            : (Insumos.GoldenQ2, Insumos.PeriodoQ2());
-
-        // Assert protegido: las celdas están en el mapa con presencia de <f> (W2).
-        var protegidas = WorkbookLeafCellMapValidaciones.ProtegidasValidacionesParaPeriodo(periodo);
-        foreach (var celda in WorkbookLeafCellMapValidaciones.SubBloquesValidacionTotal)
+        // Assert protegido (W2) + E-1 (Plan 40): los 5 sub-bloques son celdas-fórmula y el gate los
+        // EVALÚA desde lo escrito (evidencia presente + Computable) en ambos canónicos.
+        foreach (var (ruta, periodo) in new[]
         {
-            Assert.Contains(protegidas, p => p.Hoja == WorkbookLeafCellMapValidaciones.HojaValidacionTotal && p.Celda == celda);
-            Assert.True(CeldaEsFormula(ruta, WorkbookLeafCellMapValidaciones.HojaValidacionTotal, celda),
-                $"{WorkbookLeafCellMapValidaciones.HojaValidacionTotal}!{celda} debió ser fórmula en {etiqueta}.");
-        }
+            (Insumos.Plantilla, Insumos.Periodo()),
+            (Insumos.GoldenQ2, Insumos.PeriodoQ2()),
+        })
+        {
+            var protegidas = WorkbookLeafCellMapValidaciones.ProtegidasValidacionesParaPeriodo(periodo);
+            foreach (var celda in WorkbookLeafCellMapValidaciones.SubBloquesValidacionTotal)
+            {
+                Assert.Contains(protegidas, p => p.Hoja == WorkbookLeafCellMapValidaciones.HojaValidacionTotal && p.Celda == celda);
+                Assert.True(CeldaEsFormula(ruta, WorkbookLeafCellMapValidaciones.HojaValidacionTotal, celda),
+                    $"{WorkbookLeafCellMapValidaciones.HojaValidacionTotal}!{celda} debió ser fórmula.");
+            }
 
-        // Gate TRUE exacto contra los goldens reales (read-only) — amparo T0-0.4 HU-13.
-        var snapshots = new ValidacionOracleReader().LeerSnapshots(ruta, periodo);
+            var snapshots = new ValidacionOracleReader().LeerSnapshots(ruta, periodo);
+            foreach (var snapshot in snapshots)
+            {
+                foreach (var celda in WorkbookLeafCellMapValidaciones.SubBloquesValidacionTotal)
+                {
+                    Assert.True(snapshot.SubBloquesValidacionTotalEvidencia[celda].Computable,
+                        $"ASE {snapshot.Ase.Id} · VALIDACION_TOTAL · {celda} debe ser EVALUABLE desde lo escrito (E1-1).");
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void W1_SubBloquesValidacionTotal_ManualRecalculado_CierraTrue()
+    {
+        // Plan 40 (E-1/E1-2): el manual del administrativo (recalculado por Excel) cierra los 5.
+        // Es el oráculo de que el FALSE de la salida de la app es DIVERGENCIA REAL, no del evaluador.
+        var snapshots = new ValidacionOracleReader().LeerSnapshots(Insumos.GoldenQ2, Insumos.PeriodoQ2());
         foreach (var snapshot in snapshots)
         {
             foreach (var celda in WorkbookLeafCellMapValidaciones.SubBloquesValidacionTotal)
             {
                 Assert.True(snapshot.SubBloquesValidacionTotal[celda],
-                    $"ASE {snapshot.Ase.Id} · VALIDACION_TOTAL · {celda} debió ser TRUE en {etiqueta}.");
+                    $"ASE {snapshot.Ase.Id} · VALIDACION_TOTAL · {celda} debió ser TRUE en el manual recalculado.");
             }
         }
     }
@@ -134,9 +151,11 @@ public sealed class RobustezDeudaHu13Tests
         var (resultado, leafs) = ValidacionesCruzadasTests.CrearCasoValido();
         var errores = new ValidadorBasico().Validar(resultado, leafs, snapshots);
 
-        var error = Assert.Single(errores);
+        // Plan 40 (E-1): la base Q1 sin poblar produce además los sub-bloques del espejo en FALSE
+        // (divergencia real, E1-2). El punto de S-2 es que el gate TOTAL (O9) corre UNA vez, no ×5.
+        var erroresO9 = errores.Where(e => e.Contains("O9", StringComparison.Ordinal)).ToList();
+        var error = Assert.Single(erroresO9);
         Assert.Contains("VALIDACION_TOTAL", error, StringComparison.Ordinal);
-        Assert.Contains("O9", error, StringComparison.Ordinal);
     }
 
     [Fact]

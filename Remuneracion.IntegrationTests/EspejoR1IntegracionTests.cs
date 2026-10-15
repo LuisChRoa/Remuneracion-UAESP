@@ -10,7 +10,7 @@ namespace Remuneracion.IntegrationTests;
 
 /// <summary>
 /// Plan 36 (T2, R-B-1/R-B-3/R-B-4/R-G-1 — D-A/D-B/D-E): integración del espejo R1 por su API
-/// pública (<see cref="OpenXmlPlantillaWriter.EscribirEspejoR1(string, string, System.Collections.Generic.IReadOnlyList{Remuneracion.Core.Models.BloqueEspejoAseInputs})"/>)
+/// pública (<see cref="OpenXmlPlantillaWriter.EscribirEspejoR1(string, string, System.Collections.Generic.IReadOnlyList{Remuneracion.Core.Models.BloqueEspejoAseInputs}, Remuneracion.Core.Models.Periodo)"/>)
 /// sobre la plantilla estandarizada única.
 ///
 /// Tras el retiro del motor geométrico (Planes 21/31/32) la operación es <b>values-only por slot</b>:
@@ -51,8 +51,9 @@ public sealed class EspejoR1IntegracionTests
         var dimensionAntes = Dimension(salida.Ruta, HojaR1);
         var hiddenAntes = FilasHidden(salida.Ruta, HojaR1);
 
-        // API pública: sobre una COPIA de la plantilla única.
-        new OpenXmlPlantillaWriter().EscribirEspejoR1(Plantilla(), salida.Ruta, bloques);
+        // API pública: sobre una COPIA de la plantilla única. Período = base interna del oficial
+        // (2026092): la Phase 0 es identidad y el oráculo de R1 sigue siendo el propio template.
+        new OpenXmlPlantillaWriter().EscribirEspejoR1(Plantilla(), salida.Ruta, bloques, Periodo.Parse("2026092"));
 
         Assert.True(File.Exists(salida.Ruta));
 

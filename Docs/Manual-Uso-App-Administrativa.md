@@ -8,9 +8,9 @@
 ## 1. Qué es la App 
 
 1. La App arma el archivo de la **remuneración quincenal** de los 5 operadores del servicio de aseo de Bogotá.
-2. **Le entra** la carpeta de fuentes del período y la plantilla Excel.
+2. **Le entra** la carpeta de fuentes del período y la **plantilla oficial**.
 3. **Le sale** un archivo Excel nuevo llamado `Remuneración AAAAMM-# Total.xlsx`.
-4. La App **copia la plantilla y pega solo valores**. Nunca borra ni cambia las fórmulas.
+4. La App **copia la plantilla y pega solo valores**. Nunca borra ni cambia las fórmulas. La **base del período** (hojas, código de período y la columna de la quincena) **se prepara automáticamente** sobre la copia; usted no prepara nada a mano.
 5. Usted **abre el archivo final en Excel** para que recalcule, lo revisa y lo guarda.
 
 ---
@@ -22,10 +22,10 @@ Tenga a mano estas tres cosas:
 | Qué | Ejemplo |
 |---|---|
 | Carpeta de fuentes del período | `REMUNERACION 2026072` |
-| Plantilla Excel (el molde del período, con las fórmulas) | `Plantilla_ Remuneracion 202607-2.xlsx` (está dentro de la carpeta del período) |
+| Plantilla OFICIAL (el molde, con las fórmulas) | `Formato Remuneracion 2026xx-x Total.xlsx` (en `Docs/Plantilla estandarizada/`) |
 | Carpeta de salida | Una carpeta **vacía**, donde quedará el resultado |
 
-> **Ojo:** la plantilla es el **molde en blanco** (solo estructura y fórmulas). No use como plantilla un archivo ya completado: la App parte del molde y pega los valores encima.
+> **Ojo:** la plantilla es el **molde en blanco** (solo estructura y fórmulas). Use siempre la **plantilla oficial**; la base del período (hojas, código de período y columna de la quincena) la prepara la App automáticamente. No use como plantilla un archivo ya completado.
 
 La carpeta de fuentes debe tener esta estructura (organización estándar):
 
@@ -111,7 +111,7 @@ Qué debe ver: la caja "Carpeta fuentes:" muestra la ruta completa.
 En la tarjeta **Rutas**:
 
 - Clic en el botón **`...`** junto a "Plantilla:".
-- Seleccione el molde del período — ejemplo: `Plantilla_ Remuneracion 202607-2.xlsx` (está dentro de la carpeta `REMUNERACION 2026072`) — y confirme.
+- Seleccione la **plantilla oficial** — `Formato Remuneracion 2026xx-x Total.xlsx` (en `Docs/Plantilla estandarizada/`) — y confirme. La App prepara la base del período sola: no necesita una plantilla por período.
 
 Qué debe ver: la caja "Plantilla:" muestra la ruta del archivo.
 
@@ -175,13 +175,17 @@ También: el botón **Ver logs** se activa (antes estaba apagado).
 | Mensaje "No se encontró el archivo de conciliación de …" (nombra la empresa) | Falta uno de los 5 archivos dentro de `Conciliaciones/`. | Verifique que la carpeta del período tenga la carpeta `Conciliaciones/` con los 5 archivos y vuelva a ejecutar. |
 | Mensaje "No se encontró R10_Remuneracion_…" (nombra el período y la carpeta) | Falta el archivo R10 en la carpeta del período. | Verifique que el R10 del período esté junto a las carpetas de los operadores y vuelva a ejecutar. |
 | Mensaje de diferencias entre el total calculado y el R10 (nombra el período, el archivo y los dos valores) | El total por operador que calculó la App no cuadra con el R10 del período. | No entregue el archivo: consulte primero con soporte. El detalle queda en **Ver logs**. |
+| Mensaje de validación que **nombra una hoja y una celda** (ejemplo: `ASE 5 · VALIDACION_TOTAL · C15`) | La App revisa que las validaciones del archivo cierren con los valores que ella misma escribió, y encontró una que **no cierra**. | **No es un defecto de la corrida: la App falla a propósito** para no entregar un archivo con validaciones en falso. Anote la hoja y la celda que nombra el mensaje y avise a soporte con el detalle de **Ver logs**. |
+| Ventana **Divergencia declarada — reconocimiento para esta corrida** | La App encontró una **diferencia conocida** entre el reporte oficial y el manual del administrativo, cuya decisión no está en manos de la App. No es un error del cálculo: es una deuda de otro. | Lea el monto, de quién es (responsable) y la evidencia. Si acepta cerrar la corrida con esa diferencia, marque la casilla **"Acepto cerrar la corrida con la divergencia…"** y pulse **Aceptar y cerrar**. Si no la acepta, pulse **Volver sin cerrar** (la corrida no se cierra). |
+| Tras **Volver sin cerrar**, la barra de estado dice `No completado — pendiente de reconocimiento explícito` | No aceptó la diferencia, así que la corrida no cerró y no se entregó el archivo. | Vuelva a ejecutar cuando quiera revisarla: la App **vuelve a mostrar la misma diferencia** (nunca la acepta sola ni la recuerda de una corrida a otra). |
+| Aparece un archivo **`Remuneración AAAAMM-# Total - Divergencias declaradas.txt`** junto al Excel de salida | Es el **reporte de divergencias declaradas**: el registro que la App deja cuando usted acepta cerrar con una diferencia declarada. Dice qué se aceptó, el monto, de quién es y por qué, y desde cuándo deja de aplicar. | Consérvelo **junto al archivo de salida** y entréguelo con él. **Aceptar no es "arreglar"**: la diferencia sigue viva hasta que el responsable (UAESP) la resuelva. No la dé por corregida. |
 
 ---
 
 ## 6. Lista de chequeo final
 
 - [ ] El período es el correcto (Año, Mes y Quincena).
-- [ ] Las 3 rutas están seleccionadas (fuentes, plantilla y salida).
+- [ ] Las 3 rutas están seleccionadas (fuentes, plantilla oficial y salida).
 - [ ] La carpeta del período tiene: las 5 carpetas de operadores + la carpeta `Conciliaciones/` con sus 5 archivos + el archivo R10 del período.
 - [ ] El modo es el correcto (**Procesar todos** o un solo ASE).
 - [ ] La barra llegó a `100 %` y abajo dice `Completado`.

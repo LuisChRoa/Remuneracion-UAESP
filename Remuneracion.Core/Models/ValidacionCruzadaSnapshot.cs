@@ -94,6 +94,34 @@ public sealed class DetValiRetriCeldaVerificacion
 }
 
 /// <summary>
+/// Plan 40 (T1, R-E-1/R-E-2 — D-A/D-D): evidencia EVALUABLE de UN sub-bloque booleano de
+/// <c>VALIDACION_TOTAL</c>. Sustituye la lectura del caché <c>&lt;v&gt;</c> como veredicto: el
+/// reader entrega el texto-<c>&lt;f&gt;</c> observado y los DOS operandos resueltos desde las
+/// celdas efectivamente escritas en la salida (nunca desde el caché de una celda de fórmula), y
+/// el validador de dominio aserta el texto (tabla <see cref="FormasValidacionTotal"/>) y evalúa
+/// <c>Igualdad(OperandoIzquierdo, OperandoDerecho)</c> con ±0.5.
+/// <c>Computable == false</c> = alguna dependencia no es resoluble desde lo escrito; en la
+/// enmienda E-1 eso NO es verde: el gate lo reporta (E1-1) — nunca se evalúa en silencio.
+/// </summary>
+public sealed class SubBloqueValidacionTotalEvidencia
+{
+    /// <summary>Referencia del sub-bloque (p. ej. "C15").</summary>
+    public string Celda { get; set; } = string.Empty;
+
+    /// <summary>Texto-<c>&lt;f&gt;</c> observado en el workbook de salida (normalizado).</summary>
+    public string TextoFormula { get; set; } = string.Empty;
+
+    /// <summary><c>true</c> si ambos operandos se resolvieron desde lo escrito.</summary>
+    public bool Computable { get; set; }
+
+    /// <summary>Valor resuelto del lado izquierdo de la igualdad.</summary>
+    public decimal OperandoIzquierdo { get; set; }
+
+    /// <summary>Valor resuelto del lado derecho de la igualdad.</summary>
+    public decimal OperandoDerecho { get; set; }
+}
+
+/// <summary>
 /// HU-13 (2.7): snapshot-oráculo de validaciones cruzadas de UN ASE en UN período.
 /// Oráculo de LECTURA (D1): lo puebla <c>IValidacionOracleReader</c> (Infrastructure, OpenXML
 /// read-only, asserts W2) y lo consume el validador de dominio — que NUNCA abre .xlsx.
@@ -137,10 +165,23 @@ public sealed class ValidacionCruzadaSnapshot
     public IReadOnlyDictionary<string, decimal> Controles { get; set; } = new Dictionary<string, decimal>();
 
     /// <summary>
-    /// HU-14 (W-1): sub-bloques booleanos de <c>VALIDACION_TOTAL</c> (C15/D25/O25/D34/F34)
-    /// leídos del caché (celda → booleano). Golden Q1/Q2 = TRUE (amparo T0-0.4 HU-13).
-    /// Gate: == true exacto por ASE con error que nombra ASE · VALIDACION_TOTAL · celda.
-    /// Vacío = HU-13 puro (campo aditivo, compatibilidad).
+    /// HU-14 (W-1): sub-bloques booleanos de <c>VALIDACION_TOTAL</c> (C15/D25/O25/D34/F34).
+    /// <b>Plan 40 (T1, D-A): cambio de semántica</b> — ya NO es el caché <c>&lt;v&gt;</c> leído
+    /// del workbook (falsa verificación heredada); es el resultado EVALUADO desde las celdas
+    /// efectivamente escritas (<c>Igualdad</c> de los operandos resueltos, ±0.5). Un valor
+    /// <c>true</c> significa "evaluado TRUE desde lo escrito"; <c>false</c> = divergencia real.
+    /// <b>Enmienda E-1 (2026-10-14):</b> los 5 se evalúan siempre (prohibido <c>SeGatea=false</c>);
+    /// el gate exige TRUE exacto por ASE con error que nombra ASE · VALIDACION_TOTAL · celda.
+    /// Vacío = HU-13 puro (campo aditivo).
     /// </summary>
     public IReadOnlyDictionary<string, bool> SubBloquesValidacionTotal { get; set; } = new Dictionary<string, bool>();
+
+    /// <summary>
+    /// Plan 40 (T1, R-E-1/R-E-2): evidencia evaluable de cada sub-bloque (celda → texto-<c>&lt;f&gt;</c>
+    /// + operandos resueltos + computabilidad). El validador la usa para ASERTAR el texto contra la
+    /// tabla <see cref="FormasValidacionTotal"/> y EVALUAR el booleano en Core. Vacío = snapshots
+    /// construidos a mano (compatibilidad: el validador gatea <see cref="SubBloquesValidacionTotal"/>).
+    /// </summary>
+    public IReadOnlyDictionary<string, SubBloqueValidacionTotalEvidencia> SubBloquesValidacionTotalEvidencia { get; set; } =
+        new Dictionary<string, SubBloqueValidacionTotalEvidencia>();
 }

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Remuneracion.Core.Errors;
@@ -59,9 +60,13 @@ public sealed class ValidacionOracleReader : IValidacionOracleReader
             var valorTotalO = LeerValorNumericoExigido(celdaTotalO, WorkbookLeafCellMapValidaciones.HojaValidacionTotal, "O9");
             var valorTotalP = LeerValorBooleano(celdaTotalP, WorkbookLeafCellMapValidaciones.HojaValidacionTotal, "P9");
 
+            // Plan 40 (T1, R-E-1/R-E-2 — D-A/D-D): el resolutor acotado de valores se construye UNA
+            // vez (cachea hojas/celdas/maestros compartidos) y lo comparten los 5 snapshots.
+            var resolutor = new ResolutorValorValidacion(workbookPart);
+
             for (var aseId = 1; aseId <= 5; aseId++)
             {
-                snapshots.Add(LeerSnapshotAse(workbookPart, aseId, periodo, hojaDetValiRetri, valorTotalO, valorTotalP));
+                snapshots.Add(LeerSnapshotAse(workbookPart, aseId, periodo, hojaDetValiRetri, valorTotalO, valorTotalP, resolutor));
             }
         }
 
@@ -74,7 +79,8 @@ public sealed class ValidacionOracleReader : IValidacionOracleReader
         Periodo periodo,
         string hojaDetValiRetri,
         decimal valorTotalO,
-        bool valorTotalP)
+        bool valorTotalP,
+        ResolutorValorValidacion resolutor)
     {
         var ase = CrearAse(aseId);
         var porEmpresa = new List<ValidacionEmpresaSnapshot>(5);
@@ -127,14 +133,42 @@ public sealed class ValidacionOracleReader : IValidacionOracleReader
             VerificacionTotalD29 = LeerValorBooleano(celdaD29, hojaDetValiRetri, "D29")
         };
 
-        // HU-14 (W-1): sub-bloques booleanos de VALIDACION_TOTAL (C15/D25/O25/D34/F34).
-        // Assert de presencia <f> (mapa protegido, W2) + lectura estricta; el gate TRUE
-        // exacto por ASE vive en el validador (amparo T0-0.4 HU-13).
+        // Plan 40 (T1, R-E-1/R-E-2 — D-A/D-D; enmienda E-1): los 5 sub-bloques booleanos de
+        // VALIDACION_TOTAL (C15/D25/O25/D34/F34) YA NO se leen del caché <v> (falsa verificación
+        // heredada). Se aserta el TEXTO <f> esperado (tabla FormasValidacionTotal, congelada por el
+        // T0 del Plan 40) y se EVALÚA la igualdad de los dos operandos resueltos desde las celdas
+        // efectivamente escritas (nunca desde el caché de una celda de fórmula) — incluida la cadena
+        // del espejo de remuneración. Tercera forma de texto = ERR-PLANTILLA nombrando
+        // hoja+celda+esperado+observado. El gate TRUE exacto por ASE vive en el validador (que
+        // re-asegura el texto y evalúa en Core).
         var subBloques = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        var evidencia = new Dictionary<string, SubBloqueValidacionTotalEvidencia>(StringComparer.OrdinalIgnoreCase);
         foreach (var celdaSub in WorkbookLeafCellMapValidaciones.SubBloquesValidacionTotal)
         {
-            var celdaSubBloque = ObtenerCeldaFormula(workbookPart, WorkbookLeafCellMapValidaciones.HojaValidacionTotal, celdaSub, "oráculo");
-            subBloques[celdaSub] = LeerValorBooleano(celdaSubBloque, WorkbookLeafCellMapValidaciones.HojaValidacionTotal, celdaSub);
+            _ = ObtenerCeldaFormula(workbookPart, WorkbookLeafCellMapValidaciones.HojaValidacionTotal, celdaSub, "oráculo");
+            var textoEfectivo = resolutor.TextoFormulaEfectiva(WorkbookLeafCellMapValidaciones.HojaValidacionTotal, celdaSub);
+            var textoObservado = NormalizarFormula(textoEfectivo);
+            var textoEsperado = FormasValidacionTotal.TextoEsperado(celdaSub) ?? string.Empty;
+            if (!string.Equals(textoObservado, textoEsperado, StringComparison.Ordinal))
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"{WorkbookLeafCellMapValidaciones.HojaValidacionTotal}!{celdaSub}: la fórmula <f> no coincide con la tabla del gate. Esperado: '{textoEsperado}'. Observado: '{textoEfectivo}'. (R-E-2: tercera forma = ERR-PLANTILLA.)");
+            }
+
+            var (computable, izquierdo, derecho) = ResolverOperandos(resolutor, textoObservado);
+            evidencia[celdaSub] = new SubBloqueValidacionTotalEvidencia
+            {
+                Celda = celdaSub,
+                TextoFormula = textoObservado,
+                Computable = computable,
+                OperandoIzquierdo = izquierdo,
+                OperandoDerecho = derecho
+            };
+
+            // Plan 40 (E-1, E1-1): los 5 sub-bloques se EVALÚAN siempre desde lo escrito (prohibido
+            // SeGatea=false). Un FALSE es divergencia real (hallazgo E1-2), nunca "no evaluable".
+            subBloques[celdaSub] = computable && FormasValidacionTotal.Igualdad(izquierdo, derecho);
         }
 
         // Controles Valida -* (informativo; sin gate numérico — T0-0.5; S-4 conserva el 0).
@@ -153,8 +187,60 @@ public sealed class ValidacionOracleReader : IValidacionOracleReader
             ValidacionTotal = valorTotalO,
             ValidacionTotalOkP = valorTotalP,
             Controles = controles,
-            SubBloquesValidacionTotal = subBloques
+            SubBloquesValidacionTotal = subBloques,
+            SubBloquesValidacionTotalEvidencia = evidencia
         };
+    }
+
+    /// <summary>
+    /// Plan 40 (T1): parte el texto-<c>&lt;f&gt;</c> del sub-bloque en sus dos operandos (igualdad)
+    /// y los resuelve desde lo escrito. <c>Computable=false</c> si alguno no es resoluble por las
+    /// formas tabuladas (no se evalúa en silencio).
+    /// </summary>
+    private static (bool Computable, decimal Izquierdo, decimal Derecho) ResolverOperandos(
+        ResolutorValorValidacion resolutor,
+        string textoFormula)
+    {
+        var partes = textoFormula.Split('=');
+        if (partes.Length != 2)
+        {
+            return (false, 0m, 0m);
+        }
+
+        var okIzquierdo = resolutor.TryEvaluar(WorkbookLeafCellMapValidaciones.HojaValidacionTotal, partes[0], out var izquierdo);
+        var okDerecho = resolutor.TryEvaluar(WorkbookLeafCellMapValidaciones.HojaValidacionTotal, partes[1], out var derecho);
+        return (okIzquierdo && okDerecho, izquierdo, derecho);
+    }
+
+    /// <summary>
+    /// Plan 40 (T1): normaliza el texto de una fórmula para compararlo con la tabla del gate
+    /// (elimina espacios fuera de nombres de hoja entre comillas; preserva el texto entre comillas).
+    /// </summary>
+    private static string NormalizarFormula(string? texto)
+    {
+        if (string.IsNullOrEmpty(texto))
+        {
+            return string.Empty;
+        }
+
+        var sb = new StringBuilder(texto.Length);
+        var enComillas = false;
+        foreach (var ch in texto)
+        {
+            if (ch == '\'')
+            {
+                enComillas = !enComillas;
+            }
+
+            if (!enComillas && char.IsWhiteSpace(ch))
+            {
+                continue;
+            }
+
+            sb.Append(ch);
+        }
+
+        return sb.ToString();
     }
 
     // ── Helpers OpenXML (read-only; duplican navegación mínima del writer, sin escritura) ─────

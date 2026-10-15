@@ -62,6 +62,7 @@ namespace Remuneracion.WinForms
         private System.Windows.Forms.Label lblCarpetaSalida;
         private System.Windows.Forms.TextBox txtCarpetaSalida;
         private System.Windows.Forms.Button btnSeleccionarSalida;
+        private System.Windows.Forms.Label lblPlantillaAyuda;
 
         // --- Ejecución ---
         private System.Windows.Forms.Label lblAse;
@@ -122,6 +123,7 @@ namespace Remuneracion.WinForms
             lblCarpetaSalida = new Label();
             txtCarpetaSalida = new TextBox();
             btnSeleccionarSalida = new Button();
+            lblPlantillaAyuda = new Label();
             pnlCardEjecucion = new Panel();
             pnlAccentBarEjecucion = new Panel();
             lblCardTituloEjecucion = new Label();
@@ -364,6 +366,7 @@ namespace Remuneracion.WinForms
             pnlCardRutas.Controls.Add(lblCarpetaSalida);
             pnlCardRutas.Controls.Add(txtCarpetaSalida);
             pnlCardRutas.Controls.Add(btnSeleccionarSalida);
+            pnlCardRutas.Controls.Add(lblPlantillaAyuda);
             pnlCardRutas.Dock = DockStyle.Fill;
             pnlCardRutas.Location = new Point(22, 150);
             pnlCardRutas.Margin = new Padding(6);
@@ -497,6 +500,16 @@ namespace Remuneracion.WinForms
             toolTipRutas.SetToolTip(btnSeleccionarSalida, "Examinar…");
             btnSeleccionarSalida.UseVisualStyleBackColor = true;
             btnSeleccionarSalida.Click += btnSeleccionarSalida_Click;
+            // 
+            // lblPlantillaAyuda
+            // 
+            lblPlantillaAyuda.AutoSize = true;
+            lblPlantillaAyuda.ForeColor = SystemColors.GrayText;
+            lblPlantillaAyuda.Location = new Point(84, 14);
+            lblPlantillaAyuda.Name = "lblPlantillaAyuda";
+            lblPlantillaAyuda.Size = new Size(474, 20);
+            lblPlantillaAyuda.TabIndex = 11;
+            lblPlantillaAyuda.Text = "Seleccione la plantilla oficial; la base del período se prepara automáticamente.";
             // 
             // pnlCardEjecucion
             // 

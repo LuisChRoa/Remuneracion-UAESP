@@ -9,15 +9,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Plan 36 (T3, §2.3-A): la única referencia del proyecto es Core (pura, sin dependencias) para
-         COMPONER los nombres de hoja del período con la fuente única `NombresHojaPeriodo` (jamás
-         duplicar la regla de naming en la herramienta). La cirugía ZIP+XML sigue siendo BCL puro:
-         PROHIBIDO OpenXML/ExcelDataReader/Excel/COM y PROHIBIDO Infrastructure. -->
+    <!-- Plan 39 (T1, D-C): la herramienta pasa a WRAPPER DELGADO del componente compartido
+         `PreparadorBasePipeline` (Infrastructure/Excel), que es también la Phase 0 automática del
+         pipeline. El componente es BCL puro (ZipArchive + Regex; sin OpenXML/ExcelDataReader/Excel/
+         COM): la referencia a Infrastructure solo expone ese componente. Core sigue referenciado
+         (el período viaja como `Periodo`). -->
     <ProjectReference Include="..\..\Remuneracion.Core\Remuneracion.Core.csproj" />
+    <ProjectReference Include="..\..\Remuneracion.Infrastructure\Remuneracion.Infrastructure.csproj" />
   </ItemGroup>
 
-  <!-- Herramienta OFFLINE one-shot (Plan 30 T3 D-B / Plan 36 T3). BCL puro para la cirugía de
-       bytes (sin paquetes). Fuera del pipeline de runtime; deliberadamente NO se agrega al .slnx
+  <!-- Wrapper CLI delgado (Plan 39 T1; antes Plan 30 T3 D-B / Plan 36 T3). La cirugía de bytes vive
+       en Infrastructure. Fuera del pipeline de runtime; deliberadamente NO se agrega al .slnx
        (mismo criterio que Herramientas/VerificadorRecaudo). -->
 
 </Project>

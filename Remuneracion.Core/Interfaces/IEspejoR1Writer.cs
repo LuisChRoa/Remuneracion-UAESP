@@ -24,5 +24,6 @@ public interface IEspejoR1Writer
     /// <param name="rutaPlantillaOrigen">Plantilla origen (no se muta).</param>
     /// <param name="rutaSalida">Ruta del archivo generado.</param>
     /// <param name="bloques">Bloques espejo por ASE (secuencia fuente del período actual).</param>
-    void EscribirEspejoR1(string rutaPlantillaOrigen, string rutaSalida, IReadOnlyList<BloqueEspejoAseInputs> bloques);
+    /// <param name="periodo">Período del run (dominio: gobierna la Phase 0 — hojas + tokens + columna L).</param>
+    void EscribirEspejoR1(string rutaPlantillaOrigen, string rutaSalida, IReadOnlyList<BloqueEspejoAseInputs> bloques, Periodo periodo);
 }

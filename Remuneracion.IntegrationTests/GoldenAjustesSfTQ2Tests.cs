@@ -49,6 +49,35 @@ public sealed class GoldenAjustesSfTQ2Tests
     /// </summary>
     private static readonly decimal[] GoldenTotales = [17450228673.35m, 20516143969.65m, 15221896467.45m, 7179595395.67m, 12073344661.59m, 72441209167.71m];
 
+    /// <summary>
+    /// Fila del manual LEGACY (Docs/Prueba Julio-2/Resultado/Remuneracion 202607-2 Total
+    /// Administrativo.xlsx) para un (ASE, concepto) de SALDOS POR NOTA. ASE1/3 no traen 'Vlr
+    /// Intereses' (5 filas); ASE2/4/5 sí (6 filas). Plan 41/T2: la comparación es por (concepto,
+    /// columna), nunca por dirección entre plantillas (R-TRAMPA-ANCLA).
+    /// </summary>
+    private static bool FilaLegacyManualSaldos(int aseId, string concepto, out int fila)
+    {
+        var conIntereses = aseId is 2 or 4 or 5;
+        var baseFila = aseId switch { 1 => 3, 2 => 15, 3 => 28, 4 => 40, 5 => 53, _ => 0 };
+        var offset = (concepto, conIntereses) switch
+        {
+            ("Vlr Servicio", _) => 0,
+            ("Vlr Intereses", true) => 1,
+            ("Componente", false) => 1,
+            ("Componente", true) => 2,
+            ("Subsidio(-)/Contribucion(+)", false) => 2,
+            ("Subsidio(-)/Contribucion(+)", true) => 3,
+            ("Subs/Cont", false) => 3,
+            ("Subs/Cont", true) => 4,
+            ("Total", false) => 4,
+            ("Total", true) => 5,
+            _ => -1,
+        };
+
+        fila = baseFila + offset;
+        return offset >= 0;
+    }
+
 [Fact]
     public void CapaA_Q2_Celdas2_5VsGolden_TotalAjustesDominio()
     {
@@ -67,16 +96,34 @@ public sealed class GoldenAjustesSfTQ2Tests
 
         // A1 — operandos 2.5 leídos (SaldosNotas/RetribucionNegativa) vs caché golden ±0.5.
         // Los readers 2.5 SÍ certifican los 5 ASE (independiente del reader leaf HU-07).
+        // Plan 41/T2 (R-TRAMPA-ANCLA): la geometría OFICIAL (la que escribe la app) es de 6 filas
+        // uniformes con 'Vlr Intereses'; el manual del administrativo usa la geometría LEGACY
+        // (ASE1/3 sin 'Vlr Intereses'). La comparación es por (concepto, columna), nunca por
+        // dirección de celda entre plantillas.
         var ajustesLos5 = AjustesSfTTests.LeerAjustesQ2Los5();
         for (var aseId = 1; aseId <= 5; aseId++)
         {
             var ajustes = ajustesLos5.Single(a => a.Ase.Id == aseId);
-            foreach (var (celda, valor) in ajustes.SaldosNotas.Celdas)
+            foreach (var (filaOficial, concepto, _) in WorkbookLeafCellMapAjustesSfT.ObtenerConceptosSaldos(aseId))
             {
-                var golden = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapAjustesSfT.HojaSaldosNotas, celda);
-                Assert.InRange(valor - golden, -Tolerancia, Tolerancia);
+                if (!FilaLegacyManualSaldos(aseId, concepto, out var filaLegacy))
+                {
+                    continue; // 'Vlr Intereses' no existe en el manual legacy de ASE1/ASE3
+                }
+
+                foreach (var (_, columna) in WorkbookLeafCellMapAjustesSfT.MapeoColumnasPorTitulo)
+                {
+                    if (!ajustes.SaldosNotas.Celdas.TryGetValue($"{columna}{filaOficial}", out var valor))
+                    {
+                        continue;
+                    }
+
+                    var golden = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapAjustesSfT.HojaSaldosNotas, $"{columna}{filaLegacy}");
+                    Assert.InRange(valor - golden, -Tolerancia, Tolerancia);
+                }
             }
 
+            // RETRIBUCION NEGATIVA: la geometría legacy coincide con la oficial (6 filas) → comparación directa.
             foreach (var (celda, valor) in ajustes.RetribucionNegativa.Celdas)
             {
                 var golden = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapAjustesSfT.HojaRetribucionNegativa, celda);

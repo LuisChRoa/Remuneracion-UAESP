@@ -31,4 +31,28 @@ public sealed class SolicitudProcesoPeriodo
     /// procesador genera uno (compat HU-14: <c>Guid.NewGuid()</c>).
     /// </summary>
     public Guid? RunId { get; set; }
+
+    /// <summary>
+    /// Plan 42 (T1/T3, D-D/D-G): ids de las entradas del catálogo de divergencias declaradas que el
+    /// usuario reconoció explícitamente en ESTA corrida (UI: acto consciente; CLI:
+    /// <c>--aceptar-divergencia-declarada</c>). No es persistente ni "por costumbre": cada corrida
+    /// re-presenta la divergencia y exige su propio reconocimiento. Sin el id de la entrada vigente,
+    /// la declarada bloquea con <see cref="Errors.CodigoError.Validacion"/> (S3).
+    /// </summary>
+    public IReadOnlyList<string> DivergenciasDeclaradasAceptadas { get; set; } = [];
+
+    /// <summary>
+    /// Plan 43 (O-3): canal por el que el usuario aceptó la divergencia declarada
+    /// (<see cref="Constants.HuellaAceptacion.CanalUi"/> o <see cref="Constants.HuellaAceptacion.CanalCli"/>).
+    /// Aditivo: lo declara cada frontend. <c>null</c>/vacío = <see cref="Constants.HuellaAceptacion.CanalIndefinido"/>
+    /// (nunca se inventa UI/CLI).
+    /// </summary>
+    public string? Canal { get; set; }
+
+    /// <summary>
+    /// Plan 43 (O-3): usuario del sistema que aceptó la divergencia declarada. Aditivo: si es
+    /// <c>null</c>/vacío se usa <see cref="Environment.UserName"/> (o
+    /// <see cref="Constants.HuellaAceptacion.UsuarioNoDisponible"/> si el entorno no lo expone).
+    /// </summary>
+    public string? UsuarioAceptacion { get; set; }
 }

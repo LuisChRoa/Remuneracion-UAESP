@@ -1,4 +1,5 @@
 using Remuneracion.Core.Errors;
+using Remuneracion.Core.Exceptions;
 using Remuneracion.Core.Interfaces;
 using Remuneracion.Core.Models;
 using Remuneracion.Core.Rules;
@@ -278,6 +279,113 @@ public sealed class ValidadorBasico : IValidador
     }
 
     /// <summary>
+    /// Plan 42 (T1, R-CLS-1/R-CLS-2/R-CLS-3, D-B/D-F): clasifica cada sub-bloque FALSE de
+    /// <c>VALIDACION_TOTAL</c> en declarado (entrada vigente de
+    /// <see cref="DivergenciasDeclaradasCatalogo"/>) vs NO declarado, y separa los errores de la
+    /// validación cruzada que no son sub-bloques declarados. Reutiliza <see cref="Validar(ResultadoRemuneracion, IReadOnlyList{WorkbookLeafInputs}, IReadOnlyList{ValidacionCruzadaSnapshot})"/>
+    /// (criterio estricto E1-1..E1-5 INTACTO para lo no declarado) y solo RETIRA del listado los
+    /// errores de los sub-bloques que el catálogo reconoce como declarados. Una cadena no resoluble
+    /// (E1-1) NUNCA se declara: queda como no declarada.
+    /// </summary>
+    public ClasificacionDivergenciasDeclaradas ClasificarDivergenciasDeclaradas(
+        ResultadoRemuneracion resultado,
+        IReadOnlyList<WorkbookLeafInputs> leafs,
+        IReadOnlyList<ValidacionCruzadaSnapshot> snapshots)
+    {
+        ArgumentNullException.ThrowIfNull(resultado);
+        ArgumentNullException.ThrowIfNull(leafs);
+        ArgumentNullException.ThrowIfNull(snapshots);
+
+        // Criterio estricto vigente (E1-1..E1-5): todos los gates, mismo nombre y severidad.
+        var errores = Validar(resultado, leafs, snapshots);
+
+        var veredictos = new List<VeredictoDivergenciaValidacion>();
+        foreach (var snapshot in snapshots.OrderBy(s => s.Ase.Id))
+        {
+            foreach (var (celda, valor) in snapshot.SubBloquesValidacionTotal.OrderBy(kv => kv.Key))
+            {
+                var (falso, clasificable, observado, esperado) = EvaluarSubBloque(snapshot, celda, valor);
+                if (!falso)
+                {
+                    continue;
+                }
+
+                // Solo una divergencia EVALUABLE desde lo escrito puede corresponder a una entrada
+                // del catálogo; "no evaluable" (E1-1) y los snapshots sin evidencia = no declaradas.
+                var entrada = clasificable
+                    ? DivergenciasDeclaradasCatalogo.Buscar(celda, observado, esperado)
+                    : null;
+
+                veredictos.Add(new VeredictoDivergenciaValidacion
+                {
+                    AseId = snapshot.Ase.Id,
+                    Celda = celda,
+                    Declarada = entrada is not null,
+                    EntradaId = entrada?.Id,
+                    MontoObservado = observado,
+                    MontoEsperado = esperado
+                });
+            }
+        }
+
+        var declaradas = veredictos
+            .Where(v => v.Declarada)
+            .Select(v => (v.AseId, v.Celda))
+            .ToHashSet();
+        var erroresNoDeclarados = declaradas.Count == 0
+            ? errores
+            : errores.Where(e => !EsErrorDeSubBloqueDeclarado(e, declaradas)).ToList();
+
+        return new ClasificacionDivergenciasDeclaradas
+        {
+            Veredictos = veredictos,
+            ErroresNoDeclarados = erroresNoDeclarados
+        };
+    }
+
+    /// <summary>
+    /// Espeja la evaluación de <see cref="ValidarGatesValidacionesCruzadasPorAse"/> para UN
+    /// sub-bloque: con evidencia, el veredicto sale de <c>Computable</c> + <c>Igualdad</c>; sin
+    /// evidencia (snapshots construidos a mano), del booleano entregado. <c>Clasificable</c> solo
+    /// cuando la cadena es EVALUABLE desde lo escrito (una cadena no resoluble nunca se declara).
+    /// </summary>
+    private static (bool Falso, bool Clasificable, decimal Observado, decimal Esperado) EvaluarSubBloque(
+        ValidacionCruzadaSnapshot snapshot,
+        string celda,
+        bool valor)
+    {
+        if (snapshot.SubBloquesValidacionTotalEvidencia.TryGetValue(celda, out var evidencia))
+        {
+            if (!evidencia.Computable)
+            {
+                return (true, false, evidencia.OperandoIzquierdo, evidencia.OperandoDerecho);
+            }
+
+            var cierra = FormasValidacionTotal.Igualdad(evidencia.OperandoIzquierdo, evidencia.OperandoDerecho);
+            return (!cierra, !cierra, evidencia.OperandoIzquierdo, evidencia.OperandoDerecho);
+        }
+
+        return (!valor, false, 0m, 0m);
+    }
+
+    /// <summary>
+    /// Verdad si el error corresponde a un sub-bloque declarado (mismo marcador
+    /// <c>ASE n · VALIDACION_TOTAL · celda</c> que emite el gate W-1).
+    /// </summary>
+    private static bool EsErrorDeSubBloqueDeclarado(string error, HashSet<(int AseId, string Celda)> declaradas)
+    {
+        foreach (var (aseId, celda) in declaradas)
+        {
+            if (error.Contains($"ASE {aseId} · VALIDACION_TOTAL · {celda}", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// HU-20 (G3-D1): valida el DetRetri CALCULADO por ASE (<see cref="DetRetriQ2Inputs.Detalle"/> =
     /// ROUND(D104:D108,0)) contra el oráculo R10 del período, tolerancia ±0.5. El R10 es oráculo de
     /// VALIDACIÓN (nunca se escribe al template). Matcheo estricto por <see cref="Ase.Id"/>. El
@@ -407,11 +515,43 @@ public sealed class ValidadorBasico : IValidador
             }
         }
 
-        // (iii) HU-14 (W-1): sub-bloques booleanos de VALIDACION_TOTAL (C15/D25/O25/D34/F34)
-        //     == true exacto por ASE (amparo T0-0.4 HU-13: TRUE en ambos goldens). El gate
-        //     numérico/booleano TOTAL (O9/P9) es ÚNICO (S-2) y vive en Validar(...snapshots).
+        // (iii) Plan 40 (T1, R-E-1/R-E-2/R-E-3 — D-A/D-D; enmienda E-1): los 5 sub-bloques booleanos
+        //     de VALIDACION_TOTAL (C15/D25/O25/D34/F34) se EVALÚAN desde lo escrito (nunca desde el
+        //     caché <v>, que era la falsa verificación heredada). Para cada sub-bloque con evidencia
+        //     se aserta el TEXTO <f> esperado (tabla FormasValidacionTotal, congelada por el T0)
+        //     ANTES de evaluar (tercera forma = ERR-PLANTILLA) y se gatea Igualdad(izq, der) ±0.5.
+        //     E1-1: se gatean los 5 SIN excepción; una cadena no resoluble NO es verde (se reporta).
+        //     Snapshots sin evidencia (construidos a mano en tests) conservan el gate del booleano
+        //     entregado (compatibilidad). El gate TOTAL (O9/P9) es ÚNICO (S-2) y vive en
+        //     Validar(...snapshots).
         foreach (var (celda, valor) in snapshot.SubBloquesValidacionTotal.OrderBy(kv => kv.Key))
         {
+            if (snapshot.SubBloquesValidacionTotalEvidencia.TryGetValue(celda, out var evidencia))
+            {
+                var esperado = FormasValidacionTotal.TextoEsperado(celda);
+                if (esperado is null || !string.Equals(evidencia.TextoFormula, esperado, StringComparison.Ordinal))
+                {
+                    throw new CalculoInvalidoException(
+                        CodigoError.Plantilla,
+                        $"{FormasValidacionTotal.Hoja}!{celda}: la fórmula <f> no coincide con la tabla del gate. Esperado: '{esperado}'. Observado: '{evidencia.TextoFormula}'. (R-E-2: tercera forma = ERR-PLANTILLA.)");
+                }
+
+                if (!evidencia.Computable)
+                {
+                    // E1-1: "no evaluable" no es verde. La cadena del sub-bloque no se pudo resolver
+                    // desde lo escrito → hallazgo que el gate nombra (nunca un pase silencioso).
+                    AgregarError(errores, $"ASE {snapshot.Ase.Id} · VALIDACION_TOTAL · {celda}: la cadena del sub-bloque no es resoluble desde lo escrito (no evaluable). (W-1/E1-1: nunca verde.)");
+                    continue;
+                }
+
+                if (!FormasValidacionTotal.Igualdad(evidencia.OperandoIzquierdo, evidencia.OperandoDerecho))
+                {
+                    AgregarError(errores, $"ASE {snapshot.Ase.Id} · VALIDACION_TOTAL · {celda}: el sub-bloque evaluado desde lo escrito es falso ({evidencia.OperandoIzquierdo} != {evidencia.OperandoDerecho}). (W-1: debe ser TRUE exacto.)");
+                }
+
+                continue;
+            }
+
             if (!valor)
             {
                 AgregarError(errores, $"ASE {snapshot.Ase.Id} · VALIDACION_TOTAL · {celda}: sub-bloque booleano es falso en el workbook (debe ser TRUE exacto; W-1).");

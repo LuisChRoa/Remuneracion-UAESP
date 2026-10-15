@@ -30,6 +30,13 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
     private readonly IValidacionOracleReader? _validacionOracleReader;
 
     /// <summary>
+    /// Plan 42 (T2, D-E): emisor del reporte durable de divergencias declaradas. Opcional para no
+    /// romper la composición existente; si una corrida reconoce una declarada y NO hay emisor, el
+    /// cierre FALLA (sin reporte no hay ÉXITO — nunca un cierre silencioso).
+    /// </summary>
+    private readonly IReporteDivergenciasDeclaradas? _reporteDivergencias;
+
+    /// <summary>
     /// Plan 26 (T2, D-A): preflight de insumos del período. Se compone con el localizador ya
     /// inyectado (mismo contrato que usan los finders runtime) para no ampliar la firma de
     /// composición de UI/CLI.
@@ -51,7 +58,8 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         IWorkbookLeafWriter workbookLeafWriter,
         ILocalizadorArchivosAse localizador,
         IDetRetriR10Reader detRetriR10Reader,
-        IValidacionOracleReader? validacionOracleReader = null)
+        IValidacionOracleReader? validacionOracleReader = null,
+        IReporteDivergenciasDeclaradas? reporteDivergencias = null)
     {
         _recaudoReader = recaudoReader ?? throw new ArgumentNullException(nameof(recaudoReader));
         _leafReader = leafReader ?? throw new ArgumentNullException(nameof(leafReader));
@@ -61,6 +69,7 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         _localizador = localizador ?? throw new ArgumentNullException(nameof(localizador));
         _detRetriR10Reader = detRetriR10Reader ?? throw new ArgumentNullException(nameof(detRetriR10Reader));
         _validacionOracleReader = validacionOracleReader;
+        _reporteDivergencias = reporteDivergencias;
         _validadorInsumos = new ValidadorInsumosPeriodo(_localizador);
     }
 
@@ -78,6 +87,16 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         using var _periodoScope = Serilog.Context.LogContext.PushProperty("Periodo", solicitud.Periodo.CodigoCompleto);
         using var _quincenaScope = Serilog.Context.LogContext.PushProperty("Quincena", solicitud.Periodo.NumeroQuincena);
         using var _modoScope = Serilog.Context.LogContext.PushProperty("Modo", "5 ASE");
+
+        // Plan 43 (O-3): huella de quién acepta y por qué canal, resueltos UNA vez por corrida (se
+        // registran en el reporte durable y en el log al cerrar con declarada reconocida).
+        var usuarioAceptacion = ResolverUsuario(solicitud.UsuarioAceptacion);
+        var canalAceptacion = string.IsNullOrWhiteSpace(solicitud.Canal) ? HuellaAceptacion.CanalIndefinido : solicitud.Canal;
+
+        // Plan 43 (O-4): mientras la corrida no supere las validaciones, el workbook vive con la
+        // marca DETERMINISTA "sin validar"; solo al cerrar bien se promueve al nombre DEFINITIVO.
+        // Una corrida que falla después de escribir NUNCA deja el nombre limpio.
+        var rutaSinValidar = NombresSalida.RutaSinValidar(solicitud.RutaSalida);
 
         progreso?.Report("Iniciando proceso del período (5 ASE).");
         Log.Information("Iniciando proceso del período (5 ASE).");
@@ -378,7 +397,9 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
 
         progreso?.Report("Generando workbook de salida (una sola escritura)...");
         Log.Information("Generando workbook de salida (una sola escritura)...");
-        _workbookLeafWriter.GenerarWorkbook(solicitud.RutaPlantilla, solicitud.RutaSalida, resultado, leafs);
+        // Plan 43 (O-4): se escribe en la ruta MARCADA "sin validar"; solo al final, tras superar
+        // todas las validaciones, se promueve al nombre definitivo (File.Move).
+        _workbookLeafWriter.GenerarWorkbook(solicitud.RutaPlantilla, rutaSinValidar, resultado, leafs);
 
         if (esQuincena2)
         {
@@ -413,17 +434,61 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         // visible — OpenXML no recalcula) y se evalúan los gates 2.7 con fail-fast que nombra
         // ASE + validación. Sin reader (regresión) = HU-12 puro por construcción (D3).
         var lineasValidaciones = new List<string>();
+        ClasificacionDivergenciasDeclaradas? clasificacion = null;
+        var rutaReporte = string.Empty;
         if (_validacionOracleReader is not null)
         {
             progreso?.Report("Leyendo oráculo de validaciones cruzadas de la salida (read-only)...");
             Log.Information("Leyendo oráculo de validaciones cruzadas de la salida (read-only)...");
-            var snapshots = _validacionOracleReader.LeerSnapshots(solicitud.RutaSalida, solicitud.Periodo);
-            var erroresValidacion = _validador.Validar(resultado, leafs, snapshots);
-            if (erroresValidacion.Count > 0)
+            // Plan 43 (O-4): el oráculo lee el archivo MARCADO (donde el writer lo dejó); el
+            // contenido es idéntico al definitivo que se promoverá al cerrar bien.
+            var snapshots = _validacionOracleReader.LeerSnapshots(rutaSinValidar, solicitud.Periodo);
+
+            // Plan 42 (T1, R-CLS-1/R-CLS-2/R-CLS-3, D-B/D-F): clasificación en Core. La declarada
+            // es la ÚLTIMA puerta: primero todo lo interno; solo si queda SOLO la declarada se pide
+            // reconocimiento y, con él, se produce + reporta. Cualquier no declarada FALLA en duro
+            // con el mismo nombre y severidad de siempre (E1-1..E1-5 intactos).
+            clasificacion = _validador.ClasificarDivergenciasDeclaradas(resultado, leafs, snapshots);
+
+            if (clasificacion.HayNoDeclaradas)
             {
-                var detalleValidacion = string.Join("; ", erroresValidacion);
+                var detalleNoDeclarado = string.Join("; ", clasificacion.ErroresNoDeclarados);
+                Log.Error("La validación cruzada (2.7) falló con divergencia(s) NO declarada(s): {Detalle}", detalleNoDeclarado);
                 // HU-15 (S-2): sin prefijo [CÓDIGO] redundante (ver nota de validación multi-ASE).
-                throw new CalculoInvalidoException(CodigoError.Validacion, $"La validación cruzada (2.7) falló: {detalleValidacion}");
+                throw new CalculoInvalidoException(CodigoError.Validacion, $"La validación cruzada (2.7) falló: {detalleNoDeclarado}");
+            }
+
+            if (clasificacion.SoloDeclaradas)
+            {
+                var aceptadas = new HashSet<string>(solicitud.DivergenciasDeclaradasAceptadas, StringComparer.OrdinalIgnoreCase);
+                var pendientes = clasificacion.Declaradas
+                    .Where(v => v.EntradaId is null || !aceptadas.Contains(v.EntradaId))
+                    .ToList();
+                if (pendientes.Count > 0)
+                {
+                    // S3 (D-D): sin acto consciente de ESTA corrida (UI) o sin flag (CLI), la
+                    // declarada también bloquea — nunca se cierra "por costumbre". La excepción
+                    // porta la clasificación para que el frontend presente el reconocimiento.
+                    var detalleDeclarada = string.Join("; ", clasificacion.Declaradas
+                        .Select(v => $"[{CodigoError.Validacion}] ASE {v.AseId} · VALIDACION_TOTAL · {v.Celda}: divergencia declarada ({v.EntradaId}) pendiente de reconocimiento explícito en esta corrida (Δ = {v.Delta:0.##})"));
+                    Log.Warning("Cierre bloqueado: hay divergencia(s) declarada(s) sin reconocimiento explícito en esta corrida.");
+                    throw new CalculoInvalidoException(
+                        CodigoError.Validacion,
+                        $"La validación cruzada (2.7) falló: {detalleDeclarada}",
+                        clasificacion);
+                }
+
+                // Reconocida: la doble huella es obligatoria (D-E). Sin reporte NO hay ÉXITO.
+                if (_reporteDivergencias is null)
+                {
+                    throw new CalculoInvalidoException(
+                        CodigoError.Inesperado,
+                        "El cierre con divergencia declarada exige el reporte durable y no hay emisor de reporte configurado (sin reporte no hay éxito).");
+                }
+
+                rutaReporte = _reporteDivergencias.Emitir(solicitud.RutaSalida, solicitud.Periodo, runId, clasificacion, usuarioAceptacion, canalAceptacion);
+                RegistrarHuellaDeclaradas(clasificacion, rutaReporte, runId, usuarioAceptacion, canalAceptacion);
+                progreso?.Report($"Divergencia(s) declarada(s) reconocida(s) en esta corrida. Reporte: {rutaReporte}");
             }
 
             // Veredictos por ASE (bloque VALIDACIONES del log/UI, §2.6). Honestidad: se lee el
@@ -471,6 +536,14 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             }
         }
 
+        // Plan 43 (O-4): la corrida superó TODAS las validaciones (si el oráculo hubiera fallado, se
+        // habría lanzado arriba). Recién ahora el archivo deja la marca "sin validar" y toma el
+        // nombre DEFINITIVO. Una corrida que no cierra bien nunca llega aquí.
+        if (!string.Equals(Path.GetFullPath(rutaSinValidar), Path.GetFullPath(solicitud.RutaSalida), StringComparison.OrdinalIgnoreCase))
+        {
+            File.Move(rutaSinValidar, solicitud.RutaSalida, overwrite: true);
+        }
+
         progreso?.Report("Proceso del período completado correctamente.");
         Log.Information("Proceso del período completado correctamente.");
 
@@ -479,8 +552,63 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             Resultado = resultado,
             Leafs = leafs,
             RutaSalida = solicitud.RutaSalida,
-            Validaciones = lineasValidaciones
+            Validaciones = lineasValidaciones,
+            DivergenciasDeclaradas = clasificacion,
+            ReporteDivergenciasDeclaradas = rutaReporte
         };
+    }
+
+    /// <summary>
+    /// Plan 43 (O-3): resuelve el usuario de la aceptación de forma honesta. Usa el valor declarado
+    /// por el frontend si llega; si no, el usuario del sistema (<see cref="Environment.UserName"/>)
+    /// y, si el entorno no lo expone, <see cref="HuellaAceptacion.UsuarioNoDisponible"/> (nunca un
+    /// nombre inventado).
+    /// </summary>
+    private static string ResolverUsuario(string? usuarioSolicitado) =>
+        !string.IsNullOrWhiteSpace(usuarioSolicitado)
+            ? usuarioSolicitado
+            : string.IsNullOrWhiteSpace(Environment.UserName) ? HuellaAceptacion.UsuarioNoDisponible : Environment.UserName;
+
+    /// <summary>
+    /// Plan 42 (T2, R-REP-2, D-E) + Plan 43 (O-3): huella en el log (Serilog) del reconocimiento de
+    /// divergencias declaradas en esta corrida. Junto con el reporte durable, es la segunda de las
+    /// DOS huellas obligatorias del cierre (declarada ≠ tolerada en silencio). Registra QUIÉN aceptó
+    /// (<paramref name="usuario"/>) y POR QUÉ CANAL (<paramref name="canal"/>) como propiedades
+    /// estructuradas, además de celda/observado/esperado/Δ/RunId.
+    /// </summary>
+    private static void RegistrarHuellaDeclaradas(
+        ClasificacionDivergenciasDeclaradas clasificacion,
+        string rutaReporte,
+        Guid runId,
+        string usuario,
+        string canal)
+    {
+        Log.ForContext("Usuario", usuario).ForContext("Canal", canal)
+            .Information(
+                "Cierre con divergencia(s) declarada(s) reconocida(s): {Cantidad} veredicto(s), entradas [{Entradas}]. Aceptado por {Usuario} (canal {Canal}). Reporte durable: {Reporte}. RunId: {RunId}.",
+                clasificacion.Declaradas.Count,
+                string.Join(", ", clasificacion.EntradasDeclaradas),
+                usuario,
+                canal,
+                rutaReporte,
+                runId);
+
+        foreach (var veredicto in clasificacion.Declaradas
+                     .GroupBy(v => (v.EntradaId, v.Celda))
+                     .Select(g => g.First()))
+        {
+            Log.ForContext("Usuario", usuario)
+                .ForContext("Canal", canal)
+                .ForContext("AseId", veredicto.AseId)
+                .ForContext("Validacion", "VALIDACION_TOTAL")
+                .Information(
+                    "Divergencia declarada reconocida (entrada {Entrada}): celda {Celda}; observado {Observado:0.##}; esperado {Esperado:0.##}; Δ {Delta:0.##}.",
+                    veredicto.EntradaId,
+                    veredicto.Celda,
+                    veredicto.MontoObservado,
+                    veredicto.MontoEsperado,
+                    veredicto.Delta);
+        }
     }
 
     /// <summary>

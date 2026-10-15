@@ -1,5 +1,6 @@
 using Remuneracion.Core.Models;
 using Remuneracion.Core.Services;
+using Remuneracion.Infrastructure.Excel;
 using Xunit;
 
 namespace Remuneracion.IntegrationTests;
@@ -30,17 +31,47 @@ internal static class Insumos
     }
 
     /// <summary>
-    /// Plan 36 (T4, R-R-1): base canónica del período, preparada UNA vez offline desde la plantilla
-    /// estandarizada única con <c>Herramientas/PreparadorBasePeriodo --plantilla-unica</c>
-    /// (<c>Docs/BasesPreparadas/Plantilla_Remuneracion_{AAAAMMQ}.xlsx</c>). Reemplaza a las plantillas
-    /// legacy por mes, que NO son bases válidas del path de slots (el motor insert/delete fue retirado
-    /// en T2 y el runtime exige una base consistente con el período — ver <c>ValidadorBasePeriodo</c>).
+    /// Plan 39 (T4): plantilla OFICIAL única (<c>Docs/Plantilla estandarizada/Formato Remuneracion
+    /// 2026xx-x Total.xlsx</c>) — INPUT DIRECTO de la App para todos los períodos y oráculo
+    /// geométrico. Ruta EXPLÍCITA (nunca la raíz <c>Docs/Insumos</c> como fuente de plantilla).
     /// </summary>
-    public static string BasePreparada(string periodo) =>
-        Path.Combine(Raiz(), "Docs", "BasesPreparadas", $"Plantilla_Remuneracion_{periodo}.xlsx");
+    public static string PlantillaOficial() =>
+        Path.Combine(Raiz(), "Docs", "Plantilla estandarizada", "Formato Remuneracion 2026xx-x Total.xlsx");
 
-    /// <summary>Base canónica Q1 (período <c>2026071</c>) preparada desde la plantilla única.</summary>
-    public static string Plantilla => BasePreparada("2026071");
+    private static readonly object CandadoBases = new();
+    private static readonly Dictionary<string, string> BasesPorPeriodo = new();
+
+    /// <summary>
+    /// Plan 39 (T4): base del período producida por Phase 0 (<see cref="PreparadorBasePipeline"/>)
+    /// desde la plantilla OFICIAL hacia una ruta temp FRESCA (una sola vez por proceso; los fixtures
+    /// comparan hashes entre llamadas). Sustituye a la carpeta de bases preparadas offline (retirada):
+    /// el fixture ya no apunta a una carpeta versionada y el flujo es el de producción (oficial →
+    /// Phase 0 → copia de trabajo).
+    /// </summary>
+    public static string BaseDelPeriodo(string periodo)
+    {
+        lock (CandadoBases)
+        {
+            if (BasesPorPeriodo.TryGetValue(periodo, out var existente))
+            {
+                return existente;
+            }
+
+            var oficial = PlantillaOficial();
+            Assert.True(File.Exists(oficial), $"Falta la plantilla oficial: {oficial}");
+
+            var dir = Path.Combine(
+                Path.GetTempPath(), $"p39-fixtures-{Environment.ProcessId}-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(dir);
+            var salida = Path.Combine(dir, $"Plantilla_Remuneracion_{periodo}.xlsx");
+            PreparadorBasePipeline.Ejecutar(oficial, Remuneracion.Core.Models.Periodo.Parse(periodo), salida);
+            BasesPorPeriodo[periodo] = salida;
+            return salida;
+        }
+    }
+
+    /// <summary>Base canónica Q1 (período <c>2026071</c>) preparada por Phase 0 desde el oficial.</summary>
+    public static string Plantilla => BaseDelPeriodo("2026071");
 
 
     public static string CarpetaPeriodo => Path.Combine(Raiz(), "Docs", "Prueba Julio-1", "Insumos");
@@ -123,7 +154,7 @@ internal static class Insumos
     /// estandarizada única (antes: la plantilla legacy <c>Docs/Prueba Julio-2/Plantilla_Remuneracion.xlsx</c>,
     /// que ya no es base válida del path de slots).
     /// </summary>
-    public static string PlantillaQ2 => BasePreparada("2026072");
+    public static string PlantillaQ2 => BaseDelPeriodo("2026072");
 
 
     /// <summary>
@@ -290,7 +321,7 @@ internal static class Insumos
     /// token de período + metadatos/Q1 del manual). Su consistencia la fija
     /// <see cref="BaseConsistente2026082Tests"/>.
     /// </summary>
-    public static string PlantillaAgosto2026082 => BasePreparada("2026082");
+    public static string PlantillaAgosto2026082 => BaseDelPeriodo("2026082");
 
     /// <summary>
     /// Plan 30 (T3, D-E): manual del administrativo de agosto (<c>202608-2</c>), fuente de los

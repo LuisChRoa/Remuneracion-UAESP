@@ -84,17 +84,49 @@ public static class EjecutorCli
 
         try
         {
+            ResultadoProcesoPeriodo? resultadoProceso = null;
             if (opciones.CincoAse)
             {
-                EjecutarPeriodo(opciones, salida, runId, stdout);
+                resultadoProceso = EjecutarPeriodo(opciones, salida, runId, stdout);
             }
             else
             {
                 EjecutarUnAse(opciones, salida, runId, stdout);
             }
 
+            // Plan 42 (T3, D-G): cierre con divergencia declarada reconocida → código DISTINTO de
+            // Ok (0). La salida textual enumera lo mismo que la UI (celda, Δ, dueño, reporte emitido).
+            var clasificacion = resultadoProceso?.DivergenciasDeclaradas;
+            if (clasificacion is not null && clasificacion.SoloDeclaradas)
+            {
+                EmitirCierreDeclarado(stdout, clasificacion, resultadoProceso!.ReporteDivergenciasDeclaradas, salida, runId);
+                return CodigosSalida.DivergenciaDeclaradaReconocida;
+            }
+
             stdout.WriteLine($"RESULTADO OK codigo={CodigosSalida.Ok} salida={salida} runId={runId}");
             return CodigosSalida.Ok;
+        }
+        catch (CalculoInvalidoException ex) when (ex.Clasificacion is not null && ex.Clasificacion.SoloDeclaradas)
+        {
+            // Plan 42 (T3, S3/D-G): sin el flag, la declarada también bloquea (FAIL Validacion,
+            // exit 1). El CLI enumera la divergencia (celda, Δ, dueño) y cómo reconocerla.
+            Log.Warning("Cierre bloqueado por divergencia declarada sin reconocimiento explícito: {Mensaje}", ex.Message);
+            stderr.WriteLine($"[{CodigoError.Validacion}] La corrida no cerró: hay una divergencia declarada pendiente de reconocimiento explícito en esta corrida.");
+            foreach (var veredicto in ex.Clasificacion.Declaradas
+                         .GroupBy(v => (v.EntradaId, v.Celda))
+                         .Select(g => g.First()))
+            {
+                var entrada = DivergenciasDeclaradasCatalogo.Entradas
+                    .FirstOrDefault(e => string.Equals(e.Id, veredicto.EntradaId, StringComparison.OrdinalIgnoreCase));
+                stderr.WriteLine(
+                    $"  Diferencia declarada {veredicto.EntradaId}: hoja VALIDACION_TOTAL, celda {veredicto.Celda}; " +
+                    $"Δ {veredicto.Delta:0.##}; responsable {entrada?.Dueno ?? "por confirmar"}.");
+            }
+
+            stderr.WriteLine(
+                $"Para cerrar esta corrida reconozca la divergencia con --aceptar-divergencia-declarada <id> (p. ej. {string.Join(", ", ex.Clasificacion.EntradasDeclaradas)}).");
+            ResultadoError(stdout, CodigoError.Validacion, runId);
+            return CodigosSalida.Validacion;
         }
         catch (Exception ex)
         {
@@ -111,8 +143,10 @@ public static class EjecutorCli
     /// <summary>
     /// Modo período (5 ASE): composición idéntica a <c>Program.cs</c> del WinForms (V8), incluidos
     /// el oráculo R10 obligatorio (HU-20/G3) y el oráculo de lectura de validaciones cruzadas.
+    /// Plan 42 (T2/T3): además, el emisor del reporte durable de divergencias declaradas y los ids
+    /// reconocidos por el usuario en esta corrida.
     /// </summary>
-    private static void EjecutarPeriodo(OpcionesCli opciones, string salida, Guid runId, TextWriter stdout)
+    private static ResultadoProcesoPeriodo EjecutarPeriodo(OpcionesCli opciones, string salida, Guid runId, TextWriter stdout)
     {
         IProcesadorPeriodo procesador = new ProcesadorPeriodo(
             new ExcelDataReaderRecaudoReader(),
@@ -122,16 +156,51 @@ public static class EjecutorCli
             new OpenXmlPlantillaWriter(),
             new ArchivoFuenteLocator(),
             new ExcelDataReaderDetRetriR10Reader(),
-            new ValidacionOracleReader());
+            new ValidacionOracleReader(),
+            new ReporteDivergenciasDeclaradasWriter());
 
-        procesador.Ejecutar(new SolicitudProcesoPeriodo
+        return procesador.Ejecutar(new SolicitudProcesoPeriodo
         {
             Periodo = opciones.Periodo,
             CarpetaPeriodo = opciones.Carpeta,
             RutaPlantilla = opciones.Plantilla,
             RutaSalida = salida,
-            RunId = runId // W-2.1
+            RunId = runId, // W-2.1
+            DivergenciasDeclaradasAceptadas = opciones.DivergenciasDeclaradasAceptadas,
+            // Plan 43 (O-3): el reporte/log registran el canal (CLI) por el que se aceptó.
+            Canal = HuellaAceptacion.CanalCli
         }, new ProgresoConsola(stdout));
+    }
+
+    /// <summary>
+    /// Plan 42 (T3, R-CLI-1/D-G): salida textual del cierre con divergencia declarada reconocida.
+    /// Enumera lo mismo que la UI (celda, observado vs esperado, Δ, dueño, reporte emitido) en
+    /// lenguaje de negocio (sin jerga de código) y deja la línea final grepable del contrato.
+    /// </summary>
+    private static void EmitirCierreDeclarado(
+        TextWriter stdout,
+        ClasificacionDivergenciasDeclaradas clasificacion,
+        string rutaReporte,
+        string salida,
+        Guid runId)
+    {
+        stdout.WriteLine("CIERRE CON DIVERGENCIA DECLARADA RECONOCIDA");
+        stdout.WriteLine("La corrida cerró con una diferencia conocida y reconocida para esta corrida (no es un error del cálculo).");
+
+        foreach (var veredicto in clasificacion.Declaradas
+                     .GroupBy(v => (v.EntradaId, v.Celda))
+                     .Select(g => g.First()))
+        {
+            var entrada = DivergenciasDeclaradasCatalogo.Entradas
+                .FirstOrDefault(e => string.Equals(e.Id, veredicto.EntradaId, StringComparison.OrdinalIgnoreCase));
+            stdout.WriteLine(
+                $"  Diferencia declarada {veredicto.EntradaId}: hoja VALIDACION_TOTAL, celda {veredicto.Celda}; " +
+                $"observado {veredicto.MontoObservado:0.##}; esperado {veredicto.MontoEsperado:0.##}; Δ {veredicto.Delta:0.##}; " +
+                $"responsable {entrada?.Dueno ?? "por confirmar"}.");
+        }
+
+        stdout.WriteLine($"Reporte emitido: {rutaReporte}");
+        stdout.WriteLine($"RESULTADO OK codigo={CodigosSalida.DivergenciaDeclaradaReconocida} salida={salida} reporte={rutaReporte} runId={runId}");
     }
 
     /// <summary>

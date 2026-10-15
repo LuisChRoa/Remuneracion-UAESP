@@ -35,6 +35,13 @@ public sealed class OpcionesCli
     /// <summary>Permite sobrescribir la salida si ya existe.</summary>
     public bool Sobrescribir { get; }
 
+    /// <summary>
+    /// Plan 42 (T3, D-D/D-G): ids de las entradas del catálogo de divergencias declaradas que el
+    /// usuario reconoce explícitamente para ESTA corrida (flag <c>--aceptar-divergencia-declarada</c>,
+    /// repetible). Sin el id de la entrada vigente, la declarada bloquea (FAIL Validacion).
+    /// </summary>
+    public IReadOnlyList<string> DivergenciasDeclaradasAceptadas { get; }
+
     /// <summary><c>--help</c>/<c>-h</c>: imprime uso a stdout e ignora el resto (salida 0).</summary>
     public bool Ayuda { get; }
 
@@ -48,6 +55,7 @@ public sealed class OpcionesCli
         string salida,
         int? aseId,
         bool sobrescribir,
+        IReadOnlyList<string> divergenciasDeclaradasAceptadas,
         bool ayuda)
     {
         PeriodoCodigoCompleto = periodoCodigoCompleto;
@@ -57,6 +65,7 @@ public sealed class OpcionesCli
         Salida = salida;
         AseId = aseId;
         Sobrescribir = sobrescribir;
+        DivergenciasDeclaradasAceptadas = divergenciasDeclaradasAceptadas;
         Ayuda = ayuda;
     }
 
@@ -76,6 +85,7 @@ public sealed class OpcionesCli
         int? aseId = null;
         var cincoAseExplicito = false;
         var sobrescribir = false;
+        var aceptarDivergencia = new List<string>();
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -86,7 +96,7 @@ public sealed class OpcionesCli
                     // HU-15 §2.1: --help imprime uso a stdout e IGNORA el resto (salida 0).
                     // Early-return aquí: la ayuda presente gana aunque haya args inválidos
                     // tras ella (p. ej. `--help --ase 9` → 0, no 4). W-1.
-                    return new OpcionesCli(string.Empty, new Periodo(), string.Empty, string.Empty, string.Empty, null, false, true);
+                    return new OpcionesCli(string.Empty, new Periodo(), string.Empty, string.Empty, string.Empty, null, false, [], true);
                 case "--periodo":
                     periodoRaw = ValorSiguiente(args, ref i, "--periodo");
                     break;
@@ -131,6 +141,15 @@ public sealed class OpcionesCli
                     break;
                 case "--sobrescribir":
                     sobrescribir = true;
+                    break;
+                case "--aceptar-divergencia-declarada":
+                    var idDivergencia = ValorSiguiente(args, ref i, "--aceptar-divergencia-declarada");
+                    if (string.IsNullOrWhiteSpace(idDivergencia))
+                    {
+                        throw new UsoCliException("--aceptar-divergencia-declarada requiere el identificador de la entrada (no vacío).");
+                    }
+
+                    aceptarDivergencia.Add(idDivergencia);
                     break;
                 default:
                     throw new UsoCliException($"Flag desconocido: '{arg}'.");
@@ -185,7 +204,7 @@ public sealed class OpcionesCli
             throw new UsoCliException(ex.Message);
         }
 
-        return new OpcionesCli(codigoCompleto, periodo, carpeta, plantilla, salida, aseId, sobrescribir, false);
+        return new OpcionesCli(codigoCompleto, periodo, carpeta, plantilla, salida, aseId, sobrescribir, aceptarDivergencia, false);
     }
 
     /// <summary>
@@ -194,20 +213,27 @@ public sealed class OpcionesCli
     public static string Uso() =>
         """
         Uso: Remuneracion.Cli --periodo <AAAAMM|AAAAMMQ> --carpeta <dir-periodo> --plantilla <xlsx> --salida <dir>
-                             [--ase N | --cinco-ase] [--quincena 1|2] [--sobrescribir] [--help]
+                             [--ase N | --cinco-ase] [--quincena 1|2] [--sobrescribir]
+                             [--aceptar-divergencia-declarada <id>] [--help]
 
           --periodo AAAAMM[Q]  Período (p. ej. 2026071). Si usa AAAAMM, --quincena es obligatoria.
           --quincena 1|2       Quincena (override/complemento del período).
           --carpeta <dir>      Carpeta del período que contiene las 5 carpetas de ASE.
-          --plantilla <xlsx>   Plantilla de origen (se copia; jamás se modifica).
+          --plantilla <xlsx>   Plantilla de origen: puede ser la plantilla OFICIAL directamente; la base
+                               del período se prepara automáticamente (Phase 0). El original nunca se modifica.
           --salida <dir>       Carpeta de salida (se crea si falta; el archivo se nombra por el período).
           --ase N              Procesa un solo ASE (1..5). Excluye --cinco-ase.
           --cinco-ase          Procesa los 5 ASE (predeterminado).
           --sobrescribir       Sobrescribe la salida si ya existe.
+          --aceptar-divergencia-declarada <id>
+                               Reconoce explícitamente, para ESTA corrida, una divergencia declarada del
+                               catálogo (id de la entrada, p. ej. OCCIDENTE-ASE5). Repetible. Sin este
+                               reconocimiento la divergencia declarada bloquea el cierre. La aceptación no
+                               se guarda entre corridas y deja reporte durable + log.
           --help, -h           Muestra esta ayuda y sale con 0.
 
-        Códigos de salida (contrato HU-14): 0 OK · 1 validación · 2 fuente/plantilla ·
-        3 escritura · 4 inesperado · 5 cancelado.
+        Códigos de salida (contrato HU-14/Plan 42): 0 OK · 1 validación · 2 fuente/plantilla ·
+        3 escritura · 4 inesperado · 5 cancelado · 6 cierre con divergencia declarada reconocida.
         """;
 
     private static bool EsCodigoPeriodoValido(string periodo)

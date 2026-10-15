@@ -20,7 +20,7 @@ namespace Remuneracion.Infrastructure.Excel;
 /// lo dispara Excel (fullCalcOnLoad). Se invoca en el punto único de guardado: los 2 <c>Save()</c>
 /// de <see cref="OpenXmlPlantillaWriter.GenerarWorkbook(string, string, Remuneracion.Core.Models.ResultadoRemuneracion, Remuneracion.Core.Models.WorkbookLeafInputs)"/>
 /// y el guardado del espejo standalone en
-/// <see cref="OpenXmlPlantillaWriter.EscribirEspejoR1(string, string, System.Collections.Generic.IReadOnlyList{Remuneracion.Core.Models.BloqueEspejoAseInputs})"/>.
+/// <see cref="OpenXmlPlantillaWriter.EscribirEspejoR1(string, string, System.Collections.Generic.IReadOnlyList{Remuneracion.Core.Models.BloqueEspejoAseInputs}, Remuneracion.Core.Models.Periodo)"/>.
 /// </summary>
 internal static class SaneadorCadenaCalculo
 {

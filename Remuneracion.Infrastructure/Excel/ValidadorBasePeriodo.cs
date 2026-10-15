@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
@@ -79,6 +80,15 @@ internal static class ValidadorBasePeriodo
             ExigirCeldaSinFormula(consolidado, HojaConsolidado, celda, periodo, "sello base");
         }
 
+        // Plan 39 (T2, R-B-2/R-INTERV-Q): L9:L13 debe ser EXACTAMENTE la variante de la quincena
+        // del run (Q1->N, Q2->M). Una tercera forma = ERR-PLANTILLA (hoja + celda + variante esperada).
+        ExigirVarianteL(consolidado, periodo);
+
+        // Plan 40 (T3, E1-4 + F-NEW-1): las 3 familias por-columna (recaudo de VALIDACION_TOTAL y
+        // los auto-chequeos que hardcodean INTERVENTORIA!M26:M31) deben traer la variante de la
+        // quincena del run. Una base sin la variante = ERR-PLANTILLA (fail-fast antes de escribir).
+        ExigirVariantesDeQuincena(workbookPart, periodo);
+
         var hojasPeriodo = new[]
         {
             (NombresHojaPeriodo.DetRetri(periodo), new[] { "D6", "D7" }),
@@ -95,6 +105,127 @@ internal static class ValidadorBasePeriodo
         }
 
         ExigirTokensDePeriodo(workbookPart, periodo);
+    }
+
+    /// <summary>
+    /// Plan 39 (T2, R-B-2/R-INTERV-Q): <c>CONSOLIDADO_TOTAL RECAUDO!L9:L13</c> debe ser EXACTAMENTE
+    /// la variante de la quincena del run (Q1→N, Q2→M). Una tercera forma = <c>ERR-PLANTILLA</c>
+    /// nombrando hoja + celda + variante esperada.
+    /// </summary>
+    private static void ExigirVarianteL(Worksheet consolidado, Periodo periodo)
+    {
+        foreach (var (celda, formulaEsperada) in PreparadorBasePipeline.FormulasLEsperadas(periodo))
+        {
+            var cell = consolidado.Descendants<Cell>()
+                .FirstOrDefault(c => string.Equals(c.CellReference?.Value, celda, StringComparison.OrdinalIgnoreCase))
+                ?? throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"La base del período {periodo.CodigoCompleto} no trae '{HojaConsolidado}!{celda}' " +
+                    $"(variante L esperada '{formulaEsperada}', R-INTERV-Q). Fail-fast antes de escribir.");
+
+            var formula = cell.CellFormula?.Text;
+            if (string.IsNullOrWhiteSpace(formula) || !string.Equals(formula, formulaEsperada, StringComparison.Ordinal))
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"La base del período {periodo.CodigoCompleto} no trae la variante L de su quincena: " +
+                    $"'{HojaConsolidado}!{celda}' = '{formula ?? "(valor)"}' != '{formulaEsperada}' " +
+                    $"(R-INTERV-Q, Q{periodo.NumeroQuincena}). Fail-fast antes de escribir.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Plan 40 (T3, E1-4 + F-NEW-1): la base del período debe traer la variante de la quincena del
+    /// run en las 3 familias por-columna: <c>VALIDACION_TOTAL!C3:C8</c> (columna del bloque
+    /// <c>'Recaudo *'</c>: D en Q1 / F en Q2) y los auto-chequeos de <c>DetRetri/DetValiRetri</c>
+    /// que hardcodean <c>INTERVENTORIA!M26:M31</c> (N en Q1 / M en Q2, misma tabla que R-INTERV-Q).
+    /// Cualquier otra forma = <c>ERR-PLANTILLA</c> nombrando hoja + celda + variante esperada.
+    /// </summary>
+    private static void ExigirVariantesDeQuincena(WorkbookPart workbookPart, Periodo periodo)
+    {
+        var columnaRecaudo = PreparadorBasePipeline.ColumnaRecaudoDe(periodo);
+        var hojasRecaudo = EmpresaFacturacion.Catalogo.Select(e => e.HojaRecaudo).ToHashSet(StringComparer.Ordinal);
+
+        // E1-4: VALIDACION_TOTAL!C3:C8 + VALIDACION_*!C3:C8 deben sumar 'Recaudo *' en la columna
+        // de la quincena del run.
+        var hojasValidacion = new List<string> { WorkbookLeafCellMapValidaciones.HojaValidacionTotal };
+        hojasValidacion.AddRange(EmpresaFacturacion.Catalogo.OrderBy(e => e.Id).Select(e => e.HojaValidacion));
+        foreach (var nombreHoja in hojasValidacion)
+        {
+            var worksheet = ResolverHoja(workbookPart, nombreHoja);
+            foreach (var (celda, fila) in PreparadorBasePipeline.CeldasRecaudoDeValidacionTotal)
+            {
+                var cell = worksheet.Descendants<Cell>()
+                    .FirstOrDefault(c => string.Equals(c.CellReference?.Value, celda, StringComparison.OrdinalIgnoreCase))
+                    ?? throw new CalculoInvalidoException(
+                        CodigoError.Plantilla,
+                        $"La base del período {periodo.CodigoCompleto} no trae '{nombreHoja}!{celda}' (E1-4). Fail-fast antes de escribir.");
+
+                var formula = cell.CellFormula?.Text;
+                if (string.IsNullOrWhiteSpace(formula))
+                {
+                    throw new CalculoInvalidoException(
+                        CodigoError.Plantilla,
+                        $"La base del período {periodo.CodigoCompleto} no trae la variante de recaudo de su quincena: " +
+                        $"'{nombreHoja}!{celda}' no es fórmula (E1-4, Q{periodo.NumeroQuincena}). Fail-fast antes de escribir.");
+                }
+
+                foreach (var termino in PreparadorBasePipeline.SepararTerminosSuma(formula))
+                {
+                    var m = Regex.Match(termino, "^'(?<hoja>[^']+)'!(?<col>[A-Z]+)(?<fila>\\d+)$");
+                    var ok = m.Success
+                        && hojasRecaudo.Contains(m.Groups["hoja"].Value)
+                        && string.Equals(m.Groups["fila"].Value, fila.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
+                        && string.Equals(m.Groups["col"].Value, columnaRecaudo, StringComparison.Ordinal);
+                    if (!ok)
+                    {
+                        throw new CalculoInvalidoException(
+                            CodigoError.Plantilla,
+                            $"La base del período {periodo.CodigoCompleto} no trae la variante de recaudo de su quincena: " +
+                            $"'{nombreHoja}!{celda}' = '{formula}' no es Σ 'Recaudo *'!{columnaRecaudo}{fila} " +
+                            $"(E1-4, Q{periodo.NumeroQuincena}). Fail-fast antes de escribir.");
+                    }
+                }
+            }
+        }
+
+        foreach (var (hoja, celda, fragmento) in PreparadorBasePipeline.FragmentosAutoChequeoEsperados(periodo))
+        {
+            var worksheet = ResolverHoja(workbookPart, hoja);
+            var cell = worksheet.Descendants<Cell>()
+                .FirstOrDefault(c => string.Equals(c.CellReference?.Value, celda, StringComparison.OrdinalIgnoreCase))
+                ?? throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"La base del período {periodo.CodigoCompleto} no trae '{hoja}!{celda}' (F-NEW-1, variante '{fragmento}'). Fail-fast antes de escribir.");
+
+            var formula = cell.CellFormula?.Text;
+            if (string.IsNullOrWhiteSpace(formula) || !formula.Contains(fragmento, StringComparison.Ordinal))
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"La base del período {periodo.CodigoCompleto} no trae la variante de su quincena: " +
+                    $"'{hoja}!{celda}' = '{formula ?? "(valor)"}' no contiene '{fragmento}' (F-NEW-1, Q{periodo.NumeroQuincena}). Fail-fast antes de escribir.");
+            }
+        }
+
+        // Plan 41 (T3): el auto-chequeo S26:S31 exige INTERVENTORIA!R26 == la tabla de la quincena
+        // del run (Q2 → J15; Q1 → N26). Una base con la tabla de la otra quincena = ERR-PLANTILLA.
+        var esperadoTablaJ = PreparadorBasePipeline.TablaJMaestroDe(periodo);
+        var hojaInterventoria = ResolverHoja(workbookPart, WorkbookLeafCellMapAjustesSfT.HojaInterventoria);
+        var celdaR26 = hojaInterventoria.Descendants<Cell>()
+            .FirstOrDefault(c => string.Equals(c.CellReference?.Value, PreparadorBasePipeline.CeldaTablaJMaestro, StringComparison.OrdinalIgnoreCase))
+            ?? throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"La base del período {periodo.CodigoCompleto} no trae '{WorkbookLeafCellMapAjustesSfT.HojaInterventoria}!{PreparadorBasePipeline.CeldaTablaJMaestro}' (T3, tabla J '{esperadoTablaJ}'). Fail-fast antes de escribir.");
+        var formulaR26 = celdaR26.CellFormula?.Text;
+        if (string.IsNullOrWhiteSpace(formulaR26) || !string.Equals(formulaR26, esperadoTablaJ, StringComparison.Ordinal))
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"La base del período {periodo.CodigoCompleto} no trae la tabla J de su quincena: " +
+                $"'{WorkbookLeafCellMapAjustesSfT.HojaInterventoria}!{PreparadorBasePipeline.CeldaTablaJMaestro}' = '{formulaR26 ?? "(valor)"}' != '{esperadoTablaJ}' (T3, Q{periodo.NumeroQuincena}). Fail-fast antes de escribir.");
+        }
     }
 
     /// <summary>

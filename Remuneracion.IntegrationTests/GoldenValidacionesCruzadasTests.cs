@@ -23,15 +23,20 @@ public sealed class GoldenValidacionesCruzadasTests
     private const decimal Tolerancia = Insumos.Tolerancia;
 
     [Fact]
-    public void CapaA_Q1_GatesVsGoldenCache_SinErrores_Y_ValidacionesFormulaEnLaSalida()
+    public void CapaA_Q1_EvaluacionHonesta_RecaudoCierra_EspejoNo()
     {
         var (resultado, leafs, salida) = EjecutarQ1();
         var hashQ1 = Sha256(Insumos.Plantilla);
 
-        // A2-Q1: gates 2.7 de dominio contra el caché golden del canónico Q1 (= plantilla).
-        var snapshotsGolden = new ValidacionOracleReader().LeerSnapshots(Insumos.Plantilla, Insumos.Periodo());
-        var errores = new ValidadorBasico().Validar(resultado, leafs, snapshotsGolden);
-        Assert.Empty(errores);
+        // A2-Q1 (Plan 40, E-1): el gate EVALÚA desde lo escrito. En Q1 el recaudo cierra
+        // (C15/D25 TRUE: la <f> C3:C8 se reescribe a la columna D — E1-4); el espejo de
+        // remuneración NO (O25/D34/F34 FALSE) — defecto real E1-2, no verde heredado.
+        var snapshots = new ValidacionOracleReader().LeerSnapshots(salida, Insumos.Periodo());
+        Assert.All(snapshots, s => Assert.True(s.SubBloquesValidacionTotal["C15"]));
+        Assert.All(snapshots, s => Assert.True(s.SubBloquesValidacionTotal["D25"]));
+        Assert.All(snapshots, s => Assert.False(s.SubBloquesValidacionTotal["O25"]));
+        Assert.All(snapshots, s => Assert.False(s.SubBloquesValidacionTotal["D34"]));
+        Assert.All(snapshots, s => Assert.False(s.SubBloquesValidacionTotal["F34"]));
 
         // A3-Q1: las hojas de validación siguen siendo fórmula en la salida (mapa 2.7).
         foreach (var (hoja, celda, _) in WorkbookLeafCellMapValidaciones.ProtegidasValidacionesParaPeriodo(Insumos.Periodo()))

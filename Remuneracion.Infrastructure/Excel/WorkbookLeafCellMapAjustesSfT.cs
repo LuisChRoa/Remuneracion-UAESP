@@ -33,22 +33,26 @@ public static class WorkbookLeafCellMapAjustesSfT
     public const string HojaInterventoria = "INTERVENTORIA";
 
     /// <summary>
-    /// Filas editables del bloque SALDOS POR NOTA por ASE (plantilla canónica, T0-0.7).
-    /// Cada fila del rango es una fila de conceptos/Total en VALORES (la fila Cn-In siguiente
-    /// es fórmula protegida y NO se incluye aquí).
+    /// Filas editables del bloque SALDOS POR NOTA por ASE (Plan 41/T2, D-F: re-congeladas desde la
+    /// PLANTILLA OFICIAL, no la canónica legacy). Cada bloque oficial trae 6 filas:
+    /// <c>Vlr Servicio, Vlr Intereses, Componente, Subsidio, Subs/Cont, Total</c> — la fila
+    /// <c>Vlr Intereses</c> extra es la que la app legacy desplazaba +1 (colocaba <c>Total</c> en
+    /// <c>Subs/Cont</c>). La fila Cn-In siguiente es fórmula protegida y NO se incluye aquí.
     /// </summary>
     public static readonly IReadOnlyDictionary<int, (int Desde, int Hasta)> FilasSaldosNotasPorAse =
         new Dictionary<int, (int, int)>
         {
-            [1] = (3, 7),
-            [2] = (15, 20),
-            [3] = (28, 32),
-            [4] = (40, 45),
-            [5] = (53, 58)
+            [1] = (3, 8),
+            [2] = (16, 21),
+            [3] = (29, 34),
+            [4] = (42, 47),
+            [5] = (55, 60)
         };
 
     /// <summary>
-    /// Filas editables del bloque RETRIBUCION NEGATIVA por ASE (plantilla canónica, T0-0.7).
+    /// Filas editables del bloque RETRIBUCION NEGATIVA por ASE (Plan 41/T2, D-F: re-congeladas desde
+    /// la PLANTILLA OFICIAL). 6 filas: <c>Vlr Intereses, Vlr Servicio, Componente, Subsidio,
+    /// Subs/Cont, Total</c>.
     /// </summary>
     public static readonly IReadOnlyDictionary<int, (int Desde, int Hasta)> FilasRetribucionNegativaPorAse =
         new Dictionary<int, (int, int)>
@@ -57,7 +61,7 @@ public static class WorkbookLeafCellMapAjustesSfT
             [2] = (16, 21),
             [3] = (29, 34),
             [4] = (42, 47),
-            [5] = (55, 59)
+            [5] = (55, 60)
         };
 
     /// <summary>
@@ -90,22 +94,24 @@ public static class WorkbookLeafCellMapAjustesSfT
     public const string ColumnaTemplateDebCred = "O";
 
     /// <summary>
-    /// Fila (1-based) de la etiqueta "Total" dentro de cada bloque SALDOS-NOTAS del template.
-    /// Es la fila cuyo valor col C alimenta el visible Cn-In (T0-0.3): la fila "Total" del rango.
+    /// Fila (1-based) de la etiqueta "Total" dentro de cada bloque SALDOS-NOTAS del template
+    /// oficial. Es la fila cuyo valor col C alimenta el visible Cn-In (T0-0.3): la fila "Total".
+    /// Plan 41/T2: la fila Cn-In visible es <c>C{Total}-I{Total}</c> (ASE1 <c>C10=C8-I8</c>).
     /// </summary>
     public static readonly IReadOnlyDictionary<int, int> FilaTotalSaldosPorAse =
         new Dictionary<int, int>
         {
-            [1] = 7, [2] = 20, [3] = 32, [4] = 45, [5] = 58
+            [1] = 8, [2] = 21, [3] = 34, [4] = 47, [5] = 60
         };
 
     /// <summary>
-    /// Fila (1-based) de la etiqueta "Total" dentro de cada bloque RETRIBUCION-NEGATIVA del template.
+    /// Fila (1-based) de la etiqueta "Total" dentro de cada bloque RETRIBUCION-NEGATIVA del template
+    /// oficial. Plan 41/T2.
     /// </summary>
     public static readonly IReadOnlyDictionary<int, int> FilaTotalRetribucionPorAse =
         new Dictionary<int, int>
         {
-            [1] = 8, [2] = 21, [3] = 34, [4] = 47, [5] = 59
+            [1] = 8, [2] = 21, [3] = 34, [4] = 47, [5] = 60
         };
 
     /// <summary>
@@ -125,28 +131,28 @@ public static class WorkbookLeafCellMapAjustesSfT
         {
             [1] =
             [
-                (3, "Vlr Servicio", false), (4, "Componente", false), (5, "Subsidio(-)/Contribucion(+)", false),
-                (6, "Subs/Cont", false), (7, "Total", false)
+                (3, "Vlr Servicio", false), (4, "Vlr Intereses", true), (5, "Componente", false),
+                (6, "Subsidio(-)/Contribucion(+)", false), (7, "Subs/Cont", false), (8, "Total", false)
             ],
             [2] =
             [
-                (15, "Vlr Servicio", false), (16, "Vlr Intereses", true), (17, "Componente", false),
-                (18, "Subsidio(-)/Contribucion(+)", false), (19, "Subs/Cont", false), (20, "Total", false)
+                (16, "Vlr Servicio", false), (17, "Vlr Intereses", true), (18, "Componente", false),
+                (19, "Subsidio(-)/Contribucion(+)", false), (20, "Subs/Cont", false), (21, "Total", false)
             ],
             [3] =
             [
-                (28, "Vlr Servicio", false), (29, "Componente", false), (30, "Subsidio(-)/Contribucion(+)", false),
-                (31, "Subs/Cont", false), (32, "Total", false)
+                (29, "Vlr Servicio", false), (30, "Vlr Intereses", true), (31, "Componente", false),
+                (32, "Subsidio(-)/Contribucion(+)", false), (33, "Subs/Cont", false), (34, "Total", false)
             ],
             [4] =
             [
-                (40, "Vlr Servicio", false), (41, "Vlr Intereses", true), (42, "Componente", false),
-                (43, "Subsidio(-)/Contribucion(+)", false), (44, "Subs/Cont", false), (45, "Total", false)
+                (42, "Vlr Servicio", false), (43, "Vlr Intereses", true), (44, "Componente", false),
+                (45, "Subsidio(-)/Contribucion(+)", false), (46, "Subs/Cont", false), (47, "Total", false)
             ],
             [5] =
             [
-                (53, "Vlr Servicio", false), (54, "Vlr Intereses", true), (55, "Componente", false),
-                (56, "Subsidio(-)/Contribucion(+)", false), (57, "Subs/Cont", false), (58, "Total", false)
+                (55, "Vlr Servicio", false), (56, "Vlr Intereses", true), (57, "Componente", false),
+                (58, "Subsidio(-)/Contribucion(+)", false), (59, "Subs/Cont", false), (60, "Total", false)
             ]
         };
 
@@ -182,8 +188,8 @@ public static class WorkbookLeafCellMapAjustesSfT
             ],
             [5] =
             [
-                (55, "Vlr Servicio", false), (56, "Componente", false), (57, "Subsidio(-)/Contribucion(+)", false),
-                (58, "Subs/Cont", false), (59, "Total", false)
+                (55, "Vlr Intereses", true), (56, "Vlr Servicio", false), (57, "Componente", false),
+                (58, "Subsidio(-)/Contribucion(+)", false), (59, "Subs/Cont", false), (60, "Total", false)
             ]
         };
 

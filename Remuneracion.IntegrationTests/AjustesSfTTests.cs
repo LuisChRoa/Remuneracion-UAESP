@@ -63,9 +63,10 @@ public sealed class AjustesSfTTests
         var reader = new ExcelDataReaderWorkbookLeafInputReader();
         var saldos = reader.LeerSaldosNotas(Insumos.Ase(2), Insumos.SaldosNotas(2));
 
-        // Fila template 15 (Vlr Servicio) del bloque ASE2: O15 = Deb/Cred de la fuente (N4=-0.37).
-        Assert.True(saldos.Celdas.ContainsKey("O15"));
-        Assert.InRange(saldos.Celdas["O15"] - (-0.37m), -Tolerancia, Tolerancia);
+        // Fila template 16 (Vlr Servicio) del bloque ASE2 (Plan 41/T2: geometría OFICIAL 16-21):
+        // O16 = Deb/Cred de la fuente (N4=-0.37).
+        Assert.True(saldos.Celdas.ContainsKey("O16"));
+        Assert.InRange(saldos.Celdas["O16"] - (-0.37m), -Tolerancia, Tolerancia);
     }
 
     [Fact]
@@ -96,15 +97,15 @@ public sealed class AjustesSfTTests
         var reader = new ExcelDataReaderWorkbookLeafInputReader();
         var saldos = reader.LeerSaldosNotas(Insumos.Ase(2), Insumos.SaldosNotasAgosto(2));
 
-        // Fila 16 = 'Vlr Intereses' del bloque ASE2 (FilaTotalSaldosPorAse[2] = 20). Todas las
-        // columnas del MapeoColumnasPorTitulo quedan en 0 explícito; la I (Especiales) también.
+        // Fila 17 = 'Vlr Intereses' del bloque ASE2 (Plan 41/T2: geometría OFICIAL; Total en la fila
+        // 21). Todas las columnas del MapeoColumnasPorTitulo quedan en 0 explícito; la I también.
         foreach (var columna in new[] { "C", "D", "E", "F", "G", "H", "J", "K", "L", "M", "N" })
         {
-            Assert.True(saldos.Celdas.ContainsKey($"{columna}16"), $"Falta el 0 explícito {columna}16.");
-            Assert.Equal(0m, saldos.Celdas[$"{columna}16"]);
+            Assert.True(saldos.Celdas.ContainsKey($"{columna}17"), $"Falta el 0 explícito {columna}17.");
+            Assert.Equal(0m, saldos.Celdas[$"{columna}17"]);
         }
 
-        Assert.Equal(0m, saldos.Celdas["I16"]);
+        Assert.Equal(0m, saldos.Celdas["I17"]);
 
         // El resto del bloque no se ve afectado por la ausencia (T0 V6: Total = Componente + Subsidio).
         Assert.InRange(saldos.Total - 506855.36m, -Tolerancia, Tolerancia);
@@ -114,14 +115,14 @@ public sealed class AjustesSfTTests
     public void LeerSaldosNotas_OpcionalPresente_JulioAse2_LeeValorReal()
     {
         // HU-22 (Plan 23, R-F-4/T2, S2, R-REGRESION-JULIO): julio Q2 ASE2 SÍ trae 'Vlr Intereses'
-        // (C5 = 172.61) → la fila 16 del template debe traer el valor real, nunca 0. La rama
-        // tolerante solo se activa cuando la fila falta.
+        // (C5 = 172.61) → la fila 17 del template (Plan 41/T2: geometría oficial) debe traer el valor
+        // real, nunca 0. La rama tolerante solo se activa cuando la fila falta.
         var reader = new ExcelDataReaderWorkbookLeafInputReader();
         var saldos = reader.LeerSaldosNotas(Insumos.Ase(2), Insumos.SaldosNotas(2));
 
-        Assert.True(saldos.Celdas.ContainsKey("C16"));
-        Assert.NotEqual(0m, saldos.Celdas["C16"]);
-        Assert.InRange(saldos.Celdas["C16"] - 172.61m, -Tolerancia, Tolerancia);
+        Assert.True(saldos.Celdas.ContainsKey("C17"));
+        Assert.NotEqual(0m, saldos.Celdas["C17"]);
+        Assert.InRange(saldos.Celdas["C17"] - 172.61m, -Tolerancia, Tolerancia);
     }
 
     [Fact]
@@ -147,8 +148,9 @@ public sealed class AjustesSfTTests
     public void MapaAjustesSfT_SoloVlrInteresesEsOpcional_EnAmbasTablas()
     {
         // HU-22 (Plan 23, T1, R-F-1/R-F-2): la obligatoriedad es DATO del mapa. Único concepto
-        // opcional = 'Vlr Intereses'; todo lo demás es core obligatorio. SALDOS lo marca en
-        // ASE 2/4/5; RETRI en ASE 1-4 (paridad de la regla en ambos readers, defecto latente T0d).
+        // opcional = 'Vlr Intereses'; todo lo demás es core obligatorio. Plan 41/T2: la geometría
+        // OFICIAL trae 'Vlr Intereses' en AMBOS bloques de los 5 ASE (SALDOS y RETRI) → el concepto
+        // opcional existe en los 5 (la opcionalidad solo se activa cuando la FUENTE no lo trae).
         for (var aseId = 1; aseId <= 5; aseId++)
         {
             foreach (var (_, concepto, esOpcional) in WorkbookLeafCellMapAjustesSfT.ObtenerConceptosSaldos(aseId))
@@ -169,8 +171,8 @@ public sealed class AjustesSfTTests
             .Where(id => WorkbookLeafCellMapAjustesSfT.ObtenerConceptosRetribucion(id).Any(c => c.Concepto == "Vlr Intereses"))
             .ToArray();
 
-        Assert.Equal(new[] { 2, 4, 5 }, saldosConIntereses);
-        Assert.Equal(new[] { 1, 2, 3, 4 }, retriConIntereses);
+        Assert.Equal(new[] { 1, 2, 3, 4, 5 }, saldosConIntereses);
+        Assert.Equal(new[] { 1, 2, 3, 4, 5 }, retriConIntereses);
     }
 
     [Fact]

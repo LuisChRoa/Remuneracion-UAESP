@@ -3,7 +3,7 @@
 > **Norma de referencia:** Resolución UAESP 27 de 2018 — Reglamento Comercial y Financiero del servicio de aseo.
 > **Documento rector:** `Docs/Propuesta_Proyecto_Automatizacion_Remuneracion_UAESP.md` (Fase 3, it. 3.4 — "Manual de usuario y technical").
 > **Versión de la aplicación:** 1.0 (Fase 3 cerrada; HU-01..HU-17).
-> **Última actualización del manual:** 2026-10-07 (§3.4/§10: sello de proceso D6/D7 desde el R10 + cómo leer un FAIL del gate de totales R1, Plan 31).
+> **Última actualización del manual:** 2026-10-14 (§2.3/§2.4/§4: la plantilla oficial es el input directo de la app; la base del período se prepara automáticamente — Plan 39).
 
 ---
 
@@ -79,24 +79,24 @@ Dentro de cada carpeta de ASE, los archivos fuente se reconocen por **prefijo** 
 | Saldos por nota (Q2) | `SaldosaFavorAplicadosPorNotas_*.xlsx` |
 | Retribución negativa (Q2) | `RetribuciónNegativa_*.xlsx` |
 
-**Plantilla de origen (regla de proceso):** use la **plantilla en ceros** del período (p. ej. `REMUNERACION AAAAMMQ/Plantilla_ Remuneracion AAAAMM-#.xlsx`), **no** una salida ya trabajada de otro período. La app **copia** la plantilla y escribe en la copia; la plantilla original **jamás se modifica**. La app **sella las fechas `Fecha Desde`/`Fecha Hasta` desde el R10** del período y **sanea la cadena de cálculo** al guardar; si parte de una salida trabajada de otro período, arrastraría las fechas y la cadena de cálculo de ese otro período (el defecto que la versión actual elimina).
+**Plantilla de origen (regla de proceso):** use la **plantilla OFICIAL** `Docs/Plantilla estandarizada/Formato Remuneracion 2026xx-x Total.xlsx` para **todos** los períodos. La app **copia** la plantilla y escribe en la copia; la plantilla original **jamás se modifica**. Al arrancar, la app prepara sola la **base del período** sobre la copia (renombra las 3 hojas del período, reescribe el código de período, sella `N3` y selecciona la columna de la quincena en `CONSOLIDADO_TOTAL RECAUDO!L9:L13` — ver §2.4): **no hay paso manual de preparación de base**. La app **sella las fechas `Fecha Desde`/`Fecha Hasta` desde el R10** del período y **sanea la cadena de cálculo** al guardar. No use una salida ya trabajada de otro período: arrastraría fechas y cadena de cálculo ajenas.
 
 ### 2.4 Proceso por quincena (Q1 → Q2)
 
-Cada quincena se ejecuta desde **su base del período** (plantilla en ceros + R10 de la quincena). Para el **acumulado del mes**, encadene Q1 → Q2 en el mismo libro (use la salida de Q1 como base de Q2). Para **comparar quincena contra quincena**, use **bases separadas** (una corrida por quincena, cada una desde la plantilla en ceros).
+Cada quincena se ejecuta desde la **plantilla oficial** (el R10 de la quincena es un insumo del período). La app prepara sola la base de la quincena seleccionada (Q1 o Q2). Para el **acumulado del mes**, encadene Q1 → Q2 en el mismo libro (use la salida de Q1 como base de Q2). Para **comparar quincena contra quincena**, use **bases separadas** (una corrida por quincena, cada una desde la plantilla oficial).
 
 Cada corrida escribe **solo las columnas de su quincena**: en las hojas `Recaudo *`, la 1.ª quincena usa `VALOR 1°Q`/`N° REG. 1°Q` (columnas D/E) y la 2.ª usa `VALOR 2°Q`/`N° REG. 2°Q` (columnas F/G). Por eso, en una corrida **aislada de Q2** las celdas de la 1.ª quincena —`D3:E3` y las siguientes de esa rejilla— quedan en **0**; es **correcto por diseño**, no un error: la app no escribe la quincena que no está liquidando.
 
-**Plantilla canónica del proyecto:** `Docs/Plantilla_Remuneracion.xlsx` (período 2026072, 40 hojas) — plantilla en ceros de referencia.
+**Plantilla del proyecto:** `Docs/Plantilla estandarizada/Formato Remuneracion 2026xx-x Total.xlsx` — plantilla oficial única (input directo de la app para todos los períodos).
 
-**Base por mes (qué base usar según el período):** la base del período debe traer las hojas **`DetRetri{código}`** / `DetValiRetri{código}` **del código del período** que va a liquidar (el nombre de la hoja se compone del período seleccionado; no se busca por parecido).
+**Base por quincena (qué prepara la app según el período):** la app compone las hojas **`DetRetri{código}`** / `DetValiRetri{código}` / `Informe AFaseo Recaudo {AAAAMM}-{Q}` **del período seleccionado** (el nombre se compone del período; no se busca por parecido) y selecciona la columna de la quincena en `CONSOLIDADO_TOTAL RECAUDO!L9:L13` (por dominio, no por el contenido del libro). **No hay base por mes que preparar a mano.**
 
-| Mes a liquidar | Base a usar |
+| Quincena a liquidar | Columna de `INTERVENTORIA` en `L9:L13` |
 |---|---|
-| Julio (período 2026072) | base de julio — trae `DetRetri2026072` |
-| Agosto (período 2026082) | `Docs/Prueba2/Plantilla_Remuneracion_2026082.xlsx` — trae `DetRetri2026082` |
+| 1.ª quincena (Q1) | `N26:N30` (Primera quincena) |
+| 2.ª quincena (Q2) | `M26:M30` (Segunda quincena) |
 
-Si usa la base de otro mes (p. ej. selecciona agosto pero carga la base de julio), la ejecución se detiene al inicio con `ERR-PLANTILLA` y **no escribe nada**; el mensaje nombra la hoja del período esperada (ver §10).
+La base la prepara la app. Si la plantilla de origen no es la oficial (no trae las hojas del período), la ejecución se detiene al inicio con `ERR-PLANTILLA` y **no escribe nada**; el mensaje nombra la hoja del período esperada (ver §10).
 
 ---
 
@@ -108,7 +108,7 @@ Si usa la base de otro mes (p. ej. selecciona agosto pero carga la base de julio
 |---|---|
 | **Año / Mes / Quincena** | Período a liquidar. Quincena 1 = días 1–15; quincena 2 = días 16–31. |
 | **Carpeta de fuentes** | Carpeta del período (`REMUNERACION AAAAMM{Q}`) con las 5 carpetas de ASE. |
-| **Plantilla** | Archivo plantilla de origen (canónico). |
+| **Plantilla** | Plantilla **oficial** (`Formato Remuneracion 2026xx-x Total.xlsx`); la base del período se prepara automáticamente. |
 | **Carpeta de salida** | Carpeta donde se creará `Remuneración AAAAMM-# Total.xlsx` (se nombra automáticamente). |
 | **Modo 5 ASE / ASE único** | Casilla **"Procesar todos"**: marcada procesa los 5 operadores; desmarcada procesa el ASE elegido en el combo. |
 | **Ver logs** | Abre el diálogo modal **"Detalle técnico — logs"** con el detalle de la última ejecución (botones **Copiar** y **Cerrar**). Se habilita solo al finalizar, si hubo contenido. |
@@ -118,7 +118,7 @@ Si usa la base de otro mes (p. ej. selecciona agosto pero carga la base de julio
 
 1. Seleccione año, mes y quincena del período.
 2. Seleccione la carpeta de fuentes (`...` junto a "Carpeta de fuentes").
-3. Seleccione la plantilla canónica (`...` junto a "Plantilla").
+3. Seleccione la **plantilla oficial** (`...` junto a "Plantilla"); la base del período se prepara sola.
 4. Seleccione la carpeta de salida (`...` junto a "Carpeta de salida").
 5. Marque **"Procesar todos"** o elija un ASE único en el combo.
 6. Pulse **Ejecutar**.
@@ -141,7 +141,7 @@ El archivo resultante `Remuneración AAAAMM-# Total.xlsx` se genera en la carpet
 | `CONSOLIDADO_TOTAL RECAUDO!G7` / `!K7` | `Fecha Desde` / `Fecha Hasta` del período (rango) | serial de fecha (se muestra con el formato de fecha de la celda) |
 | `DetRetri{AAAAMMQ}!D6` / `!D7` y `DetValiRetri{AAAAMMQ}!D6` / `!D7` | `Fecha de Proceso` (D6) / `Hora` (D7) del proceso | **texto** (`dd/MM/yyyy` y `hh:mm AM/PM`), como la base/manual/R10 |
 
-Las fechas de proceso se toman del **R10** (`DetRetri{AAAAMMQ}`: encabezados `Fecha de Proceso` y `Hora`); si no son legibles, la ejecución falla al inicio con `ERR-FORMATO-FUENTE` (período + archivo + celda) y **no hay salida parcial**. El `CONSOLIDADO_TOTAL RECAUDO!D6` **no se duplica** (ya viene en la base). La base a usar depende del mes que se liquida (ver §2.4).
+Las fechas de proceso se toman del **R10** (`DetRetri{AAAAMMQ}`: encabezados `Fecha de Proceso` y `Hora`); si no son legibles, la ejecución falla al inicio con `ERR-FORMATO-FUENTE` (período + archivo + celda) y **no hay salida parcial**. El `CONSOLIDADO_TOTAL RECAUDO!D6` **no se duplica** (ya viene en la base). La base del período la prepara la app a partir de la plantilla oficial (ver §2.4).
 
 ---
 
@@ -156,7 +156,8 @@ Uso: Remuneracion.Cli --periodo <AAAAMM|AAAAMMQ> --carpeta <dir-periodo> --plant
   --periodo AAAAMM[Q]  Período (p. ej. 2026071). Si usa AAAAMM, --quincena es obligatoria.
   --quincena 1|2       Quincena (override/complemento del período).
   --carpeta <dir>      Carpeta del período que contiene las 5 carpetas de ASE.
-  --plantilla <xlsx>   Plantilla de origen (se copia; jamás se modifica).
+  --plantilla <xlsx>   Plantilla de origen: puede ser la plantilla OFICIAL directamente; la base
+                       del período se prepara automáticamente (Phase 0). El original nunca se modifica.
   --salida <dir>       Carpeta de salida (se crea si falta; el archivo se nombra por el período).
   --ase N              Procesa un solo ASE (1..5). Excluye --cinco-ase.
   --cinco-ase          Procesa los 5 ASE (predeterminado).
@@ -174,13 +175,13 @@ Reglas de uso:
 
 ```bash
 # Q1 — 5 ASE (caso CT-Q1-5A)
-Remuneracion.Cli --periodo 2026071 --carpeta "Docs/Insumos/REMUNERACION 2026071" --plantilla "Docs/Insumos/Remuneracion 202607-1 Total.xlsx" --salida "Docs/Insumos/Salidas" --cinco-ase --sobrescribir
+Remuneracion.Cli --periodo 2026071 --carpeta "Docs/Prueba Julio-1/Insumos" --plantilla "Docs/Plantilla estandarizada/Formato Remuneracion 2026xx-x Total.xlsx" --salida "salidas" --cinco-ase --sobrescribir
 
 # Q1 — ASE único 3 (caso CT-Q1-1A)
-Remuneracion.Cli --periodo 2026071 --carpeta "Docs/Insumos/REMUNERACION 2026071" --plantilla "Docs/Insumos/Remuneracion 202607-1 Total.xlsx" --salida "Docs/Insumos/Salidas" --ase 3
+Remuneracion.Cli --periodo 2026071 --carpeta "Docs/Prueba Julio-1/Insumos" --plantilla "Docs/Plantilla estandarizada/Formato Remuneracion 2026xx-x Total.xlsx" --salida "salidas" --ase 3
 
-# Q2 — 5 ASE (caso CT-Q2-5A; plantilla canónica Q2)
-Remuneracion.Cli --periodo 2026072 --carpeta "Docs/Insumos/REMUNERACION 2026072" --plantilla "Docs/Insumos/REMUNERACION 2026072/Plantilla 8 agos 2026 _ Remuneracion 202607-2 Total.xlsx" --salida "Docs/Insumos/Salidas" --cinco-ase --sobrescribir
+# Q2 — 5 ASE (caso CT-Q2-5A; plantilla OFICIAL — la base del período se prepara sola)
+Remuneracion.Cli --periodo 2026072 --carpeta "Docs/Prueba Julio-2/Insumos" --plantilla "Docs/Plantilla estandarizada/Formato Remuneracion 2026xx-x Total.xlsx" --salida "salidas" --cinco-ase --sobrescribir
 ```
 
 Si ejecuta desde el código fuente:
@@ -302,9 +303,9 @@ La hoja `INTERVENTORIA` (bloque K25:N32) es una **tabla anual estática** que **
 
 **¿De dónde salen las fechas `Fecha Desde`/`Fecha Hasta` de la salida?** Del R10 del período (`R10_Remuneracion_AAAAMMQ.xlsx`, celdas G7/J7). La app las sella sola en `CONSOLIDADO_TOTAL RECAUDO`. Si el R10 no trae fechas legibles, la ejecución falla al inicio con `ERR-FORMATO-FUENTE` nombrando período, archivo y celda, y no se genera salida.
 
-**¿Qué plantilla debo usar?** Siempre la **plantilla en ceros** del período. No use una salida ya trabajada como plantilla: la app sella las fechas desde el R10 y sanea la cadena de cálculo, pero partir de una salida de otro período arrastra sus artefactos (fechas y cadena de cálculo ajenas).
+**¿Qué plantilla debo usar?** Siempre la **plantilla OFICIAL** `Docs/Plantilla estandarizada/Formato Remuneracion 2026xx-x Total.xlsx` (una sola para todos los períodos). La app prepara sola la base del período sobre la copia (hojas, código de período y columna de la quincena — §2.4). No use una salida ya trabajada como plantilla: arrastraría fechas y cadena de cálculo ajenas.
 
-**¿Qué significa `ERR-PLANTILLA` con "La hoja 'DetRetri{código}' no existe en el workbook…"?** Que está usando una **base de otro período**: la base no trae las hojas del período seleccionado (p. ej. correr agosto sobre una base de julio — caso S3). El mensaje nombra la **hoja esperada del período** y la **operación**, y **no hay escritura parcial**. No es un error de datos: es la base equivocada. Corrija cargando la base del período (ver §2.4) y vuelva a ejecutar.
+**¿Qué significa `ERR-PLANTILLA` con "La hoja 'DetRetri{código}' no existe en el workbook…"?** Que la plantilla de origen **no es la oficial** (no trae las hojas del período). Use la plantilla oficial `Docs/Plantilla estandarizada/Formato Remuneracion 2026xx-x Total.xlsx` (ver §2.4): la app prepara la base del período sola. El mensaje nombra la **hoja esperada del período** y la **operación**, y **no hay escritura parcial**. No es un error de datos: es la plantilla equivocada.
 
 **¿Qué significa un FAIL de la verificación de totales R1 (gate S1)?** Los totales visibles de `Reporte Componentes R1` —TOT_OPT (columna `F`), total TDF (columna `G`) y EXTEMP (columna `F`) de cada ASE— se verifican contra el **workbook generado**: se lee la fórmula escrita, se evalúan sus valores y se contrasta con el resultado calculado por la app con tolerancia ±0.5. Un FAIL nombra **ASE + celda** (p. ej. `ASE 1 Reporte Componentes R1!F50`) y **es una regresión real**: el total quedó anclado a filas que no son las del período (solo ocurre cuando la fuente recorta filas en la cabeza del bloque). Debe reportarse; con la versión actual no debería ocurrir (julio no se mueve). Ojo: las celdas **interiores** de cada bloque de R1 (subvisibles de empresa, fuera de esos 3 visibles) son una **brecha conocida y pendiente** (follow-up F-T4-1) y **no** son un FAIL del gate: se corrigen en un cambio posterior.
 

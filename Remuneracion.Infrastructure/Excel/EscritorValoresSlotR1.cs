@@ -9,23 +9,27 @@ using Remuneracion.Core.Services;
 namespace Remuneracion.Infrastructure.Excel;
 
 /// <summary>
-/// Plan 36 (T1, R-B-1/R-B-2/R-B-4 — D-A/D-B/D-F): escritor values-only del interior de
-/// <c>Reporte Componentes R1</c> sobre la plantilla estandarizada única.
+/// Plan 36 (T1, R-B-1/R-B-2/R-B-4 — D-A/D-B/D-F) + Plan 41 (T1/Enmienda E-1): escritor values-only
+/// del interior de <c>Reporte Componentes R1</c> sobre la plantilla estandarizada única.
 ///
 /// Doctrina slot: la app NUNCA inserta/borra filas y NUNCA escribe <c>&lt;f&gt;</c>; solo pega
-/// VALORES (<c>&lt;v&gt;</c>) en el slot de datos que corresponde por firma + frontera + sinonimia;
+/// VALORES (<c>&lt;v&gt;</c>) en el slot de datos que corresponde por firma + SECCIÓN + sinonimia;
 /// lo no entregado queda en el cero del template; la fuente que trae empresa/fila sin slot hace
-/// fail-fast <c>ERR-SIN-SLOT</c> (nunca remap silencioso, nunca insert).
+/// fail-fast <c>ERR-SIN-SLOT</c> (nunca remap silencioso, nunca insert, nunca colocación por
+/// posición).
 ///
 /// Resolución (arsenal reinvertido, cero lógica nueva de negocio):
 /// <list type="bullet">
 /// <item>firma como localizador (<see cref="R1FirmaInterior"/> — mismos predicados que hoy);</item>
-/// <item>tipo por frontera (<see cref="R1FirmaInterior.EsAplicacionPorFrontera"/>, Plan 35-T2 intacto),
-/// exigido solo en filas-dato de empresa (<see cref="R1FirmaInterior.EsDatoEmpresa(FilaEspejoR1)"/>)
-/// y aplicado como preferencia con fallback a firma sola cuando la clasificación del lado fuente
-/// degenera (fuente sin fila <c>Aplicacion</c>);</item>
+/// <item>SECCIÓN por frontera inmediatamente ARRIBA (<see cref="SeccionEspejoR1.PorFronteraArriba"/>,
+/// Plan 41/T1: <c>Mes</c>→Oportuno, <c>Aplicacion</c>→Aplicación, sin frontera→1.ª), exigida en
+/// filas-dato de empresa (<see cref="R1FirmaInterior.EsDatoEmpresa(FilaEspejoR1)"/>). Es la
+/// resolución ÚNICA, sin fallback (Enmienda E-1, E1-1). El predicado de frontera por DEBAJO
+/// (<see cref="R1FirmaInterior.EsAplicacionPorFrontera"/>, Plan 35-T2) queda INTACTO para su otro
+/// consumidor;</item>
 /// <item>empresa por sinonimia (<see cref="SinonimosEmpresaR1.SonMismaEmpresa"/>, Plan 34 intacto,
-/// catálogo abierto — cero ramas por nombre de empresa);</item>
+/// catálogo abierto — cero ramas por nombre de empresa); el rótulo de la fila fuente se normaliza
+/// por ese catálogo antes de resolver su sección (Enmienda E-1, E1-2);</item>
 /// <item>AFaseo dual-firma (R-T-2): la fuente en variante <c>A='AFaseo' B='Total'</c> o en variante
 /// <c>D='AFASEO' E='Total'</c> resuelve al mismo slot F0 del ASE.</item>
 /// </list>
@@ -34,19 +38,18 @@ namespace Remuneracion.Infrastructure.Excel;
 /// redondeo); el redondeo a entero es exclusivo del <c>DetRetri</c> (Plan 29 Unidad D) y no se
 /// aplica aquí. Ver la justificación completa en <see cref="EscribirValor"/>.
 ///
-/// Emparejamiento por FIRMA con cursor INDEPENDIENTE por firma (refinamiento T1 del Plan 36,
-/// hallazgo A de T4): en la plantilla estandarizada los slots-resumen (AFaseo, Mes, …) están
-/// INTERCALADOS dentro del bloque y la fuente puede emitirlos en un orden distinto — p. ej. el
-/// AFaseo del ASE2 vive en F121 (en medio del bloque) mientras la fuente lo emite DESPUÉS de
-/// consumir filas posteriores del template. Un cursor GLOBAL monotónico no puede retroceder y deja
-/// ese AFaseo sin slot (falso <c>ERR-SIN-SLOT</c>). Por eso cada fila fuente consume el próximo
-/// slot libre DENTRO DE SU PROPIA FIRMA (lista ordenada de slots con firma compatible): un slot
-/// intercalado antes en el template puede ser consumido por una fila emitida después, y cada firma
-/// avanza su propio cursor sin interferir con las demás. Los slots no consumidos quedan intactos
-/// en cero. Guard pre-write (REGLA, no excepción): la celda destino debe existir y NO traer
-/// <c>&lt;f&gt;</c>; si trae fórmula → <c>ERR-PLANTILLA</c> con hoja + celda + slot. Cero
-/// <c>InsertRow</c>/<c>DeleteRow</c>, cero <c>new CellFormula</c>, cero Reanclar en este path (el
-/// grep de cierre T1 lo demuestra).
+/// Emparejamiento por (firma + SECCIÓN) con cursor INDEPENDIENTE por grupo: en la plantilla
+/// estandarizada los slots-resumen (AFaseo, Mes, …) están INTERCALADOS dentro del bloque y la fuente
+/// puede emitirlos en un orden distinto — p. ej. el AFaseo del ASE2 vive en F121 (en medio del
+/// bloque) mientras la fuente lo emite DESPUÉS de consumir filas posteriores del template. Un cursor
+/// GLOBAL monotónico no puede retroceder y deja ese AFaseo sin slot (falso <c>ERR-SIN-SLOT</c>). Por
+/// eso cada fila fuente consume el próximo slot libre DENTRO DE SU PROPIA (firma, sección) (lista
+/// ordenada de slots compatibles): un slot intercalado antes en el template puede ser consumido por
+/// una fila emitida después, y cada grupo avanza su propio cursor sin interferir con los demás. Los
+/// slots no consumidos quedan intactos en cero. Guard pre-write (REGLA, no excepción): la celda
+/// destino debe existir y NO traer <c>&lt;f&gt;</c>; si trae fórmula → <c>ERR-PLANTILLA</c> con hoja
+/// + celda + slot. Cero <c>InsertRow</c>/<c>DeleteRow</c>, cero <c>new CellFormula</c>, cero Reanclar
+/// en este path (el grep de cierre T1 lo demuestra).
 ///
 /// El writer NO recibe ningún período (D-H) y no nombra ninguna empresa (catálogo abierto).
 /// <see cref="CompositorInteriorR1"/> queda como referencia de firma, no se usa aquí (D-C).
@@ -93,10 +96,10 @@ internal static class EscritorValoresSlotR1
         var hoja = ObtenerHoja(workbookPart, HojaR1);
         VerificarCabeceraBloque(hoja, workbookPart, bloque, inicio);
         var slots = LeerSlots(hoja, workbookPart, bloque.Ase.Id, inicio, fin);
-        var grupos = ConstruirGruposFirma(slots);
+        var grupos = ConstruirGruposSeccion(slots);
 
         var fuente = bloque.Filas;
-        var fronterasFuente = ClasificarFronteras(fuente);
+        var seccionesFuente = ClasificarSecciones(fuente);
         var colocadas = 0;
         var celdasF = 0;
         var celdasL = 0;
@@ -105,26 +108,23 @@ internal static class EscritorValoresSlotR1
         for (var i = 0; i < fuente.Count; i++)
         {
             var fila = fuente[i];
-            var ocurrencia = ContarOcurrenciaPrevia(fuente, fronterasFuente, i) + 1;
+            var ocurrencia = ContarOcurrenciaPrevia(fuente, seccionesFuente, i) + 1;
 
-            // Cursor INDEPENDIENTE por firma (refinamiento T1 del hallazgo A de T4): cada fila fuente
-            // agota su PROPIA lista ordenada de slots, de modo que un slot-resumen intercalado antes
-            // en el template (p. ej. el AFaseo del ASE2 en F121) sigue disponible para una fila que la
-            // fuente emite después. El cursor global monotónico retirado aquí dejaba ese slot atrás.
-            var grupo = BuscarGrupoFirma(grupos, fila, fronterasFuente[i]);
-            if (grupo is null)
-            {
-                throw new CalculoInvalidoException(
-                    CodigoError.SinSlot,
-                    MensajeSinSlot(bloque.Ase.Id, fila, fronterasFuente[i], ocurrencia, celdaCandidata: null));
-            }
+            // Plan 41 (Enmienda E-1, E1-1/E1-2/E1-3): la colocación es SIEMPRE por (firma + SECCIÓN
+            // RESUELTA), sin ningún fallback por cursor físico (ni global, ni por firma, ni pool
+            // compartido). La sección = frontera inmediatamente ARRIBA (Mes→Oportuno,
+            // Aplicacion→Aplicación, sin frontera→1.ª) y el match consume el rótulo de empresa
+            // normalizado por el catálogo de sinónimos (SinonimosEmpresaR1, Plan 34). Una fila cuya
+            // (firma, sección) no tiene slot en el contrato T0 NO se coloca por posición: el run
+            // FALLA con ERR-SIN-SLOT nombrando la fila, su rótulo de empresa y la sección esperada.
+            var grupo = grupos.Find(g => EncajaEnSlot(fila, seccionesFuente[i], g.Representante));
+            var slot = grupo?.SiguienteLibre();
 
-            var slot = grupo.SiguienteLibre();
             if (slot is null)
             {
                 throw new CalculoInvalidoException(
                     CodigoError.SinSlot,
-                    MensajeSinSlot(bloque.Ase.Id, fila, fronterasFuente[i], ocurrencia, grupo.UltimoConsumidoF));
+                    MensajeSinSlot(bloque.Ase.Id, fila, seccionesFuente[i], ocurrencia, grupo?.UltimoConsumidoF));
             }
 
             var total = fila.Valor("Total");
@@ -160,44 +160,50 @@ internal static class EscritorValoresSlotR1
     }
 
     /// <summary>
-    /// Slot de dato del contrato: fila del template con su firma A–E y su clasificación de
-    /// frontera (solo vinculante para filas-dato de empresa). Las celdas F/L son referencias A1.
+    /// Slot de dato del contrato: fila del template con su firma A–E y su SECCIÓN (frontera
+    /// inmediatamente ARRIBA; solo vinculante para filas-dato de empresa). Las celdas F/L son
+    /// referencias A1.
     /// </summary>
-    internal sealed record SlotR1(int Fila, string CeldaF, string CeldaL, string A, string B, string C, string D, string E, bool? EsAplicacion);
+    internal sealed record SlotR1(int Fila, string CeldaF, string CeldaL, string A, string B, string C, string D, string E, SeccionFronteraArriba? Seccion);
 
     /// <summary>
-    /// Grupo de slots de la MISMA firma con su propio cursor ordenado (refinamiento T1 del Plan 36,
-    /// hallazgo A de T4). Sustituye al cursor global-monotónico: cada firma avanza su cursor sin
-    /// interferir con las demás, de forma que un slot-resumen intercalado antes en el template sigue
-    /// disponible para una fila que la fuente emite después.
+    /// Grupo de slots de la MISMA firma y SECCIÓN (Plan 41/T1, D-A) con su propio cursor ordenado.
+    /// Cada (firma, sección) avanza su cursor sin interferir con los demás: un slot-resumen
+    /// intercalado antes en el template sigue disponible para una fila que la fuente emite después,
+    /// y —clave del cierre E1-2— cada fila cae en la sección que le corresponde por su frontera
+    /// inmediatamente ARRIBA (no en el primer slot físico libre). Para filas NO-dato de empresa
+    /// (Mes, AFaseo, Componente, Subs/Cont, Total) la sección es <c>null</c>: el grupo es por firma
+    /// sola y conserva el comportamiento físico histórico. Plan 41 (Enmienda E-1, E1-1): NO existe
+    /// ningún cursor de respaldo — este es el ÚNICO mecanismo de colocación.
     /// </summary>
-    private sealed class GrupoFirma
+    private sealed class GrupoSeccion
     {
         private readonly List<SlotR1> _slots = [];
         private int _cursor;
 
-        public GrupoFirma(SlotR1 representante) => Representante = representante;
+        public GrupoSeccion(SlotR1 representante) => Representante = representante;
 
-        /// <summary>Primer slot de la firma (identidad del grupo para el matcher de firma).</summary>
+        /// <summary>Primer slot del grupo (identidad del grupo para el matcher firma+sección).</summary>
         public SlotR1 Representante { get; }
 
-        /// <summary>Celda F del último slot consumido por la firma ("(ninguno)" si aún no consumió).</summary>
+        /// <summary>Celda F del último slot consumido por el grupo ("(ninguno)" si aún no consumió).</summary>
         public string UltimoConsumidoF => _cursor == 0 ? "(ninguno)" : _slots[_cursor - 1].CeldaF;
 
         public void Agregar(SlotR1 slot) => _slots.Add(slot);
 
-        /// <summary>Próximo slot libre de la firma en orden, o <c>null</c> si la firma se agotó.</summary>
-        public SlotR1? SiguienteLibre() =>
-            _cursor < _slots.Count ? _slots[_cursor++] : null;
+        /// <summary>Próximo slot libre del grupo en orden, o <c>null</c> si el grupo se agotó.</summary>
+        public SlotR1? SiguienteLibre() => _cursor < _slots.Count ? _slots[_cursor++] : null;
     }
 
     /// <summary>
-    /// Verdad si la fila fuente y el slot pertenecen a la misma firma (localizador puro):
+    /// Verdad si la fila fuente y el slot pertenecen a la misma firma + sección (localizador puro):
     /// AFaseo dual-firma primero (cualquiera de las dos variantes), luego A/B/D/E exactos
-    /// (OrdinalIgnoreCase) + C por sinonimia + frontera coincidente en filas-dato de empresa.
-    /// Cero ramas por nombre de empresa (catálogo abierto por construcción).
+    /// (OrdinalIgnoreCase) + C por sinonimia; y —solo en filas-dato de empresa— la SECCIÓN
+    /// (frontera inmediatamente arriba) debe coincidir. Cero ramas por nombre de empresa (catálogo
+    /// abierto por construcción). Plan 41 (T1, D-A): sustituye la clasificación por frontera-debajo
+    /// (Plan 35-T2, intacta en <see cref="R1FirmaInterior.EsAplicacionPorFrontera"/>) por la sección.
     /// </summary>
-    internal static bool EncajaEnSlot(FilaEspejoR1 fila, bool? fronteraFuente, SlotR1 slot)
+    internal static bool EncajaEnSlot(FilaEspejoR1 fila, SeccionFronteraArriba? seccionFuente, SlotR1 slot)
     {
         ArgumentNullException.ThrowIfNull(fila);
         ArgumentNullException.ThrowIfNull(slot);
@@ -225,13 +231,13 @@ internal static class EscritorValoresSlotR1
             return false;
         }
 
-        // Plan 35-T2 como parte de la llave en filas-dato de empresa: oportuno vs aplicación no se
-        // mezclan. Si algún lado no clasifica (null: sin frontera por debajo), la ocurrencia en
-        // orden sigue mandando y la frontera no veta (nunca veto ciego).
+        // Plan 41-T1 (D-A) como parte de la llave en filas-dato de empresa: Oportuno vs Aplicación y
+        // 1.ª vs 2.ª ocurrencia NO se mezclan. Si algún lado no clasifica (null: fila no-dato de
+        // empresa), la sección no veta (nunca veto ciego para Mes/AFaseo/Componente/SubsCont/Total).
         if (R1FirmaInterior.EsDatoEmpresa(fila)
-            && fronteraFuente.HasValue
-            && slot.EsAplicacion.HasValue
-            && fronteraFuente.Value != slot.EsAplicacion.Value)
+            && seccionFuente.HasValue
+            && slot.Seccion.HasValue
+            && seccionFuente.Value != slot.Seccion.Value)
         {
             return false;
         }
@@ -266,22 +272,23 @@ internal static class EscritorValoresSlotR1
     }
 
     /// <summary>
-    /// Agrupa los slots del bloque por FIRMA: cada grupo conserva su propia lista ordenada de slots
-    /// (en el orden físico del template) y su propio cursor. Un slot se suma al primer grupo cuyo
-    /// representante es la MISMA firma (mismo A/B/D/E + C por sinonimia + AFaseo dual); si no encaja
-    /// en ninguno, abre un grupo nuevo. Refinamiento T1 del Plan 36 (hallazgo A de T4): el cursor
-    /// deja de ser global-monotónico y pasa a ser independiente por firma.
+    /// Agrupa los slots del bloque por FIRMA + SECCIÓN (Plan 41/T1, D-A): cada grupo conserva su
+    /// propia lista ordenada de slots (en el orden físico del template) y su propio cursor. Un slot
+    /// se suma al primer grupo cuyo representante coincide (misma firma A/B/D/E + C por sinonimia +
+    /// AFaseo dual + misma sección en filas-dato de empresa); si no encaja en ninguno, abre un grupo
+    /// nuevo. El cursor por grupo de sección es la resolución ÚNICA: cierra los 7 pares E1-2 sin
+    /// ramas por empresa ni por período y sin ningún fallback (Enmienda E-1, E1-1).
     /// </summary>
-    private static List<GrupoFirma> ConstruirGruposFirma(IReadOnlyList<SlotR1> slots)
+    private static List<GrupoSeccion> ConstruirGruposSeccion(IReadOnlyList<SlotR1> slots)
     {
-        var grupos = new List<GrupoFirma>();
+        var grupos = new List<GrupoSeccion>();
         foreach (var slot in slots)
         {
             var firmaSlot = FilaDesdeSlot(slot);
-            var grupo = grupos.Find(g => EncajaEnSlot(firmaSlot, null, g.Representante));
+            var grupo = grupos.Find(g => EncajaEnSlot(firmaSlot, slot.Seccion, g.Representante));
             if (grupo is null)
             {
-                grupo = new GrupoFirma(slot);
+                grupo = new GrupoSeccion(slot);
                 grupos.Add(grupo);
             }
 
@@ -289,19 +296,6 @@ internal static class EscritorValoresSlotR1
         }
 
         return grupos;
-    }
-
-    /// <summary>
-    /// Resuelve el grupo de firma de una fila fuente. Primero exige coincidencia de firma + frontera
-    /// (Plan 35-T2); si ninguna la satisface, reintenta con la firma sola: cuando la clasificación de
-    /// frontera del lado fuente degenera (p. ej. la fuente no trae la fila <c>Aplicacion</c> y toda
-    /// fila-dato de empresa queda "Oportuno"), el orden dentro de la firma sigue resolviendo la
-    /// sección. Devuelve <c>null</c> solo si NINGUNA firma del contrato es compatible → fail-fast.
-    /// </summary>
-    private static GrupoFirma? BuscarGrupoFirma(List<GrupoFirma> grupos, FilaEspejoR1 fila, bool? fronteraFuente)
-    {
-        var conFrontera = grupos.Find(g => EncajaEnSlot(fila, fronteraFuente, g.Representante));
-        return conFrontera ?? grupos.Find(g => EncajaEnSlot(fila, null, g.Representante));
     }
 
     private static FilaEspejoR1 FilaDesdeSlot(SlotR1 slot) => new()
@@ -313,22 +307,29 @@ internal static class EscritorValoresSlotR1
         E = slot.E,
     };
 
-    private static string MensajeSinSlot(int aseId, FilaEspejoR1 fila, bool? frontera, int ocurrencia, string? celdaCandidata)
+    /// <summary>
+    /// Mensaje de <c>ERR-SIN-SLOT</c> (Plan 41, Enmienda E-1, E1-3): nombra la FILA (firma A|B|C|D|E +
+    /// ocurrencia), su RÓTULO DE EMPRESA (columna C) y la SECCIÓN ESPERADA (la resuelta por su
+    /// frontera inmediatamente arriba) — información accionable, nunca un fallo mudo ni una colocación
+    /// por posición.
+    /// </summary>
+    private static string MensajeSinSlot(int aseId, FilaEspejoR1 fila, SeccionFronteraArriba? seccion, int ocurrencia, string? celdaCandidata)
     {
         var razon = celdaCandidata is null
-            ? "sin ningún slot con firma compatible en el contrato T0"
+            ? "sin ningún slot con firma + sección compatibles en el contrato T0"
             : $"sin slot libre en el contrato T0 (celda candidata: último slot consumido {celdaCandidata})";
         return $"ERR-SIN-SLOT: ASE {aseId}: la fuente R1 (Recaudoporcomponente) trae la fila " +
-            $"A|B|C|D|E='{fila.Firma}' clasificada '{TipoFrontera(frontera)}' (ocurrencia #{ocurrencia} " +
-            $"de esa firma) {razon} del ASE {aseId}. Nunca remap/insert: revise el contrato T0 o la fuente.";
+            $"A|B|C|D|E='{fila.Firma}' con rótulo de empresa '{fila.C}' en la sección esperada " +
+            $"'{TipoSeccion(seccion)}' (ocurrencia #{ocurrencia} de esa firma) {razon} del ASE {aseId}. " +
+            $"Nunca remap/insert ni colocación por posición: revise el contrato T0 (slot por sección) o la fuente.";
     }
 
-    private static int ContarOcurrenciaPrevia(IReadOnlyList<FilaEspejoR1> fuente, IReadOnlyList<bool?> fronteras, int indice)
+    private static int ContarOcurrenciaPrevia(IReadOnlyList<FilaEspejoR1> fuente, IReadOnlyList<SeccionFronteraArriba?> secciones, int indice)
     {
         var conteo = 0;
         for (var k = 0; k < indice; k++)
         {
-            if (EncajaEnSlot(fuente[indice], fronteras[indice], SlotDesdeFila(fuente[k], fronteras[k])))
+            if (EncajaEnSlot(fuente[indice], secciones[indice], SlotDesdeFila(fuente[k], secciones[k])))
             {
                 conteo++;
             }
@@ -337,23 +338,25 @@ internal static class EscritorValoresSlotR1
         return conteo;
     }
 
-    private static SlotR1 SlotDesdeFila(FilaEspejoR1 fila, bool? frontera) =>
-        new(0, string.Empty, string.Empty, fila.A, fila.B, fila.C, fila.D, fila.E, frontera);
+    private static SlotR1 SlotDesdeFila(FilaEspejoR1 fila, SeccionFronteraArriba? seccion) =>
+        new(0, string.Empty, string.Empty, fila.A, fila.B, fila.C, fila.D, fila.E, seccion);
 
-    private static string TipoFrontera(bool? frontera) => frontera switch
+    private static string TipoSeccion(SeccionFronteraArriba? seccion) => seccion switch
     {
-        true => "Aplicación",
-        false => "Oportuno",
-        null => "sin-frontera",
+        null => "sin-sección",
+        { Tipo: TipoSeccionEspejoR1.Primera } => "1.ª sección",
+        { Tipo: TipoSeccionEspejoR1.Oportuno } => $"Oportuno #{seccion.Value.Ordinal}",
+        { Tipo: TipoSeccionEspejoR1.Aplicacion } => $"Aplicación #{seccion.Value.Ordinal}",
+        _ => $"desconocida #{seccion.Value.Ordinal}",
     };
 
-    private static IReadOnlyList<bool?> ClasificarFronteras(IReadOnlyList<FilaEspejoR1> filas)
+    private static IReadOnlyList<SeccionFronteraArriba?> ClasificarSecciones(IReadOnlyList<FilaEspejoR1> filas)
     {
-        var resultado = new bool?[filas.Count];
+        var resultado = new SeccionFronteraArriba?[filas.Count];
         for (var i = 0; i < filas.Count; i++)
         {
             resultado[i] = R1FirmaInterior.EsDatoEmpresa(filas[i])
-                ? R1FirmaInterior.EsAplicacionPorFrontera(filas, i)
+                ? SeccionEspejoR1.PorFronteraArriba(filas, i)
                 : null;
         }
 
@@ -385,7 +388,7 @@ internal static class EscritorValoresSlotR1
             celdas.Add(($"F{numero}", $"L{numero}"));
         }
 
-        var fronteras = ClasificarFronteras(firmas);
+        var secciones = ClasificarSecciones(firmas);
         var slots = new List<SlotR1>(firmas.Count);
         for (var i = 0; i < firmas.Count; i++)
         {
@@ -393,7 +396,7 @@ internal static class EscritorValoresSlotR1
             slots.Add(new SlotR1(
                 numero, celdas[i].CeldaF, celdas[i].CeldaL,
                 firmas[i].A, firmas[i].B, firmas[i].C, firmas[i].D, firmas[i].E,
-                fronteras[i]));
+                secciones[i]));
         }
 
         if (slots.Count != fin - inicio + 1)

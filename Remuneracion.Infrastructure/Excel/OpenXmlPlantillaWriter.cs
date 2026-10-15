@@ -142,6 +142,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
 
             File.Copy(origen, rutaSalida, overwrite: true);
 
+            // Plan 39 (T2, Phase 0): base del período escrita en la copia de trabajo (el origen se
+            // abre SOLO lectura), antes de la validación/escritura. La quincena llega por DOMINIO.
+            PreparadorBasePipeline.Ejecutar(origen, leafInputs.Periodo, rutaSalida);
+
             using (var workbook = SpreadsheetDocument.Open(rutaSalida, true))
             {
                 var workbookPart = workbook.WorkbookPart
@@ -161,6 +165,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
 
                 var workbookXml = workbookPart.Workbook
                     ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene metadata Workbook válida.");
+
+                // Plan 40 (T2): sellado de cachés computables por read-back (cadena C3:C8→C9→C14→C15)
+                // ANTES del saneamiento calcChain, para que el caché de la salida no mienta.
+                SellarCachesFormula(workbookPart, leafInputs.Periodo);
 
                 // Plan 28 (Unidad S): punto único de guardado — saneamiento calcChain + fullCalcOnLoad.
                 SaneadorCadenaCalculo.Sanear(workbookPart);
@@ -260,6 +268,13 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
 
             File.Copy(origen, rutaSalida, overwrite: true);
 
+            // Plan 39 (T2, Phase 0): prepara la base del período (renombra las 3 hojas de período,
+            // reescribe los 11 tokens <f> de período, sella N3 y selecciona L9:L13 por quincena
+            // —R-INTERV-Q—) y la escribe en la COPIA de trabajo. El OFICIAL (origen) se abre SOLO
+            // lectura y nunca se modifica; corre ANTES de ValidadorBasePeriodo.Exigir y de cualquier
+            // escritura de negocio. El procesamiento sigue values-only (cero <f> aguas abajo).
+            PreparadorBasePipeline.Ejecutar(origen, periodoReferencia, rutaSalida);
+
             using (var workbook = SpreadsheetDocument.Open(rutaSalida, true))
             {
                 var workbookPart = workbook.WorkbookPart
@@ -321,6 +336,9 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                 var workbookXml = workbookPart.Workbook
                     ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene metadata Workbook válida.");
 
+                // Plan 40 (T2): sellado de cachés computables por read-back (cadena C3:C8→C9→C14→C15).
+                SellarCachesFormula(workbookPart, periodoReferencia);
+
                 // Plan 28 (Unidad S): punto único de guardado — saneamiento calcChain + fullCalcOnLoad.
                 SaneadorCadenaCalculo.Sanear(workbookPart);
                 workbookXml.Save();
@@ -377,11 +395,12 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     /// negocio.
     /// </summary>
     /// <inheritdoc />
-    public void EscribirEspejoR1(string rutaPlantillaOrigen, string rutaSalida, IReadOnlyList<BloqueEspejoAseInputs> bloques)
+    public void EscribirEspejoR1(string rutaPlantillaOrigen, string rutaSalida, IReadOnlyList<BloqueEspejoAseInputs> bloques, Periodo periodo)
     {
         ArgumentNullException.ThrowIfNull(rutaPlantillaOrigen);
         ArgumentNullException.ThrowIfNull(rutaSalida);
         ArgumentNullException.ThrowIfNull(bloques);
+        ArgumentNullException.ThrowIfNull(periodo);
 
         if (bloques.Count == 0)
         {
@@ -404,6 +423,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
 
             File.Copy(origen, rutaSalida, overwrite: true);
 
+            // Plan 39 (T2, Phase 0): base del período escrita en la copia de trabajo (el origen se
+            // abre SOLO lectura), antes de la escritura values-only por slot. La quincena = dominio.
+            PreparadorBasePipeline.Ejecutar(origen, periodo, rutaSalida);
+
             using (var workbook = SpreadsheetDocument.Open(rutaSalida, true))
             {
                 var workbookPart = workbook.WorkbookPart
@@ -414,9 +437,14 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                     EscritorValoresSlotR1.Escribir(workbookPart, bloque);
                 }
 
+                // Plan 40 (T2): sellado de cachés computables por read-back (cadena C3:C8→C9→C14→C15)
+                // en el camino standalone del espejo (read-back de lo que la base traiga).
+                SellarCachesFormula(workbookPart, periodo);
+
                 // Plan 28 (Unidad S): el espejo standalone ya no mueve filas, pero se conserva el
                 // punto de guardado con el saneamiento calcChain + fullCalcOnLoad (misma doctrina
-                // del writer multi-ASE). No toca <f> ni <v>.
+                // del writer multi-ASE). El sellado (Plan 40) toca SOLO <v> de la cadena C; las <f>
+                // quedan intactas.
                 SaneadorCadenaCalculo.Sanear(workbookPart);
                 workbookPart.Workbook?.Save();
             }
@@ -1782,6 +1810,116 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         }
 
         EscribirValorNumerico(workbookPart, HojaConsolidado, celda, (decimal)fecha.ToOADate(), $"{etiqueta}.{HojaConsolidado}.{celda}");
+    }
+
+    /// <summary>
+    /// Plan 40 (T2, R-S-1/R-S-2/R-S-3 — D-E): <b>sellado de cachés computables</b>. Tras la
+    /// escritura de negocio y ANTES del saneamiento calcChain, escribe los <c>&lt;v&gt;</c> de la
+    /// cadena <c>C3:C8 → C9 → C14 → C15</c> y de los 5 sub-bloques <c>C15/D25/O25/D34/F34</c>,
+    /// calculados por READ-BACK de los valores efectivamente escritos en el workbook de salida
+    /// (jamás desde la intención del dominio), preservando el <c>&lt;f&gt;</c> intacto.
+    ///
+    /// Allow-list del writer (R-S-3, ampliada por la enmienda E-1): SOLO las celdas de
+    /// <c>VALIDACION_TOTAL</c> cuya cadena es resoluble por read-back de lo escrito —
+    /// <c>C3:C8</c> (= Σ 'Recaudo *'!F21:F26 en Q2 / D21:D26 en Q1), <c>C9</c> (= SUM(C3:C8)),
+    /// <c>C14</c> (= 'Valida - Control Recaudo'!F10) y los 5 sub-bloques de
+    /// <see cref="FormasValidacionTotal.SubBloques"/> (<c>C15</c>, <c>D25</c>, <c>O25</c>,
+    /// <c>D34</c>, <c>F34</c>). Fuera de la allow-list NADA se sella. Las celdas del espejo de
+    /// REMUNERACIÓN que alimentan <c>O25/D34/F34</c> se resuelven por read-back (referencias + SUM
+    /// + fórmulas compartidas); el sellado escribe el valor EVALUADO, incluido FALSE (jamás se
+    /// inventa un TRUE — E1-2/D-E).
+    ///
+    /// El guard anti-fórmula de <see cref="EscribirValorNumerico"/> (celda-fórmula → ERR-PLANTILLA)
+    /// NO se relaja: este es el camino separado <c>SellarCacheFormula</c>, que aserta el TEXTO
+    /// esperado de la <c>&lt;f&gt;</c> y escribe SOLO <c>CellValue</c>/<c>DataType</c>.
+    /// </summary>
+    private static void SellarCachesFormula(WorkbookPart workbookPart, Periodo periodo)
+    {
+        ArgumentNullException.ThrowIfNull(periodo);
+        var hoja = WorkbookLeafCellMapValidaciones.HojaValidacionTotal;
+        var worksheet = ObtenerHoja(workbookPart, hoja, nameof(GenerarWorkbook));
+        var resolutor = new ResolutorValorValidacion(workbookPart);
+
+        // C3:C8 = Σ 'Recaudo *'!{col}{18+k}: los 5 recaudos escritos por la app (fragmentos
+        // orden-agnósticos). La columna la decide la quincena (E1-4): D en Q1, F en Q2 — el mismo
+        // eje que PreparadorBasePipeline usa para reescribir la <f> de C3:C8.
+        var columna = PreparadorBasePipeline.ColumnaRecaudoDe(periodo);
+        for (var k = 3; k <= 8; k++)
+        {
+            var fila = 18 + k;
+            var fragmentos = EmpresaFacturacion.Catalogo
+                .OrderBy(e => e.Id)
+                .Select(e => $"'{e.HojaRecaudo}'!{columna}{fila}")
+                .ToArray();
+            SellarCeldaNumerica(worksheet, hoja, $"C{k}", fragmentos, resolutor);
+        }
+
+        SellarCeldaNumerica(worksheet, hoja, "C9", ["SUM(C3:C8)"], resolutor);
+        SellarCeldaNumerica(worksheet, hoja, "C14", ["'Valida - Control Recaudo'!F10"], resolutor);
+
+        // Plan 40 (enmienda E-1): los 5 sub-bloques booleanos se sellan con el valor EVALUADO por
+        // read-back (C15/D25 = recaudo; O25/D34/F34 = espejo de remuneración). Un sub-bloque que no
+        // cierra se sella FALSE (0) — el sellado NUNCA inventa un TRUE: el caché del archivo
+        // entregado debe coincidir con lo que Excel recalcularía (D-B/D-E), no mentir.
+        foreach (var (celda, _) in FormasValidacionTotal.SubBloques)
+        {
+            SellarCeldaBooleana(worksheet, hoja, celda, resolutor);
+        }
+    }
+
+    /// <summary>Plan 40 (T2, R-S-2): aserta el texto-<c>&lt;f&gt;</c> (fragmentos) y sella el <c>&lt;v&gt;</c> numérico por read-back; no computable → no se sella.</summary>
+    private static void SellarCeldaNumerica(Worksheet worksheet, string hoja, string celda, string[] fragmentosEsperados, ResolutorValorValidacion resolutor)
+    {
+        var cell = ExigirCeldaFormula(worksheet, hoja, celda, fragmentosEsperados);
+        if (!resolutor.TryEvaluar(hoja, celda, out var valor))
+        {
+            return; // dependencia no escrita por la app: sin read-back no se sella (R-S-1).
+        }
+
+        cell.CellValue = new CellValue(valor.ToString(CultureInfo.InvariantCulture));
+        cell.DataType = CellValues.Number;
+    }
+
+    /// <summary>Plan 40 (T2, R-S-2): sella el booleano de un sub-bloque de igualdad (C15 = C14=C9) evaluado por read-back.</summary>
+    private static void SellarCeldaBooleana(Worksheet worksheet, string hoja, string celda, ResolutorValorValidacion resolutor)
+    {
+        var textoEsperado = FormasValidacionTotal.TextoEsperado(celda) ?? string.Empty;
+        var cell = ExigirCeldaFormula(worksheet, hoja, celda, [textoEsperado]);
+        var texto = cell.CellFormula?.Text ?? string.Empty;
+        var partes = texto.Split('=');
+        if (partes.Length != 2
+            || !resolutor.TryEvaluar(hoja, partes[0], out var izquierdo)
+            || !resolutor.TryEvaluar(hoja, partes[1], out var derecho))
+        {
+            return; // no computable → no se sella.
+        }
+
+        cell.CellValue = new CellValue(FormasValidacionTotal.Igualdad(izquierdo, derecho) ? "1" : "0");
+        cell.DataType = CellValues.Boolean;
+    }
+
+    private static Cell ExigirCeldaFormula(Worksheet worksheet, string hoja, string celda, string[] fragmentosEsperados)
+    {
+        var cell = ObtenerCelda(worksheet, celda);
+        if (cell?.CellFormula is null)
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"El sellado de caché esperaba {hoja}!{celda} como celda-fórmula y no lo es. (R-S-2: el sellado nunca crea ni convierte celdas.)");
+        }
+
+        var texto = cell.CellFormula.Text ?? string.Empty;
+        foreach (var fragmento in fragmentosEsperados)
+        {
+            if (!texto.Contains(fragmento, StringComparison.Ordinal))
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"El sellado de caché {hoja}!{celda}: la fórmula <f> no coincide con la esperada ('{fragmento}'). Observado: '{texto}'. (R-S-2: nunca se sella sobre una <f> distinta.)");
+            }
+        }
+
+        return cell;
     }
 
     private static void EscribirValorNumerico(WorkbookPart workbookPart, string hoja, string celda, decimal valor, string nombre)

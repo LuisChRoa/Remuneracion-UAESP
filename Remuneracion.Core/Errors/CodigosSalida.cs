@@ -24,4 +24,13 @@ public static class CodigosSalida
 
     /// <summary>Cancelado por el usuario (WARN-CANCELADO).</summary>
     public const int CanceladoPorUsuario = 5;
+
+    /// <summary>
+    /// Plan 42 (T1/T3, D-G): la corrida CERRÓ con una divergencia DECLARADA reconocida
+    /// explícitamente por el usuario (UI: acto consciente; CLI: <c>--aceptar-divergencia-declarada</c>).
+    /// DISTINTO de <see cref="Ok"/> por diseño: el orquestador del lote debe poder distinguir un
+    /// cierre limpio de uno con deuda externa reconocida (R-CLI-CIEGO). El reporte durable y el log
+    /// quedan emitidos. Sin el reconocimiento, la declarada bloquea con <see cref="Validacion"/>.
+    /// </summary>
+    public const int DivergenciaDeclaradaReconocida = 6;
 }
