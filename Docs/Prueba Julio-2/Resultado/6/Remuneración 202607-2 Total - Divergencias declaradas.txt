@@ -1,0 +1,50 @@
+REPORTE DE DIVERGENCIAS DECLARADAS
+==================================
+
+Período: 2026072 (segunda quincena)
+Archivo generado: Remuneración 202607-2 Total.xlsx
+Fecha del reporte: 2026-10-15
+Identificador de la corrida: 55471c05-c95c-486c-a9c8-795f55c0441d
+
+Qué significa este reporte
+--------------------------
+La corrida cerró con una diferencia conocida y reconocida por el usuario. No es un error
+del cálculo: es una discrepancia entre el reporte oficial y el manual del administrativo,
+cuya decisión no está en manos de la aplicación. Queda registrada aquí y en el log de la
+corrida, y se retira cuando el responsable indicado la resuelva.
+
+Diferencias reconocidas
+-----------------------
+1) Dónde: hoja VALIDACION_TOTAL, celda D34.
+   Qué muestra el archivo: 72.441.184.838,33.
+   Qué esperaba la validación: 72.440.767.318,71.
+   Diferencia: 417.519,62.
+   De quién es: UAESP.
+   Evidencia: Diagnóstico congelado Docs/T0-Plan41-MiniT0-OccidenteAse5-SaldosNota-TablaJ.md §1 (ambas fórmulas, valores por término y Δ) y su fixture read-only Remuneracion.IntegrationTests/T0FrenteEspejoR1Ase5EnelTests.cs.
+   Fecha: 2026-10-14.
+   Se retira cuando: La UAESP confirme si la remuneración de OCCIDENTE ASE5 incluye la 1.ª sección; entonces se elimina esta fila, no se adapta el código.
+
+2) Dónde: hoja VALIDACION_TOTAL, celda F34.
+   Qué muestra el archivo: 72.584.278.420,00.
+   Qué esperaba la validación: 72.583.860.900,38.
+   Diferencia: 417.519,62.
+   De quién es: UAESP.
+   Evidencia: Diagnóstico congelado Docs/T0-Plan41-MiniT0-OccidenteAse5-SaldosNota-TablaJ.md §1 (ambas fórmulas, valores por término y Δ) y su fixture read-only Remuneracion.IntegrationTests/T0FrenteEspejoR1Ase5EnelTests.cs.
+   Fecha: 2026-10-14.
+   Se retira cuando: La UAESP confirme si la remuneración de OCCIDENTE ASE5 incluye la 1.ª sección; entonces se elimina esta fila, no se adapta el código.
+
+3) Dónde: hoja VALIDACION_TOTAL, celda O25.
+   Qué muestra el archivo: 73.139.486.672,75.
+   Qué esperaba la validación: 73.139.069.153,13.
+   Diferencia: 417.519,62.
+   De quién es: UAESP.
+   Evidencia: Diagnóstico congelado Docs/T0-Plan41-MiniT0-OccidenteAse5-SaldosNota-TablaJ.md §1 (ambas fórmulas, valores por término y Δ) y su fixture read-only Remuneracion.IntegrationTests/T0FrenteEspejoR1Ase5EnelTests.cs.
+   Fecha: 2026-10-14.
+   Se retira cuando: La UAESP confirme si la remuneración de OCCIDENTE ASE5 incluye la 1.ª sección; entonces se elimina esta fila, no se adapta el código.
+
+Aceptación
+----------
+Aceptado por: lechaparro (canal: UI).
+El usuario reconoció explícitamente estas diferencias para ESTA corrida. La aceptación no
+se guarda ni se repite automáticamente: cada corrida vuelve a presentar la diferencia.
+
