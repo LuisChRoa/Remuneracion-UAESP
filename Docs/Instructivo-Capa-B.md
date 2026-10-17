@@ -142,6 +142,17 @@ Método: en Excel, seleccione la celda y confirme que la barra de fórmulas mues
 
 Si un bloque de la fuente está **vacío**, la aplicación **no limpia** el bloque correspondiente de la salida (comportamiento pinneado por test): un bloque en blanco en la salida puede deberse a una fuente vacía y NO a un fallo de escritura. **Verifique la fuente**, no asuma: confirme que la fuente realmente trae ceros/vacío antes de dar por bueno el bloque.
 
+### R1-interior — auditoría fila a fila por sección-contrato (Plan 45)
+
+La hoja `Reporte Componentes R1` se llena por **fila fuente × (fuente, canal, concepto, sección-contrato)**: cada fila de `Recaudoporcomponente` (la que trae el desglose de componentes) cae en el slot de su **sección-contrato** (no por orden físico). Para auditar:
+
+1. Tome la fila de la fuente `Recaudoporcomponente` (`Sheet1`) y lea su `(C = fuente/empresa, D = canal, E = concepto)` y los **encabezados de columna** (F..Z).
+2. Busque la fila destino en `Reporte Componentes R1` que tenga el **mismo `(A,B,C,D,E)`** dentro de la sección-contrato correcta (la sección que el oficial declara y a la que la regla period-free la alinea — `Docs/T0-Plan45-Contrato-Seccion-PeriodFree.md`).
+3. Compare **componente a componente por encabezado** (no solo F): `Total`, `Componente TDF`, `TTL`, `TVIAT`, …, `Rec.Intereses` (la columna `Rec.Intereses` de la fuente → **Z** de la plantilla).
+4. **Filas sin empresa en C** (canal/concepto sin rótulo): se alinean por su sección-contrato; si el oficial no declara su slot y están en la lista de **cero documentado** (p. ej. `Vlr Intereses` de la 1.ª sección, hueco de plantilla), quedan en cero — **no es un fallo**.
+5. **Reporte de divergencias declaradas:** si el run cierra con `código 6`, junto a la salida está `<salida sin extensión> - Divergencias declaradas.txt` (qué celda, observado vs esperado, Δ, dueño, evidencia, condición de retiro). Ahí se ve qué se reconoció y de quién es la deuda.
+6. **Reporte de ceros al dueño:** las filas sin slot de la lista de ceros documentados se reportan al dueño de la plantilla (texto en `Docs/T0-Plan45-Contrato-Seccion-PeriodFree.md` §9); **no se parchea la plantilla**.
+
 ### M2 — Especiales ausente
 
 Ninguna fuente de saldos-nota trae columna "Especiales": `TieneColumnaEspeciales = false` está fijado por código y el valor ausente se trata como **0**. No es un error: es el comportamiento esperado (5/5 sin columna).

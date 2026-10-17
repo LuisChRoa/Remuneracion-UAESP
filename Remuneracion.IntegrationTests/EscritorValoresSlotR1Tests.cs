@@ -56,24 +56,56 @@ public sealed class EscritorValoresSlotR1Tests
             parte.Workbook?.Save();
         }
 
-        // Toda fila fuente se colocó (la fuente observada es subsecuencia ordenada del contrato).
-        Assert.Equal(bloque.TotalFilas, resultado.FilasColocadas);
+        // Toda fila fuente se coloca o cae a cero documentado (Plan 45 §2.2: hueco de plantilla de la
+        // 1.ª sección de ASE5 — Vlr Intereses sin slot; el resto se coloca).
+        Assert.Equal(bloque.TotalFilas, resultado.FilasColocadas + resultado.CerosDocumentados);
+        Assert.Equal(aseId == 5 ? 2 : 0, resultado.CerosDocumentados);
 
         // <f> byte-idéntica al template en todo R1 (texto + t + ref + si).
         var despues = FotoFormulas(salida.Ruta, HojaR1);
         Assert.Equal(antes, despues);
 
-        // Todo <v> cambiado vive en un slot del contrato (columna F/L, filas del rango del ASE).
+        // Plan 44 (F1, §2.3): el writer llena MULTICOLUMNA por encabezado. Todo <v> cambiado vive en
+        // un slot del contrato (columnas F..T + Z, filas del rango del ASE); las columnas
+        // `Exonera-*` (U/V/W/X) e `Y` NO tienen contraparte en la fuente y quedan INTACTAS.
         var (inicio, fin) = RangoAse(aseId);
+        var columnasContrato = new[] { 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'Z' };
         Assert.All(CambiosDeValor(salida.Ruta, HojaR1), cambio =>
         {
             Assert.True(
-                (cambio.Celda.StartsWith('F') || cambio.Celda.StartsWith('L')) && cambio.Fila >= inicio && cambio.Fila <= fin,
-                $"El writer tocó {HojaR1}!{cambio.Celda} fuera de los slots del ASE {aseId} [{inicio},{fin}].");
+                columnasContrato.Contains(cambio.Celda[0]) && cambio.Fila >= inicio && cambio.Fila <= fin,
+                $"El writer tocó {HojaR1}!{cambio.Celda} fuera de los slots del ASE {aseId} [{inicio},{fin}] (contrato multicolumna F..T/Z).");
         });
 
         // Reserva hidden intacta: sin celdas nuevas y hidden=1 preservado.
         AssertHiddenIntacta(salida.Ruta, HojaR1);
+
+        // S2.1 (Plan 44): la fila fuente OCCIDENTE de la 1.ª sección de ASE5 (R13) llega con TODOS sus
+        // componentes por ENCABEZADO al slot F612 (`C=OCCIDENTE, D=Total`, 1.ª sección), con el
+        // decimal exacto de la fuente (bytes: 417.519,62 / 26.657,43 / 14.138,02 / 7.723,27 / …).
+        if (aseId == 5)
+        {
+            var componentes612 = new (string Celda, decimal Esperado)[]
+            {
+                ("F612", 417519.62m), ("G612", 26657.43m), ("H612", 14138.02m), ("I612", 7723.27m),
+                ("J612", 93911.73m), ("K612", 2290.29m), ("L612", 0m), ("M612", 20089.34m),
+                ("N612", 28092.36m), ("O612", 141333m), ("P612", 79544.79m), ("Q612", 3736.7m),
+                ("R612", 2.69m), ("S612", 0m), ("T612", 0m), ("Z612", 0m),
+            };
+            foreach (var (celda, esperado) in componentes612)
+            {
+                Assert.Equal(esperado, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, celda));
+            }
+
+            // T0 §7: `Intereses Cte` de la fuente (col T) va a **T** (NO a Y, que queda intacta);
+            // `Rec.Intereses` de la fuente (col U) va a **Z**. Plan 45 (S2.1): la SECCIÓN-CONTRATO
+            // coloca la fila `D=E/Total` de ASE5 (R17, sección Aplic#1 fuente) en el slot `D=E` de la
+            // **Aplic#1** oficial (632) — no en la 1.ª (604) como hacía el cursor físico. Y **Y632**
+            // queda intacta (T/Y NO espejo).
+            Assert.Equal(7.04m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "T632"));
+            Assert.Equal(-40.37m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "Z632"));
+            Assert.Equal(0m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "Y632"));
+        }
 
         // Spot-checks de dominio: primera fila y AFaseo del ASE llegan a su slot.
         var primera = bloque.Filas[0];

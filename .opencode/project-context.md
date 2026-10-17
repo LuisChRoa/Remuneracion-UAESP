@@ -375,3 +375,29 @@ Al reconocer, `ProcesadorPeriodo` emite:
 
 **Evidencia de cierre (T5, 2026-10-14):** build 0 warnings; suite **39 Failed / 873 Passed / 912 Total** con **set-diff vacío** contra la línea base de entrada (mismos 39, 8 de Q1 declarados); e2e Q2 desde el OFICIAL en ambas direcciones (sin reconocimiento → exit 1 con mensaje accionable; con `--aceptar-divergencia-declarada OCCIDENTE-ASE5` → exit 6 + archivo + reporte + log); SHA256 del oficial intacto `3086AC317595C2F8E84ED24B1C5EE3E52565DD5193394E3062878E7FA49C5214`.
 
+## Doctrina contrato de sección PERIOD-FREE del espejo R1 (Plan 45 — vigente)
+
+**Principio rector (`la sección de la fuente se ALINEA con la del oficial por la FORMA, no por el tipo/ordinal`):** el escritor values-only por slot (`EscritorValoresSlotR1`) deja de dejar en `null` la sección de las filas sin empresa en C; ahora TODA fila participante recibe su **sección-contrato**, resuelta por el predicado puro de Core **`ContratoSeccionPeriodFreeR1.Alinear`**: emparejamiento MONOTÓNICO por tipo (la k-ésima sección fuente → la próxima sección oficial del mismo tipo aún no consumida). El oficial declara siempre 6 secciones `[1.ª, Oportuno#1, Aplic#1, Oportuno#2, Aplic#2, Oportuno#3]`; la fuente del período define su forma.
+
+**Formas absorbidas sin ramas (3 períodos probados, `Docs/T0-Plan45-Contrato-Seccion-PeriodFree.md`):**
+- `[P,O,A,O,A,O]` (mayoría) → identidad;
+- `[P,A,O,A,O]` (ASE5-julio2 invierte: arranca con `Aplicacion`, 5 secciones; también ASE1-Q1) → `[1.ª, A#1, Oportuno#2, A#2, Oportuno#3]` (salta el Oportuno#1 oficial): el bloque `Componente/Subsidio` fuente cae en el **Oportuno#2** oficial (649-659), no en el Oportuno#1;
+- `[P,O,O,O]` (agosto-ASE3 / Q1-ASE2/ASE5, sin `Aplicacion`) → `[1.ª, Oportuno#1, Oportuno#2, Oportuno#3]` (salta las Aplic del oficial).
+
+Las **filas-frontera** (`Mes/Total`, `Aplicacion…/Total`) viajan con la sección que ABREN (su sección-contrato es la de la sección que abren, no la de arriba): el `Mes/Total` de ASE5-julio2 que abre el `Oportuno#1` fuente va a **F648** (`Oportuno#2`), y el que abre `Oportuno#2` → **F674**; el `Oportuno#1` oficial (**F613**) queda en cero. Las filas **AFaseo** quedan `null` (se localizan por firma, dual-firma intacta).
+
+**Cero documentado (Plan 45 §2.2 — `CerosDocumentadosR1`):** una fila fuente sin slot cuya `(firma, sección-contrato)` está en la lista T0 NO es error: queda en el cero del template (no se escribe, no se simula) y se reporta al dueño. Hoy: la fila `Vlr Intereses` de nivel canal (A/B/C/D vacíos) en la **1.ª sección** — el **hueco de PLANTILLA** (ASE5-julio2 R8/R11: `O` 402,40 / `T` 7.697,23; el manual legacy los registraba; la 1.ª oficial no trae `Vlr Intereses` en NINGÚN ASE). Los Totales ya llevan el dinero (`O` 50.323,46 = 49.921,06 + 402,40; `T` 314.490 = 306.792,77 + 7.697,23): solo se difiere el desglose. **NO se toca la plantilla** (SHA256 intacto); es un reporte al dueño.
+
+**`ERR-SIN-SLOT` residual:** fail-fast enriquecido (ASE + firma A|B|C|D|E + rótulo de empresa + canal + concepto + sección esperada + ocurrencia) SOLO para fila con `(firma, sección-contrato)` sin slot FUERA de la lista de cero documentado. Prohibido fallback por orden físico/proximidad (Plan 41 E1-1).
+
+**Micro-punto F654/F661 (cerrado):** el duplicado `−187.855,98` nacía en el ESCRITOR (cursor físico de filas sin C), no en el lector (una emisión por fila). La sección-contrato lo tapa: `Subsidio`/`D=H` van a su slot de sección, sin duplicar (fixture `ContratoSeccionPeriodFreeH1Tests`).
+
+**H1.4/H1.5 (review F1 plegadas):** encabezado de fuente sin columna destino en el template → `Log.Warning` accionable (ASE + fila + encabezado) + `EncabezadosSinDestino` en el resultado (nunca descarte silencioso; hoy inocuo: F..U mapea 1:1 a F..Z). `BloqueEspejoAseInputs.TieneColumnaEspeciales` queda como dato FIXTURE/diagnóstico (sin consumidor en producción tras el llenado por encabezado; semántica intacta).
+
+**RESTRICCIÓN DURA Q1 (vigente):** las formas Q1 se **CITAN** en el T0 (Q1-ASE2 `D=5`/`NUEVO ESQUEMA` en la 1.ª sin slot; Q1 sin `Aplicacion`), pero Q1 **NO se resuelve** aquí; cualquier cambio de comportamiento Q1 exige autorización explícita separada. El T0 de Q1 solo LEE bytes (read-only).
+
+**Neutralidad Q1 (decisión del Ingeniero 2026-10-16, opción 1 — implementada):** el escritor aplica la **sección-contrato SOLO si el bloque ENTERO es colocable con ella** (plan-then-write, `TryPlanificar`). Si no lo es (la forma del período no está cubierta por el contrato — p. ej. Q1-ASE2 trae el canal `D=5` en la 1.ª, que el oficial no declara), reproduce el **comportamiento HISTÓRICO del Plan 41** para ese bloque (veto de sección solo en filas-dato de empresa; cursor por firma). Así Q1 conserva **byte-idéntico** su primer `ERR-SIN-SLOT` (`NUEVO ESQUEMA`, no `D=5`) y **ningún test ni geometría Q1 cambia**; set-diff de suite **vacío** contra la línea base de 39. La decisión es por **forma colocable** (geometría pura), no por período/empresa (D-H).
+
+**Gate de forma (re-congelamiento):** un período con forma nueva NO se parchea con ramas; la regla es geometría pura y una forma inédita exige un **T0 nuevo** (`ContratoSeccionPeriodFreeT0Tests`), nunca edición silenciosa.
+
+

@@ -64,15 +64,17 @@ public sealed class EspejoR1IntegracionTests
         Assert.Equal(dimensionAntes, Dimension(salida.Ruta, HojaR1));
         Assert.Equal(hiddenAntes, FilasHidden(salida.Ruta, HojaR1));
 
-        // R-B-1: todo <v> cambiado vive en un slot del contrato (columna F/L, filas del ASE).
+        // Plan 44 (F1, §2.3): todo <v> cambiado vive en un slot del contrato multicolumna
+        // (columnas F..T + Z, filas del ASE). `Exonera-*` (U/V/W/X) e `Y` quedan intactas.
         var cambios = CambiosDeValor(salida.Ruta, HojaR1);
         Assert.NotEmpty(cambios);
+        var columnasContrato = new[] { 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'Z' };
         Assert.All(cambios, cambio =>
         {
             var (inicio, fin) = RangoDeAseQueContiene(cambio.Fila);
             Assert.True(
-                (cambio.Celda.StartsWith('F') || cambio.Celda.StartsWith('L')) && cambio.Fila >= inicio && cambio.Fila <= fin,
-                $"El escritor tocó {HojaR1}!{cambio.Celda} fuera de los slots del contrato [{inicio},{fin}].");
+                columnasContrato.Contains(cambio.Celda[0]) && cambio.Fila >= inicio && cambio.Fila <= fin,
+                $"El escritor tocó {HojaR1}!{cambio.Celda} fuera de los slots del contrato [{inicio},{fin}] (multicolumna F..T/Z).");
         });
     }
 

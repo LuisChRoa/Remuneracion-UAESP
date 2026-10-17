@@ -27,6 +27,13 @@ public sealed class BloqueEspejoAseInputs
     /// <summary>
     /// Verdad si la fuente trae la columna <c>SERVICIO ESPECIALES</c> (o su alias
     /// <c>Especiales</c>). Si es falsa, el reader aporta 0 para esa columna (R-E-6).
+    ///
+    /// Plan 45 (H1.5, review F1 SPT-2): en el camino de PRODUCCIÓN el escritor values-only por slot
+    /// ya NO consume este flag —la columna <c>SERVICIO ESPECIALES</c> se escribe por ENCABEZADO cuando
+    /// la fuente trae valor (clave + valor)—. Queda como dato de DIAGNÓSTICO/FIXTURE: lo puebla el
+    /// reader (<c>LeerEspejoR1</c>) y lo asertan los tests de forma del bloque
+    /// (<c>EspejoR1Tests</c>). Sin consumidor en producción (huérfano documentado, no se retira para no
+    /// romper los fixtures que lo espejan); semántica intacta.
     /// </summary>
     public bool TieneColumnaEspeciales { get; set; }
 
