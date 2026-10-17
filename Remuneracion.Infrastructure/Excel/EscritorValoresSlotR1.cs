@@ -22,10 +22,12 @@ namespace Remuneracion.Infrastructure.Excel;
 /// Resolución (arsenal reinvertido, cero lógica nueva de negocio):
 /// <list type="bullet">
 /// <item>firma como localizador (<see cref="R1FirmaInterior"/> — mismos predicados que hoy);</item>
-/// <item>SECCIÓN por frontera inmediatamente ARRIBA (<see cref="SeccionEspejoR1.PorFronteraArriba"/>,
-/// Plan 41/T1: <c>Mes</c>→Oportuno, <c>Aplicacion</c>→Aplicación, sin frontera→1.ª), exigida en
-/// filas-dato de empresa (<see cref="R1FirmaInterior.EsDatoEmpresa(FilaEspejoR1)"/>). Es la
-/// resolución ÚNICA para esas filas, sin fallback (Enmienda E-1, E1-1);</item>
+/// <item>SECCIÓN-CONTRATO por frontera que la CIERRA (<see cref="ContratoSeccionPeriodFreeR1.SeccionPorCierre"/>,
+/// Plan 46 §2.2: <c>Mes</c>→Oportuno, <c>Aplicacion</c>→Aplicación, ordinal = ocurrencia de la
+/// frontera; cola → sección de arriba), con CANAL EFECTIVO (<see cref="ContratoSeccionPeriodFreeR1.CanalEfectivo"/>,
+/// Plan 46 §2.1) como parte de la llave firma+sección+canal. Es la resolución ÚNICA del contrato, sin
+/// fallback (Enmienda E-1, E1-1); el baseline histórico (neutralidad Q1) sigue usando la frontera
+/// ARRIBA (<see cref="SeccionEspejoR1.PorFronteraArriba"/>, API intacta para Plan 35-T2);</item>
 /// <item>empresa por sinonimia (<see cref="SinonimosEmpresaR1.SonMismaEmpresa"/>, Plan 34 intacto,
 /// catálogo abierto — cero ramas por nombre de empresa);</item>
 /// <item>AFaseo dual-firma (R-T-2): la fuente en variante <c>A='AFaseo' B='Total'</c> o en variante
@@ -186,6 +188,11 @@ internal static class EscritorValoresSlotR1
     {
         var grupos = ConstruirGruposSeccion(slots);
         var secciones = porContrato ? ClasificarSeccionesContrato(fuente, slots) : ClasificarSeccionesBaseline(fuente);
+        // Plan 46 (§2.1): el canal efectivo solo participa del contrato (el baseline reproduce el
+        // comportamiento histórico del Plan 41 sin canal).
+        var canales = porContrato
+            ? Enumerable.Range(0, fuente.Count).Select(i => ContratoSeccionPeriodFreeR1.CanalEfectivo(fuente, i)).ToList()
+            : null;
         plan = [];
         cerosDocumentados = 0;
         fallo = default;
@@ -194,7 +201,8 @@ internal static class EscritorValoresSlotR1
         {
             var fila = fuente[i];
             var seccion = secciones[i];
-            var grupo = BuscarGrupo(grupos, fila, seccion);
+            var canal = canales?[i];
+            var grupo = BuscarGrupo(grupos, fila, seccion, canal);
             var slot = grupo?.SiguienteLibre();
 
             if (slot is null)
@@ -205,7 +213,7 @@ internal static class EscritorValoresSlotR1
                     continue;
                 }
 
-                fallo = new FalloSinSlot(fila, seccion, ContarOcurrenciaPrevia(fuente, secciones, i) + 1, grupo?.UltimoConsumidoF);
+                fallo = new FalloSinSlot(fila, seccion, ContarOcurrenciaPrevia(fuente, secciones, canales, i) + 1, grupo?.UltimoConsumidoF);
                 return false;
             }
 
@@ -216,11 +224,12 @@ internal static class EscritorValoresSlotR1
     }
 
     /// <summary>
-    /// Slot de dato del contrato: fila del template con su firma A–E y su SECCIÓN-CONTRATO (frontera
-    /// inmediatamente ARRIBA para las filas de datos; la sección que ABREN para las filas-frontera;
-    /// <c>null</c> para AFaseo). Las celdas F/L son referencias A1.
+    /// Slot de dato del contrato: fila del template con su firma A–E, su SECCIÓN-CONTRATO (frontera
+    /// que la CIERRA para las filas de datos; la sección que la propia frontera cierra para las
+    /// filas-frontera; <c>null</c> para AFaseo) y su CANAL EFECTIVO (Plan 46 §2.1: <c>null</c> salvo
+    /// en las filas de canal sin <c>D</c> propio). Las celdas F/L son referencias A1.
     /// </summary>
-    internal sealed record SlotR1(int Fila, string CeldaF, string CeldaL, string A, string B, string C, string D, string E, SeccionFronteraArriba? Seccion);
+    internal sealed record SlotR1(int Fila, string CeldaF, string CeldaL, string A, string B, string C, string D, string E, SeccionFronteraArriba? Seccion, string? Canal = null);
 
     /// <summary>
     /// Grupo de slots de la MISMA firma y SECCIÓN-CONTRATO (Plan 41/T1 + Plan 45 §2.2) con su propio
@@ -258,8 +267,16 @@ internal static class EscritorValoresSlotR1
     /// (OrdinalIgnoreCase) + C por sinonimia; y —cuando AMBOS lados traen sección— la SECCIÓN debe
     /// coincidir. Solo AFaseo viaja sin sección (se localiza por firma). Cero ramas por nombre de
     /// empresa (catálogo abierto por construcción).
+    ///
+    /// Plan 46 (§2.1, sobrecarga con canal): cuando la fila trae CANAL EFECTIVO y el slot también,
+    /// deben coincidir — así las filas sin <c>D</c> propio (VS/VI/Subsidio) caen en el slot de su
+    /// canal real y no por cursor de orden. La sobrecarga de 3 argumentos (sin canal) preserva el
+    /// comportamiento histórico y la usan los tests de sinonimia del Plan 36.
     /// </summary>
-    internal static bool EncajaEnSlot(FilaEspejoR1 fila, SeccionFronteraArriba? seccionFuente, SlotR1 slot)
+    internal static bool EncajaEnSlot(FilaEspejoR1 fila, SeccionFronteraArriba? seccionFuente, SlotR1 slot) =>
+        EncajaEnSlot(fila, seccionFuente, canalFuente: null, slot);
+
+    internal static bool EncajaEnSlot(FilaEspejoR1 fila, SeccionFronteraArriba? seccionFuente, string? canalFuente, SlotR1 slot)
     {
         ArgumentNullException.ThrowIfNull(fila);
         ArgumentNullException.ThrowIfNull(slot);
@@ -294,6 +311,15 @@ internal static class EscritorValoresSlotR1
         if (seccionFuente.HasValue
             && slot.Seccion.HasValue
             && seccionFuente.Value != slot.Seccion.Value)
+        {
+            return false;
+        }
+
+        // Plan 46 (§2.1, DEFECTO 1): el canal efectivo es parte de la llave. Si ambos lados lo traen
+        // (filas/Slots de canal) y difieren, no encajan.
+        if (canalFuente is not null
+            && slot.Canal is not null
+            && !string.Equals(canalFuente, slot.Canal, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
@@ -339,7 +365,7 @@ internal static class EscritorValoresSlotR1
         foreach (var slot in slots)
         {
             var firmaSlot = FilaDesdeSlot(slot);
-            var grupo = grupos.Find(g => EncajaEnSlot(firmaSlot, slot.Seccion, g.Representante));
+            var grupo = grupos.Find(g => EncajaEnSlot(firmaSlot, slot.Seccion, slot.Canal, g.Representante));
             if (grupo is null)
             {
                 grupo = new GrupoSeccion(slot);
@@ -363,15 +389,16 @@ internal static class EscritorValoresSlotR1
 
     /// <summary>
     /// Primer grupo (en orden físico del template) que encaja con la fila por firma + (<paramref name="seccion"/>
-    /// o sin sección si es <c>null</c>) Y aún tiene un slot libre. Con <paramref name="seccion"/> no nulo
-    /// es la resolución por SECCIÓN-CONTRATO (Plan 45 §2.2); con <c>null</c> es el POOL HISTÓRICO
-    /// (firma sola, Plan 41) que preserva la neutralidad Q1 (nunca un fail-fast antes que el previo).
+    /// o sin sección si es <c>null</c>) + (canal efectivo o sin canal) Y aún tiene un slot libre. Con
+    /// <paramref name="seccion"/> no nulo es la resolución por SECCIÓN-CONTRATO + CANAL (Plan 45 §2.2 +
+    /// Plan 46 §2.1); con <c>null</c> es el POOL HISTÓRICO (firma sola, Plan 41) que preserva la
+    /// neutralidad Q1 (nunca un fail-fast antes que el previo).
     /// </summary>
-    private static GrupoSeccion? BuscarGrupo(IReadOnlyList<GrupoSeccion> grupos, FilaEspejoR1 fila, SeccionFronteraArriba? seccion)
+    private static GrupoSeccion? BuscarGrupo(IReadOnlyList<GrupoSeccion> grupos, FilaEspejoR1 fila, SeccionFronteraArriba? seccion, string? canal)
     {
         foreach (var grupo in grupos)
         {
-            if (grupo.TieneLibre && EncajaEnSlot(fila, seccion, grupo.Representante))
+            if (grupo.TieneLibre && EncajaEnSlot(fila, seccion, canal, grupo.Representante))
             {
                 return grupo;
             }
@@ -397,12 +424,16 @@ internal static class EscritorValoresSlotR1
             $"Nunca remap/insert ni colocación por posición: revise el contrato T0 (slot por sección) o la fuente.";
     }
 
-    private static int ContarOcurrenciaPrevia(IReadOnlyList<FilaEspejoR1> fuente, IReadOnlyList<SeccionFronteraArriba?> secciones, int indice)
+    private static int ContarOcurrenciaPrevia(
+        IReadOnlyList<FilaEspejoR1> fuente,
+        IReadOnlyList<SeccionFronteraArriba?> secciones,
+        IReadOnlyList<string?>? canales,
+        int indice)
     {
         var conteo = 0;
         for (var k = 0; k < indice; k++)
         {
-            if (EncajaEnSlot(fuente[indice], secciones[indice], SlotDesdeFila(fuente[k], secciones[k])))
+            if (EncajaEnSlot(fuente[indice], secciones[indice], canales?[indice], SlotDesdeFila(fuente[k], secciones[k], canales?[k])))
             {
                 conteo++;
             }
@@ -411,8 +442,8 @@ internal static class EscritorValoresSlotR1
         return conteo;
     }
 
-    private static SlotR1 SlotDesdeFila(FilaEspejoR1 fila, SeccionFronteraArriba? seccion) =>
-        new(0, string.Empty, string.Empty, fila.A, fila.B, fila.C, fila.D, fila.E, seccion);
+    private static SlotR1 SlotDesdeFila(FilaEspejoR1 fila, SeccionFronteraArriba? seccion, string? canal) =>
+        new(0, string.Empty, string.Empty, fila.A, fila.B, fila.C, fila.D, fila.E, seccion, canal);
 
     private static string TipoSeccion(SeccionFronteraArriba? seccion) => seccion switch
     {
@@ -424,52 +455,23 @@ internal static class EscritorValoresSlotR1
     };
 
     /// <summary>
-    /// Sección CRUDA de cada fila (Plan 41/T1 + Plan 45 §2.2): la frontera inmediatamente ARRIBA para
-    /// las filas de datos/componentes; para las filas-frontera (<c>Mes/Total</c>, <c>Aplicacion…/Total</c>)
-    /// la sección que ABREN (la de su primera fila hija) — así la frontera viaja con la sección a la que
-    /// pertenece por el contrato; AFaseo queda <c>null</c> (se localiza por firma). Es la sección NATIVA
-    /// de la hoja (del oficial para los slots; de la fuente para las filas fuente antes de mapear).
+    /// Sección CRUDA de cada fila (Plan 41/T1 + Plan 46 §2.2): la frontera que la <b>CIERRA</b>
+    /// (inmediatamente DEBAJO) para las filas de datos/componentes; para las filas-frontera
+    /// (<c>Mes/Total</c>, <c>Aplicacion…/Total</c>) la sección que ELLAS cierran; la cola sin frontera
+    /// debajo se queda con la de arriba; AFaseo queda <c>null</c> (se localiza por firma). Es la
+    /// sección NATIVA de la hoja (del oficial para los slots; de la fuente para las filas fuente antes
+    /// de mapear). Delegada en <see cref="ContratoSeccionPeriodFreeR1.SeccionPorCierre"/> (predicado
+    /// puro period-free/company-free, D-H).
     /// </summary>
     private static IReadOnlyList<SeccionFronteraArriba?> ClasificarSeccionesRaw(IReadOnlyList<FilaEspejoR1> filas)
     {
         var resultado = new SeccionFronteraArriba?[filas.Count];
         for (var i = 0; i < filas.Count; i++)
         {
-            var fila = filas[i];
-            if (EsFirmaAFaseo(fila.A, fila.B, fila.D, fila.E))
-            {
-                resultado[i] = null;
-            }
-            else if (fila.EsMesTotal || fila.EsAplicacionTotal)
-            {
-                resultado[i] = SeccionQueAbre(filas, i);
-            }
-            else
-            {
-                resultado[i] = SeccionEspejoR1.PorFronteraArriba(filas, i);
-            }
+            resultado[i] = ContratoSeccionPeriodFreeR1.SeccionPorCierre(filas, i);
         }
 
         return resultado;
-    }
-
-    /// <summary>
-    /// Sección que ABRE la fila-frontera <paramref name="indice"/>: la sección de su primera fila hija
-    /// (la próxima hacia abajo que participa de la alineación por sección). Para la frontera
-    /// <c>Mes</c> la hija abre <c>Oportuno</c>; para <c>Aplicacion</c>, <c>Aplicación</c>.
-    /// </summary>
-    private static SeccionFronteraArriba SeccionQueAbre(IReadOnlyList<FilaEspejoR1> filas, int indice)
-    {
-        for (var j = indice + 1; j < filas.Count; j++)
-        {
-            if (ContratoSeccionPeriodFreeR1.ParticipaDeSeccionConformada(filas[j]))
-            {
-                return SeccionEspejoR1.PorFronteraArriba(filas, j);
-            }
-        }
-
-        // Frontera sin hija (cierre vacío): su propia sección por frontera arriba.
-        return SeccionEspejoR1.PorFronteraArriba(filas, indice);
     }
 
     /// <summary>
@@ -570,10 +572,13 @@ internal static class EscritorValoresSlotR1
         for (var i = 0; i < firmas.Count; i++)
         {
             var numero = (int)filas[i].RowIndex!.Value;
+            // Plan 46 (§2.1): el canal efectivo del slot se calcula con el MISMO predicado que en las
+            // filas de la fuente, y solo en el contrato (el baseline reproduce el comportamiento viejo).
+            var canal = porContrato ? ContratoSeccionPeriodFreeR1.CanalEfectivo(firmas, i) : null;
             slots.Add(new SlotR1(
                 numero, celdas[i].CeldaF, celdas[i].CeldaL,
                 firmas[i].A, firmas[i].B, firmas[i].C, firmas[i].D, firmas[i].E,
-                secciones[i]));
+                secciones[i], canal));
         }
 
         if (slots.Count != fin - inicio + 1)

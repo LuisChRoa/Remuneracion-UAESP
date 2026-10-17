@@ -18,6 +18,24 @@ public sealed class ValidadorBasico : IValidador
     private const decimal Tolerancia = 0.5m;
 
     /// <summary>
+    /// Plan 46 (review W-1): catálogo de divergencias declaradas que consulta la clasificación.
+    /// Default = catálogo REAL del producto (<see cref="DivergenciasDeclaradasCatalogo.Entradas"/>;
+    /// el matcher puro ya ignora las entradas retiradas). La costura permite inyectar un catálogo
+    /// sintético de test SIN duplicar la lógica de clasificación: el fixture ejercita ESTA misma
+    /// implementación (antes el fixture espejaba la clasificación línea a línea).
+    /// </summary>
+    private readonly IReadOnlyList<DivergenciasDeclaradasCatalogo.Entrada> _catalogo;
+
+    /// <summary>
+    /// Crea el validador. <paramref name="catalogo"/> <c>null</c> = catálogo real del producto
+    /// (comportamiento de producción intacto). Un catálogo explícito solo lo usa el fixture de test.
+    /// </summary>
+    public ValidadorBasico(IReadOnlyList<DivergenciasDeclaradasCatalogo.Entrada>? catalogo = null)
+    {
+        _catalogo = catalogo ?? DivergenciasDeclaradasCatalogo.Entradas;
+    }
+
+    /// <summary>
     /// HU-14 (3.1): agrega un error con el prefijo <c>[ERR-VALIDACION]</c> del catálogo
     /// (todo error del validador es una validación de dominio que no cierra).
     /// </summary>
@@ -313,7 +331,7 @@ public sealed class ValidadorBasico : IValidador
                 // Solo una divergencia EVALUABLE desde lo escrito puede corresponder a una entrada
                 // del catálogo; "no evaluable" (E1-1) y los snapshots sin evidencia = no declaradas.
                 var entrada = clasificable
-                    ? DivergenciasDeclaradasCatalogo.Buscar(celda, observado, esperado)
+                    ? DivergenciasDeclaradasCatalogo.Buscar(_catalogo, celda, observado, esperado)
                     : null;
 
                 veredictos.Add(new VeredictoDivergenciaValidacion

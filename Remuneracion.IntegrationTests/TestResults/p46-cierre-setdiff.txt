@@ -1,0 +1,5 @@
+﻿Plan 46 CIERRE (review W-1/W-2) - set-diff vs o43-final-failed.txt (39)
+Suite: 38 Failed / 960 Passed / 998 Total / 0 Skipped (p46-cierre.trx)
+ALTAS: 0
+BAJAS (1):
+Remuneracion.IntegrationTests.ProcesadorPeriodoTests.Ejecutar_Periodo2026072_ConLectorOracle_VeredictosValidacionesNoVacios

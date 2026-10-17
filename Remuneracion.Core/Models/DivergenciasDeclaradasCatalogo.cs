@@ -1,8 +1,8 @@
 namespace Remuneracion.Core.Models;
 
 /// <summary>
-/// Plan 42 (T1, D-C — patrón Plan 34 <see cref="SinonimosEmpresaR1"/>): catálogo de
-/// DIVERGENCIAS DECLARADAS como DATOS citados, más el matcher puro
+/// Plan 42 (T1, D-C — patrón Plan 34 <see cref="SinonimosEmpresaR1"/>) + Plan 46 (H2, decisión del
+/// Ingeniero 2026-10-17): catálogo de DIVERGENCIAS DECLARADAS como DATOS citados, más el matcher puro
 /// <see cref="Buscar(IReadOnlyList{Entrada}, string, decimal, decimal)"/>.
 ///
 /// Una divergencia declarada es una diferencia EXTERNA por construcción (discrepancia
@@ -13,8 +13,18 @@ namespace Remuneracion.Core.Models;
 /// retiro); sin ellos la entrada no aplica (jamás un verde silencioso). Añadir una divergencia
 /// futura = añadir una FILA citada, nunca una rama de código.
 ///
-/// D-H (Plan 34/40/41/42): el matcher NO recibe período y NO ramifica por empresa; recibe la
-/// celda y los montos por parámetro. La primera (y hoy única) entrada es OCCIDENTE ASE5.
+/// <para>
+/// <b>MECANISMO DE RETIRO (Plan 46 H2):</b> una entrada puede quedar <see cref="Entrada.Retirada"/>
+/// (estado de retiro con <see cref="Entrada.FechaRetiro"/>, <see cref="Entrada.MotivoRetiro"/> y
+/// <see cref="Entrada.EvidenciaRetiro"/> citados). Una entrada retirada YA NO aplica en
+/// <see cref="Buscar(IReadOnlyList{Entrada}, string, decimal, decimal)"/> (no hay verde silencioso
+/// ni divergencia fantasma), pero se CONSERVA en <see cref="Entradas"/> como historia auditable
+/// (el mecanismo —matcher, reporte, huella— queda intacto; solo cambia el dato). El retiro exige
+/// fecha + motivo + evidencia: <see cref="Entrada.RetiroDocumentado"/> lo verifica.
+/// </para>
+///
+/// D-H (Plan 34/40/41/42/46): el matcher NO recibe período y NO ramifica por empresa; recibe la
+/// celda y los montos por parámetro.
 /// </summary>
 public static class DivergenciasDeclaradasCatalogo
 {
@@ -23,7 +33,8 @@ public static class DivergenciasDeclaradasCatalogo
 
     /// <summary>
     /// Entrada del catálogo: una divergencia declarada con sus 6 campos citados más el Δ
-    /// (diferencia material) que permite reconocerla en la clasificación.
+    /// (diferencia material) que permite reconocerla en la clasificación, y su estado de retiro
+    /// (Plan 46 H2: fecha + motivo + evidencia citados; el mecanismo se conserva).
     /// </summary>
     public sealed record Entrada(
         string Id,
@@ -33,12 +44,16 @@ public static class DivergenciasDeclaradasCatalogo
         string Dueno,
         string CitaEvidencia,
         string Fecha,
-        string CondicionRetiro)
+        string CondicionRetiro,
+        bool Retirada = false,
+        string? FechaRetiro = null,
+        string? MotivoRetiro = null,
+        string? EvidenciaRetiro = null)
     {
         /// <summary>
         /// Verdad si la entrada trae sus 6 campos citados (celda(s), origen del monto, dueño,
-        /// cita de evidencia, fecha, condición de retiro) más un Δ no nulo. Una entrada incompleta
-        /// NUNCA aplica (R-CAT-2: sin los 6 campos no hay entrada).
+        /// cita de evidencia, fecha, condición de retiro) más un Δ no nulo. Una entrada
+        /// incompleta NUNCA aplica (R-CAT-2: sin los 6 campos no hay entrada).
         /// </summary>
         public bool Completa =>
             !string.IsNullOrWhiteSpace(Id)
@@ -50,12 +65,29 @@ public static class DivergenciasDeclaradasCatalogo
             && !string.IsNullOrWhiteSpace(CitaEvidencia)
             && !string.IsNullOrWhiteSpace(Fecha)
             && !string.IsNullOrWhiteSpace(CondicionRetiro);
+
+        /// <summary>
+        /// Verdad si el estado de retiro está DOCUMENTADO (fecha + motivo + evidencia citados).
+        /// Una entrada vigente (<see cref="Retirada"/> = <c>false</c>) siempre lo está; una retirada
+        /// sin documentar es un dato incompleto que el fixture del catálogo rechaza.
+        /// </summary>
+        public bool RetiroDocumentado =>
+            !Retirada
+            || (!string.IsNullOrWhiteSpace(FechaRetiro)
+                && !string.IsNullOrWhiteSpace(MotivoRetiro)
+                && !string.IsNullOrWhiteSpace(EvidenciaRetiro));
+
+        /// <summary>
+        /// Verdad si la entrada APLICA hoy: completa, no retirada y con el retiro (si lo hay)
+        /// documentado. El matcher solo considera entradas vigentes.
+        /// </summary>
+        public bool Vigente => Completa && !Retirada && RetiroDocumentado;
     }
 
     /// <summary>
-    /// Catálogo vigente (abierto). Primera entrada: OCCIDENTE ASE5 (oficial 3 términos vs manual
-    /// legacy 2 términos; Δ = 417.519,62 = la fila de la 1.ª sección). Se retira por su condición
-    /// de retiro (cuando la UAESP resuelva), no adaptando código.
+    /// Catálogo vigente (abierto). Historia completa: la entrada OCCIDENTE-ASE5 queda **RETIRADA**
+    /// (Plan 46 H2, decisión del Ingeniero 2026-10-17) porque la divergencia ya no existe. Se
+    /// conserva como historia auditable; el matcher la ignora por <see cref="Entrada.Vigente"/>.
     /// </summary>
     public static IReadOnlyList<Entrada> Entradas { get; } =
     [
@@ -65,7 +97,7 @@ public static class DivergenciasDeclaradasCatalogo
             Delta: 417519.62m,
             OrigenMonto:
                 "Reporte Componentes R1, ancla de OCCIDENTE ASE5: el subtotal del espejo del oficial " +
-                "(3 términos; incluye la fila de la 1.ª sección) supera al del manual legacy " +
+                "(3 términos; incluye la fila de la 1.ª sección) superaba al del manual legacy " +
                 "(2 términos; omite esa fila) en el valor de la 1.ª sección.",
             Dueno: "UAESP",
             CitaEvidencia:
@@ -75,20 +107,38 @@ public static class DivergenciasDeclaradasCatalogo
             Fecha: "2026-10-14",
             CondicionRetiro:
                 "La UAESP confirme si la remuneración de OCCIDENTE ASE5 incluye la 1.ª sección; " +
-                "entonces se elimina esta fila, no se adapta el código.")
+                "entonces se elimina esta fila, no se adapta el código.",
+            Retirada: true,
+            FechaRetiro: "2026-10-17",
+            MotivoRetiro:
+                "La divergencia YA NO EXISTE: el Plan 46 (sección por frontera de CIERRE + canal " +
+                "efectivo) coloca la 1.ª sección de ASE5 en la Aplic#1 oficial, F612 pasa a 0, F700 " +
+                "pasa de 305.407.140,43 a 304.989.620,81 (igual a la medición del administrativo) y " +
+                "VALIDACION_TOTAL O25/D34/F34 sellan TRUE (Δ 0).",
+            EvidenciaRetiro:
+                "Plan 46 H2 (plans/46): corrida 9 por CLI (2026072 desde el oficial) = RESULTADO OK " +
+                "codigo=0 sin reporte de divergencia; Docs/T0-Plan45-Contrato-Seccion-PeriodFree.md §12 " +
+                "(errata); fixture read-only ContratoSeccionPeriodFreeT0Plan46Tests; " +
+                "SeccionEspejoR1Tests.T1_OccidenteAse5_SeccionPorCierre_CoincideConManual.")
     ];
+
+    /// <summary>Entradas que APLICAN hoy (completas, no retiradas); es lo que el matcher consulta.</summary>
+    public static IReadOnlyList<Entrada> Vigentes => Entradas.Where(e => e.Vigente).ToList();
+
+    /// <summary>Entradas retiradas (historia auditable; nunca aplican al matcher).</summary>
+    public static IReadOnlyList<Entrada> Retiradas => Entradas.Where(e => e.Retirada).ToList();
 
     /// <summary>
     /// Matcher puro sobre el catálogo vigente. Devuelve la entrada cuya lista de celdas contiene
     /// <paramref name="celda"/> y cuyo Δ coincide con |observado − esperado| (±<see cref="Tolerancia"/>);
-    /// <c>null</c> si ninguna entrada COMPLETA aplica (divergencia no declarada).
+    /// <c>null</c> si ninguna entrada VIGENTE aplica (divergencia no declarada o entrada retirada).
     /// </summary>
     public static Entrada? Buscar(string celda, decimal observado, decimal esperado) =>
         Buscar(Entradas, celda, observado, esperado);
 
     /// <summary>
-    /// Matcher puro sobre un catálogo explícito (testeable). Las entradas incompletas se IGNORAN
-    /// (R-CAT-2: nunca un verde silencioso).
+    /// Matcher puro sobre un catálogo explícito (testeable). Las entradas incompletas o RETIRADAS se
+    /// IGNORAN (R-CAT-2: nunca un verde silencioso; Plan 46 H2: una retirada no aplica).
     /// </summary>
     public static Entrada? Buscar(IReadOnlyList<Entrada> catalogo, string celda, decimal observado, decimal esperado)
     {
@@ -100,7 +150,7 @@ public static class DivergenciasDeclaradasCatalogo
         var delta = Math.Abs(observado - esperado);
         foreach (var entrada in catalogo)
         {
-            if (!entrada.Completa)
+            if (!entrada.Vigente)
             {
                 continue;
             }

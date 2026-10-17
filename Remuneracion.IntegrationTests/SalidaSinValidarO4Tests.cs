@@ -23,7 +23,11 @@ public sealed class SalidaSinValidarO4Tests
         var salida = Path.Combine(dir, Insumos.PeriodoQ2().NombreArchivo);
         try
         {
-            var (_, periodo, _) = ComposicionServicios.Crear();
+            // Plan 46 (H2): la divergencia real quedó resuelta; el escenario "no cierra bien" se
+            // ejercita con el FIXTURE SINTÉTICO (SINTETICA-C15, Δ = 1) vía la composición del host.
+            var (_, periodo, _) = ComposicionServicios.Crear(
+                FixtureDivergenciaSintetica.CrearValidador(),
+                FixtureDivergenciaSintetica.CrearLector());
 
             // Q2 sin reconocimiento: la divergencia declarada BLOQUEA después de escribir el workbook.
             Assert.Throws<CalculoInvalidoException>(() => periodo.Ejecutar(new SolicitudProcesoPeriodo

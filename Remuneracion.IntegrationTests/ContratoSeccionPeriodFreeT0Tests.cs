@@ -32,6 +32,16 @@ namespace Remuneracion.IntegrationTests;
 /// NO-frontera de la fuente se alinea con la próxima sección del OFICIAL del MISMO TIPO aún no
 /// consumida (emparejamiento monotónico/tipo), lo que reproduce el mapeo del plan §2.2:
 /// <c>[P,A,O,A,O] → [1.ª, Aplic#1, Oportuno#2, Aplic#2, Oportuno#3]</c> y <c>[P,O,O,O] → [1.ª, Oportuno#1, Oportuno#2, Oportuno#3]</c>.
+///
+/// <para>
+/// <b>ERRATA Plan 46 (W-2, 2026-10-17) — doctrina SUPERSEDIDA en el tipado de sección:</b> este T0
+/// tipa por la frontera inmediatamente ARRIBA (la 1.ª sección es siempre <c>Primera</c>); la regla
+/// VIGENTE tipa por la frontera que CIERRA (<c>ContratoSeccionPeriodFreeR1.SeccionPorCierre</c>), según
+/// <c>Docs/T0-Plan45-Contrato-Seccion-PeriodFree.md §12</c> y el fixture
+/// <see cref="ContratoSeccionPeriodFreeT0Plan46Tests"/>. Las expectativas con <c>Tipo.Primera</c> de
+/// <c>T0_ReglaPeriodFree_FormasSonSubsecuencias_YEmparejanMonotonicoPorTipo</c> se conservan como
+/// congelamiento HISTÓRICO de la aritmética de <c>Alinear</c>; el contrato actual está en el fixture del 46.
+/// </para>
 /// </summary>
 public sealed class ContratoSeccionPeriodFreeT0Tests
 {

@@ -24,7 +24,11 @@ public sealed class ComposicionServiciosTests
         var salida = Path.Combine(dir, Insumos.PeriodoQ2().NombreArchivo);
         try
         {
-            var (_, periodo, _) = ComposicionServicios.Crear();
+            // Plan 46 (H2): la divergencia real quedó resuelta; la composición ÚNICA del host se
+            // ejercita con el FIXTURE SINTÉTICO (SINTETICA-C15, Δ = 1) inyectado por la costura.
+            var (_, periodo, _) = ComposicionServicios.Crear(
+                FixtureDivergenciaSintetica.CrearValidador(),
+                FixtureDivergenciaSintetica.CrearLector());
 
             var ex = Assert.Throws<CalculoInvalidoException>(() => periodo.Ejecutar(new SolicitudProcesoPeriodo
             {
@@ -38,7 +42,7 @@ public sealed class ComposicionServiciosTests
             // sin excepción: la vía no puede cerrar en verde sin validar.
             Assert.NotNull(ex.Clasificacion);
             Assert.True(ex.Clasificacion!.SoloDeclaradas);
-            Assert.Equal(["OCCIDENTE-ASE5"], ex.Clasificacion.EntradasDeclaradas);
+            Assert.Equal([FixtureDivergenciaSintetica.EntradaId], ex.Clasificacion.EntradasDeclaradas);
         }
         finally
         {
@@ -53,7 +57,9 @@ public sealed class ComposicionServiciosTests
         var salida = Path.Combine(dir, Insumos.PeriodoQ2().NombreArchivo);
         try
         {
-            var (_, periodo, _) = ComposicionServicios.Crear();
+            var (_, periodo, _) = ComposicionServicios.Crear(
+                FixtureDivergenciaSintetica.CrearValidador(),
+                FixtureDivergenciaSintetica.CrearLector());
 
             var resultado = periodo.Ejecutar(new SolicitudProcesoPeriodo
             {
@@ -61,7 +67,7 @@ public sealed class ComposicionServiciosTests
                 CarpetaPeriodo = Insumos.CarpetaPeriodoQ2,
                 RutaPlantilla = Insumos.PlantillaOficial(),
                 RutaSalida = salida,
-                DivergenciasDeclaradasAceptadas = ["OCCIDENTE-ASE5"]
+                DivergenciasDeclaradasAceptadas = [FixtureDivergenciaSintetica.EntradaId]
             });
 
             Assert.True(File.Exists(salida), "La vía de producción debe producir el archivo definitivo.");

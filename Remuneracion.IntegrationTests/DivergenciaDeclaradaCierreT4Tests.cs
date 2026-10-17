@@ -40,7 +40,9 @@ public sealed class DivergenciaDeclaradaCierreT4Tests : IDisposable
         try
         {
             var salida = Path.Combine(dir, Insumos.PeriodoQ2().NombreArchivo);
-            var procesador = CrearProcesador(reporte: new ReporteDivergenciasDeclaradasWriter());
+            // Plan 46 (H2): la divergencia real quedó resuelta; el mecanismo se ejercita con el
+            // FIXTURE SINTÉTICO (SINTETICA-C15, Δ = 1) — el emisor del reporte es el real.
+            var procesador = FixtureDivergenciaSintetica.CrearProcesador();
 
             var resultado = procesador.Ejecutar(new SolicitudProcesoPeriodo
             {
@@ -48,7 +50,7 @@ public sealed class DivergenciaDeclaradaCierreT4Tests : IDisposable
                 CarpetaPeriodo = Insumos.CarpetaPeriodoQ2,
                 RutaPlantilla = Insumos.PlantillaOficial(),
                 RutaSalida = salida,
-                DivergenciasDeclaradasAceptadas = ["OCCIDENTE-ASE5"]
+                DivergenciasDeclaradasAceptadas = [FixtureDivergenciaSintetica.EntradaId]
             });
 
             // El run COMPLETA (no lanza): archivo producido.
@@ -57,7 +59,7 @@ public sealed class DivergenciaDeclaradaCierreT4Tests : IDisposable
             // La clasificación viaja en el resultado (aditivo) para que UI/CLI la presenten.
             Assert.NotNull(resultado.DivergenciasDeclaradas);
             Assert.True(resultado.DivergenciasDeclaradas!.SoloDeclaradas);
-            Assert.Equal(["OCCIDENTE-ASE5"], resultado.DivergenciasDeclaradas.EntradasDeclaradas);
+            Assert.Equal([FixtureDivergenciaSintetica.EntradaId], resultado.DivergenciasDeclaradas.EntradasDeclaradas);
 
             // Reporte durable junto a la salida (sin reporte no hay ÉXITO).
             Assert.False(string.IsNullOrWhiteSpace(resultado.ReporteDivergenciasDeclaradas));
@@ -66,8 +68,8 @@ public sealed class DivergenciaDeclaradaCierreT4Tests : IDisposable
 
             // Huella en el log (segunda huella obligatoria): entrada, Δ, corrida, aceptación.
             var mensajes = sink.Eventos.Select(e => e.RenderMessage()).ToList();
-            Assert.Contains(mensajes, m => m.Contains("OCCIDENTE-ASE5", StringComparison.Ordinal));
-            Assert.Contains(mensajes, m => m.Contains("Divergencia declarada reconocida", StringComparison.Ordinal) && m.Contains("417519", StringComparison.Ordinal));
+            Assert.Contains(mensajes, m => m.Contains(FixtureDivergenciaSintetica.EntradaId, StringComparison.Ordinal));
+            Assert.Contains(mensajes, m => m.Contains("Divergencia declarada reconocida", StringComparison.Ordinal) && m.Contains("Δ 1.", StringComparison.Ordinal));
         }
         finally
         {

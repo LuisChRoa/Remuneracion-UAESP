@@ -56,10 +56,10 @@ public sealed class EscritorValoresSlotR1Tests
             parte.Workbook?.Save();
         }
 
-        // Toda fila fuente se coloca o cae a cero documentado (Plan 45 §2.2: hueco de plantilla de la
-        // 1.ª sección de ASE5 — Vlr Intereses sin slot; el resto se coloca).
+        // Toda fila fuente se coloca (Plan 46: FP-3 retiró los 2 ceros documentados de ASE5; sus
+        // `Vlr Intereses` de la 1.ª caen ahora en los slots F623/F626 de la Aplic#1 oficial).
         Assert.Equal(bloque.TotalFilas, resultado.FilasColocadas + resultado.CerosDocumentados);
-        Assert.Equal(aseId == 5 ? 2 : 0, resultado.CerosDocumentados);
+        Assert.Equal(0, resultado.CerosDocumentados);
 
         // <f> byte-idéntica al template en todo R1 (texto + t + ref + si).
         var despues = FotoFormulas(salida.Ruta, HojaR1);
@@ -80,38 +80,41 @@ public sealed class EscritorValoresSlotR1Tests
         // Reserva hidden intacta: sin celdas nuevas y hidden=1 preservado.
         AssertHiddenIntacta(salida.Ruta, HojaR1);
 
-        // S2.1 (Plan 44): la fila fuente OCCIDENTE de la 1.ª sección de ASE5 (R13) llega con TODOS sus
-        // componentes por ENCABEZADO al slot F612 (`C=OCCIDENTE, D=Total`, 1.ª sección), con el
-        // decimal exacto de la fuente (bytes: 417.519,62 / 26.657,43 / 14.138,02 / 7.723,27 / …).
+        // S2.1 (Plan 44/46): la fila fuente OCCIDENTE de la 1.ª sección de ASE5 (R13) llega con TODOS
+        // sus componentes por ENCABEZADO al slot F628 (`C=OCCIDENTE, D=Total`, **Aplic#1** oficial,
+        // cerrada por Aplic@629), con el decimal exacto de la fuente (bytes: 417.519,62 / 26.657,43 /
+        // 14.138,02 / 7.723,27 / …). Plan 46 §S1.2: el OCCIDENTE de la 1.ª oficial (F612) queda en 0.
         if (aseId == 5)
         {
-            var componentes612 = new (string Celda, decimal Esperado)[]
+            var componentes628 = new (string Celda, decimal Esperado)[]
             {
-                ("F612", 417519.62m), ("G612", 26657.43m), ("H612", 14138.02m), ("I612", 7723.27m),
-                ("J612", 93911.73m), ("K612", 2290.29m), ("L612", 0m), ("M612", 20089.34m),
-                ("N612", 28092.36m), ("O612", 141333m), ("P612", 79544.79m), ("Q612", 3736.7m),
-                ("R612", 2.69m), ("S612", 0m), ("T612", 0m), ("Z612", 0m),
+                ("F628", 417519.62m), ("G628", 26657.43m), ("H628", 14138.02m), ("I628", 7723.27m),
+                ("J628", 93911.73m), ("K628", 2290.29m), ("L628", 0m), ("M628", 20089.34m),
+                ("N628", 28092.36m), ("O628", 141333m), ("P628", 79544.79m), ("Q628", 3736.7m),
+                ("R628", 2.69m), ("S628", 0m), ("T628", 0m), ("Z628", 0m),
             };
-            foreach (var (celda, esperado) in componentes612)
+            foreach (var (celda, esperado) in componentes628)
             {
                 Assert.Equal(esperado, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, celda));
             }
 
+            Assert.Equal(0m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F612"));
+
             // T0 §7: `Intereses Cte` de la fuente (col T) va a **T** (NO a Y, que queda intacta);
-            // `Rec.Intereses` de la fuente (col U) va a **Z**. Plan 45 (S2.1): la SECCIÓN-CONTRATO
-            // coloca la fila `D=E/Total` de ASE5 (R17, sección Aplic#1 fuente) en el slot `D=E` de la
-            // **Aplic#1** oficial (632) — no en la 1.ª (604) como hacía el cursor físico. Y **Y632**
-            // queda intacta (T/Y NO espejo).
+            // `Rec.Intereses` de la fuente (col U) va a **Z**. Plan 46 (sección por CIERRE): la fila
+            // `D=E/Total` de ASE5 (R17) sigue en el slot `D=E` de la 632 (ahora O#2 oficial).
             Assert.Equal(7.04m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "T632"));
             Assert.Equal(-40.37m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "Z632"));
             Assert.Equal(0m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "Y632"));
         }
 
-        // Spot-checks de dominio: primera fila y AFaseo del ASE llegan a su slot.
+        // Spot-check de dominio: la PRIMERA fila fuente cae en el slot de su CANAL EFECTIVO (Plan 46
+        // §2.1), que no siempre es la primera fila del bloque oficial: ASE3 arranca por canal O (F294)
+        // y ASE5 por canal H (F619).
         var primera = bloque.Filas[0];
         Assert.Equal(
             primera.Valor("Total") ?? 0m,
-            TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, $"F{inicio}"));
+            TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, SlotPrimeraFila(aseId)));
         // Spot-check AFaseo: si la fuente lo trae se coloca en F0; si no, el slot queda en
         // cero del template (ASE5-julio2 no trae AFaseo en ninguna variante: caso real observado).
         var afaseo = bloque.Filas.FirstOrDefault(f =>
@@ -253,6 +256,20 @@ public sealed class EscritorValoresSlotR1Tests
         3 => "F300",
         4 => "F461",
         5 => "F614",
+        _ => throw new ArgumentOutOfRangeException(nameof(aseId)),
+    };
+
+    /// <summary>
+    /// Plan 46 (§2.1): slot de la PRIMERA fila fuente (Vlr Servicio de la 1.ª) por su CANAL EFECTIVO.
+    /// ASE1/2/4 arrancan por E (primera fila del bloque); ASE3 por O (F294) y ASE5 por H (F619).
+    /// </summary>
+    private static string SlotPrimeraFila(int aseId) => aseId switch
+    {
+        1 => "F6",
+        2 => "F110",
+        3 => "F294",
+        4 => "F450",
+        5 => "F619",
         _ => throw new ArgumentOutOfRangeException(nameof(aseId)),
     };
 

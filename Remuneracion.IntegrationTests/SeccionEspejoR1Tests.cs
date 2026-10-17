@@ -110,23 +110,21 @@ public sealed class SeccionEspejoR1Tests
         Assert.InRange(valor - (decimal)esperadoManual, -Tolerancia, Tolerancia);
     }
 
-    // ── OCCIDENTE ASE5: divergencia de ESTRUCTURA (mini-T0) — DECLARADO, nunca verde ─────────────
+    // ── OCCIDENTE ASE5: con la sección por CIERRE coincide con el manual (Plan 46 §S1.2) ────────
 
     [Fact]
-    public void T1_OccidenteAse5_DivergenciaEstructural_Declarada()
+    public void T1_OccidenteAse5_SeccionPorCierre_CoincideConManual()
     {
-        // El oficial F700 = F647+F673+F612-L612-L647 (3 términos) NO corresponde al manual
-        // F578 = F530+F551-L530 (2 términos). Colocando por sección (src13→612, src32→647,
-        // src53→673) el oficial da 305.407.140,43 mientras el manual da 304.989.620,81: la
-        // diferencia es EXACTAMENTE la fila de la 1.ª sección de OCCIDENTE (417.519,62). Es un
-        // hallazgo de plantilla para la UAESP (no se resuelve por supuesto, D-E).
+        // Plan 46 (§S1.2): la 1.ª fuente de ASE5 (R13, OCCIDENTE 417.519,62) la cierra `Aplicacion`
+        // (R14, 417.519,62) → cae en el OCCIDENTE de la **Aplic#1** oficial (F628), no en el de la 1.ª
+        // (F612, que queda en 0). La fórmula de ancla F700 = F647+F673+F612-L612-L647 deja de arrastrar
+        // el término de la 1.ª: el valor oficial-por-sección pasa a COINCIDIR con el manual
+        // (304.989.620,81), cerrando la divergencia estructural que el Plan 41 dejó declarada.
+        // Evidencia: Docs/T0-Plan45-... §4 + Plans/46 §S1.2 + fixture read-only
+        // ContratoSeccionPeriodFreeT0Plan46Tests (R13→R628).
         var valorOficialPorSeccion = EscribirEspejoYEvaluarAncla(5, "REMUNERACION_OCCIDENTE_ Directa");
 
-        Assert.InRange(valorOficialPorSeccion - 305407140.43m, -Tolerancia, Tolerancia);
-
-        // El valor del manual difiere (no se cierra por colocación): divergencia declarada.
-        Assert.True(Math.Abs(valorOficialPorSeccion - 304989620.81m) > Tolerancia,
-            "OCCIDENTE ASE5: el oficial-por-sección NO debe coincidir con el manual (divergencia estructural declarada).");
+        Assert.InRange(valorOficialPorSeccion - 304989620.81m, -Tolerancia, Tolerancia);
     }
 
     // ── S3 / R-SEC-2: fila sin grupo de sección → fail-fast que nombra ASE+empresa+fila ──────────

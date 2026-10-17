@@ -68,7 +68,7 @@ namespace Remuneracion.WinForms
         /// entrypoint).
         /// </summary>
         private static readonly Lazy<(IProcesadorRemuneracion Remuneracion, IProcesadorPeriodo Periodo, ArchivoFuenteLocator Locator)> ServiciosPorDefecto =
-            new(ComposicionServicios.Crear);
+            new(() => ComposicionServicios.Crear());
 
         public Form1()
             : this(

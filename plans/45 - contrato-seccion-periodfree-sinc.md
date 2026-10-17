@@ -1,6 +1,6 @@
 ---
 titulo: Plan 45 - Contrato de seccion PERIOD-FREE para filas sin-C + cero documentado (hijo del Plan 44)
-estado: CERRADO 2026-10-16 — H0 (T0 multi-periodo) + H1 (regla sin-C + cero documentado, Q1-neutral) + H2 (review APROBADO-CON-OBSERVACIONES con O-1 formalizada; set-diff VACIO 39=39 en p45-h2b.trx) + H3 (docs). Follow-ups declarados: O-2/O-3. Puertas abiertas en el padre 44: Via A/B (F2) y auditoria de la propietaria.
+estado: CERRADO 2026-10-16 — H0 (T0 multi-periodo) + H1 (regla sin-C + cero documentado, Q1-neutral) + H2 (review APROBADO-CON-OBSERVACIONES con O-1 formalizada; set-diff VACIO 39=39 en p45-h2b.trx) + H3 (docs). **SUPERSEDIDO PARCIAL 2026-10-17 por el Plan 46**: el tipado de sección por frontera ARRIBA y el cero documentado de `Vlr Intereses` quedan RETIRADOS (ver nota de supersesión abajo). Follow-ups declarados: O-2/O-3. Puertas abiertas en el padre 44: Via A/B (F2) y auditoria de la propietaria.
 fecha: 2026-10-16
 numero: 45
 planes_ocupados: 01..44 ocupados; este es el 45
@@ -14,6 +14,24 @@ gate_entrada:
 ---
 
 # Plan 45 - Contrato de seccion PERIOD-FREE para filas sin-C + cero documentado (hijo del Plan 44)
+
+> **NOTA DE SUPERSESIÓN (2026-10-17) — Plan 46.** El Plan 46
+> (`plans/46 - correccion-mapeo-interior-r1-canal-efectivo-y-seccion-por-cierre.md`, aprobado por el
+> Ingeniero) SUPERSEDE las siguientes partes de ESTE documento, a partir de la corrida real del App del
+> 2026-10-17 (`Docs/Prueba Julio-2/Resultado/8/`) que probó 2 defectos celda a celda:
+> - **§2/§3 (tipado de sección por frontera ARRIBA)** → SUPERSEDIDO por el tipado por la frontera que
+>   **CIERRA** (`ContratoSeccionPeriodFreeR1.SeccionPorCierre`). La 1.ª sección deja de ser `Primera`.
+> - **§4 (matriz ASE5-julio-2)** → SUPERSEDIDO: la 1.ª fuente (5–13) cae en **Aplic#1 (615–628)**; la
+>   1.ª oficial (603–613) y el AFaseo (614) quedan en CERO; `F612`=0 y OCCIDENTE → **F628**.
+> - **§5/§9 (cero documentado de `Vlr Intereses`)** → RETIRADO (WITHDRAW): esas filas tienen slot real
+>   (`F623`/`F626`); `CerosDocumentadosR1` queda sin patrones (mecanismo conservado).
+> - **Añadido por el Plan 46:** regla de **CANAL EFECTIVO** para filas sin `D` (`Vlr Servicio`,
+>   `Vlr Intereses`, `Subsidio…`).
+>
+> Lo NO supersedido de este plan sigue vigente: `Alinear` monotónico por tipo, `ERR-SIN-SLOT` accionable,
+> neutralidad Q1 (plan-then-write), `R1FirmaInterior.EsAplicacionPorFrontera`/`PorFronteraArriba`
+> intactos para el consumidor Plan 35-T2. La errata fechada está en
+> `Docs/T0-Plan45-Contrato-Seccion-PeriodFree.md` §12.
 
 > SDD completo PROPOSE -> DESIGN -> SPEC -> TASKS. Fuente unica de verdad para la implementacion una vez aprobado ESTE documento. No se implementa sin aprobacion del Ingeniero.
 > Lectura obligatoria previa: plan padre completo + Enmienda E-44.1 + `Docs/T0-Plan44-R1-Fuente-Canal-Concepto.md` (especialmente S2 E8 inversion de fronteras ASE5, S3 colocacion 11/11, S4 hueco Intereses-1.a, S5 F654/F661-escritura, S10 STOP, S12 P1/P2/P3) + `Remuneracion.Core/Models/R1FirmaInterior.cs` (`EsDatoEmpresa` exige C) + `Remuneracion.Infrastructure/Excel/EscritorValoresSlotR1.cs` (cursor por grupo, F/L extendido a F..Z en el padre) + `.opencode/project-context.md` (doctrinas e invariantes) + plans/41 (E1-6/E2-5: contrato de seccion Q1-aware diferido aqui).

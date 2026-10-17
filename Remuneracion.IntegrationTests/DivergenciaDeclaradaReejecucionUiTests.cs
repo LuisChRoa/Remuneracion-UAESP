@@ -132,17 +132,10 @@ public sealed class DivergenciaDeclaradaReejecucionUiTests : IDisposable
         try
         {
             var salida = Path.Combine(dir, Insumos.PeriodoQ2().NombreArchivo);
-            // Misma composición que Program.cs (con emisor de reporte: 9.º argumento).
-            var procesador = new ProcesadorPeriodo(
-                new ExcelDataReaderRecaudoReader(),
-                new ExcelDataReaderWorkbookLeafInputReader(),
-                new CalculoRemuneracion(),
-                new ValidadorBasico(),
-                new OpenXmlPlantillaWriter(),
-                new ArchivoFuenteLocator(),
-                new ExcelDataReaderDetRetriR10Reader(),
-                new ValidacionOracleReader(),
-                new ReporteDivergenciasDeclaradasWriter());
+            // Plan 46 (H2): la divergencia real quedó resuelta; el flujo en dos pasadas se ejercita
+            // con el FIXTURE SINTÉTICO (SINTETICA-C15, Δ = 1). Misma composición que Program.cs
+            // (validador+lector sintéticos, oráculo y emisor de reporte REALES).
+            var procesador = FixtureDivergenciaSintetica.CrearProcesador();
 
             // Pasada 1 (como la UI: sin aceptaciones) → LANZA con SoloDeclaradas.
             var bloqueo = Assert.Throws<CalculoInvalidoException>(() => procesador.Ejecutar(

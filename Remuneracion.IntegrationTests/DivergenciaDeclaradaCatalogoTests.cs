@@ -26,17 +26,33 @@ public sealed class DivergenciaDeclaradaCatalogoTests
         Assert.False(string.IsNullOrWhiteSpace(entrada.CondicionRetiro));
     }
 
+    // ── Plan 46 (H2): la entrada OCCIDENTE-ASE5 quedó RETIRADA (la divergencia ya no existe) ────
+
+    [Fact]
+    public void T1_EntradaOccidenteAse5_RetiradaConFechaMotivoYEvidencia()
+    {
+        var entrada = Assert.Single(DivergenciasDeclaradasCatalogo.Entradas);
+
+        Assert.True(entrada.Retirada, "La entrada OCCIDENTE-ASE5 debe estar retirada (Δ = 0 desde el Plan 46).");
+        Assert.True(entrada.RetiroDocumentado, "El retiro exige fecha + motivo + evidencia citados.");
+        Assert.Equal("2026-10-17", entrada.FechaRetiro);
+        Assert.Contains("F612", entrada.MotivoRetiro!, StringComparison.Ordinal);
+        Assert.Contains("304.989.620,81", entrada.MotivoRetiro!, StringComparison.Ordinal);
+        Assert.Contains("Plan 46", entrada.EvidenciaRetiro!, StringComparison.Ordinal);
+        Assert.False(entrada.Vigente, "Una entrada retirada NUNCA aplica.");
+        Assert.Empty(DivergenciasDeclaradasCatalogo.Vigentes);
+        Assert.Single(DivergenciasDeclaradasCatalogo.Retiradas);
+    }
+
     [Theory]
     [InlineData("O25")]
     [InlineData("D34")]
     [InlineData("F34")]
-    public void T1_Matcher_ReconoceLasTresCeldasConElDeltaCitado(string celda)
+    public void T1_Matcher_EntradaRetirada_NoAplica(string celda)
     {
-        // Δ observado en la corrida viva Q2 = |72441184838,33 − 72440767318,71| = 417.519,62.
-        var entrada = DivergenciasDeclaradasCatalogo.Buscar(celda, 72441184838.33m, 72440767318.71m);
-
-        Assert.NotNull(entrada);
-        Assert.Equal("OCCIDENTE-ASE5", entrada!.Id);
+        // Plan 46 (H2): la entrada conserva su Δ histórico (417.519,62) pero está RETIRADA → el
+        // matcher NO la reconoce (no se reabre una divergencia que el fix eliminó).
+        Assert.Null(DivergenciasDeclaradasCatalogo.Buscar(celda, 72441184838.33m, 72440767318.71m));
     }
 
     [Fact]

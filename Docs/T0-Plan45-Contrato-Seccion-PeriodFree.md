@@ -199,3 +199,80 @@ Implementado en H1: `Remuneracion.Core/Models/ContratoSeccionPeriodFreeR1.cs` (a
 - **Set-diff H2 (post-neutralidad Q1):** suite **39 Failed / 929 Passed / 968 Total**; set-diff **VACÍO**
   contra `o43-final-failed.txt` (mismos 39, 0 nuevos, 0 cerrados); `T1_Ase2Q1` **verde**; oficial SHA256
   intacto; build 0 warnings; sin commits.
+
+---
+
+## 12. ERRATA Plan 46 (2026-10-17) — corrección del contrato de sección y del cero documentado
+
+> **Naturaleza:** errata FECHADA. **NO se reescribe la historia**: los §3/§4/§5/§9 originales quedan como
+> registro de lo derivado el 2026-10-16. Lo que sigue es la corrección re-derivada contra BYTES por el
+> Plan 46 (`plans/46 - correccion-mapeo-interior-r1-canal-efectivo-y-seccion-por-cierre.md`), cuyo
+> fixture read-only es `Remuneracion.IntegrationTests/ContratoSeccionPeriodFreeT0Plan46Tests.cs`
+> (26 verdes; matriz citada por ASE × período).
+
+### 12.1 ERRATA §3 (regla PERIOD-FREE) — el tipado es por la frontera que CIERRA
+
+El §3 tipaba la sección por la frontera inmediatamente **ARRIBA** (la que la abre) y trataba la 1.ª
+sección como `Primera`. Es incorrecto: **cada sección (fuente y oficial) se tipa por la frontera que la
+CIERRA** (la inmediatamente debajo: su fila resumen `Mes`/`Aplicacion…` cuyo importe es su subtotal).
+Regla vigente: `ContratoSeccionPeriodFreeR1.SeccionPorCierre` (Core, geometría pura, D-H).
+
+- La 1.ª sección **no** es una categoría fija: si su frontera de cierre es `Aplicacion` se tipa
+  `Aplicacion`; si es `Mes`, `Oportuno`.
+- Las filas-frontera se tipan por la sección que **ellas cierran** (no por la que abren).
+- El emparejamiento `Alinear` sigue siendo monotónico **por tipo** y no cambia.
+- La cola sin frontera debajo (`Subs/Cont`, `Total`) se queda con la sección de la frontera de arriba.
+
+### 12.2 ERRATA §4 (matriz fuente↔oficial ASE5-julio-2) — el bloque cae en A#1, no en la 1.ª
+
+La tabla del §4 (y su "colocación corregida") describían el mapeo del tipado por frontera ARRIBA.
+Corrección verificada en bytes (fuente `Docs/Prueba Julio-2/Insumos/5-Área Limpia/Recaudoporcomponente_*.xlsx`):
+
+| Sección FUENTE (filas) | Cierre (frontera) | Sección OFICIAL (filas) |
+|---|---|---|
+| 1.ª (5–13) | `Aplicacion` R14 = 417.519,62 | **Aplic#1 (615–628)** |
+| (15–32) | `Mes` R33 = 13.084.233.937,44 | **O#2 (630–647)** |
+| (34–39) | `Aplicacion` R40 | **A#2 (649–659)** |
+| (41–53) | `Mes` R54 = −1.036.320.522,40 | **O#3 (661–673)** |
+| cola (55–56) | — | 675–676 |
+
+- **La 1.ª sección OFICIAL (603–613) y el AFaseo (614) quedan en CERO** (sin contraparte fuente).
+- `F612` (OCCIDENTE de la 1.ª oficial) = **0**; el OCCIDENTE de la fuente (R13, 417.519,62) va a **F628**.
+- Corrección del §4: donde decía `F603/F606/F608` = VS de la 1.ª, léase **`F619`/`F622`/`F625`**;
+  donde decía `F607/F609/F611` = D=H/O/T, léase **`F621`/`F624`/`F627`**; `F612` → **`F628`**;
+  `F623` = 402,40 y `F626` = 7.697,23 (antes "0"). `F632` = R17 se mantiene (ya estaba en A#2).
+
+### 12.3 ERRATA §5 (cero documentado) — RETIRADO (WITHDRAW)
+
+Las dos entradas (`Vlr Intereses` de la 1.ª de ASE5-julio2, 402,40 y 7.697,23) **no son un hueco de
+plantilla**: con el tipado por cierre caen en su slot real (`F623` / `F626`, dentro de A#1).
+Se **retiran** de `CerosDocumentadosR1` (lista de patrones vacía; el MECANISMO de cero documentado se
+conserva). El manual legacy ASE5 (`E506/F506`, `E509/F509`) queda como medición de contraste, no como
+evidencia de hueco.
+
+### 12.4 ERRATA §9 — WITHDRAW del texto listo para el dueño
+
+El texto del §9 **NO se reporta al dueño**: describe un "hueco de plantilla" que no existe. Queda
+retirado y no se envía.
+
+### 12.5 Regla complementaria (Plan 46 §2.1) — CANAL EFECTIVO
+
+Para una fila **sin `D` propio** (y sin `A`/`B`: `Vlr Servicio`, `Vlr Intereses`, `Subsidio…`), su
+**canal efectivo** = el `D` de la próxima fila `…/Total` hacia abajo con `D` no vacío y ≠ literal
+`Total`. El MISMO cálculo aplica a los slots del oficial. Sin esta regla, las filas sin `D` se asignaban
+por cursor de orden dentro de `(firma, sección)` (DEFECTO 1 probado en la corrida 8: `F603`/`F606`/`F608`
+recibían VS de H/O/T y `F650`/`F653` los subsidios H/O).
+
+### 12.6 Formas por CIERRE (reemplazan las del §2/§3 para el mapeo)
+
+| Forma por cierre (fuente) | Mapeo a secciones oficiales por cierre |
+|---|---|
+| `[O#1,A#1,O#2,A#2,O#3]` (julio2 ASE1-4, agosto mayoría, Q1-ASE3/4) | identidad |
+| `[A#1,O#1,A#2,O#2]` (julio2 ASE5, Q1-ASE1) | `[A#1(615-628), O#2(630-647), A#2(649-659), O#3(661-673)]` — la 1.ª oficial queda sin contraparte |
+| `[O#1,O#2,O#3]` (agosto-ASE3, Q1-ASE2/5) | `[O#1,O#2,O#3]` — saltan A#1/A#2 |
+
+> **Nota de forma `[O#1,O#2,O#3]`:** la fila `Componente` de la fuente vive en una sección cerrada por
+> `Mes` (O#3), mientras la `Componente` del oficial vive en la sección cerrada por `Aplicacion` (A#2):
+> ese bloque **no es colocable** por el contrato y el escritor reproduce el comportamiento histórico del
+> Plan 41 (mecanismo de neutralidad Q1, plan-then-write). `[A#1,O#1,A#2,O#2]` **sí** es colocable.
+

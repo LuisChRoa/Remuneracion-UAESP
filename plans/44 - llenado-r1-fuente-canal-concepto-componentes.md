@@ -1,6 +1,6 @@
 ---
 titulo: Plan 44 - Llenado R1 fuente-canal-concepto-componentes
-estado: F1-MULTICOLUMNA DONE y verificado por el orquestador 2026-10-16 (build 0w, 22/22, anchor-neutral, set-diff vacío); regla sin-C + cero documentado RESUELTA EN PLAN HIJO 45 (CERRADO 2026-10-16, set-diff vacío 39=39); F2/F3 del padre y paridad-auditoría PENDIENTES (auditoría no entregada); Vía A/B pendiente de números frescos post-hijo
+estado: F1-MULTICOLUMNA DONE y verificado por el orquestador 2026-10-16 (build 0w, 22/22, anchor-neutral, set-diff vacío); regla sin-C + cero documentado RESUELTA EN PLAN HIJO 45 (CERRADO 2026-10-16) y CORREGIDA POR EL PLAN 46 (CERRADO 2026-10-17: sección por CIERRE + canal efectivo; la regla de sección del 45 y su cero documentado quedan SUPERSEDIDOS — ver nota en plans/45); **F2 — VÍA A/B DISUELTA por el cierre del 46**: el Δ de OCCIDENTE ASE5 era un defecto de MAPPING nuestro (F612→0; F700 = 304.989.620,81 = medición del administrativo; VALIDACION_TOTAL O25/D34/F34 TRUE, Δ 0), NO una regla UAESP pendiente; **F3/paridad-auditoría PENDIENTES: la auditoría de la propietaria sigue sin entregarse y NO se declara paridad sin ella**
 fecha: 2026-10-16
 numero: 44
 planes_ocupados: 01..43 ocupados; este es el 44
@@ -16,6 +16,15 @@ gate_entrada:
 > SDD completo PROPOSE -> DESIGN -> SPEC -> TASKS. Fuente unica de verdad para la implementacion una vez aprobado ESTE documento.
 > Lectura obligatoria previa (rector irrenunciable): `README.md`, `.opencode/project-context.md` (doctrinas Planes 21-43), `Docs/Propuesta_Proyecto_Automatizacion_Remuneracion_UAESP.md`, mas evidencia `Docs/T0-Plan41-MiniT0-OccidenteAse5-SaldosNota-TablaJ.md` p.1, `Docs/T0-Plan42-Taxonomia-DivergenciasDeclaradas.md` p.2, `Docs/T0-Residual-24329-OccidenteAse5.md`, `Remuneracion.Infrastructure/Excel/EscritorValoresSlotR1.cs`, `Remuneracion.Core/Models/R1FirmaInterior.cs`, `Remuneracion.Core/Models/DivergenciasDeclaradasCatalogo.cs`.
 > Entorno: Windows, repo con espacios en la ruta; la plantilla oficial debe estar CERRADA en Excel al correr tests (FileShare). Oficial SHA256: `3086AC317595C2F8E84ED24B1C5EE3E52565DD5193394E3062878E7FA49C5214` (verificar intacto antes/despu\u00e9s).
+
+> **Nota F2 (2026-10-17) — Vía A/B DISUELTA.** El cierre del Plan 46 demostró que el Δ de 417.519,62
+> de OCCIDENTE ASE5 era un **defecto de mapeo nuestro** (colocación del interior R1), no una regla de
+> negocio UAESP pendiente: con la sección por frontera de CIERRE + canal efectivo, `F612` = 0,
+> `F700` = 304.989.620,81 (igual a la medición del administrativo) y `VALIDACION_TOTAL!O25/D34/F34`
+> sellan TRUE (Δ 0). Consecuencias: (a) la entrada `OCCIDENTE-ASE5` del catálogo de divergencias
+> declaradas quedó RETIRADA (con fecha/motivo/evidencia); (b) NO hay decisión Vía A/B que tomar —
+> queda disuelta; (c) la **auditoría de la propietaria sigue PENDIENTE** y NO se declara paridad sin
+> ella. Evidencia: `plans/46` §9, `p46-cierre.trx` (38/960/998, set-diff 0 altas · 1 baja).
 
 ## Enmienda E-44.1 — P2 + cero documentado (ratificada por el Ingeniero 2026-10-16; reabre F1)
 

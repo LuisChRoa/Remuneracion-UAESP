@@ -46,23 +46,27 @@ public sealed class SelladoCacheFormulaT2Tests
     [Fact]
     public void T2_Sellado_SoloAllowList_SubBloquesSelladosConElValorEvaluado()
     {
-        var (salida, baseXlsx) = EjecutarFlujoQ2();
-
-        // Plan 40 (E-1): los 5 sub-bloques SÍ se sellan con el valor EVALUADO por read-back. En la
-        // salida Q2 el espejo de remuneración diverge (defecto real E1-2): O25/D34/F34 se sellan
-        // FALSE (0) — el sellado NUNCA inventa un TRUE (D-E). C15/D25 (recaudo) se sellan TRUE (1).
-        Assert.Equal("1", Valor(salida, Hoja, "C15"));
-        Assert.Equal("1", Valor(salida, Hoja, "D25"));
-        foreach (var celda in new[] { "O25", "D34", "F34" })
+        // Sana (Plan 46: el espejo de remuneración CIERRA): los 5 sub-bloques evalúan TRUE → sellan "1".
+        var (salidaSana, baseXlsx) = EjecutarFlujoQ2();
+        foreach (var celda in new[] { "C15", "D25", "O25", "D34", "F34" })
         {
-            Assert.Equal("0", Valor(salida, Hoja, celda));
+            Assert.Equal("1", Valor(salidaSana, Hoja, celda));
+        }
+
+        // Sintética (FIXTURE Plan 46 H2: Total de recaudo +1 vs celdas ⇒ C15 FALSE con Δ = 1):
+        // el sellado (read-back) escribe "0" en C15 y "1" en el resto — nunca inventa un TRUE (D-E).
+        var salidaSintetica = EjecutarFlujoQ2Sintetico();
+        Assert.Equal("0", Valor(salidaSintetica, Hoja, "C15"));
+        foreach (var celda in new[] { "D25", "O25", "D34", "F34" })
+        {
+            Assert.Equal("1", Valor(salidaSintetica, Hoja, celda));
         }
 
         // Los operandos intermedios (O24/D33/F33) NO están en la allow-list del writer: su caché
         // queda igual que en la base (no se sellan).
         foreach (var celda in new[] { "O24", "D33", "F33" })
         {
-            Assert.Equal(Valor(baseXlsx, Hoja, celda), Valor(salida, Hoja, celda));
+            Assert.Equal(Valor(baseXlsx, Hoja, celda), Valor(salidaSana, Hoja, celda));
         }
     }
 
@@ -88,6 +92,25 @@ public sealed class SelladoCacheFormulaT2Tests
             RutaSalida = salida
         });
         return (salida, Insumos.PlantillaQ2);
+    }
+
+    /// <summary>
+    /// Flujo Q2 con el FIXTURE SINTÉTICO (Plan 46 H2): sin oráculo ni reporte, para observar SOLO el
+    /// sellado. El hecho sintético (<c>Recaudo *</c> Total +1) hace que <c>C15</c> evalúe FALSE.
+    /// </summary>
+    private static string EjecutarFlujoQ2Sintetico()
+    {
+        var dir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "t2-sellado-sint-" + Guid.NewGuid().ToString("N"))).FullName;
+        var salida = Path.Combine(dir, "salida.xlsx");
+        var procesador = FixtureDivergenciaSintetica.CrearProcesador(conOraculo: false, conReporte: false);
+        procesador.Ejecutar(new SolicitudProcesoPeriodo
+        {
+            Periodo = Insumos.PeriodoQ2(),
+            CarpetaPeriodo = Insumos.CarpetaInsumosJulioQ2,
+            RutaPlantilla = Insumos.PlantillaQ2,
+            RutaSalida = salida
+        });
+        return salida;
     }
 
     private static string? Valor(string ruta, string hoja, string celda)

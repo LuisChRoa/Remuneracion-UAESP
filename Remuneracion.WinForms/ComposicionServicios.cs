@@ -23,13 +23,25 @@ public static class ComposicionServicios
     /// Compone los tres servicios del host: el procesador single-ASE, el procesador de período (5
     /// ASE) y el localizador de archivos fuente. Ambas vías de arranque (Program.cs y el constructor
     /// por defecto de Form1) usan ESTA composición.
+    ///
+    /// <para>
+    /// <b>Costura de test (Plan 46 H2):</b> <paramref name="validador"/> y <paramref name="lectorLeaf"/>
+    /// son OPCIONALES y por defecto son los de producción (<see cref="ValidadorBasico"/> /
+    /// <see cref="ExcelDataReaderWorkbookLeafInputReader"/>). Se usan para inyectar el FIXTURE
+    /// SINTÉTICO de divergencia declarada y conservar la cobertura del mecanismo (bloqueo →
+    /// reconocimiento → reporte) sin depender de una divergencia real que ya no existe. La
+    /// composición sigue incluyendo SIEMPRE el oráculo y el emisor del reporte: ninguna vía puede
+    /// cerrar en verde sin validar.
+    /// </para>
     /// </summary>
-    public static (IProcesadorRemuneracion Remuneracion, IProcesadorPeriodo Periodo, ArchivoFuenteLocator Locator) Crear()
+    public static (IProcesadorRemuneracion Remuneracion, IProcesadorPeriodo Periodo, ArchivoFuenteLocator Locator) Crear(
+        IValidador? validador = null,
+        IWorkbookLeafInputReader? lectorLeaf = null)
     {
         var lectorR1R2R4 = new ExcelDataReaderRecaudoReader();
-        var hojaLeafReader = new ExcelDataReaderWorkbookLeafInputReader();
+        var hojaLeafReader = lectorLeaf ?? new ExcelDataReaderWorkbookLeafInputReader();
         var calculo = new CalculoRemuneracion();
-        var validador = new ValidadorBasico();
+        var validadorReal = validador ?? new ValidadorBasico();
         var writer = new OpenXmlPlantillaWriter();
         var locator = new ArchivoFuenteLocator();
 
@@ -44,14 +56,14 @@ public static class ComposicionServicios
             lectorR1R2R4,
             hojaLeafReader,
             calculo,
-            validador,
+            validadorReal,
             writer);
 
         IProcesadorPeriodo procesadorPeriodo = new ProcesadorPeriodo(
             lectorR1R2R4,
             hojaLeafReader,
             calculo,
-            validador,
+            validadorReal,
             writer,
             locator,
             detRetriR10Reader,

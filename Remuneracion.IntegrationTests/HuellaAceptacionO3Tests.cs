@@ -94,7 +94,10 @@ public sealed class HuellaAceptacionO3Tests : IDisposable
         try
         {
             var salida = Path.Combine(dir, Insumos.PeriodoQ2().NombreArchivo);
-            var (_, periodo, _) = ComposicionServicios.Crear();
+            // Plan 46 (H2): la huella usuario/canal se ejercita con el FIXTURE SINTÉTICO.
+            var (_, periodo, _) = ComposicionServicios.Crear(
+                FixtureDivergenciaSintetica.CrearValidador(),
+                FixtureDivergenciaSintetica.CrearLector());
 
             periodo.Ejecutar(new SolicitudProcesoPeriodo
             {
@@ -102,7 +105,7 @@ public sealed class HuellaAceptacionO3Tests : IDisposable
                 CarpetaPeriodo = Insumos.CarpetaPeriodoQ2,
                 RutaPlantilla = Insumos.PlantillaOficial(),
                 RutaSalida = salida,
-                DivergenciasDeclaradasAceptadas = ["OCCIDENTE-ASE5"],
+                DivergenciasDeclaradasAceptadas = [FixtureDivergenciaSintetica.EntradaId],
                 Canal = HuellaAceptacion.CanalCli,
                 UsuarioAceptacion = "tester-o3"
             });

@@ -25,7 +25,22 @@ public static class EjecutorCli
     /// son inyectables para asserts in-process; por defecto usan la consola.
     /// </summary>
     /// <returns>Código del contrato <see cref="CodigosSalida"/> (0-5).</returns>
-    public static int Ejecutar(string[] args, TextWriter? salidaStdout = null, TextWriter? salidaStderr = null)
+    public static int Ejecutar(string[] args, TextWriter? salidaStdout = null, TextWriter? salidaStderr = null) =>
+        Ejecutar(args, salidaStdout, salidaStderr, validador: null, lectorLeaf: null);
+
+    /// <summary>
+    /// Costura de test (Plan 46 H2 — decisión del Ingeniero 2026-10-17): permite inyectar un
+    /// <see cref="IValidador"/> y un <see cref="IWorkbookLeafInputReader"/> (por defecto los de
+    /// producción). La usa el FIXTURE SINTÉTICO de divergencia declarada para conservar la cobertura
+    /// del mecanismo (bloqueo sin flag → cierre con flag + reporte) ahora que la divergencia real
+    /// OCCIDENTE-ASE5 quedó resuelta. NO altera el mecanismo ni los defaults de producción.
+    /// </summary>
+    internal static int Ejecutar(
+        string[] args,
+        TextWriter? salidaStdout,
+        TextWriter? salidaStderr,
+        IValidador? validador,
+        IWorkbookLeafInputReader? lectorLeaf)
     {
         var stdout = salidaStdout ?? Console.Out;
         var stderr = salidaStderr ?? Console.Error;
@@ -87,11 +102,11 @@ public static class EjecutorCli
             ResultadoProcesoPeriodo? resultadoProceso = null;
             if (opciones.CincoAse)
             {
-                resultadoProceso = EjecutarPeriodo(opciones, salida, runId, stdout);
+                resultadoProceso = EjecutarPeriodo(opciones, salida, runId, stdout, validador, lectorLeaf);
             }
             else
             {
-                EjecutarUnAse(opciones, salida, runId, stdout);
+                EjecutarUnAse(opciones, salida, runId, stdout, validador, lectorLeaf);
             }
 
             // Plan 42 (T3, D-G): cierre con divergencia declarada reconocida → código DISTINTO de
@@ -146,13 +161,19 @@ public static class EjecutorCli
     /// Plan 42 (T2/T3): además, el emisor del reporte durable de divergencias declaradas y los ids
     /// reconocidos por el usuario en esta corrida.
     /// </summary>
-    private static ResultadoProcesoPeriodo EjecutarPeriodo(OpcionesCli opciones, string salida, Guid runId, TextWriter stdout)
+    private static ResultadoProcesoPeriodo EjecutarPeriodo(
+        OpcionesCli opciones,
+        string salida,
+        Guid runId,
+        TextWriter stdout,
+        IValidador? validador,
+        IWorkbookLeafInputReader? lectorLeaf)
     {
         IProcesadorPeriodo procesador = new ProcesadorPeriodo(
             new ExcelDataReaderRecaudoReader(),
-            new ExcelDataReaderWorkbookLeafInputReader(),
+            lectorLeaf ?? new ExcelDataReaderWorkbookLeafInputReader(),
             new CalculoRemuneracion(),
-            new ValidadorBasico(),
+            validador ?? new ValidadorBasico(),
             new OpenXmlPlantillaWriter(),
             new ArchivoFuenteLocator(),
             new ExcelDataReaderDetRetriR10Reader(),
@@ -208,7 +229,13 @@ public static class EjecutorCli
     /// como <c>Form1.ObtenerCarpetaAse</c> + <c>EjecutarModoUnAse</c> (mismo orden de prefijos,
     /// mismo fallback Reversión/Reversion) y ejecuta <see cref="ProcesadorRemuneracion"/>.
     /// </summary>
-    private static void EjecutarUnAse(OpcionesCli opciones, string salida, Guid runId, TextWriter stdout)
+    private static void EjecutarUnAse(
+        OpcionesCli opciones,
+        string salida,
+        Guid runId,
+        TextWriter stdout,
+        IValidador? validador,
+        IWorkbookLeafInputReader? lectorLeaf)
     {
         var ase = AseFactory.DesdeId(opciones.AseId!.Value);
         var locator = new ArchivoFuenteLocator();
@@ -228,9 +255,9 @@ public static class EjecutorCli
 
         IProcesadorRemuneracion procesador = new ProcesadorRemuneracion(
             new ExcelDataReaderRecaudoReader(),
-            new ExcelDataReaderWorkbookLeafInputReader(),
+            lectorLeaf ?? new ExcelDataReaderWorkbookLeafInputReader(),
             new CalculoRemuneracion(),
-            new ValidadorBasico(),
+            validador ?? new ValidadorBasico(),
             new OpenXmlPlantillaWriter());
 
         procesador.Ejecutar(new SolicitudProcesoAse

@@ -9,14 +9,15 @@ using Xunit;
 namespace Remuneracion.IntegrationTests;
 
 /// <summary>
-/// Plan 45 (H1, S2.1/S2.2/S2.3/S2.4): regla sin-C + cero documentado con el contrato de sección
-/// PERIOD-FREE por ASE (<see cref="ContratoSeccionPeriodFreeR1"/>).
+/// Plan 45 (H1) + Plan 46 (H1/H2, S2.1/S2.2/S2.4): regla de SECCIÓN-CONTRATO por frontera de CIERRE
+/// (<see cref="ContratoSeccionPeriodFreeR1.SeccionPorCierre"/>) + CANAL EFECTIVO
+/// (<see cref="ContratoSeccionPeriodFreeR1.CanalEfectivo"/>) en el escritor values-only.
 ///
-/// El caso crítico es ASE5-julio-2: su fuente arranca con <c>Aplicacion</c> (5 secciones) mientras el
-/// oficial declara 6 (<c>1.ª·Oportuno#1·Aplic#1·Oportuno#2·Aplic#2·Oportuno#3</c>). La regla alinea
-/// monotónicamente por tipo: <c>[1.ª,Aplic#1,Oportuno#1,Aplic#2,Oportuno#2] →
-/// [1.ª,Aplic#1,Oportuno#2,Aplic#2,Oportuno#3]</c>. Rutas explícitas; regen a temp FRESCA; el
-/// <c>&lt;f&gt;</c> del oficial queda intacto.
+/// Evidencia (bytes): Plan 46 §S1 + fixture read-only
+/// <see cref="ContratoSeccionPeriodFreeT0Plan46Tests"/>. Caso crítico ASE5-julio-2: su 1.ª sección
+/// (filas 5-13) la cierra <c>Aplicacion</c> (R14, 417.519,62) → sección Aplicación → cae en
+/// <c>Aplic#1</c> oficial (615-628); 603-614 queda en cero. Cada assert de este archivo cita
+/// fila-fuente + celda-slot + sección-contrato + canal efectivo.
 /// </summary>
 public sealed class ContratoSeccionPeriodFreeH1Tests
 {
@@ -27,64 +28,32 @@ public sealed class ContratoSeccionPeriodFreeH1Tests
         "1-Promoambiental", "2-Lime", "3-Ciudad Limpia", "4-Bogota Limpia", "5-Área Limpia",
     ];
 
-    // ── S2.1: colocación corregida de ASE5-julio-2 (fila fuente → slot de su sección-contrato) ────
+    // ── S1.1: ASE1-julio2 — canal efectivo en las filas sin D (VS/VI) ─────────────────────────────
 
     [Fact]
-    public void S2_1_Ase5Julio2_SinC_ColocaPorSeccionContrato()
+    public void S1_1_Ase1Julio2_CanalEfectivo()
     {
-        var bloque = LeerJulio(5);
-        var salida = Escribir(5, bloque);
+        var bloque = LeerJulio(1);
+        var salida = Escribir(1, bloque);
         try
         {
-            // Índice de Filas = fila-fuente − 5 (la primera fila de datos es la R5 'Vlr Servicio').
-            FilaEspejoR1 F(int fila) => bloque.Filas[fila - 5];
+            // Fuente R5 (Vlr Servicio, canal E por R6 D=E), R6 (D=E), R7 (C=ENEL) → F6/F7/F8.
+            // Fuente R8 (Vlr Servicio, canal O por R9 D=O) → F11 (NO F9); R9 (D=O) → F12;
+            // R10 (C=OCCIDENTE) → F15. F9/F10/F13/F14 quedan en el cero del template.
+            Assert.Equal(-7108.82m, Celda(salida.Ruta, "F6"));
+            Assert.Equal(-7108.82m, Celda(salida.Ruta, "F7"));
+            Assert.Equal(-7108.82m, Celda(salida.Ruta, "F8"));
+            Assert.Equal(0m, Celda(salida.Ruta, "F9"));
+            Assert.Equal(0m, Celda(salida.Ruta, "F10"));
+            Assert.Equal(-4108.55m, Celda(salida.Ruta, "F11"));
+            Assert.Equal(-4108.55m, Celda(salida.Ruta, "F12"));
+            Assert.Equal(0m, Celda(salida.Ruta, "F13"));
+            Assert.Equal(0m, Celda(salida.Ruta, "F14"));
+            Assert.Equal(-4108.55m, Celda(salida.Ruta, "F15"));
 
-            // 1.ª sección (fuente → oficial 1.ª): VS/D=H/D=O/D=T/OCCIDENTE a su slot.
-            AssertSlot(salida.Ruta, "F603", F(5));
-            AssertSlot(salida.Ruta, "F607", F(6));
-            AssertSlot(salida.Ruta, "F609", F(9));
-            AssertSlot(salida.Ruta, "F611", F(12));
-            Assert.Equal(417519.62m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F612"));
-
-            // Plan 45 S2.4: la 1.ª oficial NO tiene VI → los dos 'Vlr Intereses' de la fuente (R8/R11)
-            // caen a CERO DOCUMENTADO (el hueco de plantilla); no ensucian ningún otro slot.
-            Assert.Equal(402.4m, F(8).Valor("Total"));
-            Assert.Equal(7697.23m, F(11).Valor("Total"));
-
-            // 'Aplic#1' fuente → 'Aplic#1' oficial (630-647): el D=E/Total (R17) va a 632, NO a 604.
-            Assert.Equal(0m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F604"));
-            Assert.Equal(0m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F610"));
-            AssertSlot(salida.Ruta, "F632", F(17));
-            Assert.Equal(12823196468.26m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F632"));
-
-            // 'Oportuno#1' fuente (Componente/Subsidio) → 'Oportuno#2' oficial (649-659): el bloque NO
-            // se desplaza a la Oportuno#1 oficial (615-628), que queda en su cero.
-            AssertSlot(salida.Ruta, "F649", F(34));
-            AssertSlot(salida.Ruta, "F650", F(35));
-            AssertSlot(salida.Ruta, "F653", F(37));
-            AssertSlot(salida.Ruta, "F654", F(36));
-            AssertSlot(salida.Ruta, "F656", F(38));
-            AssertSlot(salida.Ruta, "F659", F(39));
-            Assert.Equal(24329.38m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F659"));
-            Assert.Equal(0m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F628"));
-
-            // S2.4: F654 (D=H de Oportuno#2) y F661 (Subsidio de Aplic#2) NO se duplican (era el
-            // artefacto de ESCRITURA del cursor físico).
-            AssertSlot(salida.Ruta, "F661", F(41));
-            Assert.NotEqual(
-                TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F654"),
-                TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F661"));
-
-            // Cierre: 'Subs/Cont' → 675, 'Total' → 676.
-            AssertSlot(salida.Ruta, "F675", F(55));
-            AssertSlot(salida.Ruta, "F676", F(56));
-
-            // Fronteras: la fila `Mes/Total` viaja con la sección que ABRE por el contrato. ASE5-julio2
-            // tiene 2 `Mes` fuente → Oportuno#2 (648) y Oportuno#3 (674) oficiales; el Oportuno#1
-            // oficial (613) queda sin contraparte en su cero.
-            Assert.Equal(0m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F613"));
-            AssertSlot(salida.Ruta, "F648", F(33));
-            AssertSlot(salida.Ruta, "F674", F(54));
+            // Frontera Mes (R11) y AFaseo (R12) sin cambio: F16/F17 = -11.217,37.
+            Assert.Equal(-11217.37m, Celda(salida.Ruta, "F16"));
+            Assert.Equal(-11217.37m, Celda(salida.Ruta, "F17"));
         }
         finally
         {
@@ -92,17 +61,73 @@ public sealed class ContratoSeccionPeriodFreeH1Tests
         }
     }
 
-    // ── S2.3: cero documentado sin ERR-SIN-SLOT; fila sin slot FUERA de la lista = ERR-SIN-SLOT ─────
+    // ── S1.2/S1.3: ASE5-julio2 — bloque de la 1.ª y resto del bloque por sección de CIERRE ────────
 
     [Fact]
-    public void S2_3_CeroDocumentado_Y_FueraDeListaErrSinSlot()
+    public void S1_2_S1_3_Ase5Julio2_SeccionPorCierre()
     {
-        // El 'Vlr Intereses' de la 1.ª de ASE5 es cero documentado: la corrida completa no lanza.
         var bloque = LeerJulio(5);
         var salida = Escribir(5, bloque);
-        salida.Dispose();
+        try
+        {
+            // §S1.2: la 1.ª oficial (603-613) y el AFaseo (614) quedan en CERO — la fuente ASE5-julio2
+            // no trae bloque para esa sección (su dinero se ve en 615-628).
+            for (var fila = 603; fila <= 614; fila++)
+            {
+                Assert.Equal(0m, Celda(salida.Ruta, $"F{fila}"));
+            }
 
-        // Fuera de la lista: una fila de componente con (firma, sección) sin slot → ERR-SIN-SLOT.
+            // Fuente R5 (VS, canal H por R6) → F619; R6 (D=H) → F621.
+            Assert.Equal(52706.16m, Celda(salida.Ruta, "F619"));
+            Assert.Equal(0m, Celda(salida.Ruta, "F620"));
+            Assert.Equal(52706.16m, Celda(salida.Ruta, "F621"));
+
+            // Fuente R7 (VS, canal O) → F622; R8 (Vlr Intereses, canal O) → F623 (FP-3: TENÍA slot,
+            // ya no es cero documentado); R9 (D=O) → F624.
+            Assert.Equal(49921.06m, Celda(salida.Ruta, "F622"));
+            Assert.Equal(402.40m, Celda(salida.Ruta, "F623"));
+            Assert.Equal(50323.46m, Celda(salida.Ruta, "F624"));
+
+            // Fuente R10 (VS, canal T) → F625; R11 (Vlr Intereses, canal T) → F626; R12 (D=T) → F627.
+            Assert.Equal(306792.77m, Celda(salida.Ruta, "F625"));
+            Assert.Equal(7697.23m, Celda(salida.Ruta, "F626"));
+            Assert.Equal(314490m, Celda(salida.Ruta, "F627"));
+
+            // Fuente R13 (OCCIDENTE) → F628 y R14 (frontera Aplicacion, cierra la 1.ª) → F629.
+            Assert.Equal(417519.62m, Celda(salida.Ruta, "F628"));
+            Assert.Equal(417519.62m, Celda(salida.Ruta, "F629"));
+            // El dinero ya NO se ve en el OCCIDENTE de la 1.ª oficial (F612): el bloque migró.
+            Assert.Equal(0m, Celda(salida.Ruta, "F612"));
+
+            // §S1.3: bloque grande (O#2 oficial, 630-647) y cierre.
+            Assert.Equal(12823196468.26m, Celda(salida.Ruta, "F632"));
+            Assert.Equal(13084233937.44m, Celda(salida.Ruta, "F648"));
+            // Componente (A#2) y subsidios con H/O en su canal.
+            Assert.Equal(13084651457.06m, Celda(salida.Ruta, "F649"));
+            Assert.Equal(-7906.16m, Celda(salida.Ruta, "F653"));
+            Assert.Equal(32235.54m, Celda(salida.Ruta, "F655"));
+            Assert.Equal(24329.38m, Celda(salida.Ruta, "F659"));
+            // O#3 (661-673) y cola.
+            Assert.Equal(-187855.98m, Celda(salida.Ruta, "F667"));
+            Assert.Equal(-1036320522.40m, Celda(salida.Ruta, "F674"));
+            Assert.Equal(-1036296193.02m, Celda(salida.Ruta, "F675"));
+            Assert.Equal(12048355264.04m, Celda(salida.Ruta, "F676"));
+
+            // Fronteras Mes: R33 → F648 (O#2) y R54 → F674 (O#3) — ya cubiertas arriba.
+            // La 1.ª oficial (F613) quedó en cero (sin contraparte fuente).
+            Assert.Equal(0m, Celda(salida.Ruta, "F613"));
+        }
+        finally
+        {
+            salida.Dispose();
+        }
+    }
+
+    // ── S2.3: fuera de la lista de ceros → ERR-SIN-SLOT (sin remap) ───────────────────────────────
+
+    [Fact]
+    public void S2_3_FueraDeListaErrSinSlot()
+    {
         using var otra = new CopiaTemporal();
         var inventada = new BloqueEspejoAseInputs
         {
@@ -127,7 +152,7 @@ public sealed class ContratoSeccionPeriodFreeH1Tests
         Assert.Contains("ASE 1", ex.Message, StringComparison.Ordinal);
     }
 
-    // ── S2.2: las filas con empresa en C quedan intactas (ancla OCCIDENTE ASE5) ───────────────────
+    // ── S2.2: filas de empresa (C=…) intactas y reubicadas por cierre (OCCIDENTE ASE5) ────────────
 
     [Fact]
     public void S2_2_FilasEmpresaIntactas_OccidenteAse5()
@@ -136,14 +161,16 @@ public sealed class ContratoSeccionPeriodFreeH1Tests
         var salida = Escribir(5, bloque);
         try
         {
-            // Los 3 anclajes OCCIDENTE de ASE5 (1.ª 612, Aplic#1 647, Aplic#2 673) quedan intactos.
-            Assert.Equal(417519.62m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F612"));
+            // Plan 46 §S1.2: el OCCIDENTE de la 1.ª fuente (R13, 417.519,62) vive ahora en el
+            // OCCIDENTE de la Aplic#1 oficial (F628); el de la 1.ª oficial (F612) queda en cero.
+            Assert.Equal(417519.62m, Celda(salida.Ruta, "F628"));
+            Assert.Equal(0m, Celda(salida.Ruta, "F612"));
+
+            // Los otros 2 anclajes OCCIDENTE de ASE5 (Aplic#1 647 / Aplic#2 673) siguen en su slot.
             AssertSlot(salida.Ruta, "F647", bloque.Filas[32 - 5]);
             AssertSlot(salida.Ruta, "F673", bloque.Filas[53 - 5]);
-
-            // El rótulo de empresa sigue viviendo en su celda (no se toca; solo se escriben valores F..Z).
-            Assert.NotEqual(0m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F647"));
-            Assert.NotEqual(0m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F673"));
+            Assert.NotEqual(0m, Celda(salida.Ruta, "F647"));
+            Assert.NotEqual(0m, Celda(salida.Ruta, "F673"));
         }
         finally
         {
@@ -151,14 +178,13 @@ public sealed class ContratoSeccionPeriodFreeH1Tests
         }
     }
 
-    // ── Unitarios del contrato puro ─────────────────────────────────────────────────────────────
+    // ── Unitarios del contrato puro (sección por CIERRE + canal efectivo) ────────────────────────
 
     [Fact]
     public void Contrato_Alinear_MapeosProbados()
     {
         var oficial = new[]
         {
-            SeccionEspejoR1.Primera,
             new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 1),
             new SeccionFronteraArriba(TipoSeccionEspejoR1.Aplicacion, 1),
             new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 2),
@@ -166,10 +192,9 @@ public sealed class ContratoSeccionPeriodFreeH1Tests
             new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 3),
         };
 
-        // Forma invertida ASE5-julio2 [P,A,O,A,O] → [1.ª,Aplic#1,Oportuno#2,Aplic#2,Oportuno#3].
+        // Forma por CIERRE de ASE5-julio2 [A#1,O#1,A#2,O#2] → [A#1,O#2,A#2,O#3] (salta el O#1 oficial).
         var inversa = ContratoSeccionPeriodFreeR1.Alinear(
             [
-                SeccionEspejoR1.Primera,
                 new SeccionFronteraArriba(TipoSeccionEspejoR1.Aplicacion, 1),
                 new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 1),
                 new SeccionFronteraArriba(TipoSeccionEspejoR1.Aplicacion, 2),
@@ -177,42 +202,104 @@ public sealed class ContratoSeccionPeriodFreeH1Tests
             ],
             oficial);
 
-        Assert.Equal(oficial[0], inversa[SeccionEspejoR1.Primera]);
-        Assert.Equal(oficial[2], inversa[new SeccionFronteraArriba(TipoSeccionEspejoR1.Aplicacion, 1)]);
-        Assert.Equal(oficial[3], inversa[new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 1)]);
-        Assert.Equal(oficial[5], inversa[new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 2)]);
+        Assert.Equal(oficial[1], inversa[new SeccionFronteraArriba(TipoSeccionEspejoR1.Aplicacion, 1)]);
+        Assert.Equal(oficial[2], inversa[new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 1)]);
+        Assert.Equal(oficial[3], inversa[new SeccionFronteraArriba(TipoSeccionEspejoR1.Aplicacion, 2)]);
+        Assert.Equal(oficial[4], inversa[new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 2)]);
 
-        // Forma sin Aplicación [P,O,O,O] → [1.ª,Oportuno#1,Oportuno#2,Oportuno#3].
+        // Forma por CIERRE [O#1,O#2,O#3] (agosto-ASE3 / Q1-ASE2/5) → [O#1,O#2,O#3] (salta A#1/A#2).
         var sinAplic = ContratoSeccionPeriodFreeR1.Alinear(
             [
-                SeccionEspejoR1.Primera,
                 new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 1),
                 new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 2),
                 new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 3),
             ],
             oficial);
-        Assert.Equal(oficial[1], sinAplic[new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 1)]);
-        Assert.Equal(oficial[3], sinAplic[new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 2)]);
-        Assert.Equal(oficial[5], sinAplic[new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 3)]);
+        Assert.Equal(oficial[0], sinAplic[new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 1)]);
+        Assert.Equal(oficial[2], sinAplic[new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 2)]);
+        Assert.Equal(oficial[4], sinAplic[new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 3)]);
+
+        // Forma completa (julio2 ASE1-4) → identidad.
+        var completa = ContratoSeccionPeriodFreeR1.Alinear(oficial, oficial);
+        for (var i = 0; i < oficial.Length; i++)
+        {
+            Assert.Equal(oficial[i], completa[oficial[i]]);
+        }
     }
 
     [Fact]
-    public void CerosDocumentados_SoloInteresesDePrimeraSeccion()
+    public void Contrato_SeccionPorCierre_AbsorbeLasTresFormas_SinRamas()
     {
+        // Secuencia mínima: [VS, Mes, AFaseo, VS, Aplic, VS, Mes] → secciones por CIERRE.
+        FilaEspejoR1 F(string a = "", string b = "", string c = "", string d = "", string e = "") =>
+            new() { A = a, B = b, C = c, D = d, E = e };
+
+        var filas = new List<FilaEspejoR1>
+        {
+            F(e: "Vlr Servicio"),                                   // 0 cierra con Mes@1 → Oportuno#1
+            F(b: "Mes", c: "Total"),                                // 1 cierra la sección de arriba → Oportuno#1
+            F(a: "AFaseo", b: "Total"),                             // 2 sin sección
+            F(e: "Vlr Servicio"),                                   // 3 cierra con Aplic@4 → Aplicacion#1
+            F(b: "Aplicacion nuevos x reversion", c: "Total"),      // 4 Aplicacion#1
+            F(e: "Vlr Servicio"),                                   // 5 cierra con Mes@6 → Oportuno#1
+            F(b: "Mes", c: "Total"),                                // 6 Oportuno#1
+        };
+
+        Assert.Equal(new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 1), ContratoSeccionPeriodFreeR1.SeccionPorCierre(filas, 0));
+        Assert.Equal(new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 1), ContratoSeccionPeriodFreeR1.SeccionPorCierre(filas, 1));
+        Assert.Null(ContratoSeccionPeriodFreeR1.SeccionPorCierre(filas, 2));
+        Assert.Equal(new SeccionFronteraArriba(TipoSeccionEspejoR1.Aplicacion, 1), ContratoSeccionPeriodFreeR1.SeccionPorCierre(filas, 3));
+        Assert.Equal(new SeccionFronteraArriba(TipoSeccionEspejoR1.Aplicacion, 1), ContratoSeccionPeriodFreeR1.SeccionPorCierre(filas, 4));
+        Assert.Equal(new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 2), ContratoSeccionPeriodFreeR1.SeccionPorCierre(filas, 5));
+        Assert.Equal(new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 2), ContratoSeccionPeriodFreeR1.SeccionPorCierre(filas, 6));
+    }
+
+    [Fact]
+    public void Contrato_CanalEfectivo_SoloFilasDeCanalSinD()
+    {
+        FilaEspejoR1 F(string a = "", string b = "", string c = "", string d = "", string e = "") =>
+            new() { A = a, B = b, C = c, D = d, E = e };
+
+        var filas = new List<FilaEspejoR1>
+        {
+            F(e: "Vlr Servicio"),              // 0 → canal H (próximo D=H)
+            F(d: "H", e: "Total"),             // 1 → con D propio, no se recalcula
+            F(c: "ENEL", d: "Total"),          // 2 → C=… D=Total, conserva su D
+            F(e: "Vlr Intereses"),             // 3 → canal O (próximo D=O)
+            F(d: "O", e: "Total"),             // 4
+            F(a: "Componente", b: "Total"),    // 5 → no es fila de canal
+            F(b: "Mes", c: "Total"),           // 6 → no es fila de canal
+        };
+
+        Assert.Equal("H", ContratoSeccionPeriodFreeR1.CanalEfectivo(filas, 0));
+        Assert.Null(ContratoSeccionPeriodFreeR1.CanalEfectivo(filas, 1));
+        Assert.Null(ContratoSeccionPeriodFreeR1.CanalEfectivo(filas, 2));
+        Assert.Equal("O", ContratoSeccionPeriodFreeR1.CanalEfectivo(filas, 3));
+        Assert.Null(ContratoSeccionPeriodFreeR1.CanalEfectivo(filas, 5));
+        Assert.Null(ContratoSeccionPeriodFreeR1.CanalEfectivo(filas, 6));
+    }
+
+    [Fact]
+    public void CerosDocumentados_Vacios_TrasWithdrawFp3()
+    {
+        // Plan 46 (FP-3, S2.4): las 2 entradas de `Vlr Intereses` se retiraron; el mecanismo sigue
+        // existiendo pero sin patrones activos → ninguna fila es cero documentado.
         var intereses = new FilaEspejoR1 { E = "Vlr Intereses" };
-        Assert.True(CerosDocumentadosR1.EsCeroDocumentado(intereses, SeccionEspejoR1.Primera));
-        Assert.False(CerosDocumentadosR1.EsCeroDocumentado(intereses, new SeccionFronteraArriba(TipoSeccionEspejoR1.Oportuno, 1)));
+        Assert.False(CerosDocumentadosR1.EsCeroDocumentado(intereses, new SeccionFronteraArriba(TipoSeccionEspejoR1.Aplicacion, 1)));
+        Assert.False(CerosDocumentadosR1.EsCeroDocumentado(intereses, SeccionEspejoR1.Primera));
         Assert.False(CerosDocumentadosR1.EsCeroDocumentado(new FilaEspejoR1 { E = "Vlr Servicio" }, SeccionEspejoR1.Primera));
-        Assert.False(CerosDocumentadosR1.EsCeroDocumentado(new FilaEspejoR1 { C = "ENEL", D = "Total" }, SeccionEspejoR1.Primera));
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────────────────────
+
+    private static decimal Celda(string ruta, string celda) =>
+        TestHelpers.LeerCeldaNumerica(ruta, HojaR1, celda);
 
     private static void AssertSlot(string ruta, string celda, FilaEspejoR1 fila)
     {
         var esperado = fila.Valor("Total");
         Assert.True(esperado is not null, $"La fila fuente esperada para {celda} no trae 'Total'.");
-        Assert.Equal(esperado!.Value, TestHelpers.LeerCeldaNumerica(ruta, HojaR1, celda));
+        Assert.Equal(esperado!.Value, Celda(ruta, celda));
     }
 
     private static BloqueEspejoAseInputs LeerJulio(int aseId) =>
@@ -266,7 +353,7 @@ public sealed class ContratoSeccionPeriodFreeH1Tests
 
         public CopiaTemporal()
         {
-            _dir = Path.Combine(Path.GetTempPath(), "p45-h1-" + Guid.NewGuid().ToString("N"));
+            _dir = Path.Combine(Path.GetTempPath(), "p46-h1-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_dir);
             Ruta = Path.Combine(_dir, "salida.xlsx");
             File.Copy(Plantilla(), Ruta, overwrite: false);

@@ -73,11 +73,15 @@ public sealed class DivergenciaDeclaradaCliTests : IDisposable
     {
         var salidaDir = DirectorioTemp("p42-cli-declarada");
 
+        // Plan 46 (H2): la divergencia real OCCIDENTE-ASE5 quedó resuelta; el mecanismo se ejercita
+        // con el FIXTURE SINTÉTICO (SINTETICA-C15, Δ = 1) inyectado por la costura interna del CLI.
         var codigo = EjecutorCli.Ejecutar(
             ["--periodo", "2026072", "--carpeta", Insumos.CarpetaPeriodoQ2, "--plantilla", Insumos.PlantillaOficial(),
              "--salida", salidaDir, "--cinco-ase", "--sobrescribir",
-             "--aceptar-divergencia-declarada", "OCCIDENTE-ASE5"],
-            _stdout, _stderr);
+             "--aceptar-divergencia-declarada", FixtureDivergenciaSintetica.EntradaId],
+            _stdout, _stderr,
+            FixtureDivergenciaSintetica.CrearValidador(),
+            FixtureDivergenciaSintetica.CrearLector());
 
         Assert.Equal(6, codigo);
         Assert.Equal(CodigosSalida.DivergenciaDeclaradaReconocida, codigo);
@@ -90,10 +94,10 @@ public sealed class DivergenciaDeclaradaCliTests : IDisposable
         Assert.Contains("REPORTE DE DIVERGENCIAS DECLARADAS", File.ReadAllText(reporte), StringComparison.Ordinal);
 
         var stdout = _stdout.ToString();
-        Assert.Contains("OCCIDENTE-ASE5", stdout, StringComparison.Ordinal);
+        Assert.Contains(FixtureDivergenciaSintetica.EntradaId, stdout, StringComparison.Ordinal);
         Assert.Contains("VALIDACION_TOTAL", stdout, StringComparison.Ordinal);
-        Assert.Contains("417", stdout, StringComparison.Ordinal); // Δ
-        Assert.Contains("UAESP", stdout, StringComparison.Ordinal);
+        Assert.Contains("Δ 1", stdout, StringComparison.Ordinal); // Δ = 1 (fixture sintético)
+        Assert.Contains("por confirmar", stdout, StringComparison.Ordinal); // id sintético → fallback administrativo
         Assert.Contains("Reporte emitido", stdout, StringComparison.Ordinal);
         Assert.Contains("codigo=6", stdout, StringComparison.Ordinal);
     }
@@ -106,11 +110,13 @@ public sealed class DivergenciaDeclaradaCliTests : IDisposable
         var codigo = EjecutorCli.Ejecutar(
             ["--periodo", "2026072", "--carpeta", Insumos.CarpetaPeriodoQ2, "--plantilla", Insumos.PlantillaOficial(),
              "--salida", salidaDir, "--cinco-ase", "--sobrescribir"],
-            _stdout, _stderr);
+            _stdout, _stderr,
+            FixtureDivergenciaSintetica.CrearValidador(),
+            FixtureDivergenciaSintetica.CrearLector());
 
         Assert.Equal(CodigosSalida.Validacion, codigo);
         var stderr = _stderr.ToString();
-        Assert.Contains("OCCIDENTE-ASE5", stderr, StringComparison.Ordinal);
+        Assert.Contains(FixtureDivergenciaSintetica.EntradaId, stderr, StringComparison.Ordinal);
         Assert.Contains("VALIDACION_TOTAL", stderr, StringComparison.Ordinal);
         Assert.Contains("--aceptar-divergencia-declarada", stderr, StringComparison.Ordinal);
         Assert.Contains("RESULTADO ERROR codigo=ERR-VALIDACION salida=1", _stdout.ToString(), StringComparison.Ordinal);

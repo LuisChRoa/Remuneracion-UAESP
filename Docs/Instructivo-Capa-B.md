@@ -142,16 +142,18 @@ Método: en Excel, seleccione la celda y confirme que la barra de fórmulas mues
 
 Si un bloque de la fuente está **vacío**, la aplicación **no limpia** el bloque correspondiente de la salida (comportamiento pinneado por test): un bloque en blanco en la salida puede deberse a una fuente vacía y NO a un fallo de escritura. **Verifique la fuente**, no asuma: confirme que la fuente realmente trae ceros/vacío antes de dar por bueno el bloque.
 
-### R1-interior — auditoría fila a fila por sección-contrato (Plan 45)
+### R1-interior — auditoría fila a fila por sección-contrato + canal efectivo (Planes 45/46)
 
-La hoja `Reporte Componentes R1` se llena por **fila fuente × (fuente, canal, concepto, sección-contrato)**: cada fila de `Recaudoporcomponente` (la que trae el desglose de componentes) cae en el slot de su **sección-contrato** (no por orden físico). Para auditar:
+La hoja `Reporte Componentes R1` se llena por **fila fuente × (fuente, canal, concepto, sección-contrato)**: cada fila de `Recaudoporcomponente` (la que trae el desglose de componentes) cae en el slot de su **sección-contrato** y de su **canal efectivo** (nunca por orden físico). Para auditar:
 
-1. Tome la fila de la fuente `Recaudoporcomponente` (`Sheet1`) y lea su `(C = fuente/empresa, D = canal, E = concepto)` y los **encabezados de columna** (F..Z).
-2. Busque la fila destino en `Reporte Componentes R1` que tenga el **mismo `(A,B,C,D,E)`** dentro de la sección-contrato correcta (la sección que el oficial declara y a la que la regla period-free la alinea — `Docs/T0-Plan45-Contrato-Seccion-PeriodFree.md`).
-3. Compare **componente a componente por encabezado** (no solo F): `Total`, `Componente TDF`, `TTL`, `TVIAT`, …, `Rec.Intereses` (la columna `Rec.Intereses` de la fuente → **Z** de la plantilla).
-4. **Filas sin empresa en C** (canal/concepto sin rótulo): se alinean por su sección-contrato; si el oficial no declara su slot y están en la lista de **cero documentado** (p. ej. `Vlr Intereses` de la 1.ª sección, hueco de plantilla), quedan en cero — **no es un fallo**.
-5. **Reporte de divergencias declaradas:** si el run cierra con `código 6`, junto a la salida está `<salida sin extensión> - Divergencias declaradas.txt` (qué celda, observado vs esperado, Δ, dueño, evidencia, condición de retiro). Ahí se ve qué se reconoció y de quién es la deuda.
-6. **Reporte de ceros al dueño:** las filas sin slot de la lista de ceros documentados se reportan al dueño de la plantilla (texto en `Docs/T0-Plan45-Contrato-Seccion-PeriodFree.md` §9); **no se parchea la plantilla**.
+1. Tome la fila de la fuente `Recaudoporcomponente` (`Sheet1`) y lea su `(A,B,C,D,E)` y los **encabezados de columna** (F..Z).
+2. **Sección-contrato = la que CIERRA la sección de la fila** (la frontera `Mes`/`Aplicacion nuevos x reversion` inmediatamente **debajo**, cuyo importe es su subtotal), alineada al oficial de forma monotónica por tipo. La **1.ª sección NO es fija**: si su frontera de cierre es `Aplicacion`, cuenta como Aplicación (y el bloque cae en la `Aplic#1` oficial, no en la 1.ª).
+3. **Canal efectivo:** si la fila no trae `D` (`Vlr Servicio`, `Vlr Intereses`, `Subsidio…`), su canal es el `D` de la próxima fila `…/Total` hacia abajo (con `D` no vacío y ≠ `Total`). La fila destino debe tener el **mismo canal efectivo**.
+4. Compare **componente a componente por encabezado** (no solo F): `Total`, `Componente TDF`, `TTL`, `TVIAT`, …, `Rec.Intereses` (la columna `Rec.Intereses` de la fuente → **Z** de la plantilla).
+5. Busque la fila destino en `Reporte Componentes R1` que tenga el **mismo `(A,B,C,D,E)`** dentro de la sección-contrato/canal correctos. Referencia: `Docs/T0-Plan45-Contrato-Seccion-PeriodFree.md` + su **§12 (ERRATA Plan 46)**.
+6. Si el bloque no es **colocable** con el contrato (p. ej. la forma `[M,M,M]` de agosto-ASE3/Q1), el escritor reproduce el comportamiento histórico (neutralidad Q1, plan-then-write). No es un fallo de auditoría.
+7. **Reporte de divergencias declaradas:** si el run cierra con `código 6`, junto a la salida está `<salida sin extensión> - Divergencias declaradas.txt` (qué celda, observado vs esperado, Δ, dueño, evidencia, condición de retiro). Ahí se ve qué se reconoció y de quién es la deuda.
+8. **Ceros documentados:** hoy **NO hay entradas activas** (el Plan 46 retiró las 2 de `Vlr Intereses` de la 1.ª: ese "hueco" no existe, tienen slot real). Cualquier fila sin slot que no esté en una entrada vigente del catálogo es `ERR-SIN-SLOT` accionable; **no se parchea la plantilla**.
 
 ### M2 — Especiales ausente
 

@@ -2,7 +2,7 @@
 name: ui-ux-specialist
 description: "Subagente de remuneracion-architect para diseño premium, UX y accesibilidad en WinForms (.NET 10). Traduce el Visual Design Intent del plan SDD a código. Detecta AI Slop."
 mode: subagent
-model: opencode/muse-spark-1.3-contributor-free
+model: opencode-go/muse-spark-1.3-contributor
 hidden: false
 permissions:
   edit: allow

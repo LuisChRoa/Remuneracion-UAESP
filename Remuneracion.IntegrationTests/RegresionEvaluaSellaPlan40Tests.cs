@@ -51,6 +51,61 @@ public sealed class RegresionEvaluaSellaPlan40Tests
         var salida = Path.Combine(salidaDir, periodo.NombreArchivo);
         try
         {
+            if (periodo.NumeroQuincena == 2)
+            {
+                // ── Q2 (2026072) — Plan 46 (H2, decisión del Ingeniero 2026-10-17) ──────────────
+                // La divergencia REAL del espejo quedó RESUELTA (O25/D34/F34 TRUE) y su entrada se
+                // retiró del catálogo. El gate sigue deteniéndose HONESTAMENTE con la divergencia
+                // declarada SINTÉTICA (SINTETICA-C15, Δ = 1) sin reconocimiento: el sellado se prueba
+                // en ambos sentidos (FALSE→0, TRUE→1).
+                var procesadorSintetico = FixtureDivergenciaSintetica.CrearProcesador();
+                var exSintetico = Assert.Throws<CalculoInvalidoException>(() => procesadorSintetico.Ejecutar(new SolicitudProcesoPeriodo
+                {
+                    Periodo = periodo,
+                    CarpetaPeriodo = Path.Combine(Insumos.Raiz(), carpetaRel),
+                    RutaPlantilla = oficial,
+                    RutaSalida = salida
+                }));
+
+                Assert.Contains("[ERR-VALIDACION]", exSintetico.Message, StringComparison.Ordinal);
+                Assert.Contains($"VALIDACION_TOTAL · {FixtureDivergenciaSintetica.Celda}", exSintetico.Message, StringComparison.Ordinal);
+                // Los 3 sub-bloques del espejo de remuneración YA NO divergen (Plan 46).
+                foreach (var celda in new[] { "O25", "D34", "F34" })
+                {
+                    Assert.DoesNotContain($"VALIDACION_TOTAL · {celda}", exSintetico.Message, StringComparison.Ordinal);
+                }
+
+                Assert.Equal(5, exSintetico.Message.Split("ASE ").Length - 1); // 5 ASE × 1 celda
+                Assert.Equal(hashAntes, Sha256(oficial));
+
+                var rutaMarcadaQ2 = NombresSalida.RutaSinValidar(salida);
+                Assert.True(File.Exists(rutaMarcadaQ2), "El writer debió producir la salida marcada 'sin validar' antes del gate.");
+                Assert.False(File.Exists(salida), "Una corrida no cerrada no produce el nombre definitivo.");
+                Assert.Equal("0", Valor(rutaMarcadaQ2, Hoja, "C15"));
+                foreach (var celda in new[] { "D25", "O25", "D34", "F34" })
+                {
+                    Assert.Equal("1", Valor(rutaMarcadaQ2, Hoja, celda));
+                }
+
+                // La evaluación independiente del gate coincide con el sellado (sellado == evaluación).
+                var snapshotsQ2 = new ValidacionOracleReader().LeerSnapshots(rutaMarcadaQ2, periodo);
+                foreach (var snapshot in snapshotsQ2)
+                {
+                    Assert.False(snapshot.SubBloquesValidacionTotal["C15"]);
+                    Assert.True(snapshot.SubBloquesValidacionTotal["D25"]);
+                    Assert.True(snapshot.SubBloquesValidacionTotal["O25"]);
+                    Assert.True(snapshot.SubBloquesValidacionTotal["D34"]);
+                    Assert.True(snapshot.SubBloquesValidacionTotal["F34"]);
+                }
+
+                return;
+            }
+
+            // ── Q1 (2026071) — bloqueo DECLARADO por contrato de sección (frente propio) ─────────
+            // El oficial declara 5 fronteras fijas y las fuentes de 1.ª quincena no traen las filas
+            // `Aplicacion nuevos x reversion`: la corrida falla ANTES de validar con ERR-SIN-SLOT.
+            // Es la causa declarada del rojo de este caso en la línea base (E2-5/Q1), fuera del
+            // alcance del Plan 46 (Q1 NO se toca). Se conserva tal cual: ni se apaga ni se re-etiqueta.
             var procesador = new ProcesadorPeriodo(
                 new ExcelDataReaderRecaudoReader(),
                 new ExcelDataReaderWorkbookLeafInputReader(),

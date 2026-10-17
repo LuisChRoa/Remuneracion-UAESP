@@ -9,86 +9,95 @@ namespace Remuneracion.IntegrationTests;
 /// el validador de Core (una sola decisión). Lo declarado cita la entrada del catálogo; lo NO
 /// declarado conserva el criterio estricto E1-1..E1-5 (mismo nombre accionable). La declarada es la
 /// ÚLTIMA puerta: una no declarada coexistente bloquea aunque la declarada exista.
+///
+/// Plan 46 (H2, decisión del Ingeniero 2026-10-17): la entrada REAL <c>OCCIDENTE-ASE5</c> quedó
+/// RETIRADA (la divergencia se resolvió). Estos tests de clasificación usan el FIXTURE SINTÉTICO
+/// (<see cref="FixtureDivergenciaSintetica"/>, entrada vigente SINTETICA-C15 con Δ = 1) para seguir
+/// cubriendo la clasificación declarada sin depender de la divergencia retirada.
 /// </summary>
 public sealed class ClasificacionDivergenciasDeclaradasTests
 {
-    private const decimal Izq = 72441184838.33m;
-    private const decimal Der = 72440767318.71m; // Δ = 417.519,62 (OCCIDENTE ASE5)
+    private const decimal Izq = 72497949968m;
+    private const decimal Der = 72497949967m; // Δ = 1 (fixture sintético SINTETICA-C15)
 
     [Fact]
-    public void T1_OccidenteAse5_SeClasificaDeclaradaConReferencia()
+    public void T1_SinteticaC15_SeClasificaDeclaradaConReferencia()
     {
         var (resultado, leafs) = ValidacionesCruzadasTests.CrearCasoValido();
-        var snapshots = SnapshotsConOccidenteDeclarado();
+        var snapshots = SnapshotsConSinteticaDeclarada();
 
-        var clasificacion = new ValidadorBasico().ClasificarDivergenciasDeclaradas(resultado, leafs, snapshots);
+        var clasificacion = FixtureDivergenciaSintetica.CrearValidador()
+            .ClasificarDivergenciasDeclaradas(resultado, leafs, snapshots);
 
-        Assert.Equal(15, clasificacion.Declaradas.Count); // 5 ASE × O25/D34/F34
+        Assert.Equal(5, clasificacion.Declaradas.Count); // 5 ASE × C15
         Assert.Empty(clasificacion.NoDeclaradas);
         Assert.Empty(clasificacion.ErroresNoDeclarados);
         Assert.True(clasificacion.SoloDeclaradas);
         Assert.False(clasificacion.HayNoDeclaradas);
-        Assert.Equal(["OCCIDENTE-ASE5"], clasificacion.EntradasDeclaradas);
+        Assert.Equal([FixtureDivergenciaSintetica.EntradaId], clasificacion.EntradasDeclaradas);
 
-        var veredicto = clasificacion.Declaradas.First(v => v.Celda == "O25");
+        var veredicto = clasificacion.Declaradas.First(v => v.Celda == FixtureDivergenciaSintetica.Celda);
         Assert.True(veredicto.Declarada);
-        Assert.Equal("OCCIDENTE-ASE5", veredicto.EntradaId);
+        Assert.Equal(FixtureDivergenciaSintetica.EntradaId, veredicto.EntradaId);
         Assert.Equal(Izq, veredicto.MontoObservado);
         Assert.Equal(Der, veredicto.MontoEsperado);
-        Assert.Equal(417519.62m, veredicto.Delta);
+        Assert.Equal(FixtureDivergenciaSintetica.Delta, veredicto.Delta);
     }
 
     [Fact]
     public void T1_DivergenciaInyectadaFueraDeCatalogo_FallaDuroNoDeclarada()
     {
         var (resultado, leafs) = ValidacionesCruzadasTests.CrearCasoValido();
-        var snapshots = SnapshotsConOccidenteDeclarado();
+        var snapshots = SnapshotsConSinteticaDeclarada();
 
-        // Divergencia NO declarada inyectada: C15 (recaudo) FALSE con Δ fuera del catálogo.
+        // Divergencia NO declarada inyectada: D25 FALSE con Δ fuera del catálogo (el sintético solo
+        // declara C15 con Δ = 1).
         foreach (var snapshot in snapshots)
         {
             var evidencia = new Dictionary<string, SubBloqueValidacionTotalEvidencia>(snapshot.SubBloquesValidacionTotalEvidencia, StringComparer.OrdinalIgnoreCase)
             {
-                ["C15"] = new SubBloqueValidacionTotalEvidencia
+                ["D25"] = new SubBloqueValidacionTotalEvidencia
                 {
-                    Celda = "C15",
-                    TextoFormula = FormasValidacionTotal.TextoEsperado("C15")!,
+                    Celda = "D25",
+                    TextoFormula = FormasValidacionTotal.TextoEsperado("D25")!,
                     Computable = true,
                     OperandoIzquierdo = 1000m,
                     OperandoDerecho = 1m
                 }
             };
-            var booleanos = new Dictionary<string, bool>(snapshot.SubBloquesValidacionTotal, StringComparer.OrdinalIgnoreCase) { ["C15"] = false };
+            var booleanos = new Dictionary<string, bool>(snapshot.SubBloquesValidacionTotal, StringComparer.OrdinalIgnoreCase) { ["D25"] = false };
             snapshot.SubBloquesValidacionTotalEvidencia = evidencia;
             snapshot.SubBloquesValidacionTotal = booleanos;
         }
 
-        var clasificacion = new ValidadorBasico().ClasificarDivergenciasDeclaradas(resultado, leafs, snapshots);
+        var clasificacion = FixtureDivergenciaSintetica.CrearValidador()
+            .ClasificarDivergenciasDeclaradas(resultado, leafs, snapshots);
 
         Assert.True(clasificacion.HayNoDeclaradas); // D-F: la no declarada manda
         Assert.False(clasificacion.SoloDeclaradas);
-        Assert.Contains(clasificacion.NoDeclaradas, v => v.Celda == "C15" && !v.Declarada);
-        Assert.Contains(clasificacion.ErroresNoDeclarados, e => e.Contains("VALIDACION_TOTAL · C15", StringComparison.Ordinal));
+        Assert.Contains(clasificacion.NoDeclaradas, v => v.Celda == "D25" && !v.Declarada);
+        Assert.Contains(clasificacion.ErroresNoDeclarados, e => e.Contains("VALIDACION_TOTAL · D25", StringComparison.Ordinal));
 
         // Las declaradas siguen reconocidas (pero no alcanzan a cerrar por la no declarada).
-        Assert.Equal(15, clasificacion.Declaradas.Count);
+        Assert.Equal(5, clasificacion.Declaradas.Count);
     }
 
     [Fact]
     public void T1_CadenaNoResoluble_NuncaSeDeclara()
     {
         var (resultado, leafs) = ValidacionesCruzadasTests.CrearCasoValido();
-        var snapshots = SnapshotsConOccidenteDeclarado();
+        var snapshots = SnapshotsConSinteticaDeclarada();
 
-        // O25 no evaluable desde lo escrito (E1-1): aunque su Δ "coincida", NO se declara.
+        // C15 no evaluable desde lo escrito (E1-1): aunque su Δ "coincida", NO se declara.
         foreach (var snapshot in snapshots)
         {
-            snapshot.SubBloquesValidacionTotalEvidencia["O25"].Computable = false;
+            snapshot.SubBloquesValidacionTotalEvidencia[FixtureDivergenciaSintetica.Celda].Computable = false;
         }
 
-        var clasificacion = new ValidadorBasico().ClasificarDivergenciasDeclaradas(resultado, leafs, snapshots);
+        var clasificacion = FixtureDivergenciaSintetica.CrearValidador()
+            .ClasificarDivergenciasDeclaradas(resultado, leafs, snapshots);
 
-        Assert.Contains(clasificacion.NoDeclaradas, v => v.Celda == "O25");
+        Assert.Contains(clasificacion.NoDeclaradas, v => v.Celda == FixtureDivergenciaSintetica.Celda);
         Assert.True(clasificacion.HayNoDeclaradas);
     }
 
@@ -100,10 +109,11 @@ public sealed class ClasificacionDivergenciasDeclaradasTests
         foreach (var snapshot in snapshots)
         {
             // Snapshot sin evidencia: el booleano FALSE no es clasificable → no declarada.
-            snapshot.SubBloquesValidacionTotal = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase) { ["O25"] = false };
+            snapshot.SubBloquesValidacionTotal = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase) { ["C15"] = false };
         }
 
-        var clasificacion = new ValidadorBasico().ClasificarDivergenciasDeclaradas(resultado, leafs, snapshots);
+        var clasificacion = FixtureDivergenciaSintetica.CrearValidador()
+            .ClasificarDivergenciasDeclaradas(resultado, leafs, snapshots);
 
         Assert.True(clasificacion.HayNoDeclaradas);
         Assert.All(clasificacion.NoDeclaradas, v => Assert.Null(v.EntradaId));
@@ -115,7 +125,8 @@ public sealed class ClasificacionDivergenciasDeclaradasTests
         var (resultado, leafs) = ValidacionesCruzadasTests.CrearCasoValido();
         var snapshots = ValidacionesCruzadasTests.CrearSnapshotsValidos();
 
-        var clasificacion = new ValidadorBasico().ClasificarDivergenciasDeclaradas(resultado, leafs, snapshots);
+        var clasificacion = FixtureDivergenciaSintetica.CrearValidador()
+            .ClasificarDivergenciasDeclaradas(resultado, leafs, snapshots);
 
         Assert.True(clasificacion.SinDivergencias);
         Assert.False(clasificacion.SoloDeclaradas);
@@ -123,25 +134,23 @@ public sealed class ClasificacionDivergenciasDeclaradasTests
         Assert.Empty(clasificacion.Veredictos);
     }
 
-    private static List<ValidacionCruzadaSnapshot> SnapshotsConOccidenteDeclarado()
+    private static List<ValidacionCruzadaSnapshot> SnapshotsConSinteticaDeclarada()
     {
         var snapshots = ValidacionesCruzadasTests.CrearSnapshotsValidos();
         foreach (var snapshot in snapshots)
         {
             var evidencia = new Dictionary<string, SubBloqueValidacionTotalEvidencia>(StringComparer.OrdinalIgnoreCase);
             var booleanos = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-            foreach (var celda in new[] { "O25", "D34", "F34" })
+            var celda = FixtureDivergenciaSintetica.Celda;
+            evidencia[celda] = new SubBloqueValidacionTotalEvidencia
             {
-                evidencia[celda] = new SubBloqueValidacionTotalEvidencia
-                {
-                    Celda = celda,
-                    TextoFormula = FormasValidacionTotal.TextoEsperado(celda)!,
-                    Computable = true,
-                    OperandoIzquierdo = Izq,
-                    OperandoDerecho = Der
-                };
-                booleanos[celda] = false;
-            }
+                Celda = celda,
+                TextoFormula = FormasValidacionTotal.TextoEsperado(celda)!,
+                Computable = true,
+                OperandoIzquierdo = Izq,
+                OperandoDerecho = Der
+            };
+            booleanos[celda] = false;
 
             snapshot.SubBloquesValidacionTotalEvidencia = evidencia;
             snapshot.SubBloquesValidacionTotal = booleanos;

@@ -41,11 +41,23 @@ public sealed class DivergenciaDeclaradaT0Tests
         Assert.Contains("T0-Plan41-MiniT0-OccidenteAse5", entrada.CitaEvidencia, StringComparison.Ordinal);
         Assert.Contains("T0FrenteEspejoR1Ase5EnelTests", entrada.CitaEvidencia, StringComparison.Ordinal);
         Assert.Equal(DeltaOccidenteAse5, entrada.Delta);
+
+        // Plan 46 (H2, decisión del Ingeniero 2026-10-17): la divergencia se resolvió (Δ = 0 en la
+        // corrida 9) → la entrada queda RETIRADA con fecha + motivo + evidencia citados. El
+        // mecanismo (matcher/reporte/huella) queda intacto; solo cambió el DATO.
+        Assert.True(entrada.Retirada);
+        Assert.True(entrada.RetiroDocumentado);
+        Assert.Equal("2026-10-17", entrada.FechaRetiro);
+        Assert.False(entrada.Vigente);
     }
 
     [Fact]
     public void T0_CorridaVivaQ2_OccidenteAse5_DeltaExactoYClasificacionDeclarada()
     {
+        // Plan 46 (H2, decisión del Ingeniero 2026-10-17): la divergencia real OCCIDENTE-ASE5 quedó
+        // RESUELTA (F612→0; O25/D34/F34 TRUE), así que la entrada se retiró del catálogo. La corrida
+        // viva end-to-end se conserva con el FIXTURE SINTÉTICO (SINTETICA-C15, Δ = 1) para congelar
+        // bloqueo→reconocimiento→cierre con la MISMA maquinaria real (clasificación, reporte, naming).
         var oficial = Insumos.PlantillaOficial();
         var periodo = Insumos.PeriodoQ2();
         var dir = Path.Combine(Path.GetTempPath(), "p42-t0-" + Guid.NewGuid().ToString("N"));
@@ -53,15 +65,7 @@ public sealed class DivergenciaDeclaradaT0Tests
         var salida = Path.Combine(dir, periodo.NombreArchivo);
         try
         {
-            var procesador = new ProcesadorPeriodo(
-                new ExcelDataReaderRecaudoReader(),
-                new ExcelDataReaderWorkbookLeafInputReader(),
-                new CalculoRemuneracion(),
-                new ValidadorBasico(),
-                new OpenXmlPlantillaWriter(),
-                new ArchivoFuenteLocator(),
-                new ExcelDataReaderDetRetriR10Reader(),
-                new ValidacionOracleReader());
+            var procesador = FixtureDivergenciaSintetica.CrearProcesador();
 
             // Sin reconocimiento explícito: la divergencia declarada BLOQUEA (S3) y porta la
             // clasificación (la UI/CLI la presentan sin re-evaluar).
@@ -77,14 +81,14 @@ public sealed class DivergenciaDeclaradaT0Tests
             Assert.NotNull(clasificacion);
             Assert.True(clasificacion!.SoloDeclaradas);
             Assert.False(clasificacion.HayNoDeclaradas);
-            Assert.Equal(["OCCIDENTE-ASE5"], clasificacion.EntradasDeclaradas);
+            Assert.Equal([FixtureDivergenciaSintetica.EntradaId], clasificacion.EntradasDeclaradas);
 
-            // 5 ASE × O25/D34/F34 = 15 veredictos declarados, todos con el Δ exacto de la evidencia.
-            Assert.Equal(15, clasificacion.Declaradas.Count);
+            // 5 ASE × 1 celda (C15) = 5 veredictos declarados, todos con el Δ exacto del fixture.
+            Assert.Equal(5, clasificacion.Declaradas.Count);
             foreach (var veredicto in clasificacion.Declaradas)
             {
-                Assert.Contains(veredicto.Celda, new[] { "O25", "D34", "F34" });
-                Assert.Equal(DeltaOccidenteAse5, veredicto.Delta);
+                Assert.Equal(FixtureDivergenciaSintetica.Celda, veredicto.Celda);
+                Assert.Equal(FixtureDivergenciaSintetica.Delta, veredicto.Delta);
             }
 
             // Plan 43 (O-4): la corrida NO cerró bien (declarada pendiente de reconocimiento) ⇒ el

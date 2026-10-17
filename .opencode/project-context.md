@@ -375,7 +375,13 @@ Al reconocer, `ProcesadorPeriodo` emite:
 
 **Evidencia de cierre (T5, 2026-10-14):** build 0 warnings; suite **39 Failed / 873 Passed / 912 Total** con **set-diff vacío** contra la línea base de entrada (mismos 39, 8 de Q1 declarados); e2e Q2 desde el OFICIAL en ambas direcciones (sin reconocimiento → exit 1 con mensaje accionable; con `--aceptar-divergencia-declarada OCCIDENTE-ASE5` → exit 6 + archivo + reporte + log); SHA256 del oficial intacto `3086AC317595C2F8E84ED24B1C5EE3E52565DD5193394E3062878E7FA49C5214`.
 
-## Doctrina contrato de sección PERIOD-FREE del espejo R1 (Plan 45 — vigente)
+## Doctrina contrato de sección PERIOD-FREE del espejo R1 (Plan 45 — SUPERSEDIDA EN PARTE POR EL PLAN 46)
+
+> **SUPERSESIÓN (2026-10-17):** el tipado por frontera ARRIBA y el cero documentado de `Vlr Intereses`
+> descritos en esta sección quedan **SUPERSEDIDOS** por la doctrina del Plan 46 (al final de este
+> archivo): sección por frontera de **CIERRE** + **canal efectivo**, y `CerosDocumentadosR1` sin
+> patrones. Lo demás (Alinear monotónico, `ERR-SIN-SLOT`, neutralidad Q1 plan-then-write, frontera
+> arriba intacta para Plan 35-T2) sigue vigente.
 
 **Principio rector (`la sección de la fuente se ALINEA con la del oficial por la FORMA, no por el tipo/ordinal`):** el escritor values-only por slot (`EscritorValoresSlotR1`) deja de dejar en `null` la sección de las filas sin empresa en C; ahora TODA fila participante recibe su **sección-contrato**, resuelta por el predicado puro de Core **`ContratoSeccionPeriodFreeR1.Alinear`**: emparejamiento MONOTÓNICO por tipo (la k-ésima sección fuente → la próxima sección oficial del mismo tipo aún no consumida). El oficial declara siempre 6 secciones `[1.ª, Oportuno#1, Aplic#1, Oportuno#2, Aplic#2, Oportuno#3]`; la fuente del período define su forma.
 
@@ -399,5 +405,26 @@ Las **filas-frontera** (`Mes/Total`, `Aplicacion…/Total`) viajan con la secci�
 **Neutralidad Q1 (decisión del Ingeniero 2026-10-16, opción 1 — implementada):** el escritor aplica la **sección-contrato SOLO si el bloque ENTERO es colocable con ella** (plan-then-write, `TryPlanificar`). Si no lo es (la forma del período no está cubierta por el contrato — p. ej. Q1-ASE2 trae el canal `D=5` en la 1.ª, que el oficial no declara), reproduce el **comportamiento HISTÓRICO del Plan 41** para ese bloque (veto de sección solo en filas-dato de empresa; cursor por firma). Así Q1 conserva **byte-idéntico** su primer `ERR-SIN-SLOT` (`NUEVO ESQUEMA`, no `D=5`) y **ningún test ni geometría Q1 cambia**; set-diff de suite **vacío** contra la línea base de 39. La decisión es por **forma colocable** (geometría pura), no por período/empresa (D-H).
 
 **Gate de forma (re-congelamiento):** un período con forma nueva NO se parchea con ramas; la regla es geometría pura y una forma inédita exige un **T0 nuevo** (`ContratoSeccionPeriodFreeT0Tests`), nunca edición silenciosa.
+
+## Doctrina sección por CIERRE + canal efectivo del espejo R1 (Plan 46 — vigente, supersede al 45)
+
+**Principio rector (`la sección se tipa por la frontera que la CIERRA; la fila sin D se coloca por su canal efectivo`):** la corrida real del App del 2026-10-17 (`Docs/Prueba Julio-2/Resultado/8/`) probó, celda a celda, 2 defectos del contrato del Plan 45. El Plan 46
+(`plans/46 - correccion-mapeo-interior-r1-canal-efectivo-y-seccion-por-cierre.md`) los cierra con dos predicados puros de Core:
+
+1. **Sección por CIERRE** (`ContratoSeccionPeriodFreeR1.SeccionPorCierre`, §2.2): cada sección (fuente y oficial) se tipa por la frontera **inmediatamente debajo** que la cierra (`Mes`→Oportuno, `Aplicacion`→Aplicación, ordinal = ocurrencia de esa frontera); las filas-frontera se tipan por la sección que **ellas cierran**; la cola sin frontera debajo se queda con la de arriba; AFaseo → `null`. La 1.ª sección **deja de ser `Primera`**: si cierra con `Aplicacion`, es `Aplicacion`.
+2. **Canal efectivo** (`ContratoSeccionPeriodFreeR1.CanalEfectivo`, §2.1): para una fila **sin `D` propio** y sin `A`/`B` (`Vlr Servicio`, `Vlr Intereses`, `Subsidio…`), su canal = el `D` de la próxima fila `…/Total` hacia abajo con `D` no vacío y ≠ literal `Total`. Mismo cálculo en slots del oficial. La llave de colocación pasa a ser **(firma + sección + canal)**.
+
+**Formas por cierre y mapeo (verificado en bytes; fixture `ContratoSeccionPeriodFreeT0Plan46Tests`, 26 verdes):**
+- `[O#1,A#1,O#2,A#2,O#3]` (julio2 ASE1-4, agosto mayoría, Q1-ASE3/4) → identidad.
+- `[A#1,O#1,A#2,O#2]` (julio2 ASE5, Q1-ASE1) → `[A#1(615-628), O#2(630-647), A#2(649-659), O#3(661-673)]`; la 1.ª oficial (603-613) y el AFaseo (614) quedan en cero. `F612`=0; OCCIDENTE de la 1.ª (R13) → **F628**; `Vlr Intereses` 402,40/7.697,23 → **F623/F626**.
+- `[O#1,O#2,O#3]` (agosto-ASE3, Q1-ASE2/5) → `[O#1,O#2,O#3]`; **no colocable** por el contrato (la fila `Componente` fuente cierra con `Mes` y la del oficial con `Aplicacion`) → el plan-then-write reproduce el comportamiento histórico del Plan 41 (neutralidad Q1).
+- **Frontera arriba INTACTA:** `SeccionEspejoR1.PorFronteraArriba` y `R1FirmaInterior.EsAplicacionPorFrontera` (consumidor Plan 35-T2) no cambian de API ni de semántica.
+
+**Cero documentado RETIRADO (FP-3):** `CerosDocumentadosR1` queda con lista de patrones **vacía**; el mecanismo se conserva. Las 2 entradas de `Vlr Intereses` de la 1.ª de ASE5-julio2 se retiran (tienen slot real). El texto §9 del T0-Plan45 (reporte al dueño del "hueco") queda **WITHDRAW**.
+
+**Invariantes intactos:** values-only; cero `InsertRow`/`DeleteRow`; cero `<f>` nuevo; `R1FirmaInterior.EsDatoEmpresa` (Plan 41) intacto; cero ramas por período/empresa (D-H); Q1 intocado (set-diff de Q1 vacío); `DivergenciasDeclaradasCatalogo` **intacto** (no se decide Vía A/B aquí). La auditoría de la propietaria sigue PENDIENTE (no se declara paridad).
+
+**Efecto medido en la corrida 8→9 (julio-2, 5 ASE):** los cambios de celda son SOLO movimientos de fila-fuente, 100 % trazados por DEFECTO 1 (canal) o DEFECTO 2 (sección). Los 24 movimientos son: ASE1 R8 (F9→F11); ASE2 R8, R17-R18, R20-R21, R54, R56; ASE3 R5 (F289→F294); ASE4 R8, R20-R21, R54; ASE5 R5-R13 (F603-F612 → F619-F628, con R8/R11 de 0 a F623/F626) y R35/R37 (F650/F653 → F653/F655). La corrida Q2 **cierra OK (código 0) sin divergencia declarada**: `VALIDACION_TOTAL!O25/D34/F34` pasan de FALSE (Δ 417.519,62) a TRUE (Δ 0); **pendiente de decisión del Ingeniero/UAESP** re-basar el catálogo y sus 11 tests (el Plan 46 prohíbe tocarlos).
+
 
 
