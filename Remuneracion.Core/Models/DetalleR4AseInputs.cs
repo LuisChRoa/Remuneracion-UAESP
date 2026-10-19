@@ -56,9 +56,9 @@ public sealed class DetalleR4Fila
     /// <summary>
     /// Valores de la fila por ENCABEZADO de componente (<c>"Total"</c>, <c>"Componente TDF"</c>, …,
     /// <c>"Ajuste Decena"</c>). <c>null</c> = celda vacía en la fuente (distingue "ausente" de "cero").
-    /// Las columnas destino sin contraparte en la fuente (<c>SERVICIO ESPECIALES</c>, <c>Ajuste
-    /// Recargo Aseo</c>, <c>Otros</c>) NO se agregan aquí: quedan en 0 en la plantilla y T3 no las
-    /// escribe (T0b §2.3).
+    /// Plan 47 (H1.3): `Otros` SÍ tiene contraparte en la fuente de ASE4 (falso hueco de columna) y se
+    /// escribe en la columna R; <c>SERVICIO ESPECIALES</c> y <c>Ajuste Recargo Aseo</c> no tienen
+    /// contraparte en ninguna fuente julio-2 (ausencia probada) y quedan en el 0 de la plantilla.
     /// </summary>
     public IReadOnlyDictionary<string, decimal?> ValoresPorComponente { get; init; } =
         new Dictionary<string, decimal?>(StringComparer.OrdinalIgnoreCase);

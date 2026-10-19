@@ -1447,18 +1447,21 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     }
 
     /// <summary>
-    /// Plan 29 (T3, Unidad R — escritura): escribe el desglose-detalle por componente de las hojas
-    /// <c>Rem. Anticipos R2</c> y <c>Reversion Pagos R4</c> en la MISMA pasada atómica de los
-    /// agregados (V2: <c>E43</c>/<c>D73</c> intactos) y el espejo R1. Solo en Q2: el reader puebla
-    /// <c>DetalleR2</c>/<c>DetalleR4</c> únicamente en Q2, por lo que en Q1 el método es no-op.
+    /// Plan 29 (T3, Unidad R — escritura) / Plan 47 (H1, S2.1): escribe el desglose-detalle por
+    /// componente de las hojas <c>Rem. Anticipos R2</c> y <c>Reversion Pagos R4</c> en la MISMA pasada
+    /// atómica de los agregados (V2: <c>E43</c>/<c>D73</c> intactos) y el espejo R1. Solo en Q2: el
+    /// reader puebla <c>DetalleR2</c>/<c>DetalleR4</c> únicamente en Q2, por lo que en Q1 el método es
+    /// no-op.
     ///
-    /// Resuelve la fila destino por LABEL (firma A|B|C|D para R2, A|B|C para R4 leída de la propia
-    /// plantilla) con una alineación LCS que tolera la malla derivada de agosto: las filas-fuente
-    /// sin contraparte en la plantilla se omiten y las filas-destino sin fuente quedan en su 0.
+    /// La fila destino se resuelve por la clave <c>(firma + canal efectivo)</c> — <b>nunca por orden
+    /// físico</b> (Plan 41 E1-1): el canal efectivo es el de la fila <c>Total</c> que CIERRA el grupo
+    /// (R46-1 análogo, <see cref="CanalEfectivoDetalleR2R4"/>). Una fila-fuente sin slot es cero
+    /// documentado sólo si está en <see cref="CerosDocumentadosDetalleR2R4"/>; fuera de la lista ⇒
+    /// <c>ERR-SIN-SLOT</c>. Las filas-destino sin fuente quedan en su 0 de plantilla.
     /// Las columnas se resuelven por ENCABEZADO (<see cref="WorkbookLeafCellMapDetalleR2R4.ColumnasR2"/>
-    /// / <c>ColumnasR4</c>), nunca por índice. Cero insert/delete de filas (D-C); el guard de
-    /// <see cref="EscribirValorNumerico"/> impide tocar fórmulas (destino-detalle fórmula ⇒
-    /// <c>ERR-PLANTILLA</c>, nunca sobrescritura — R-R-3).
+    /// / <c>ColumnasR4</c>, que incluye <c>Otros → R</c>), nunca por índice. Cero insert/delete de
+    /// filas (D-C); el guard de <see cref="EscribirValorNumerico"/> impide tocar fórmulas
+    /// (destino-detalle fórmula ⇒ <c>ERR-PLANTILLA</c>, nunca sobrescritura — R-R-3).
     /// </summary>
     private static void EscribirCeldasDetalleR2R4(WorkbookPart workbookPart, WorkbookLeafInputs leaf)
     {
@@ -1486,11 +1489,16 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         var hoja = WorkbookLeafCellMapDetalleR2R4.HojaR2;
         var worksheet = ObtenerHoja(workbookPart, hoja, nameof(GenerarWorkbook));
         var pares = EmparejarBloque(
-            workbookPart,
-            worksheet,
+            HojaDetalleR2R4.R2,
+            hoja,
+            aseId,
             bloque,
-            detalle.Filas.Select(f => f.Firma).ToList(),
-            columnas: ["A", "B", "C", "D"]);
+            LeerRotulos(workbookPart, worksheet, bloque),
+            detalle.Filas.Select(f => new CanalEfectivoDetalleR2R4.Rotulo(f.A, f.B, f.C, f.D)).ToList(),
+            columnasFirma: [0, 1, 2, 3],
+            columnasEtiquetaPropia: WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR2,
+            columnasGrupo: WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaGrupoR2,
+            columnasSegundoCierre: WorkbookLeafCellMapDetalleR2R4.ColumnasSegundoCierreR2);
 
         foreach (var (filaDestino, indiceFuente) in pares)
         {
@@ -1517,11 +1525,16 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         var hoja = WorkbookLeafCellMapDetalleR2R4.HojaR4;
         var worksheet = ObtenerHoja(workbookPart, hoja, nameof(GenerarWorkbook));
         var pares = EmparejarBloque(
-            workbookPart,
-            worksheet,
+            HojaDetalleR2R4.R4,
+            hoja,
+            aseId,
             bloque,
-            detalle.Filas.Select(f => f.Firma).ToList(),
-            columnas: ["A", "B", "C"]);
+            LeerRotulos(workbookPart, worksheet, bloque),
+            detalle.Filas.Select(f => new CanalEfectivoDetalleR2R4.Rotulo(f.A, f.B, f.C, string.Empty)).ToList(),
+            columnasFirma: [0, 1, 2],
+            columnasEtiquetaPropia: WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR4,
+            columnasGrupo: WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaGrupoR4,
+            columnasSegundoCierre: WorkbookLeafCellMapDetalleR2R4.ColumnasSegundoCierreR4);
 
         foreach (var (filaDestino, indiceFuente) in pares)
         {
@@ -1536,102 +1549,152 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     }
 
     /// <summary>
-    /// Empareja las filas de un bloque-destino (labels leídos de la plantilla) con las firmas de las
-    /// filas-fuente mediante LCS (ver <see cref="AlinearFirmas"/>). Devuelve pares
-    /// (fila-destino absoluta, índice-fuente). Solo las filas emparejadas se escriben: una fila
-    /// destino sin contraparte queda en su 0 de plantilla; una fila fuente intercalada sin destino
-    /// se omite. Cero insert/delete (D-C).
+    /// Plan 47 (H1, S2.1 — §2.2 + autorización H1.1/H1.4): empareja las filas-fuente del detalle con
+    /// los slots del bloque-destino por la clave <c>(firma + CANAL EFECTIVO)</c>, eliminando el
+    /// casamiento por orden del LCS anterior.
+    ///
+    /// <list type="bullet">
+    /// <item>El canal efectivo se calcula con <see cref="CanalEfectivoDetalleR2R4"/> (Core, puro,
+    /// R46-1 análogo) sobre la MISMA secuencia de rótulos: la fila <c>Total</c> que CIERRA el grupo
+    /// tanto en la fuente como en el oficial, COMPUESTO con la empresa del segundo cierre cuando el mapa
+    /// la declara (Plan 47 W-3: <c>E/ENEL</c> vs <c>E/ENERBIT</c> en R2 ASE5, desambiguado por geometría
+    /// y no por orden). Las filas con etiqueta propia conservan su firma (canal <c>null</c> en ambos
+    /// lados).</item>
+    /// <item>Una fila-fuente sin slot es <b>cero documentado</b> si está en
+    /// <see cref="CerosDocumentadosDetalleR2R4"/> (consumo acotado por <c>Cantidad</c>); fuera de esa
+    /// lista es <c>ERR-SIN-SLOT</c> accionable. Prohibido el fallback posicional (Plan 41 E1-1).</item>
+    /// <item>Las filas-destino sin fuente quedan en su 0 de plantilla (nunca se inventa valor). Cero
+    /// insert/delete (D-C).</item>
+    /// </list>
     /// </summary>
     private static IReadOnlyList<(int FilaDestino, int IndiceFuente)> EmparejarBloque(
-        WorkbookPart workbookPart,
-        Worksheet worksheet,
+        HojaDetalleR2R4 hojaDetalle,
+        string hoja,
+        int aseId,
         (int FilaInicio, int FilaFin) bloque,
-        IReadOnlyList<string> firmasFuente,
-        string[] columnas)
+        IReadOnlyList<CanalEfectivoDetalleR2R4.Rotulo> destino,
+        IReadOnlyList<CanalEfectivoDetalleR2R4.Rotulo> fuente,
+        int[] columnasFirma,
+        IReadOnlyList<int> columnasEtiquetaPropia,
+        IReadOnlyList<int> columnasGrupo,
+        IReadOnlyList<int> columnasSegundoCierre)
     {
-        var firmasDestino = new List<string>(bloque.FilaFin - bloque.FilaInicio + 1);
-        for (var fila = bloque.FilaInicio; fila <= bloque.FilaFin; fila++)
-        {
-            firmasDestino.Add(NormalizarFirma(LeerFirmaDestino(workbookPart, worksheet, fila, columnas)));
-        }
-
-        var normalizadasFuente = firmasFuente.Select(NormalizarFirma).ToList();
-        return AlinearFirmas(firmasDestino, normalizadasFuente)
-            .Select(p => (bloque.FilaInicio + p.IndiceDestino, p.IndiceFuente))
+        var firmasDestino = destino.Select(rotulo => Firma(rotulo, columnasFirma)).ToList();
+        var canalesDestino = Enumerable.Range(0, destino.Count)
+            .Select(i => CanalEfectivoDetalleR2R4.CanalEfectivo(destino, i, columnasEtiquetaPropia, columnasGrupo, columnasSegundoCierre))
             .ToList();
-    }
 
-    /// <summary>
-    /// Empareja dos secuencias de firmas por la subsecuencia común más larga (LCS). Devuelve los
-    /// índices (0-based) emparejados; las posiciones no emparejadas son inserciones/borrados.
-    /// </summary>
-    private static IReadOnlyList<(int IndiceDestino, int IndiceFuente)> AlinearFirmas(
-        IReadOnlyList<string> firmasDestino,
-        IReadOnlyList<string> firmasFuente)
-    {
-        var n = firmasDestino.Count;
-        var m = firmasFuente.Count;
-        var dp = new int[n + 1, m + 1];
-        for (var i = n - 1; i >= 0; i--)
-        {
-            for (var j = m - 1; j >= 0; j--)
-            {
-                dp[i, j] = string.Equals(firmasDestino[i], firmasFuente[j], StringComparison.OrdinalIgnoreCase)
-                    ? dp[i + 1, j + 1] + 1
-                    : Math.Max(dp[i + 1, j], dp[i, j + 1]);
-            }
-        }
+        var consumido = new bool[destino.Count];
+        var documentados = new Dictionary<(string Firma, string? Canal), int>();
+        var pares = new List<(int FilaDestino, int IndiceFuente)>(fuente.Count);
 
-        var pares = new List<(int, int)>();
-        var x = 0;
-        var y = 0;
-        while (x < n && y < m)
+        for (var i = 0; i < fuente.Count; i++)
         {
-            if (string.Equals(firmasDestino[x], firmasFuente[y], StringComparison.OrdinalIgnoreCase))
+            var firma = Firma(fuente[i], columnasFirma);
+            var canal = CanalEfectivoDetalleR2R4.CanalEfectivo(fuente, i, columnasEtiquetaPropia, columnasGrupo, columnasSegundoCierre);
+
+            var encontrado = -1;
+            for (var j = 0; j < destino.Count; j++)
             {
-                pares.Add((x, y));
-                x++;
-                y++;
+                if (consumido[j])
+                {
+                    continue;
+                }
+
+                if (!string.Equals(firmasDestino[j], firma, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!string.Equals(canalesDestino[j], canal, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                encontrado = j;
+                break;
             }
-            else if (dp[x + 1, y] >= dp[x, y + 1])
+
+            if (encontrado >= 0)
             {
-                x++;
+                consumido[encontrado] = true;
+                pares.Add((bloque.FilaInicio + encontrado, i));
+                continue;
             }
-            else
+
+            // Sin slot: sólo es válido si la clave está en la lista documentada (E-44.1).
+            var clave = (firma, canal);
+            var yaDocumentadas = documentados.GetValueOrDefault(clave);
+            if (yaDocumentadas < CerosDocumentadosDetalleR2R4.CantidadDocumentada(hojaDetalle, aseId, firma, canal))
             {
-                y++;
+                documentados[clave] = yaDocumentadas + 1;
+                continue;
             }
+
+            throw new CalculoInvalidoException(
+                CodigoError.SinSlot,
+                MensajeSinSlot(hoja, aseId, bloque, i, firma, canal));
         }
 
         return pares;
     }
 
-    /// <summary>
-    /// Lee la firma de una fila-destino concatenando el texto de las columnas indicadas (labels de
-    /// la plantilla), normalizada para comparar con la firma de la fuente.
-    /// </summary>
-    private static string LeerFirmaDestino(WorkbookPart workbookPart, Worksheet worksheet, int fila, string[] columnas)
+    /// <summary>Lee los rótulos A–D de cada fila del bloque-destino (la firma y el canal efectivo se
+    /// derivan de ellos; el canal NO se lee de una columna fija por índice de negocio).</summary>
+    private static IReadOnlyList<CanalEfectivoDetalleR2R4.Rotulo> LeerRotulos(
+        WorkbookPart workbookPart,
+        Worksheet worksheet,
+        (int FilaInicio, int FilaFin) bloque)
     {
-        var partes = new string[columnas.Length];
-        for (var i = 0; i < columnas.Length; i++)
+        var rotulos = new List<CanalEfectivoDetalleR2R4.Rotulo>(bloque.FilaFin - bloque.FilaInicio + 1);
+        for (var fila = bloque.FilaInicio; fila <= bloque.FilaFin; fila++)
         {
-            var celda = columnas[i] + fila.ToString(CultureInfo.InvariantCulture);
-            var cell = ObtenerCelda(worksheet, celda);
-            partes[i] = cell is null ? string.Empty : LeerTextoCelda(cell, workbookPart).Trim();
+            rotulos.Add(new CanalEfectivoDetalleR2R4.Rotulo(
+                TextoDestino(workbookPart, worksheet, "A", fila),
+                TextoDestino(workbookPart, worksheet, "B", fila),
+                TextoDestino(workbookPart, worksheet, "C", fila),
+                TextoDestino(workbookPart, worksheet, "D", fila)));
+        }
+
+        return rotulos;
+    }
+
+    private static string TextoDestino(WorkbookPart workbookPart, Worksheet worksheet, string columna, int fila)
+    {
+        var cell = ObtenerCelda(worksheet, columna + fila.ToString(CultureInfo.InvariantCulture));
+        return cell is null ? string.Empty : LeerTextoCelda(cell, workbookPart).Trim();
+    }
+
+    /// <summary>Firma normalizada de un rótulo con las columnas declaradas (A..D en R2, A..C en R4).</summary>
+    private static string Firma(CanalEfectivoDetalleR2R4.Rotulo rotulo, IReadOnlyList<int> columnas)
+    {
+        var partes = new string[columnas.Count];
+        for (var i = 0; i < columnas.Count; i++)
+        {
+            partes[i] = rotulo.Texto(columnas[i]).Trim();
         }
 
         return string.Join("|", partes);
     }
 
-    private static string NormalizarFirma(string firma)
+    /// <summary>Mensaje accionable de <c>ERR-SIN-SLOT</c> (Plan 47 H1.4 / E-44.1): nombra la hoja, el
+    /// ASE, la fila-fuente (posición + firma + canal efectivo) y el bloque destino revisado.</summary>
+    private static string MensajeSinSlot(
+        string hoja,
+        int aseId,
+        (int FilaInicio, int FilaFin) bloque,
+        int indiceFuente,
+        string firma,
+        string? canal)
     {
-        var partes = firma.Split('|');
-        for (var i = 0; i < partes.Length; i++)
-        {
-            partes[i] = partes[i].Trim();
-        }
-
-        return string.Join("|", partes);
+        var canalTexto = canal is null
+            ? "sin canal efectivo (la fila trae su propia etiqueta de grupo)"
+            : $"canal efectivo '{canal}'";
+        return $"ERR-SIN-SLOT: ASE {aseId}: la fuente del detalle de '{hoja}' trae la fila fuente " +
+            $"#{indiceFuente + 1} con firma '{firma}' y {canalTexto} que NO tiene slot en el bloque " +
+            $"{bloque.FilaInicio}..{bloque.FilaFin} (ninguna fila-destino con la misma firma y el mismo " +
+            "canal efectivo) ni figura en la lista de ceros documentados. Nunca remap/insert ni " +
+            "colocación por posición: revise la plantilla o la fuente.";
     }
 
     /// <summary>

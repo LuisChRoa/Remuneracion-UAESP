@@ -1,0 +1,3 @@
+Plan 47 H0 (T0 read-only) - set-diff de fallos vs p46-cierre.trx (38)
+Suite: 38 Failed / 1002 Passed / 1040 Total / 0 Skipped (p47-h0.trx)
+Los 42 tests nuevos (RevisionPestanasLenteR1T0Plan47Tests) entran en Passed: 960 + 42 = 1002.ALTAS: 0BAJAS: 0

@@ -155,6 +155,17 @@ La hoja `Reporte Componentes R1` se llena por **fila fuente × (fuente, canal, c
 7. **Reporte de divergencias declaradas:** si el run cierra con `código 6`, junto a la salida está `<salida sin extensión> - Divergencias declaradas.txt` (qué celda, observado vs esperado, Δ, dueño, evidencia, condición de retiro). Ahí se ve qué se reconoció y de quién es la deuda.
 8. **Ceros documentados:** hoy **NO hay entradas activas** (el Plan 46 retiró las 2 de `Vlr Intereses` de la 1.ª: ese "hueco" no existe, tienen slot real). Cualquier fila sin slot que no esté en una entrada vigente del catálogo es `ERR-SIN-SLOT` accionable; **no se parchea la plantilla**.
 
+### R2/R4-detalle — auditoría fila a fila por (firma + canal efectivo compuesto) (Plan 47)
+
+Las hojas `Rem. Anticipos R2` y `Reversion Pagos R4` se llenan por **fila fuente × (firma, canal efectivo)**, nunca por orden físico. Para auditar un bloque:
+
+1. **Firma de la fila:** R2 `A|B|C|D`, R4 `A|B|C` (las etiquetas del bloque, en el orden del template).
+2. **Canal efectivo (R46-1):** si la fila no trae etiqueta de grupo (R2: `A,B,C` vacíos; R4: `A` vacío), su canal es el rótulo de la fila `Total` que **CIERRA su grupo**; si la fila ES ese cierre (`C=E D=Total` en R2), vale su propio rótulo. Las filas con etiqueta propia fuera del grupo (roles `Componente`/`Subs/Cont`, empresa, `Total` del bloque) se localizan por **firma**.
+3. **Canal COMPUESTO (W-3):** en R2 el canal se compone con la **empresa del primer cierre de empresa por debajo** (`B=ENEL C=Total`) → `E/ENEL`, `E/ENERBIT`, `9/NUEVO ESQUEMA`, `A/EAB`… Esto desambigua dos grupos del MISMO canal (ASE5: `E` de ENEL y `E` de ENERBIT) sin recurrir al orden. En R4 no hay composición (su rótulo de grupo YA es la empresa).
+4. **Columnas por ENCABEZADO:** R2 `E..R` (`Especiales K` = 0 si la fuente no la trae; `Deb/Cred-otros R` = 0 si no existe), R4 `D..O` + `Otros → R` (13 columnas declaradas).
+5. **Ceros documentados del detalle:** `CerosDocumentadosDetalleR2R4` (11 claves / 14 filas: 9 julio-2 + 5 agosto-2) — filas **probadas sin contraparte** en el bloque oficial (canal `9` en LIME/BOGOTÁ, `Subsidio`/`||A|Total`/`|EAB|Total|` de la mitad Subs/Cont de BOGOTÁ). No se escriben y quedan reportadas aquí; cualquier otra fila sin slot es `ERR-SIN-SLOT` accionable (hoja + ASE + nº de fila + firma + canal).
+6. **Evidencia:** `Docs/T0-Plan47-Revision-Pestanas-LenteR1.md` §4/§6/§12 + fixtures `RevisionPestanasLenteR1T0Plan47Tests` (matriz congelada) y `DetalleR2R4EscrituraTests` (W-2/W-3).
+
 ### M2 — Especiales ausente
 
 Ninguna fuente de saldos-nota trae columna "Especiales": `TieneColumnaEspeciales = false` está fijado por código y el valor ausente se trata como **0**. No es un error: es el comportamiento esperado (5/5 sin columna).

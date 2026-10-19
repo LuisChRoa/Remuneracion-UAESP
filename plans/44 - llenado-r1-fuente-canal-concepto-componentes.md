@@ -85,6 +85,14 @@ Cerrar el frente R1-interior por **contenido** (no solo por geometria): cada fil
 ### 1.3 Non-goals / out (vinculante)
 
 - Otras pestanas (R2-detalle, R4-detalle, SALDOS POR NOTA, RETRIBUCION NEGATIVA, AJUSTES-SF-T, BCE, banco, conciliaciones, INTERVENTORIA salvo lo ya doctrinal, AFaseo-consumidores): **follow-up explicito** (misma lente, plan hijo). No se tocan en este plan.
+
+> **FOLLOW-UP §1.3 ATENDIDO (2026-10-17).** El plan hijo es `plans/47 - revision-demas-pestanas-lente-r1.md`
+> (APROBADO 2026-10-17). Su T0 read-only (`Docs/T0-Plan47-Revision-Pestanas-LenteR1.md`) probó por bytes
+> la tabla dentro/fuera por pestaña y el desvío de `Rem. Anticipos R2` / `Reversion Pagos R4`; con la
+> autorización del Ingeniero se ejecutó H1 (canal efectivo R46-1 análogo + canal compuesto por segundo
+> cierre, ceros documentados E-44.1 y `Otros` por encabezado) y H2 (corrida fresca + set-diff). Las
+> pestañas declaradas **fuera** quedaron **intactas con evidencia** (SALDOS POR NOTA, `Recaudo *`, BCE,
+> CONSOLIDADO, AJUSTES, VALIDACION_*, GERENTES_*, REMUNERACION_*, DetRetri*: 0 `values_changed`).
 - Q1 (2026071): **frente propio** (8 rojos declarados por contrato de seccion faltante, Plan 41 E1-4/E1-6). No tocar, no reintroducir fallback, no reverdecer por apano.
 - Plantilla: **NO se edita** (ni el oficial ni la copia de trabajo fuera de Phase 0 allow-list). El hueco `Vlr Intereses` del primer bloque se **reporta al dueno**, no se parchea con filas.
 - Auditoria manual de la propietaria: **pendiente de entrega**; la prueba de paridad queda PENDIENTE (puerta explicita, no verde por ausencia).

@@ -1,0 +1,14 @@
+Plan 47 (H1/H2 + cierre de warnings W-1/W-2/W-3/S-1) - set-diff de FALLOS vs p46-cierre.trx
+Suite: 38 Failed / 999 Passed / 1037 Total / 0 Skipped (p47-warnings.trx)
+Linea base del set-diff: p46-cierre.trx = 38 Failed / 960 Passed / 998 Total / 0 Skipped.
+Tests nuevos sumados a Passed: 36 (RevisionPestanasLenteR1T0Plan47Tests) + 3 (DetalleR2R4EscrituraTests W-2/W-3)
+  => 998 + 39 = 1037 Total; 960 + 39 = 999 Passed.
+ALTAS: 0
+BAJAS: 0
+Baja HEREDADA del Plan 46 (no de esta fase), reconciliada con su causa:
+  Remuneracion.IntegrationTests.ProcesadorPeriodoTests.Ejecutar_Periodo2026072_ConLectorOracle_VeredictosValidacionesNoVacios
+  (ROJO -> VERDE; base historica o43-final-failed.txt = 39 fallos). Causa declarada en plans/46 §9.3.3: el test
+  corre Q2 con oraculo y SIN reconocimiento; pre-fix la corrida BLOQUEABA con la divergencia declarada
+  OCCIDENTE-ASE5 (no producia veredictos); con el espejo R1 ya consistente la corrida CIERRA y el test
+  verifica los 5 bloques VALIDACIONES como siempre quiso (HU-13/2.7). El frente 47 no introduce bajas nuevas.
+Q1: Remuneracion.IntegrationTests.SeccionEspejoR1Tests.T1_Ase2Q1_NuevoEsquemaEnPrimeraSeccion_ErrSinSlotSinFallback -> Passed

@@ -1,4 +1,5 @@
 using System.Globalization;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Remuneracion.Core.Errors;
@@ -53,13 +54,24 @@ public sealed class DetalleR2R4EscrituraTests
         using var salida = NuevaSalida();
         EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida.Ruta);
 
-        // R2 E3 = 104754634.94, F3 = 6975298.69, K3 (Especiales) = 0 (julio sin columna).
-        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E3") - 104754634.94m, -Tol, Tol);
-        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "F3") - 6975298.69m, -Tol, Tol);
-        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "K3") - 0m, -Tol, Tol);
+        // Plan 47 (H1.1, caso testigo autorizado — malla OFICIAL con grupo A/EAB + E/ENEL):
+        // el `Vlr Servicio`/`Vlr Intereses` de la fuente (canal E, cerrado por `R7 C=E` de la fuente y
+        // por `R9 C=E D=Total` de la plantilla) van a las filas 7/8; el grupo A/EAB (sin fuente) queda
+        // en el 0 de la plantilla (E3 = E4 = 0). Antes de H1 esos valores caían en E3/E4 por orden.
+        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E3") - 0m, -Tol, Tol);
+        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E4") - 0m, -Tol, Tol);
+        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E7") - 104754634.94m, -Tol, Tol);
+        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "F7") - 6975298.69m, -Tol, Tol);
+        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "K7") - 0m, -Tol, Tol); // julio sin columna Especiales
+        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E9") - 104770451.71m, -Tol, Tol);
+
+        // El manual del administrativo usa la malla LEGACY (sin grupo A/EAB): la MISMA cifra vive en
+        // SU fila 3. Plan 36/38 ya declaró la obsolescencia de ese oráculo celda-a-celda — se cita, no
+        // se compara por celda.
         Assert.InRange(LeerCeldaNumerica(ManualJulio, HojaR2, "E3") - 104754634.94m, -Tol, Tol);
 
-        // R4 D3 = -15794348.21 (primer Vlr Servicio), D9 = -762167.27 (OCCIDENTE).
+        // R4 ASE1 (sin cambio de slot: la fuente trae los grupos ENEL y OCCIDENTE en el mismo orden que
+        // la plantilla): D3 = -15794348.21 (Vlr Servicio de ENEL) y D9 = -762167.27 (Vlr Servicio de OCCIDENTE).
         Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR4, "D3") - (-15794348.21m), -Tol, Tol);
         Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR4, "D9") - (-762167.27m), -Tol, Tol);
         Assert.InRange(LeerCeldaNumerica(ManualJulio, HojaR4, "D3") - (-15794348.21m), -Tol, Tol);
@@ -152,7 +164,9 @@ public sealed class DetalleR2R4EscrituraTests
 
     /// <summary>
     /// Agosto ASE1: la fuente trae <c>Especiales</c> en K y el destino la escribe (invariante
-    /// de la columna ausente en julio). E3 = 68638686.24 / F3 = 3508770.06 / K3 = 144941.68.
+    /// de la columna ausente en julio). Plan 47 (H1.1): el `Vlr Servicio` (canal E, cierre
+    /// `R9 C=E D=Total`) va a la FILA 7 — no a la 3, que pertenece al grupo A/EAB sin fuente en la
+    /// fuente — con E7 = 68638686.24 / F7 = 3508770.06 / K7 = 144941.68 y E3 = 0.
     /// </summary>
     [Fact]
     public void AgostoAse1_EspecialesEnK_IgualaFuenteYManual()
@@ -160,10 +174,12 @@ public sealed class DetalleR2R4EscrituraTests
         using var salida = NuevaSalida();
         EjecutarFlujo(CarpetaAgosto, new Periodo { CodigoAAAAMM = "202608", NumeroQuincena = 2 }, Insumos.PlantillaAgosto2026082, salida.Ruta);
 
-        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E3") - 68638686.24m, -Tol, Tol);
-        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "F3") - 3508770.06m, -Tol, Tol);
-        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "K3") - 144941.68m, -Tol, Tol);
+        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E3") - 0m, -Tol, Tol);
+        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E7") - 68638686.24m, -Tol, Tol);
+        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "F7") - 3508770.06m, -Tol, Tol);
+        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "K7") - 144941.68m, -Tol, Tol);
 
+        // Manual de agosto (malla LEGACY, sin grupo A/EAB): la misma cifra vive en SU fila 3.
         Assert.True(File.Exists(ManualAgosto), $"Falta el manual de agosto: {ManualAgosto}");
         Assert.InRange(LeerCeldaNumerica(ManualAgosto, HojaR2, "E3") - 68638686.24m, -Tol, Tol);
         Assert.InRange(LeerCeldaNumerica(ManualAgosto, HojaR2, "K3") - 144941.68m, -Tol, Tol);
@@ -178,8 +194,10 @@ public sealed class DetalleR2R4EscrituraTests
         var plantillaMutada = Path.Combine(temp.Ruta, "plantilla-mutada.xlsx");
         File.Copy(Insumos.PlantillaQ2, plantillaMutada);
 
-        // E3 = primera celda de captura del detalle R2 del ASE1: se convierte en fórmula.
-        ConvertirEnFormula(plantillaMutada, HojaR2, "E3", "1+1");
+        // E7 = primera celda de captura del detalle R2 del ASE1 que el writer SÍ escribe (Plan 47 H1.1:
+        // el `Vlr Servicio` de la fuente, canal E cerrado por `R9 C=E D=Total`, cae en la fila 7): se
+        // convierte en fórmula.
+        ConvertirEnFormula(plantillaMutada, HojaR2, "E7", "1+1");
 
         var salida = Path.Combine(temp.Ruta, "salida.xlsx");
         var ex = Assert.Throws<CalculoInvalidoException>(() =>
@@ -189,20 +207,239 @@ public sealed class DetalleR2R4EscrituraTests
         Assert.Contains("fórmula", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    // ── Plan 47 W-2 / W-3: fail-fast del detalle R2/R4 y robustez al orden ─────────────────────
+
+    /// <summary>
+    /// W-2 (género de <c>EscritorValoresSlotR1Tests.S3_EmpresaSinSlot_FailFastSinRemap</c>): una fila
+    /// SINTÉTICA de la fuente cuya clave <c>(firma + canal efectivo)</c> NO está en la lista de ceros
+    /// documentados hace fail-fast <c>ERR-SIN-SLOT</c> con mensaje accionable (hoja + ASE + nº de fila +
+    /// firma + canal), sin remap ni colocación por posición, y sin dejar salida parcial.
+    /// </summary>
+    [Fact]
+    public void DetalleR2_FilaSinteticaSinSlot_LanzaErrSinSlot_ConMensajeAccionable()
+    {
+        using var temp = new DirectorioTemporal("remuneracion-detalle-sinslot-");
+        var insumos = CopiarInsumos(temp.Ruta);
+        var fuente = Directory.EnumerateFiles(Path.Combine(insumos, "2-Lime"), "*.xlsx")
+            .First(f => Path.GetFileName(f).StartsWith("RerpoteDetalleSaldosaFavor", StringComparison.OrdinalIgnoreCase));
+        InsertarGrupoSintetico(fuente, concepto: "Vlr Servicio", canal: "Z");
+
+        var salida = Path.Combine(temp.Ruta, "salida.xlsx");
+        var ex = Assert.Throws<CalculoInvalidoException>(() =>
+            EjecutarFlujo(insumos, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida));
+
+        Assert.Equal(CodigoError.SinSlot, ex.Codigo);
+        Assert.Contains("ERR-SIN-SLOT", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("'Rem. Anticipos R2'", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("ASE 2", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("fila fuente #", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("firma '|||Vlr Servicio'", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("canal efectivo 'Z'", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("bloque 67..113", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("ceros documentados", ex.Message, StringComparison.Ordinal);
+        Assert.False(File.Exists(salida), "el parcial debe borrarse (atomicidad).");
+    }
+
+    /// <summary>
+    /// W-2 (contracara): una fila cuya clave SÍ está en la lista de ceros documentados
+    /// (`Vlr Intereses` del canal 2 de ASE2, sin slot en el bloque) NO rompe la corrida: queda en el 0
+    /// de la plantilla y el resto del grupo conserva su valor y su slot.
+    /// </summary>
+    [Fact]
+    public void DetalleR2_FilaDocumentada_NoFalla_Y_ConservaSuSlot()
+    {
+        using var salida = NuevaSalida();
+        EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida.Ruta);
+
+        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E78") - 1616173.63m, -Tol, Tol); // `Vlr Servicio` canal 2/NS
+        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E79") - 1616580.05m, -Tol, Tol); // cierre `||2|Total`
+    }
+
+    /// <summary>
+    /// W-3 (prueba de que el último camino posicional murió): la fuente de ASE5 con los DOS grupos del
+    /// canal <c>E</c> (ENEL y ENERBIT) en orden INVERTIDO. Con el canal compuesto por segundo cierre
+    /// (<c>E/ENEL</c> vs <c>E/ENERBIT</c>) cada grupo recibe SU dato en SU slot (386..389 / 390..393),
+    /// independientemente del orden de la fuente.
+    /// </summary>
+    [Fact]
+    public void DetalleR2_Ase5_DobleGrupoE_OrdenInvertido_CadaGrupoRecibeLoSuyo()
+    {
+        using var temp = new DirectorioTemporal("remuneracion-detalle-orden-");
+        var insumos = CopiarInsumos(temp.Ruta);
+        var fuente = Directory.EnumerateFiles(Path.Combine(insumos, "5-Área Limpia"), "*.xlsx")
+            .First(f => Path.GetFileName(f).StartsWith("RerpoteDetalleSaldosaFavor", StringComparison.OrdinalIgnoreCase));
+        InvertirContenidoGruposCanalE(fuente);
+
+        var salida = Path.Combine(temp.Ruta, "salida-orden.xlsx");
+        EjecutarFlujo(insumos, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida);
+
+        // Grupo `E/ENEL` (slot 386..389) con el dato de ENEL y grupo `E/ENERBIT` (390..393) con el de
+        // ENERBIT, pese a que la fuente los trae al revés.
+        Assert.InRange(LeerCeldaNumerica(salida, HojaR2, "E386") - 19713558.23m, -Tol, Tol); // ENEL Vlr Servicio
+        Assert.InRange(LeerCeldaNumerica(salida, HojaR2, "E388") - 19732312.24m, -Tol, Tol); // ENEL cierre `||E|Total`
+        Assert.InRange(LeerCeldaNumerica(salida, HojaR2, "E390") - 7522088.94m, -Tol, Tol);  // ENERBIT Vlr Servicio
+        Assert.InRange(LeerCeldaNumerica(salida, HojaR2, "E392") - 7529567.64m, -Tol, Tol);  // ENERBIT cierre `||E|Total`
+        Assert.InRange(LeerCeldaNumerica(salida, HojaR2, "E403") - 11900986.83m, -Tol, Tol); // OCCIDENTE (sin contagio)
+    }
+
+    /// <summary>Copia el árbol de insumos de julio-2 a un temp (nunca se muta el repo).</summary>
+    private static string CopiarInsumos(string destino)
+    {
+        var origen = Insumos.CarpetaInsumosJulioQ2;
+        var copia = Path.Combine(destino, "Insumos");
+        foreach (var dir in Directory.GetDirectories(origen, "*", SearchOption.AllDirectories))
+        {
+            Directory.CreateDirectory(dir.Replace(origen, copia, StringComparison.OrdinalIgnoreCase));
+        }
+
+        Directory.CreateDirectory(copia);
+        foreach (var archivo in Directory.GetFiles(origen, "*", SearchOption.AllDirectories))
+        {
+            File.Copy(archivo, archivo.Replace(origen, copia, StringComparison.OrdinalIgnoreCase), overwrite: true);
+        }
+
+        return copia;
+    }
+
+    /// <summary>Inserta, antes del cierre <c>A=Total</c> del bloque, un grupo sintético
+    /// (<c>D=&lt;concepto&gt;</c> + cierre <c>C=&lt;canal&gt; D=Total</c>): clave fuera de la lista de
+    /// ceros documentados.</summary>
+    private static void InsertarGrupoSintetico(string ruta, string concepto, string canal)
+    {
+        using var doc = SpreadsheetDocument.Open(ruta, true);
+        var workbookPart = doc.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
+        var worksheet = Hoja(workbookPart, "Sheet1");
+        var sheetData = worksheet.GetFirstChild<SheetData>() ?? throw new InvalidOperationException("SheetData null");
+        var cierre = worksheet.Descendants<Row>()
+            .Last(r => string.Equals(TextoCelda(workbookPart, worksheet, "A" + r.RowIndex!.Value), "Total", StringComparison.OrdinalIgnoreCase));
+        var numero = cierre.RowIndex!.Value;
+
+        foreach (var fila in worksheet.Descendants<Row>().Where(r => r.RowIndex!.Value >= numero).ToList())
+        {
+            fila.RowIndex = fila.RowIndex!.Value + 2;
+        }
+
+        var filaConcepto = new Row { RowIndex = numero };
+        filaConcepto.Append(CeldaTexto("D", numero, concepto), CeldaNumero("E", numero, 1m));
+        var filaCierre = new Row { RowIndex = numero + 1 };
+        filaCierre.Append(CeldaTexto("C", numero + 1, canal), CeldaTexto("D", numero + 1, "Total"));
+
+        sheetData.InsertBefore(filaConcepto, cierre);
+        sheetData.InsertBefore(filaCierre, cierre);
+        worksheet.Save();
+    }
+
+    /// <summary>Intercambia el CONTENIDO (no la posición) de los dos grupos del canal <c>E</c> de la
+    /// fuente R2 de ASE5 — grupos de 4 filas: concepto, concepto, cierre `C=E`, empresa.</summary>
+    private static void InvertirContenidoGruposCanalE(string ruta)
+    {
+        using var doc = SpreadsheetDocument.Open(ruta, true);
+        var workbookPart = doc.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
+        var worksheet = Hoja(workbookPart, "Sheet1");
+        var cierres = worksheet.Descendants<Row>()
+            .Where(r => string.Equals(TextoCelda(workbookPart, worksheet, "C" + r.RowIndex!.Value), "E", StringComparison.OrdinalIgnoreCase)
+                     && string.Equals(TextoCelda(workbookPart, worksheet, "D" + r.RowIndex!.Value), "Total", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(r => r.RowIndex!.Value)
+            .Take(2) // los dos grupos E de la MITAD Anticipos (la mitad Subs/Cont tiene otros dos)
+            .ToList();
+        Assert.Equal(2, cierres.Count);
+
+        var inicio1 = cierres[0].RowIndex!.Value - 2;
+        var inicio2 = cierres[1].RowIndex!.Value - 2;
+        foreach (var columna in new[] { "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P" })
+        {
+            for (uint k = 0; k < 4; k++)
+            {
+                IntercambiarContenido(workbookPart, worksheet, columna, inicio1 + k, columna, inicio2 + k);
+            }
+        }
+
+        worksheet.Save();
+    }
+
+    private static void IntercambiarContenido(WorkbookPart workbookPart, Worksheet worksheet, string columna, uint filaA, string columnaB, uint filaB)
+    {
+        var a = worksheet.Descendants<Cell>().FirstOrDefault(c =>
+            string.Equals(c.CellReference?.Value, columna + filaA.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase));
+        var b = worksheet.Descendants<Cell>().FirstOrDefault(c =>
+            string.Equals(c.CellReference?.Value, columnaB + filaB.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase));
+        if (a is null || b is null)
+        {
+            return;
+        }
+
+        var contenidoA = Contenido(a);
+        var contenidoB = Contenido(b);
+        Aplicar(a, contenidoB);
+        Aplicar(b, contenidoA);
+    }
+
+    private static (CellValues? Tipo, List<OpenXmlElement> Hijos) Contenido(Cell celda) =>
+        (celda.DataType?.Value, celda.ChildElements.Select(e => (OpenXmlElement)e.CloneNode(true)).ToList());
+
+    private static void Aplicar(Cell celda, (CellValues? Tipo, List<OpenXmlElement> Hijos) contenido)
+    {
+        celda.RemoveAllChildren();
+        celda.DataType = contenido.Tipo;
+        foreach (var hijo in contenido.Hijos)
+        {
+            celda.AppendChild(hijo);
+        }
+    }
+
+    private static Cell CeldaTexto(string columna, uint fila, string texto) => new()
+    {
+        CellReference = columna + fila.ToString(CultureInfo.InvariantCulture),
+        DataType = CellValues.InlineString,
+        InlineString = new InlineString(new Text(texto)),
+    };
+
+    private static Cell CeldaNumero(string columna, uint fila, decimal valor) => new()
+    {
+        CellReference = columna + fila.ToString(CultureInfo.InvariantCulture),
+        CellValue = new CellValue(valor.ToString(CultureInfo.InvariantCulture)),
+    };
+
     // ── Helpers ──────────────────────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Plan 47 (H1.1/H1.2): la primera fila <c>Vlr Servicio</c> de la FUENTE debe caer en el slot
+    /// cuya clave <c>(firma + canal efectivo)</c> coincide — el canal efectivo se calcula con el
+    /// predicado PURO de Core (<see cref="CanalEfectivoDetalleR2R4"/>, R46-1 análogo) sobre los
+    /// rótulos del bloque ya escrito y sobre las filas de la fuente leídas por el reader.
+    /// Se verifica además que el valor NO se cuele en la primera fila del bloque cuando su canal
+    /// efectivo difiere (casamiento por orden eliminado, Plan 41 E1-1).
+    /// </summary>
     private static void AssertFilaVlrServicioR2(string salida, int aseId, DetalleR2AseInputs fuente, string contexto)
     {
         var fila = fuente.Filas.FirstOrDefault(f => f.Firma == "|||Vlr Servicio")
             ?? throw new InvalidOperationException($"{contexto}: la fuente no trae la fila 'Vlr Servicio'.");
-        var inicio = WorkbookLeafCellMapDetalleR2R4.BloquesR2[aseId].FilaInicio;
+        var rotulosFuente = fuente.Filas.Select(f => new CanalEfectivoDetalleR2R4.Rotulo(f.A, f.B, f.C, f.D)).ToList();
+        var canal = CanalEfectivoDetalleR2R4.CanalEfectivo(
+            rotulosFuente, 0, WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR2, WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaGrupoR2);
+
+        var bloque = WorkbookLeafCellMapDetalleR2R4.BloquesR2[aseId];
+        var destino = LocalizarSlot(
+            salida, HojaR2, bloque, "|||Vlr Servicio", canal,
+            WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR2,
+            WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaGrupoR2, [0, 1, 2, 3]);
+
         foreach (var (encabezado, columna) in WorkbookLeafCellMapDetalleR2R4.ColumnasR2)
         {
             var esperado = encabezado is null ? 0m : fila.Valor(encabezado) ?? 0m;
-            var real = LeerCeldaNumerica(salida, HojaR2, columna + inicio.ToString(CultureInfo.InvariantCulture));
+            var real = LeerCeldaNumerica(salida, HojaR2, columna + destino);
             Assert.True(
                 Math.Abs(real - esperado) <= Tol,
-                $"{contexto}: R2 {columna}{inicio} escrito={real} fuente={esperado} (Δ={real - esperado}).");
+                $"{contexto}: R2 {columna}{destino} escrito={real} fuente={esperado} (Δ={real - esperado}).");
+        }
+
+        var primerCanal = CanalEfectivoDetalleR2R4.CanalEfectivo(
+            RotulosDestino(salida, HojaR2, bloque), 0,
+            WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR2, WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaGrupoR2);
+        if (!string.Equals(primerCanal, canal, StringComparison.OrdinalIgnoreCase))
+        {
+            Assert.InRange(
+                LeerCeldaNumerica(salida, HojaR2, "E" + bloque.FilaInicio.ToString(CultureInfo.InvariantCulture)), -Tol, Tol);
         }
     }
 
@@ -210,15 +447,102 @@ public sealed class DetalleR2R4EscrituraTests
     {
         var fila = fuente.Filas.FirstOrDefault(f => f.C == "Vlr Servicio")
             ?? throw new InvalidOperationException($"{contexto}: la fuente no trae la fila 'Vlr Servicio'.");
-        var inicio = WorkbookLeafCellMapDetalleR2R4.BloquesR4[aseId].FilaInicio;
+        var rotulosFuente = fuente.Filas
+            .Select(f => new CanalEfectivoDetalleR2R4.Rotulo(f.A, f.B, f.C, string.Empty))
+            .ToList();
+        var canal = CanalEfectivoDetalleR2R4.CanalEfectivo(
+            rotulosFuente, 0, WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR4, WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaGrupoR4);
+
+        var bloque = WorkbookLeafCellMapDetalleR2R4.BloquesR4[aseId];
+        var destino = LocalizarSlot(
+            salida, HojaR4, bloque, "||Vlr Servicio", canal,
+            WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR4,
+            WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaGrupoR4, [0, 1, 2]);
+
         foreach (var (encabezado, columna) in WorkbookLeafCellMapDetalleR2R4.ColumnasR4)
         {
             var esperado = encabezado is null ? 0m : fila.Valor(encabezado) ?? 0m;
-            var real = LeerCeldaNumerica(salida, HojaR4, columna + inicio.ToString(CultureInfo.InvariantCulture));
+            var real = LeerCeldaNumerica(salida, HojaR4, columna + destino);
             Assert.True(
                 Math.Abs(real - esperado) <= Tol,
-                $"{contexto}: R4 {columna}{inicio} escrito={real} fuente={esperado} (Δ={real - esperado}).");
+                $"{contexto}: R4 {columna}{destino} escrito={real} fuente={esperado} (Δ={real - esperado}).");
         }
+
+        var primerCanal = CanalEfectivoDetalleR2R4.CanalEfectivo(
+            RotulosDestino(salida, HojaR4, bloque), 0,
+            WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR4, WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaGrupoR4);
+        if (!string.Equals(primerCanal, canal, StringComparison.OrdinalIgnoreCase))
+        {
+            Assert.InRange(
+                LeerCeldaNumerica(salida, HojaR4, "D" + bloque.FilaInicio.ToString(CultureInfo.InvariantCulture)), -Tol, Tol);
+        }
+    }
+
+    /// <summary>Rótulos A–D del bloque tal como quedaron en el workbook generado (resolviendo las
+    /// cadenas compartidas: `Cell.InnerText` devolvería el ÍNDICE de la shared string, no el texto).</summary>
+    private static IReadOnlyList<CanalEfectivoDetalleR2R4.Rotulo> RotulosDestino(string salida, string hoja, (int FilaInicio, int FilaFin) bloque)
+    {
+        using var workbook = SpreadsheetDocument.Open(salida, false);
+        var workbookPart = workbook.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
+        var worksheet = Hoja(workbookPart, hoja);
+        var rotulos = new List<CanalEfectivoDetalleR2R4.Rotulo>(bloque.FilaFin - bloque.FilaInicio + 1);
+        for (var fila = bloque.FilaInicio; fila <= bloque.FilaFin; fila++)
+        {
+            rotulos.Add(new CanalEfectivoDetalleR2R4.Rotulo(
+                TextoCelda(workbookPart, worksheet, "A" + fila.ToString(CultureInfo.InvariantCulture)),
+                TextoCelda(workbookPart, worksheet, "B" + fila.ToString(CultureInfo.InvariantCulture)),
+                TextoCelda(workbookPart, worksheet, "C" + fila.ToString(CultureInfo.InvariantCulture)),
+                TextoCelda(workbookPart, worksheet, "D" + fila.ToString(CultureInfo.InvariantCulture))));
+        }
+
+        return rotulos;
+    }
+
+    private static string TextoCelda(WorkbookPart workbookPart, Worksheet worksheet, string celda)
+    {
+        var objCelda = worksheet.Descendants<Cell>().FirstOrDefault(c =>
+            string.Equals(c.CellReference?.Value, celda, StringComparison.OrdinalIgnoreCase));
+        if (objCelda is null)
+        {
+            return string.Empty;
+        }
+
+        if (objCelda.DataType?.Value == CellValues.SharedString
+            && int.TryParse(objCelda.CellValue?.InnerText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var indice))
+        {
+            var tabla = workbookPart.SharedStringTablePart?.SharedStringTable;
+            var item = tabla?.Elements<SharedStringItem>().ElementAtOrDefault(indice);
+            return item?.InnerText?.Trim() ?? string.Empty;
+        }
+
+        return objCelda.CellValue?.InnerText?.Trim() ?? string.Empty;
+    }
+
+    /// <summary>Fila (número) del slot cuya clave (firma + canal efectivo) coincide con la pedida.</summary>
+    private static string LocalizarSlot(
+        string salida,
+        string hoja,
+        (int FilaInicio, int FilaFin) bloque,
+        string firma,
+        string? canal,
+        IReadOnlyList<int> columnasEtiquetaPropia,
+        IReadOnlyList<int> columnasGrupo,
+        IReadOnlyList<int> columnasFirma)
+    {
+        var rotulos = RotulosDestino(salida, hoja, bloque);
+        for (var i = 0; i < rotulos.Count; i++)
+        {
+            var firmaDestino = string.Join("|", columnasFirma.Select(c => rotulos[i].Texto(c).Trim()));
+            var canalDestino = CanalEfectivoDetalleR2R4.CanalEfectivo(rotulos, i, columnasEtiquetaPropia, columnasGrupo);
+            if (string.Equals(firmaDestino, firma, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(canalDestino, canal, StringComparison.OrdinalIgnoreCase))
+            {
+                return (bloque.FilaInicio + i).ToString(CultureInfo.InvariantCulture);
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"No se encontró slot para la firma '{firma}' con canal efectivo '{canal ?? "(sin canal)"}' en {hoja} {bloque.FilaInicio}..{bloque.FilaFin}.");
     }
 
     private static void EjecutarFlujo(string carpetaInsumos, Periodo periodo, string rutaPlantilla, string rutaSalida)
