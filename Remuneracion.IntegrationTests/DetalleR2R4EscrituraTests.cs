@@ -235,24 +235,25 @@ public sealed class DetalleR2R4EscrituraTests
         Assert.Contains("fila fuente #", ex.Message, StringComparison.Ordinal);
         Assert.Contains("firma '|||Vlr Servicio'", ex.Message, StringComparison.Ordinal);
         Assert.Contains("canal efectivo 'Z'", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("bloque 67..113", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("bloque 67..124", ex.Message, StringComparison.Ordinal);
         Assert.Contains("ceros documentados", ex.Message, StringComparison.Ordinal);
         Assert.False(File.Exists(salida), "el parcial debe borrarse (atomicidad).");
     }
 
     /// <summary>
-    /// W-2 (contracara): una fila cuya clave SÍ está en la lista de ceros documentados
-    /// (`Vlr Intereses` del canal 2 de ASE2, sin slot en el bloque) NO rompe la corrida: queda en el 0
-    /// de la plantilla y el resto del grupo conserva su valor y su slot.
+    /// Plan 48 (H1.1 — T0 §2.2): el `Vlr Intereses` del canal 2 de ASE2 era un "cero documentado" del
+    /// Plan 47; la geometría v2 SÍ tiene slot (R79 dentro del bloque 67..124) y el valor se escribe.
+    /// El falso hueco quedó cerrado: no se omite la fila ni se pierde el cierre `||2|Total` (R80).
     /// </summary>
     [Fact]
-    public void DetalleR2_FilaDocumentada_NoFalla_Y_ConservaSuSlot()
+    public void DetalleR2_FalsoHuecoCerrado_ViCanal2_SeEscribeEnSuSlot()
     {
         using var salida = NuevaSalida();
         EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida.Ruta);
 
         Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E78") - 1616173.63m, -Tol, Tol); // `Vlr Servicio` canal 2/NS
-        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E79") - 1616580.05m, -Tol, Tol); // cierre `||2|Total`
+        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E79") - 406.42m, -Tol, Tol);     // `Vlr Intereses` canal 2/NS (antes omitido)
+        Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E80") - 1616580.05m, -Tol, Tol); // cierre `||2|Total`
     }
 
     /// <summary>
@@ -273,13 +274,14 @@ public sealed class DetalleR2R4EscrituraTests
         var salida = Path.Combine(temp.Ruta, "salida-orden.xlsx");
         EjecutarFlujo(insumos, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida);
 
-        // Grupo `E/ENEL` (slot 386..389) con el dato de ENEL y grupo `E/ENERBIT` (390..393) con el de
-        // ENERBIT, pese a que la fuente los trae al revés.
-        Assert.InRange(LeerCeldaNumerica(salida, HojaR2, "E386") - 19713558.23m, -Tol, Tol); // ENEL Vlr Servicio
-        Assert.InRange(LeerCeldaNumerica(salida, HojaR2, "E388") - 19732312.24m, -Tol, Tol); // ENEL cierre `||E|Total`
-        Assert.InRange(LeerCeldaNumerica(salida, HojaR2, "E390") - 7522088.94m, -Tol, Tol);  // ENERBIT Vlr Servicio
-        Assert.InRange(LeerCeldaNumerica(salida, HojaR2, "E392") - 7529567.64m, -Tol, Tol);  // ENERBIT cierre `||E|Total`
-        Assert.InRange(LeerCeldaNumerica(salida, HojaR2, "E403") - 11900986.83m, -Tol, Tol); // OCCIDENTE (sin contagio)
+        // Plan 48 (H1.1 — T0 §1.3): la geometría v2 desplaza ASE5 +22; los grupos `E/ENEL` (408..410)
+        // y `E/ENERBIT` (412..414) conservan el reparto por canal compuesto aunque la fuente los traiga
+        // al revés; OCCIDENTE (425) no se contagia.
+        Assert.InRange(LeerCeldaNumerica(salida, HojaR2, "E408") - 19713558.23m, -Tol, Tol); // ENEL Vlr Servicio
+        Assert.InRange(LeerCeldaNumerica(salida, HojaR2, "E410") - 19732312.24m, -Tol, Tol); // ENEL cierre `||E|Total`
+        Assert.InRange(LeerCeldaNumerica(salida, HojaR2, "E412") - 7522088.94m, -Tol, Tol);  // ENERBIT Vlr Servicio
+        Assert.InRange(LeerCeldaNumerica(salida, HojaR2, "E414") - 7529567.64m, -Tol, Tol);  // ENERBIT cierre `||E|Total`
+        Assert.InRange(LeerCeldaNumerica(salida, HojaR2, "E425") - 11900986.83m, -Tol, Tol); // OCCIDENTE (sin contagio)
     }
 
     /// <summary>Copia el árbol de insumos de julio-2 a un temp (nunca se muta el repo).</summary>

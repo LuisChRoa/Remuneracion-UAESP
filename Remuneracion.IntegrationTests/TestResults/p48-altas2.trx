@@ -1,0 +1,242 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="21999114-e21b-452b-bbb6-a12e7c13f57c" name="lechaparro@FA-HTPA15NG 2026-10-19 09:54:26" runUser="ASEINGES\lechaparro" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-19T09:54:26.3684035-05:00" queuing="2026-10-19T09:54:26.3684042-05:00" start="2026-10-19T09:54:23.5595362-05:00" finish="2026-10-19T09:56:09.6621708-05:00" />
+  <TestSettings name="default" id="903e518c-c31f-4d27-ae62-0000cd1ff04b">
+    <Deployment runDeploymentRoot="lechaparro_FA-HTPA15NG_2026-10-19_09_54_26" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="6bb01a88-c8f4-48b3-b6ff-b3da0f0d4381" testId="d98b4bfc-5671-4b90-bc7c-4fec2aaeccb3" testName="Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.D7_DestinoFormula_LanzaErrPlantilla_SinSobrescribir" computerName="FA-HTPA15NG" duration="00:00:25.5077421" startTime="2026-10-19T09:54:25.7088539-05:00" endTime="2026-10-19T09:54:51.2220262-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6bb01a88-c8f4-48b3-b6ff-b3da0f0d4381" />
+    <UnitTestResult executionId="9d979d71-7af3-4728-8c29-b03427cac8e2" testId="e72f286e-f592-7d19-0f76-fca9515c0b67" testName="Remuneracion.IntegrationTests.DivergenciaDeclaradaT0Tests.T0_Catalogo_CitaLaEvidenciaYElDeltaObservado" computerName="FA-HTPA15NG" duration="00:00:00.4319612" startTime="2026-10-19T09:54:25.7473055-05:00" endTime="2026-10-19T09:54:26.1661144-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9d979d71-7af3-4728-8c29-b03427cac8e2" />
+    <UnitTestResult executionId="f8e35bb3-1a94-4a34-aa77-19698e710b5d" testId="931b1bce-d8bc-2b09-2966-453a951620e2" testName="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S3_Phase0DesdeElOficial_PreflightVerdeYVarianteL(codigo: &quot;2026071&quot;, columna: &quot;N&quot;)" computerName="FA-HTPA15NG" duration="00:00:01.2363194" startTime="2026-10-19T09:54:56.0905091-05:00" endTime="2026-10-19T09:54:57.3270409-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f8e35bb3-1a94-4a34-aa77-19698e710b5d" />
+    <UnitTestResult executionId="15c47f8d-3515-484a-aad4-489cf7b46d54" testId="2bd9b159-98d5-cce5-01b1-ce7e5d1e159a" testName="Remuneracion.IntegrationTests.DivergenciaDeclaradaT0Tests.T0_CorridaVivaQ2_OccidenteAse5_DeltaExactoYClasificacionDeclarada" computerName="FA-HTPA15NG" duration="00:00:27.2672479" startTime="2026-10-19T09:54:26.2285761-05:00" endTime="2026-10-19T09:54:53.4335591-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="15c47f8d-3515-484a-aad4-489cf7b46d54" />
+    <UnitTestResult executionId="1aeeb901-12ec-4c54-9048-3747f820a51b" testId="0d50d992-a74b-68ec-0e05-3dfb197acdd5" testName="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S5_OficialDirecto_EndToEnd_L9L13PorQuincena(codigo: &quot;2026072&quot;, carpetaRel: &quot;Docs/Prueba Julio-2/Insumos&quot;, columna: &quot;M&quot;)" computerName="FA-HTPA15NG" duration="00:00:21.0276893" startTime="2026-10-19T09:54:30.8711056-05:00" endTime="2026-10-19T09:54:51.8963806-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1aeeb901-12ec-4c54-9048-3747f820a51b" />
+    <UnitTestResult executionId="b45ad5b9-6c0e-4e47-8852-3daa1d494031" testId="93d3dce7-3084-f59d-a3ff-d99cf5c4200e" testName="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S3_TerceraFormaL9_FailFastNombraHojaCeldaYVariante" computerName="FA-HTPA15NG" duration="00:00:00.9020258" startTime="2026-10-19T09:54:25.7071856-05:00" endTime="2026-10-19T09:54:26.6159255-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b45ad5b9-6c0e-4e47-8852-3daa1d494031" />
+    <UnitTestResult executionId="500a452e-470d-48f6-87d7-06e361efa336" testId="bc3508b4-67dc-d591-eb5d-fc71d57e5fb9" testName="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S8_BaseDeOtroPeriodo_FailFastAntesDeEscribir" computerName="FA-HTPA15NG" duration="00:00:00.0866119" startTime="2026-10-19T09:54:58.5322946-05:00" endTime="2026-10-19T09:54:58.6185909-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="500a452e-470d-48f6-87d7-06e361efa336" />
+    <UnitTestResult executionId="439900e8-5074-42ac-9ad2-e35924b0c068" testId="73e1a00f-17e1-15d2-7344-2ea779c9bfbd" testName="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S8_TokensDePeriodo_BaseConsistente" computerName="FA-HTPA15NG" duration="00:00:00.3008310" startTime="2026-10-19T09:54:55.8205410-05:00" endTime="2026-10-19T09:54:56.0899811-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="439900e8-5074-42ac-9ad2-e35924b0c068" />
+    <UnitTestResult executionId="25afeffe-71f7-4bb0-bd53-518e2d47ab5a" testId="132350e0-b318-185e-dd66-0464d9c7732c" testName="Remuneracion.IntegrationTests.DivergenciaDeclaradaCierreT4Tests.T4_NoDeclaradaInyectada_SigueBloqueandoAunqueLaDeclaradaEsteReconocida" computerName="FA-HTPA15NG" duration="00:00:15.1215828" startTime="2026-10-19T09:55:54.3174628-05:00" endTime="2026-10-19T09:56:09.4360369-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="25afeffe-71f7-4bb0-bd53-518e2d47ab5a" />
+    <UnitTestResult executionId="4473c633-051b-413f-adf6-1519c8b4c74e" testId="3bd808f8-5a2b-f754-88b0-d3ec4477a208" testName="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S3_Phase0DesdeElOficial_PreflightVerdeYVarianteL(codigo: &quot;2026072&quot;, columna: &quot;M&quot;)" computerName="FA-HTPA15NG" duration="00:00:01.2044773" startTime="2026-10-19T09:54:57.3275824-05:00" endTime="2026-10-19T09:54:58.5316754-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4473c633-051b-413f-adf6-1519c8b4c74e" />
+    <UnitTestResult executionId="8864b2a4-21ba-4d6f-913c-bd0e53ad7966" testId="03309749-641c-13e4-fa3a-0905f91f0487" testName="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S4_InPlaceDenegado_OficialIntacto" computerName="FA-HTPA15NG" duration="00:00:00.1318765" startTime="2026-10-19T09:54:58.6190592-05:00" endTime="2026-10-19T09:54:58.7506487-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8864b2a4-21ba-4d6f-913c-bd0e53ad7966" />
+    <UnitTestResult executionId="4f2348eb-ae1f-4616-9ea6-54002267b3d4" testId="bea5ab2c-1555-3625-ee00-1e4184bfc618" testName="Remuneracion.IntegrationTests.DivergenciaDeclaradaT0Tests.T0_Taxonomia_CatalogoSoloTieneDivergenciasExternas" computerName="FA-HTPA15NG" duration="00:00:00.0138401" startTime="2026-10-19T09:54:25.7089186-05:00" endTime="2026-10-19T09:54:25.7329603-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4f2348eb-ae1f-4616-9ea6-54002267b3d4" />
+    <UnitTestResult executionId="26fe6115-05c4-4ff0-ac87-9cbf78b4bc85" testId="43502c9d-eef6-6e41-8daa-765762472317" testName="Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.AgostoQ2_F10_IgualaFuenteYManual" computerName="FA-HTPA15NG" duration="00:00:15.4453224" startTime="2026-10-19T09:55:08.0364662-05:00" endTime="2026-10-19T09:55:23.4759719-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="26fe6115-05c4-4ff0-ac87-9cbf78b4bc85">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.InRange() Failure: Value not in range&#xD;
+Range:  (-0.5 - 0.5)&#xD;
+Actual: -77064563298</Message>
+          <StackTrace>   at Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.AgostoQ2_F10_IgualaFuenteYManual() in C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\ValidaControlRecaudoF10Tests.cs:line 83&#xD;
+   at System.RuntimeMethodHandle.InvokeMethod(ObjectHandleOnStack target, Void** arguments, ObjectHandleOnStack sig, BOOL isConstructor, ObjectHandleOnStack result)&#xD;
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="2455c516-fada-4e84-9ccd-bda2b4530c58" testId="dc813044-6dbc-4893-da64-8dd0286128a4" testName="Remuneracion.IntegrationTests.DivergenciaDeclaradaCierreT4Tests.T4_DeclaradaReconocida_ElRunCompletaConArchivoReporteYLog" computerName="FA-HTPA15NG" duration="00:00:15.1978020" startTime="2026-10-19T09:55:39.1173181-05:00" endTime="2026-10-19T09:55:54.3149794-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2455c516-fada-4e84-9ccd-bda2b4530c58" />
+    <UnitTestResult executionId="51325e7e-8f71-4c3c-983f-40062976be03" testId="d6c0d5ac-b07f-1b10-10bb-047cac9fb477" testName="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S8_BaseDelPeriodo_PreflightVerde" computerName="FA-HTPA15NG" duration="00:00:04.1871792" startTime="2026-10-19T09:54:26.6808006-05:00" endTime="2026-10-19T09:54:30.8682108-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="51325e7e-8f71-4c3c-983f-40062976be03" />
+    <UnitTestResult executionId="f17801c9-5ce0-41a7-9b25-de61235bb14e" testId="5c556eb3-0d21-9af3-aa71-ca767d27feaf" testName="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S8_MetadatosBase_N3YSellos" computerName="FA-HTPA15NG" duration="00:00:00.0645551" startTime="2026-10-19T09:54:26.6161466-05:00" endTime="2026-10-19T09:54:26.6805949-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f17801c9-5ce0-41a7-9b25-de61235bb14e" />
+    <UnitTestResult executionId="6b246d45-28a4-4288-a37a-e1100d08b626" testId="a5ca205a-536c-4e55-82ed-af75ccb6f77a" testName="Remuneracion.IntegrationTests.DivergenciaDeclaradaT0Tests.T0_Oficial_Sha256Intacto" computerName="FA-HTPA15NG" duration="00:00:00.0257725" startTime="2026-10-19T09:54:53.4340390-05:00" endTime="2026-10-19T09:54:53.4595895-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6b246d45-28a4-4288-a37a-e1100d08b626" />
+    <UnitTestResult executionId="98415134-6419-4384-8594-218024d34e06" testId="4cf40c6b-59c7-ca37-3caa-21ea6170ed07" testName="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S5_OficialDirecto_EndToEnd_L9L13PorQuincena(codigo: &quot;2026071&quot;, carpetaRel: &quot;Docs/Prueba Julio-1/Insumos&quot;, columna: &quot;N&quot;)" computerName="FA-HTPA15NG" duration="00:00:03.7704451" startTime="2026-10-19T09:54:51.8968233-05:00" endTime="2026-10-19T09:54:55.7925217-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="98415134-6419-4384-8594-218024d34e06">
+      <Output>
+        <ErrorInfo>
+          <Message>Remuneracion.Core.Exceptions.CalculoInvalidoException : ERR-SIN-SLOT: ASE 2: la fuente R1 (Recaudoporcomponente) trae la fila A|B|C|D|E='||NUEVO ESQUEMA|Total|' con rótulo de empresa 'NUEVO ESQUEMA', canal 'Total' y concepto '' en la sección esperada '1.ª sección' (ocurrencia #1 de esa firma) sin ningún slot con firma + sección compatibles en el contrato T0 del ASE 2. Nunca remap/insert ni colocación por posición: revise el contrato T0 (slot por sección) o la fuente.</Message>
+          <StackTrace>   at Remuneracion.Infrastructure.Excel.EscritorValoresSlotR1.Escribir(WorkbookPart workbookPart, BloqueEspejoAseInputs bloque) in C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.Infrastructure\Excel\EscritorValoresSlotR1.cs:line 145&#xD;
+   at Remuneracion.Infrastructure.Excel.OpenXmlPlantillaWriter.GenerarWorkbook(String rutaPlantillaOrigen, String rutaSalida, ResultadoRemuneracion resultado, IReadOnlyList`1 leafInputs) in C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.Infrastructure\Excel\OpenXmlPlantillaWriter.cs:line 300&#xD;
+   at Remuneracion.Core.Services.ProcesadorPeriodo.Ejecutar(SolicitudProcesoPeriodo solicitud, IProgress`1 progreso) in C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.Core\Services\ProcesadorPeriodo.cs:line 402&#xD;
+   at Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S5_OficialDirecto_EndToEnd_L9L13PorQuincena(String codigo, String carpetaRel, String columna) in C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\BasePeriodoPreflightTests.cs:line 272&#xD;
+   at InvokeStub_BasePeriodoPreflightTests.S5_OficialDirecto_EndToEnd_L9L13PorQuincena(Object, Span`1)&#xD;
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="82cafac2-c190-48d8-b193-75a15aaee3d8" testId="bae07203-46f8-baf5-a489-233e7ce0bb73" testName="Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.JulioQ2_F10_IgualaFuenteYManual" computerName="FA-HTPA15NG" duration="00:00:15.6352032" startTime="2026-10-19T09:55:23.4811331-05:00" endTime="2026-10-19T09:55:39.1117790-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="82cafac2-c190-48d8-b193-75a15aaee3d8">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.InRange() Failure: Value not in range&#xD;
+Range:  (-0.5 - 0.5)&#xD;
+Actual: -72497949967</Message>
+          <StackTrace>   at Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.JulioQ2_F10_IgualaFuenteYManual() in C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\ValidaControlRecaudoF10Tests.cs:line 62&#xD;
+   at System.RuntimeMethodHandle.InvokeMethod(ObjectHandleOnStack target, Void** arguments, ObjectHandleOnStack sig, BOOL isConstructor, ObjectHandleOnStack result)&#xD;
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="9cd273b0-8ad4-41ac-b59d-8f54cbb4b8b9" testId="7e1de835-f301-b501-9c55-92fae83b6833" testName="Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.F10_DestinoFormula_NoSeSobrescribe_YSelladoEvaluado" computerName="FA-HTPA15NG" duration="00:00:16.8057226" startTime="2026-10-19T09:54:51.2241811-05:00" endTime="2026-10-19T09:55:08.0303058-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9cd273b0-8ad4-41ac-b59d-8f54cbb4b8b9">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.InRange() Failure: Value not in range&#xD;
+Range:  (-0.5 - 0.5)&#xD;
+Actual: -72497949967</Message>
+          <StackTrace>   at Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.F10_DestinoFormula_NoSeSobrescribe_YSelladoEvaluado() in C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\ValidaControlRecaudoF10Tests.cs:line 117&#xD;
+   at System.RuntimeMethodHandle.InvokeMethod(ObjectHandleOnStack target, Void** arguments, ObjectHandleOnStack sig, BOOL isConstructor, ObjectHandleOnStack result)&#xD;
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+   at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.AgostoQ2_F10_IgualaFuenteYManual" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="43502c9d-eef6-6e41-8daa-765762472317">
+      <Execution id="26fe6115-05c4-4ff0-ac87-9cbf78b4bc85" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests" name="AgostoQ2_F10_IgualaFuenteYManual" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.F10_DestinoFormula_NoSeSobrescribe_YSelladoEvaluado" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="7e1de835-f301-b501-9c55-92fae83b6833">
+      <Execution id="9cd273b0-8ad4-41ac-b59d-8f54cbb4b8b9" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests" name="F10_DestinoFormula_NoSeSobrescribe_YSelladoEvaluado" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.JulioQ2_F10_IgualaFuenteYManual" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="bae07203-46f8-baf5-a489-233e7ce0bb73">
+      <Execution id="82cafac2-c190-48d8-b193-75a15aaee3d8" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests" name="JulioQ2_F10_IgualaFuenteYManual" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.DivergenciaDeclaradaCierreT4Tests.T4_DeclaradaReconocida_ElRunCompletaConArchivoReporteYLog" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="dc813044-6dbc-4893-da64-8dd0286128a4">
+      <Execution id="2455c516-fada-4e84-9ccd-bda2b4530c58" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.DivergenciaDeclaradaCierreT4Tests" name="T4_DeclaradaReconocida_ElRunCompletaConArchivoReporteYLog" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S4_InPlaceDenegado_OficialIntacto" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="03309749-641c-13e4-fa3a-0905f91f0487">
+      <Execution id="8864b2a4-21ba-4d6f-913c-bd0e53ad7966" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.BasePeriodoPreflightTests" name="S4_InPlaceDenegado_OficialIntacto" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S8_MetadatosBase_N3YSellos" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="5c556eb3-0d21-9af3-aa71-ca767d27feaf">
+      <Execution id="f17801c9-5ce0-41a7-9b25-de61235bb14e" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.BasePeriodoPreflightTests" name="S8_MetadatosBase_N3YSellos" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.DivergenciaDeclaradaT0Tests.T0_Taxonomia_CatalogoSoloTieneDivergenciasExternas" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="bea5ab2c-1555-3625-ee00-1e4184bfc618">
+      <Execution id="4f2348eb-ae1f-4616-9ea6-54002267b3d4" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.DivergenciaDeclaradaT0Tests" name="T0_Taxonomia_CatalogoSoloTieneDivergenciasExternas" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.DivergenciaDeclaradaT0Tests.T0_Oficial_Sha256Intacto" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="a5ca205a-536c-4e55-82ed-af75ccb6f77a">
+      <Execution id="6b246d45-28a4-4288-a37a-e1100d08b626" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.DivergenciaDeclaradaT0Tests" name="T0_Oficial_Sha256Intacto" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S8_TokensDePeriodo_BaseConsistente" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="73e1a00f-17e1-15d2-7344-2ea779c9bfbd">
+      <Execution id="439900e8-5074-42ac-9ad2-e35924b0c068" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.BasePeriodoPreflightTests" name="S8_TokensDePeriodo_BaseConsistente" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S5_OficialDirecto_EndToEnd_L9L13PorQuincena(codigo: &quot;2026071&quot;, carpetaRel: &quot;Docs/Prueba Julio-1/Insumos&quot;, columna: &quot;N&quot;)" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="4cf40c6b-59c7-ca37-3caa-21ea6170ed07">
+      <Execution id="98415134-6419-4384-8594-218024d34e06" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.BasePeriodoPreflightTests" name="S5_OficialDirecto_EndToEnd_L9L13PorQuincena" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.DivergenciaDeclaradaCierreT4Tests.T4_NoDeclaradaInyectada_SigueBloqueandoAunqueLaDeclaradaEsteReconocida" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="132350e0-b318-185e-dd66-0464d9c7732c">
+      <Execution id="25afeffe-71f7-4bb0-bd53-518e2d47ab5a" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.DivergenciaDeclaradaCierreT4Tests" name="T4_NoDeclaradaInyectada_SigueBloqueandoAunqueLaDeclaradaEsteReconocida" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S3_Phase0DesdeElOficial_PreflightVerdeYVarianteL(codigo: &quot;2026071&quot;, columna: &quot;N&quot;)" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="931b1bce-d8bc-2b09-2966-453a951620e2">
+      <Execution id="f8e35bb3-1a94-4a34-aa77-19698e710b5d" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.BasePeriodoPreflightTests" name="S3_Phase0DesdeElOficial_PreflightVerdeYVarianteL" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S8_BaseDeOtroPeriodo_FailFastAntesDeEscribir" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="bc3508b4-67dc-d591-eb5d-fc71d57e5fb9">
+      <Execution id="500a452e-470d-48f6-87d7-06e361efa336" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.BasePeriodoPreflightTests" name="S8_BaseDeOtroPeriodo_FailFastAntesDeEscribir" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.DivergenciaDeclaradaT0Tests.T0_Catalogo_CitaLaEvidenciaYElDeltaObservado" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="e72f286e-f592-7d19-0f76-fca9515c0b67">
+      <Execution id="9d979d71-7af3-4728-8c29-b03427cac8e2" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.DivergenciaDeclaradaT0Tests" name="T0_Catalogo_CitaLaEvidenciaYElDeltaObservado" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.D7_DestinoFormula_LanzaErrPlantilla_SinSobrescribir" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="d98b4bfc-5671-4b90-bc7c-4fec2aaeccb3">
+      <Execution id="6bb01a88-c8f4-48b3-b6ff-b3da0f0d4381" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests" name="D7_DestinoFormula_LanzaErrPlantilla_SinSobrescribir" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S8_BaseDelPeriodo_PreflightVerde" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="d6c0d5ac-b07f-1b10-10bb-047cac9fb477">
+      <Execution id="51325e7e-8f71-4c3c-983f-40062976be03" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.BasePeriodoPreflightTests" name="S8_BaseDelPeriodo_PreflightVerde" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S3_Phase0DesdeElOficial_PreflightVerdeYVarianteL(codigo: &quot;2026072&quot;, columna: &quot;M&quot;)" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="3bd808f8-5a2b-f754-88b0-d3ec4477a208">
+      <Execution id="4473c633-051b-413f-adf6-1519c8b4c74e" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.BasePeriodoPreflightTests" name="S3_Phase0DesdeElOficial_PreflightVerdeYVarianteL" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S3_TerceraFormaL9_FailFastNombraHojaCeldaYVariante" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="93d3dce7-3084-f59d-a3ff-d99cf5c4200e">
+      <Execution id="b45ad5b9-6c0e-4e47-8852-3daa1d494031" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.BasePeriodoPreflightTests" name="S3_TerceraFormaL9_FailFastNombraHojaCeldaYVariante" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S5_OficialDirecto_EndToEnd_L9L13PorQuincena(codigo: &quot;2026072&quot;, carpetaRel: &quot;Docs/Prueba Julio-2/Insumos&quot;, columna: &quot;M&quot;)" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="0d50d992-a74b-68ec-0e05-3dfb197acdd5">
+      <Execution id="1aeeb901-12ec-4c54-9048-3747f820a51b" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.BasePeriodoPreflightTests" name="S5_OficialDirecto_EndToEnd_L9L13PorQuincena" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.DivergenciaDeclaradaT0Tests.T0_CorridaVivaQ2_OccidenteAse5_DeltaExactoYClasificacionDeclarada" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="2bd9b159-98d5-cce5-01b1-ce7e5d1e159a">
+      <Execution id="15c47f8d-3515-484a-aad4-489cf7b46d54" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.DivergenciaDeclaradaT0Tests" name="T0_CorridaVivaQ2_OccidenteAse5_DeltaExactoYClasificacionDeclarada" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="d98b4bfc-5671-4b90-bc7c-4fec2aaeccb3" executionId="6bb01a88-c8f4-48b3-b6ff-b3da0f0d4381" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e72f286e-f592-7d19-0f76-fca9515c0b67" executionId="9d979d71-7af3-4728-8c29-b03427cac8e2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="931b1bce-d8bc-2b09-2966-453a951620e2" executionId="f8e35bb3-1a94-4a34-aa77-19698e710b5d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2bd9b159-98d5-cce5-01b1-ce7e5d1e159a" executionId="15c47f8d-3515-484a-aad4-489cf7b46d54" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0d50d992-a74b-68ec-0e05-3dfb197acdd5" executionId="1aeeb901-12ec-4c54-9048-3747f820a51b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="93d3dce7-3084-f59d-a3ff-d99cf5c4200e" executionId="b45ad5b9-6c0e-4e47-8852-3daa1d494031" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bc3508b4-67dc-d591-eb5d-fc71d57e5fb9" executionId="500a452e-470d-48f6-87d7-06e361efa336" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="73e1a00f-17e1-15d2-7344-2ea779c9bfbd" executionId="439900e8-5074-42ac-9ad2-e35924b0c068" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="132350e0-b318-185e-dd66-0464d9c7732c" executionId="25afeffe-71f7-4bb0-bd53-518e2d47ab5a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3bd808f8-5a2b-f754-88b0-d3ec4477a208" executionId="4473c633-051b-413f-adf6-1519c8b4c74e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="03309749-641c-13e4-fa3a-0905f91f0487" executionId="8864b2a4-21ba-4d6f-913c-bd0e53ad7966" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bea5ab2c-1555-3625-ee00-1e4184bfc618" executionId="4f2348eb-ae1f-4616-9ea6-54002267b3d4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="43502c9d-eef6-6e41-8daa-765762472317" executionId="26fe6115-05c4-4ff0-ac87-9cbf78b4bc85" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dc813044-6dbc-4893-da64-8dd0286128a4" executionId="2455c516-fada-4e84-9ccd-bda2b4530c58" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d6c0d5ac-b07f-1b10-10bb-047cac9fb477" executionId="51325e7e-8f71-4c3c-983f-40062976be03" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5c556eb3-0d21-9af3-aa71-ca767d27feaf" executionId="f17801c9-5ce0-41a7-9b25-de61235bb14e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a5ca205a-536c-4e55-82ed-af75ccb6f77a" executionId="6b246d45-28a4-4288-a37a-e1100d08b626" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4cf40c6b-59c7-ca37-3caa-21ea6170ed07" executionId="98415134-6419-4384-8594-218024d34e06" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bae07203-46f8-baf5-a489-233e7ce0bb73" executionId="82cafac2-c190-48d8-b193-75a15aaee3d8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7e1de835-f301-b501-9c55-92fae83b6833" executionId="9cd273b0-8ad4-41ac-b59d-8f54cbb4b8b9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="20" executed="20" passed="16" failed="4" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.4+50e68bbb8b (64-bit .NET 10.0.12)&#xD;
+[xUnit.net 00:00:00.98]   Discovering: Remuneracion.IntegrationTests&#xD;
+[xUnit.net 00:00:01.16]   Discovered:  Remuneracion.IntegrationTests&#xD;
+[xUnit.net 00:00:01.20]   Starting:    Remuneracion.IntegrationTests&#xD;
+[xUnit.net 00:00:31.32]       Remuneracion.Core.Exceptions.CalculoInvalidoException : ERR-SIN-SLOT: ASE 2: la fuente R1 (Recaudoporcomponente) trae la fila A|B|C|D|E='||NUEVO ESQUEMA|Total|' con rótulo de empresa 'NUEVO ESQUEMA', canal 'Total' y concepto '' en la sección esperada '1.ª sección' (ocurrencia #1 de esa firma) sin ningún slot con firma + sección compatibles en el contrato T0 del ASE 2. Nunca remap/insert ni colocación por posición: revise el contrato T0 (slot por sección) o la fuente.&#xD;
+[xUnit.net 00:00:31.32]       Stack Trace:&#xD;
+[xUnit.net 00:00:31.32]         C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.Infrastructure\Excel\EscritorValoresSlotR1.cs(145,0): at Remuneracion.Infrastructure.Excel.EscritorValoresSlotR1.Escribir(WorkbookPart workbookPart, BloqueEspejoAseInputs bloque)&#xD;
+[xUnit.net 00:00:31.32]         C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.Infrastructure\Excel\OpenXmlPlantillaWriter.cs(300,0): at Remuneracion.Infrastructure.Excel.OpenXmlPlantillaWriter.GenerarWorkbook(String rutaPlantillaOrigen, String rutaSalida, ResultadoRemuneracion resultado, IReadOnlyList`1 leafInputs)&#xD;
+[xUnit.net 00:00:31.32]         C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.Core\Services\ProcesadorPeriodo.cs(402,0): at Remuneracion.Core.Services.ProcesadorPeriodo.Ejecutar(SolicitudProcesoPeriodo solicitud, IProgress`1 progreso)&#xD;
+[xUnit.net 00:00:31.32]         C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\BasePeriodoPreflightTests.cs(272,0): at Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S5_OficialDirecto_EndToEnd_L9L13PorQuincena(String codigo, String carpetaRel, String columna)&#xD;
+[xUnit.net 00:00:31.32]            at InvokeStub_BasePeriodoPreflightTests.S5_OficialDirecto_EndToEnd_L9L13PorQuincena(Object, Span`1)&#xD;
+[xUnit.net 00:00:31.32]            at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)&#xD;
+[xUnit.net 00:00:43.54]       Assert.InRange() Failure: Value not in range&#xD;
+[xUnit.net 00:00:43.54]       Range:  (-0.5 - 0.5)&#xD;
+[xUnit.net 00:00:43.54]       Actual: -72497949967&#xD;
+[xUnit.net 00:00:43.54]       Stack Trace:&#xD;
+[xUnit.net 00:00:43.54]         C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\ValidaControlRecaudoF10Tests.cs(117,0): at Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.F10_DestinoFormula_NoSeSobrescribe_YSelladoEvaluado()&#xD;
+[xUnit.net 00:00:43.55]            at System.RuntimeMethodHandle.InvokeMethod(ObjectHandleOnStack target, Void** arguments, ObjectHandleOnStack sig, BOOL isConstructor, ObjectHandleOnStack result)&#xD;
+[xUnit.net 00:00:43.55]            at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+[xUnit.net 00:00:43.55]            at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)&#xD;
+[xUnit.net 00:00:58.99]       Assert.InRange() Failure: Value not in range&#xD;
+[xUnit.net 00:00:58.99]       Range:  (-0.5 - 0.5)&#xD;
+[xUnit.net 00:00:58.99]       Actual: -77064563298&#xD;
+[xUnit.net 00:00:58.99]       Stack Trace:&#xD;
+[xUnit.net 00:00:58.99]         C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\ValidaControlRecaudoF10Tests.cs(83,0): at Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.AgostoQ2_F10_IgualaFuenteYManual()&#xD;
+[xUnit.net 00:00:58.99]            at System.RuntimeMethodHandle.InvokeMethod(ObjectHandleOnStack target, Void** arguments, ObjectHandleOnStack sig, BOOL isConstructor, ObjectHandleOnStack result)&#xD;
+[xUnit.net 00:00:58.99]            at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+[xUnit.net 00:00:58.99]            at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)&#xD;
+[xUnit.net 00:01:14.62]       Assert.InRange() Failure: Value not in range&#xD;
+[xUnit.net 00:01:14.62]       Range:  (-0.5 - 0.5)&#xD;
+[xUnit.net 00:01:14.62]       Actual: -72497949967&#xD;
+[xUnit.net 00:01:14.63]       Stack Trace:&#xD;
+[xUnit.net 00:01:14.63]         C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\ValidaControlRecaudoF10Tests.cs(62,0): at Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.JulioQ2_F10_IgualaFuenteYManual()&#xD;
+[xUnit.net 00:01:14.63]            at System.RuntimeMethodHandle.InvokeMethod(ObjectHandleOnStack target, Void** arguments, ObjectHandleOnStack sig, BOOL isConstructor, ObjectHandleOnStack result)&#xD;
+[xUnit.net 00:01:14.63]            at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+[xUnit.net 00:01:14.63]            at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)&#xD;
+[xUnit.net 00:01:44.96]   Finished:    Remuneracion.IntegrationTests&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="FA-HTPA15NG" outcome="Error" timestamp="2026-10-19T09:54:55.8022156-05:00">
+        <Text>[xUnit.net 00:00:31.31]     Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S5_OficialDirecto_EndToEnd_L9L13PorQuincena(codigo: "2026071", carpetaRel: "Docs/Prueba Julio-1/Insumos", columna: "N") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="FA-HTPA15NG" outcome="Error" timestamp="2026-10-19T09:55:08.0312333-05:00">
+        <Text>[xUnit.net 00:00:43.54]     Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.F10_DestinoFormula_NoSeSobrescribe_YSelladoEvaluado [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="FA-HTPA15NG" outcome="Error" timestamp="2026-10-19T09:55:23.4769147-05:00">
+        <Text>[xUnit.net 00:00:58.99]     Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.AgostoQ2_F10_IgualaFuenteYManual [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="FA-HTPA15NG" outcome="Error" timestamp="2026-10-19T09:55:39.1128881-05:00">
+        <Text>[xUnit.net 00:01:14.62]     Remuneracion.IntegrationTests.ValidaControlRecaudoF10Tests.JulioQ2_F10_IgualaFuenteYManual [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

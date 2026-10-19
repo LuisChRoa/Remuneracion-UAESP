@@ -142,9 +142,10 @@ public sealed class DivergenciaDeclaradaCierreT4Tests : IDisposable
     }
 
     /// <summary>
-    /// Decorador de test: delega en el writer real y, tras escribir, corrompe el literal
-    /// <c>'Valida - Control Recaudo'!F10</c> (que alimenta <c>C14</c>) para provocar un FALSE REAL
-    /// en <c>C15</c> = (<c>C14 = C9</c>) — una divergencia NO declarada (defecto interno inyectado).
+    /// Decorador de test: delega en el writer real y, tras escribir, corrompe el LITERAL
+    /// <c>'Valida - Control Recaudo'!D7</c> (control de recaudo que alimenta <c>E7 → F10 → C14</c>)
+    /// para provocar un FALSE REAL en <c>C15</c> = (<c>C14 = C9</c>). Plan 48: en la v2 <c>F10</c> es
+    /// FORMULA y el evaluador ignora su cache; el literal inyectable es <c>D7</c>.
     /// </summary>
     private sealed class EscritorConDivergenciaInyectada : IWorkbookLeafWriter
     {
@@ -171,7 +172,7 @@ public sealed class DivergenciaDeclaradaCierreT4Tests : IDisposable
             var worksheet = ((WorksheetPart)workbookPart.GetPartById(sheet.Id!)).Worksheet
                 ?? throw new InvalidOperationException("Worksheet null");
             var celda = worksheet.Descendants<Cell>()
-                .First(c => string.Equals(c.CellReference?.Value, "F10", StringComparison.OrdinalIgnoreCase));
+                .First(c => string.Equals(c.CellReference?.Value, "D7", StringComparison.OrdinalIgnoreCase));
             celda.CellValue = new CellValue("1");
             celda.DataType = CellValues.Number;
             worksheet.Save();

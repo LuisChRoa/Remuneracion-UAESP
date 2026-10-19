@@ -34,7 +34,7 @@ public static class WorkbookLeafCellMapPorAse
             [
                 (HojaR1, "F113", "R1.F113"), (HojaR1, "F130", "R1.F130"), (HojaR1, "L113", "R1.L113"),
                 (HojaR1, "F90", "R1.F90"), (HojaR1, "L90", "R1.L90"),
-                (HojaR2, "E94", "R2.E94"), (HojaR2, "E112", "R2.E112"), (HojaR2, "K94", "R2.K94"),
+                (HojaR2, "E101", "R2.E101"), (HojaR2, "E123", "R2.E123"), (HojaR2, "K101", "R2.K101"),
                 (HojaR4, "D111", "R4.D111"), (HojaR4, "P111", "R4.P111")
             ],
             [3] =
@@ -42,7 +42,7 @@ public static class WorkbookLeafCellMapPorAse
                 (HojaR1, "F238", "R1.F238"), (HojaR1, "F254", "R1.F254"), (HojaR1, "F217", "R1.F217"),
                 (HojaR1, "L217", "R1.L217"), (HojaR1, "L238", "R1.L238"),
                 (HojaR1, "F243", "R1.F243"), (HojaR1, "F223", "R1.F223"), (HojaR1, "L223", "R1.L223"),
-                (HojaR2, "E182", "R2.E182"), (HojaR2, "E193", "R2.E193"), (HojaR2, "K182", "R2.K182"),
+                (HojaR2, "E193", "R2.E193"), (HojaR2, "E204", "R2.E204"), (HojaR2, "K193", "R2.K193"),
                 (HojaR4, "D206", "R4.D206"), (HojaR4, "P206", "R4.P206")
             ],
             [4] =
@@ -50,14 +50,14 @@ public static class WorkbookLeafCellMapPorAse
                 (HojaR1, "F391", "R1.F391"), (HojaR1, "F417", "R1.F417"), (HojaR1, "F357", "R1.F357"),
                 (HojaR1, "L357", "R1.L357"), (HojaR1, "L391", "R1.L391"),
                 (HojaR1, "F401", "R1.F401"), (HojaR1, "F369", "R1.F369"), (HojaR1, "L369", "R1.L369"),
-                (HojaR2, "E309", "R2.E309"), (HojaR2, "E327", "R2.E327"), (HojaR2, "K309", "R2.K309"),
+                (HojaR2, "E327", "R2.E327"), (HojaR2, "E349", "R2.E349"), (HojaR2, "K327", "R2.K327"),
                 (HojaR4, "D249", "R4.D249"), (HojaR4, "P249", "R4.P249")
             ],
             [5] =
             [
                 (HojaR1, "F513", "R1.F513"), (HojaR1, "F498", "R1.F498"), (HojaR1, "F478", "R1.F478"),
                 (HojaR1, "L478", "R1.L478"), (HojaR1, "L498", "R1.L498"),
-                (HojaR2, "E404", "R2.E404"), (HojaR2, "E418", "R2.E418"), (HojaR2, "K404", "R2.K404"),
+                (HojaR2, "E426", "R2.E426"), (HojaR2, "E440", "R2.E440"), (HojaR2, "K426", "R2.K426"),
                 (HojaR4, "D358", "R4.D358"), (HojaR4, "P358", "R4.P358")
             ]
         };
@@ -85,10 +85,10 @@ public static class WorkbookLeafCellMapPorAse
             [2] =
             [
                 (HojaR1, "F254", ["F171", "F208", "L171", "F120", "L120"]),
-                (HojaR2, "E144", ["E94", "E112", "K94"]),
+                (HojaR2, "E155", ["E101", "E123", "K101"]),
                 (HojaR4, "D174", ["D111", "P111"]),
                 (HojaConsolidado, "D10", ["F254", "Reporte Componentes R1"]),
-                (HojaConsolidado, "D29", ["E144", "Rem. Anticipos R2"]),
+                (HojaConsolidado, "D29", ["E155", "Rem. Anticipos R2"]),
                 (HojaConsolidado, "D48", ["F256", "Reporte Componentes R1"]),
                 (HojaConsolidado, "D67", ["D174", "Reversion Pagos R4"]),
                 (HojaConsolidado, "D105", ["D10", "D29", "D48", "D67", "D86"]),
@@ -98,10 +98,10 @@ public static class WorkbookLeafCellMapPorAse
             [
                 (HojaR1, "F415", ["F330", "F353", "F299", "L299", "L330"]),
                 (HojaR1, "F417", ["F342", "F315", "L315"]),
-                (HojaR2, "E262", ["E182", "E193", "K182"]),
+                (HojaR2, "E273", ["E193", "E204", "K193"]),
                 (HojaR4, "D211", ["D206", "P206"]),
                 (HojaConsolidado, "D11", ["F415", "Reporte Componentes R1"]),
-                (HojaConsolidado, "D30", ["E262", "Rem. Anticipos R2"]),
+                (HojaConsolidado, "D30", ["E273", "Rem. Anticipos R2"]),
                 (HojaConsolidado, "D49", ["F417", "Reporte Componentes R1"]),
                 (HojaConsolidado, "D68", ["D211", "Reversion Pagos R4"]),
                 (HojaConsolidado, "D106", []), // shared follower del maestro D104 (texto vacío; solo presencia de fórmula)
@@ -111,10 +111,10 @@ public static class WorkbookLeafCellMapPorAse
             [
                 (HojaR1, "F568", ["F511", "F548", "F460", "L460", "L511"]),
                 (HojaR1, "F570", ["F530", "F486", "L486"]),
-                (HojaR2, "E362", ["E309", "E327", "K309"]),
+                (HojaR2, "E384", ["E327", "E349", "K327"]),
                 (HojaR4, "D326", ["D249", "P249"]),
                 (HojaConsolidado, "D12", ["F568", "Reporte Componentes R1"]),
-                (HojaConsolidado, "D31", ["E362", "Rem. Anticipos R2"]),
+                (HojaConsolidado, "D31", ["E384", "Rem. Anticipos R2"]),
                 (HojaConsolidado, "D50", ["F570", "Reporte Componentes R1"]),
                 (HojaConsolidado, "D69", ["D326", "Reversion Pagos R4"]),
                 (HojaConsolidado, "D107", ["D12", "D31", "D50", "D69", "D88"]),
@@ -123,10 +123,10 @@ public static class WorkbookLeafCellMapPorAse
             [5] =
             [
                 (HojaR1, "F680", ["F674", "F648", "F613", "L613", "L648"]),
-                (HojaR2, "E446", ["E418", "E404", "K404"]),
+                (HojaR2, "E468", ["E440", "E426", "K426"]),
                 (HojaR4, "D361", ["D358", "P358"]),
                 (HojaConsolidado, "D13", ["F680", "Reporte Componentes R1"]),
-                (HojaConsolidado, "D32", ["E446", "Rem. Anticipos R2"]),
+                (HojaConsolidado, "D32", ["E468", "Rem. Anticipos R2"]),
                 (HojaConsolidado, "D51", ["F682", "Reporte Componentes R1"]),
                 (HojaConsolidado, "D70", ["D361", "Reversion Pagos R4"]),
                 (HojaConsolidado, "D108", ["D13", "D32", "D51", "D70", "D89"]),

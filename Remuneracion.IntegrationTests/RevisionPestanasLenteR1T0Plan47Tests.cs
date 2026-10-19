@@ -460,81 +460,46 @@ public sealed class RevisionPestanasLenteR1T0Plan47Tests
 
     // ── P4: ceros documentados (sin slot probado) — lista Core ≡ espejo, en los dos períodos ────
 
+    /// <summary>
+    /// Plan 48 (H1.1 — T0 §2.2): la geometría v2 tiene slot para el canal 9 y el `Vlr Intereses` del
+    /// canal 2 de ASE2/ASE4. Las 9 filas de julio-2 del Plan 47 eran un **falso hueco** y se retiraron
+    /// de `CerosDocumentados`; solo sobreviven las 3 claves A/EAB de agosto-2 (ausencia probada en la
+    /// mitad Subs/Cont de ASE4 v2). El fixture v1 histórico conserva sus matrices; este test certifica
+    /// el contrato NUEVO contra los bytes de la v2.
+    /// </summary>
     [Fact]
-    public void T0P47_P4_CerosDocumentados_ListaCore_CubreTodoSinSlot_EnJulioYAgosto()
+    public void T0P48_H1_CerosDocumentados_SoloClavesAusentesEnV2()
     {
-        var filasJulio = 0;
-        var filasAgosto = 0;
+        Assert.Equal(3, CerosDocumentadosDetalleR2R4.TotalFilasDocumentadas);
+        Assert.Equal(3, CerosDocumentadosDetalleR2R4.Entradas.Count);
+        Assert.All(CerosDocumentadosDetalleR2R4.Entradas, e => Assert.Equal(HojaDetalleR2R4.R2, e.Hoja));
+        Assert.All(CerosDocumentadosDetalleR2R4.Entradas, e => Assert.Equal(4, e.Ase));
+        Assert.All(CerosDocumentadosDetalleR2R4.Entradas, e => Assert.True(e.Canal is null || e.Canal.Contains("A/EAB")));
 
-        foreach (var periodo in new[] { "Prueba Julio-2", "Prueba Agosto-2" })
-        {
-            foreach (var ase in new[] { 1, 2, 3, 4, 5 })
-            {
-                var oficial = Leer(Oficial(), HojaR2);
-                var bloque = MatrizR2[ase - 1];
-                var fuente = LeerFuenteDetalle(ase, esR2: true, periodo);
-                var ceros = CerosDelEmparejamiento(bloque, oficial, fuente, ColsR2, esR2: true);
-
-                foreach (var (indice, firma, canal, _) in ceros)
-                {
-                    Assert.True(
-                        CerosDocumentadosDetalleR2R4.CantidadDocumentada(HojaDetalleR2R4.R2, ase, firma, canal) > 0,
-                        $"{periodo} ASE{ase}: la fila fuente #{indice} '{firma}' (canal '{canal}') NO está en la lista de ceros documentados (sería ERR-SIN-SLOT).");
-                }
-
-                if (periodo == "Prueba Julio-2")
-                {
-                    filasJulio += ceros.Length;
-                }
-                else
-                {
-                    filasAgosto += ceros.Length;
-                }
-            }
-        }
-
-        // Plan 47 (H1.4): filas-fuente SIN slot por período — 9 en julio-2 (ASE2 ×3 + ASE4 ×6) y
-        // 8 en agosto-2 (ASE2 3 + ASE4 5); todas cubiertas por la lista de ceros documentados
-        // (Cantidad declarada POR CORRIDA: las claves que ocurren en ambos períodos la comparten).
-        Assert.Equal(9, filasJulio);
-        Assert.Equal(8, filasAgosto);
-        Assert.Equal(14, CerosDocumentadosDetalleR2R4.TotalFilasDocumentadas);
-        Assert.Equal(
-            14,
-            CerosDocumentadosDetalleR2R4.Entradas.Where(e => e.Hoja == HojaDetalleR2R4.R2).Sum(e => e.Cantidad));
-
-        // Fuera de la lista ⇒ 0 documentadas (el consumidor debe fallar con ERR-SIN-SLOT).
-        Assert.Equal(0, CerosDocumentadosDetalleR2R4.CantidadDocumentada(HojaDetalleR2R4.R2, 5, "|||Vlr Servicio", "9/NUEVO ESQUEMA"));
-        Assert.Equal(0, CerosDocumentadosDetalleR2R4.CantidadDocumentada(HojaDetalleR2R4.R4, 2, "||Vlr Servicio", "NUEVO ESQUEMA"));
+        // Las claves del falso hueco ya NO se documentan (si no hubiera slot serían ERR-SIN-SLOT).
+        Assert.Equal(0, CerosDocumentadosDetalleR2R4.CantidadDocumentada(HojaDetalleR2R4.R2, 2, "|||Vlr Servicio", "9/NUEVO ESQUEMA"));
+        Assert.Equal(0, CerosDocumentadosDetalleR2R4.CantidadDocumentada(HojaDetalleR2R4.R2, 2, "|||Vlr Intereses", "2/NUEVO ESQUEMA"));
+        Assert.Equal(0, CerosDocumentadosDetalleR2R4.CantidadDocumentada(HojaDetalleR2R4.R2, 2, "||9|Total", "9/NUEVO ESQUEMA"));
+        Assert.Equal(0, CerosDocumentadosDetalleR2R4.CantidadDocumentada(HojaDetalleR2R4.R2, 4, "|||Vlr Servicio", "9/NUEVO ESQUEMA"));
+        Assert.Equal(0, CerosDocumentadosDetalleR2R4.CantidadDocumentada(HojaDetalleR2R4.R2, 4, "|||Vlr Intereses", "9/NUEVO ESQUEMA"));
+        Assert.Equal(0, CerosDocumentadosDetalleR2R4.CantidadDocumentada(HojaDetalleR2R4.R2, 4, "||9|Total", "9/NUEVO ESQUEMA"));
+        Assert.Equal(0, CerosDocumentadosDetalleR2R4.CantidadDocumentada(HojaDetalleR2R4.R2, 4, "|||Subsidio(-)/Contribucion(+)", "9/NUEVO ESQUEMA"));
     }
 
     [Fact]
-    public void T0P47_P4_R2_CerosDocumentados_Claves_ProbadasPorBytes()
+    public void T0P48_H1_V2_TieneLosSlotsDelFalsoHueco()
     {
-        // El bloque OFICIAL no enumera el canal `9` (ni `Subsidio` del 9) y el grupo del canal 2 trae
-        // una sola fila: no existe slot para las claves documentadas.
-        var oficial2 = FirmasDestino(Leer(Oficial(), HojaR2), MatrizR2[1], ColsR2);
-        Assert.DoesNotContain("||9|Total", oficial2);
-        Assert.Equal(["|||Vlr Servicio"], FilasEntreCierres(oficial2, "1", "2"));
+        var v2 = Leer(V2(), HojaR2);
+        Assert.Equal(9m, v2.Numero("C89"));
+        Assert.Equal("NUEVO ESQUEMA", v2.Texto("B", 90));
+        Assert.Equal(9m, v2.Numero("C315"));
+        Assert.Equal("NUEVO ESQUEMA", v2.Texto("B", 316));
+        Assert.Equal(3m, v2.Numero("C83"));
+        Assert.Equal(3m, v2.Numero("C309"));
 
-        var oficial4 = FirmasDestino(Leer(Oficial(), HojaR2), MatrizR2[3], ColsR2);
-        Assert.DoesNotContain("||9|Total", oficial4);
-        Assert.Equal(["|||Vlr Servicio"], FilasEntreCierres(oficial4, "1", "2"));
-        // El bloque de ASE4 tiene UN solo grupo A/EAB (mitad Anticipos): la segunda ocurrencia de la
-        // fuente (mitad Subs/Cont, agosto) no tiene slot y está documentada con Cantidad 1.
-        Assert.Single(oficial4, firma => firma == "||A|Total");
-        Assert.Single(oficial4, firma => firma == "|EAB|Total|");
-        Assert.Equal(1, CerosDocumentadosDetalleR2R4.CantidadDocumentada(HojaDetalleR2R4.R2, 4, "||A|Total", "A/EAB"));
-        Assert.Equal(1, CerosDocumentadosDetalleR2R4.CantidadDocumentada(HojaDetalleR2R4.R2, 4, "|EAB|Total|", null));
-        Assert.Equal(1, CerosDocumentadosDetalleR2R4.CantidadDocumentada(HojaDetalleR2R4.R2, 4, "|||Subsidio(-)/Contribucion(+)", "A/EAB"));
-
-        var fuente2 = LeerFuenteDetalle(2, esR2: true).Filas.Select(f => f.Firma).ToArray();
-        Assert.Contains("||9|Total", fuente2);
-        Assert.Equal(["|||Vlr Servicio", "|||Vlr Intereses"], FilasEntreCierres(fuente2, "1", "2"));
-
-        // Las cantidades documentadas incluyen las ocurrencias de ambos períodos.
-        Assert.Equal(2, CerosDocumentadosDetalleR2R4.CantidadDocumentada(HojaDetalleR2R4.R2, 2, "||9|Total", "9/NUEVO ESQUEMA"));
-        Assert.Equal(2, CerosDocumentadosDetalleR2R4.CantidadDocumentada(HojaDetalleR2R4.R2, 4, "||9|Total", "9/NUEVO ESQUEMA"));
+        // Las 3 claves A/EAB sobrevivientes siguen ausentes: ASE4 v2 tiene UN solo grupo A/EAB.
+        Assert.Single(Enumerable.Range(293, 58), n => v2.Texto("C", n) == "A");
+        Assert.Single(Enumerable.Range(293, 58), n => v2.Texto("B", n) == "EAB");
     }
 
     // ── P4 (H1.2): el falso hueco quedó corregido — los slots del canal E reciben su valor ───────
@@ -1217,6 +1182,10 @@ public sealed class RevisionPestanasLenteR1T0Plan47Tests
 
     private static string Oficial() =>
         Path.Combine(Raiz(), "Docs", "Plantilla estandarizada", "Formato Remuneracion 2026xx-x Total.xlsx");
+
+    /// <summary>Plan 48 (H1): base v2 — geometría vigente del contrato R2/R4.</summary>
+    private static string V2() =>
+        Path.Combine(Raiz(), "Docs", "Plantilla estandarizada", "v2", "Formato Remuneracion 2026xx-x Total vf.xlsx");
 
     private static string CarpetaInsumos(int ase, string periodo) =>
         Path.Combine(Raiz(), "Docs", periodo, "Insumos", CarpetasAse[ase - 1]);

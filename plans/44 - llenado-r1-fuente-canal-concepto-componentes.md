@@ -262,3 +262,11 @@ Rutas explicitas en todo lo nuevo; prohibido `Docs/Insumos` raiz; regens siempre
 5. **Reporte del hueco `Vlr Intereses`** al dueno de la plantilla (texto del T0.3; NO tocar la plantilla).
 
 Sin estas aprobaciones el plan no avanza de T0 a T1 (1-2) ni cierra F2 (3-5).
+
+---
+
+## 8. Cierre R-PLANTILLA-nueva-version + paridad (Plan 48, 2026-10-19)
+
+- **R-PLANTILLA-nueva-version EJERCIDA:** la propietaria entregó la **v2** (`FF5CF7…2632`) y el manual de julio-2 ejecutado sobre ella. El pipeline falló primero con el fail-fast previsto (`ERR-PLANTILLA` accionable en `Rem. Anticipos R2!E144`) y el **T0 del Plan 48** re-congeló la geometría (R2/consumidores/control de recaudo) sin edición silenciosa. La corrida fresca sobre la v2 cierra `codigo=0`.
+- **Paridad/auditoría ATENDIDA con el manual v2:** el manual v2 es el nuevo oráculo; `R2 litVsLit=0` (brecha 53.283.379,41 cerrada), `R1`/`R4`/`SALDOS`/`banco`/`AJUSTES`/`REMUNERACION`/`GERENTES` `litVsLit=0`. Deltas declarados: 492 fórmulas/682-702 (NO adoptadas), BCE V5, `CONSOLIDADO!D6`, `Recaudo *` Q1 (V3), `DetRetri` excluidas, `ANT EXT-REV` protegida.
+- La **v1 queda histórica** y la **v2 es la base única** desde 2026-10-19 (ver `.opencode/project-context.md`). Evidencia: `plans/48` + `Docs/T0-Plan48-Adopcion-Plantilla-v2.md`.

@@ -121,7 +121,11 @@ internal sealed class ResolutorValorValidacion
         var match = RangoRegex.Match(rango);
         if (!match.Success)
         {
-            return false;
+            // Plan 48 (H1.2): la v2 trae `E10 = SUM(D10)` — SUM de una CELDA ÚNICA (no rango).
+            // Es la misma forma tabulada (`SUM(...)`) con un solo referente; sin esto la cadena
+            // C14→F10→E10 no sería evaluable y el gate honesto fallaría (W-1/E1-1).
+            return TryParsearReferencia(rango, hojaActual, out var hojaUnica, out var celdaUnica)
+                && TryResolverCelda(hojaUnica, celdaUnica, out valor);
         }
 
         var col1 = ColumnaANumero(match.Groups["c1"].Value);

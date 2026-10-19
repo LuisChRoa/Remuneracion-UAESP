@@ -82,10 +82,10 @@ public static class WorkbookLeafCellMapDetalleR2R4
         new Dictionary<int, (int, int)>
         {
             [1] = (3, 33),
-            [2] = (67, 113),
-            [3] = (164, 194),
-            [4] = (282, 328),
-            [5] = (382, 419)
+            [2] = (67, 124),
+            [3] = (175, 205),
+            [4] = (293, 350),
+            [5] = (404, 441)
         };
 
     /// <summary>

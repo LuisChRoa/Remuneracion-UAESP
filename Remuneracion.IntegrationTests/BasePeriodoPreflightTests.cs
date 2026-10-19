@@ -139,7 +139,7 @@ public sealed class BasePeriodoPreflightTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            var candidata = Path.Combine(dir.FullName, "Docs", "Plantilla estandarizada", "Formato Remuneracion 2026xx-x Total.xlsx");
+            var candidata = Path.Combine(dir.FullName, "Docs", "Plantilla estandarizada", "v2", "Formato Remuneracion 2026xx-x Total vf.xlsx");
             if (File.Exists(candidata))
             {
                 return candidata;
@@ -149,6 +149,24 @@ public sealed class BasePeriodoPreflightTests
         }
 
         throw new DirectoryNotFoundException("No se encontró la raíz del repositorio (plantilla estandarizada única).");
+    }
+
+    /// <summary>Plan 48: v1 histórica, solo para el caso Q1 (2026071) de S5; el pipeline usa v2.</summary>
+    private static string PlantillaHistoricaV1()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            var candidata = Path.Combine(dir.FullName, "Docs", "Plantilla estandarizada", "Formato Remuneracion 2026xx-x Total.xlsx");
+            if (File.Exists(candidata))
+            {
+                return candidata;
+            }
+
+            dir = dir.Parent;
+        }
+
+        throw new DirectoryNotFoundException("No se encontró la raíz del repositorio (plantilla histórica v1).");
     }
 
     // ── Plan 39 (T2, R-B-2/R-B-3/R-B-4 — S3/S4/S5): Phase 0 + R-INTERV-Q + preflight por quincena ──
@@ -240,7 +258,10 @@ public sealed class BasePeriodoPreflightTests
     [InlineData("2026072", "Docs/Prueba Julio-2/Insumos", "M")]
     public void S5_OficialDirecto_EndToEnd_L9L13PorQuincena(string codigo, string carpetaRel, string columna)
     {
-        var oficial = PlantillaUnica();
+        // Plan 48 (H1b — decisión del Ingeniero): Q1 (2026071) corre con la plantilla v1 HISTÓRICA
+        // (Q1 fuera de alcance; es dato del test, no producción); Q2 (2026072) corre con la v2, la
+        // base vigente. El contrato R1 queda intacto.
+        var oficial = codigo == "2026071" ? PlantillaHistoricaV1() : PlantillaUnica();
         var hashAntes = Sha256(oficial);
         var periodo = Periodo.Parse(codigo);
         var salidaDir = Path.Combine(Path.GetTempPath(), "p39-e2e-" + Guid.NewGuid().ToString("N"));
@@ -275,6 +296,19 @@ public sealed class BasePeriodoPreflightTests
             }
 
             Assert.Equal(codigo, ValorDe(consolidado, "N3"));
+
+            // Plan 48 (H1b): el cuadro OPORTUNO de R2 NO es escribible; tras la corrida conserva
+            // sus fórmulas v2 (T0 §1.3: fórmula o literal-0; el manual no lo llena).
+            if (codigo == "2026072")
+            {
+                var r2 = Hoja(parte, "Rem. Anticipos R2");
+                Assert.Equal("E21+E32-K21", FormulaDe(r2, "E47"));
+                Assert.Equal("E101+E123-K101", FormulaDe(r2, "E155"));
+                Assert.Equal("E193+E204-K193", FormulaDe(r2, "E273"));
+                Assert.Equal("E327+E349-K327", FormulaDe(r2, "E384"));
+                Assert.Equal("E440+E426-K426", FormulaDe(r2, "E468"));
+            }
+
             Assert.Equal(hashAntes, Sha256(oficial));
         }
         finally

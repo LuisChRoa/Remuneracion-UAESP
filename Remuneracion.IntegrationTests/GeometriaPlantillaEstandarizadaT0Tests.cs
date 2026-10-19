@@ -61,10 +61,10 @@ public sealed class GeometriaPlantillaEstandarizadaT0Tests
         ("D12", "'Reporte Componentes R1'!F568"),
         ("D13", "'Reporte Componentes R1'!F680"),
         ("D28", "'Rem. Anticipos R2'!E47"),
-        ("D29", "'Rem. Anticipos R2'!E144"),
-        ("D30", "'Rem. Anticipos R2'!E262"),
-        ("D31", "'Rem. Anticipos R2'!E362"),
-        ("D32", "'Rem. Anticipos R2'!E446"),
+        ("D29", "'Rem. Anticipos R2'!E155"),
+        ("D30", "'Rem. Anticipos R2'!E273"),
+        ("D31", "'Rem. Anticipos R2'!E384"),
+        ("D32", "'Rem. Anticipos R2'!E468"),
         ("D47", "'Reporte Componentes R1'!F77"),
         ("D48", "'Reporte Componentes R1'!F256"),
         ("D49", "'Reporte Componentes R1'!F417"),
@@ -84,8 +84,7 @@ public sealed class GeometriaPlantillaEstandarizadaT0Tests
         ("D105", "D10+D29+D48+D67+D86"),
         ("D107", "D12+D31+D50+D69+D88"),
         ("D108", "D13+D32+D51+D70+D89"),
-        ("D109", "SUM(D104:D108)"),
-        ("D111", "D109+N109")
+        ("D109", "SUM(D104:D108)")
     ];
 
     // ── Visibles R1 por ASE: TOT_OPT (D9:D13) y EXTEMP (D47:D51) con sus operandos exactos ──────
@@ -109,10 +108,10 @@ public sealed class GeometriaPlantillaEstandarizadaT0Tests
     private static readonly (string Celda, string Formula)[] R2Visibles =
     [
         ("E47", "E21+E32-K21"),
-        ("E144", "E94+E112-K94"),
-        ("E262", "E182+E193-K182"),
-        ("E362", "E309+E327-K309"),
-        ("E446", "E418+E404-K404")
+        ("E155", "E101+E123-K101"),
+        ("E273", "E193+E204-K193"),
+        ("E384", "E327+E349-K327"),
+        ("E468", "E440+E426-K426")
     ];
 
     private static readonly (string Celda, string Formula)[] R4Visibles =
@@ -130,7 +129,7 @@ public sealed class GeometriaPlantillaEstandarizadaT0Tests
         ("D23", "D9-'CONSOLIDADO_TOTAL RECAUDO'!D104"),
         ("D28", "D14-'CONSOLIDADO_TOTAL RECAUDO'!D109"),
         ("D32", "+D23+'Reporte Componentes R1'!F75+'Rem. Anticipos R2'!E47+'Reversion Pagos R4'!D73+'Reporte Componentes R1'!F77+'AJUSTES - SF-T'!D47=D9"),
-        ("D36", "+D27+'Reporte Componentes R1'!F680+'Reporte Componentes R1'!F682+'Rem. Anticipos R2'!E446+'Reversion Pagos R4'!D361+'AJUSTES - SF-T'!D51=D13")
+        ("D36", "+D27+'Reporte Componentes R1'!F680+'Reporte Componentes R1'!F682+'Rem. Anticipos R2'!E468+'Reversion Pagos R4'!D361+'AJUSTES - SF-T'!D51=D13")
     ];
 
     private static readonly (string Celda, string Formula)[] DetValiRetriCadenas =
@@ -138,7 +137,7 @@ public sealed class GeometriaPlantillaEstandarizadaT0Tests
         ("D16", "D9-'CONSOLIDADO_TOTAL RECAUDO'!U104"),
         ("D21", "D14-'CONSOLIDADO_TOTAL RECAUDO'!U109"),
         ("D24", "+'Reporte Componentes R1'!M75+'Reporte Componentes R1'!M77+'Rem. Anticipos R2'!L47+'Reversion Pagos R4'!J73+D16+'AJUSTES - SF-T'!U47=D9"),
-        ("D28", "+'Reporte Componentes R1'!M680+'Reporte Componentes R1'!M682+'Rem. Anticipos R2'!L446+'Reversion Pagos R4'!J361+D20+'AJUSTES - SF-T'!U51=D13")
+        ("D28", "+'Reporte Componentes R1'!M680+'Reporte Componentes R1'!M682+'Rem. Anticipos R2'!L468+'Reversion Pagos R4'!J361+D20+'AJUSTES - SF-T'!U51=D13")
     ];
 
     // ── SALDOS POR NOTA / RETRIBUCION NEGATIVA visibles (Cn-In) por ASE ─────────────────────────
@@ -205,12 +204,17 @@ public sealed class GeometriaPlantillaEstandarizadaT0Tests
     [Fact]
     public void T0_Consolidado_CadenaD_Exacta()
     {
-        using var zip = AbrirPlantilla();
+        using var zip = AbrirPlantillaV2();
         var hoja = Hoja(zip, HojaConsolidado);
         foreach (var (celda, formula) in ConsolidadoD)
         {
             Assert.Equal(formula, FormulaDe(hoja, celda));
         }
+
+        // Plan 48 (H1 — T0 §1.2 `onlyA=1`): la v2 ELIMINÓ la forma D111 = D109+N109 que traía la
+        // v1. No es una celda del pipeline (la corrida fresca sobre v2 cierra con código 0 sin
+        // ella); se certifica su ausencia para que un futuro re-uso sea FAIL accionable.
+        Assert.Null(FormulaDe(hoja, "D111"));
     }
 
     [Fact]
@@ -230,7 +234,7 @@ public sealed class GeometriaPlantillaEstandarizadaT0Tests
     [Fact]
     public void T0_VisiblesR2R4_FormulasExactasPorAse()
     {
-        using var zip = AbrirPlantilla();
+        using var zip = AbrirPlantillaV2();
         var hojaR2 = Hoja(zip, HojaR2);
         foreach (var (celda, formula) in R2Visibles)
         {
@@ -247,7 +251,7 @@ public sealed class GeometriaPlantillaEstandarizadaT0Tests
     [Fact]
     public void T0_DetRetriDetValiRetri_CadenasProtegidas()
     {
-        using var zip = AbrirPlantilla();
+        using var zip = AbrirPlantillaV2();
         var detRetri = Hoja(zip, "DetRetri2026092");
         foreach (var (celda, formula) in DetRetriCadenas)
         {
@@ -383,7 +387,7 @@ public sealed class GeometriaPlantillaEstandarizadaT0Tests
     [Fact]
     public void T0_DetalleR2R4_BloquesMatcheanPlantilla()
     {
-        using var zip = AbrirPlantilla();
+        using var zip = AbrirPlantillaV2();
         var compartidas = Compartidas(zip);
         var r2 = Hoja(zip, HojaR2);
         foreach (var (_, bloque) in WorkbookLeafCellMapDetalleR2R4.BloquesR2)
@@ -721,8 +725,13 @@ public sealed class GeometriaPlantillaEstandarizadaT0Tests
 
     // ── Lectura BCL (ZIP + XML; prohibido OpenXML/Excel aquí) ──────────────────────────────────
 
+    /// <summary>v1 histórica: los T0 de los Planes 39/40 congelan la geometría v1 original.</summary>
     private static ZipArchive AbrirPlantilla() =>
         ZipFile.OpenRead(Path.Combine(Raiz(), "Docs", "Plantilla estandarizada", "Formato Remuneracion 2026xx-x Total.xlsx"));
+
+    /// <summary>Plan 48 (H1): base v2 — geometría vigente del pipeline.</summary>
+    private static ZipArchive AbrirPlantillaV2() =>
+        ZipFile.OpenRead(Path.Combine(Raiz(), "Docs", "Plantilla estandarizada", "v2", "Formato Remuneracion 2026xx-x Total vf.xlsx"));
 
     private static string Raiz()
     {

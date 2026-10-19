@@ -480,3 +480,15 @@ PENDIENTE (no se declara paridad/verde por ausencia).
 
 **FRENTE 47 CERRADO (2026-10-17).** Code-review: APROBADO-CON-OBSERVACIONES → observaciones **cerradas**.
 Auditoria de la propietaria: **PENDIENTE** (no se declara paridad/verde por ausencia).
+
+---
+
+## Nota de cierre (Plan 48, 2026-10-19)
+
+El Plan 48 adoptó la **v2** como base única. **Las 9 filas de julio-2 que este plan documentó como
+"sin slot" (canal 9 y `Vlr Intereses` del canal 2 de ASE2/ASE4) resultaron FALSO HUECO**: la v2 les da
+slot y la brecha de **53.283.379,41** quedó cerrada (ASE2 `E87/E89=831.919,29`; ASE4
+`E313/E314/E315=20.152.773,11 / -2.377,86 / 20.150.395,25`). `CerosDocumentados` conserva solo las
+**3 claves A/EAB de agosto-2** (re-probadas contra la v2); `Otros → R` y la identidad por canal
+compuesto siguen vigentes. No se reescribe la historia; detalle en `plans/48` §9.6 y
+`Docs/T0-Plan48-Adopcion-Plantilla-v2.md` §2.2/§2.4.

@@ -21,15 +21,23 @@ namespace Remuneracion.IntegrationTests;
 /// </summary>
 public sealed class DivergenciaDeclaradaT0Tests
 {
-    private const string Sha256Oficial = "3086AC317595C2F8E84ED24B1C5EE3E52565DD5193394E3062878E7FA49C5214";
+    // Plan 48 (H1): la base oficial es la v2; la v1 queda historica con su propio SHA.
+    private const string Sha256Oficial = "FF5CF7A819110A1E1E2CA7BDAD553DD7A25141ADD472B1904BD496F082642632";
+    private const string Sha256V1Historica = "3086AC317595C2F8E84ED24B1C5EE3E52565DD5193394E3062878E7FA49C5214";
     private const decimal DeltaOccidenteAse5 = 417519.62m;
 
     [Fact]
     public void T0_Oficial_Sha256Intacto()
     {
-        var oficial = Insumos.PlantillaOficial();
-        Assert.True(File.Exists(oficial), $"Falta la plantilla oficial: {oficial}");
-        Assert.Equal(Sha256Oficial, Sha256(oficial));
+        // Plan 48 (H1b): AMBAS plantillas intocables. v2 = base oficial vigente; v1 = histórica.
+        var oficialV2 = Insumos.PlantillaOficial();
+        Assert.True(File.Exists(oficialV2), $"Falta la plantilla oficial v2: {oficialV2}");
+        Assert.Equal(Sha256Oficial, Sha256(oficialV2));
+
+        var oficialV1 = Path.Combine(
+            Insumos.Raiz(), "Docs", "Plantilla estandarizada", "Formato Remuneracion 2026xx-x Total.xlsx");
+        Assert.True(File.Exists(oficialV1), $"Falta la plantilla histórica v1: {oficialV1}");
+        Assert.Equal(Sha256V1Historica, Sha256(oficialV1));
     }
 
     [Fact]

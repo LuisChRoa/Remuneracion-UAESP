@@ -41,50 +41,26 @@ public static class CerosDocumentadosDetalleR2R4
         string Motivo,
         string Evidencia);
 
-    private const string MotivoCanal9 =
-        "El bloque OFICIAL no tiene fila de cierre `C=9 D=Total` (ni `Subsidio` del canal 9): la fuente trae el canal 9 y el contrato de la plantilla no lo enumera.";
-
     private const string MotivoCanalA =
         "El bloque OFICIAL no enumera el canal `A`/empresa `EAB` en la mitad Subs/Cont (bytes: ASE1 22..31 arranca en `Subsidio` cerrado por `C=E`): la fuente de agosto trae ese grupo y el contrato no lo tiene.";
 
-    private const string MotivoInteresesCanal2 =
-        "El grupo del canal 2 del bloque OFICIAL tiene UNA sola fila (`Vlr Servicio`) entre los cierres `1` y `2`: no existe slot para `Vlr Intereses`.";
-
     /// <summary>
-    /// Entradas VIGENTES (14 filas fuente = 11 claves): julio-2 (9 filas) + agosto-2 (5 filas). Las
-    /// claves con 2 ocurrencias (<c>||9|Total</c> de ASE2, <c>||A|Total</c>/<c>|EAB|Total|</c> de ASE4)
-    /// corresponden a los dos mitades del bloque (Anticipos y Subs/Cont).
-    /// Evidencia completa en <c>Docs/T0-Plan47-Revision-Pestanas-LenteR1.md</c> §6.1/§6.4.
+    /// Entradas VIGENTES (**3 filas fuente = 3 claves**, todas de agosto-2). El Plan 48 (H0/T0 §2.2)
+    /// probó por bytes que la geometría v2 **sí tiene slot** para el canal 9 y el `Vlr Intereses` del
+    /// canal 2 de ASE2/ASE4: las 9 filas de julio-2 que el Plan 47 documentaba eran un **falso hueco**
+    /// y quedaron RETIRADAS (no sobrevive clave sin prueba de ausencia en bytes contra la v2). Las 3
+    /// claves A/EAB de agosto-2 siguen probadas ausentes en la v2 (la mitad Subs/Cont de ASE4 no trae
+    /// el grupo `A`/`EAB`). Evidencia: <c>Docs/T0-Plan48-Adopcion-Plantilla-v2.md</c> §2.2/§2.4.
     /// </summary>
     public static IReadOnlyList<Entrada> Entradas { get; } =
     [
-        // R2 ASE2 (LIME) — 4 filas: julio-2 (3) + agosto-2 (1).
-        new(HojaDetalleR2R4.R2, 2, "|||Vlr Intereses", "2/NUEVO ESQUEMA", 1, MotivoInteresesCanal2,
-            "T0-Plan47 §6.1: oficial R2 67..113 con una sola fila (78) entre `||1|Total` y `||2|Total`; fuente julio-2 `src#8` Total = 406,42."),
-        new(HojaDetalleR2R4.R2, 2, "|||Vlr Servicio", "9/NUEVO ESQUEMA", 1, MotivoCanal9,
-            "T0-Plan47 §6.1: no existe fila `C=9 D=Total` en R2 ASE2; fuente julio-2 `src#13` Total = 831.919,29 y agosto-2 `src#12` Total = 81.263,29 (ambos incluidos en `NUEVO ESQUEMA`)."),
-        new(HojaDetalleR2R4.R2, 2, "||9|Total", "9/NUEVO ESQUEMA", 2, MotivoCanal9,
-            "T0-Plan47 §6.1/§6.4: no existe fila `C=9 D=Total` en R2 ASE2; fuente julio-2 `src#14` Total = 831.919,29 y agosto-2 `src#13` Total = 81.263,29 (mitades Anticipos y Subs/Cont)."),
-        new(HojaDetalleR2R4.R2, 2, "|||Subsidio(-)/Contribucion(+)", "9/NUEVO ESQUEMA", 1, MotivoCanal9,
-            "T0-Plan47 §6.4: la mitad Subs/Cont del bloque oficial de ASE2 enumera E/1/2/5/H/O/T (sin `9`); fuente agosto-2 `src#35` Total = 6.719,84."),
-
-        // R2 ASE4 (BOGOTA LIMPIA) — 10 filas: julio-2 (6) + agosto-2 (4).
-        new(HojaDetalleR2R4.R2, 4, "|||Vlr Intereses", "2/NUEVO ESQUEMA", 1, MotivoInteresesCanal2,
-            "T0-Plan47 §6.1: oficial R2 282..328 con una sola fila (293) entre `||1|Total` y `||2|Total`; fuente julio-2 `src#8` Total = -8.785,59 y agosto-2 `src#11` Total = -1.647,69."),
-        new(HojaDetalleR2R4.R2, 4, "|||Vlr Servicio", "9/NUEVO ESQUEMA", 1, MotivoCanal9,
-            "T0-Plan47 §6.1: no existe fila `C=9 D=Total` en R2 ASE4; fuente julio-2 `src#13` Total = 20.152.773,11."),
-        new(HojaDetalleR2R4.R2, 4, "|||Vlr Intereses", "9/NUEVO ESQUEMA", 1, MotivoCanal9,
-            "T0-Plan47 §6.1: no existe fila `C=9 D=Total` en R2 ASE4; fuente julio-2 `src#14` Total = -2.377,86."),
-        new(HojaDetalleR2R4.R2, 4, "||9|Total", "9/NUEVO ESQUEMA", 2, MotivoCanal9,
-            "T0-Plan47 §6.1: no existe fila `C=9 D=Total` en R2 ASE4; fuente julio-2 `src#15` Total = 20.150.395,25 (mitad Anticipos) y `src#38` Total = 5.663.564,75 (mitad Subs/Cont)."),
-        new(HojaDetalleR2R4.R2, 4, "|||Subsidio(-)/Contribucion(+)", "9/NUEVO ESQUEMA", 1, MotivoCanal9,
-            "T0-Plan47 §6.1: no existe fila `C=9 D=Total` en la mitad Subs/Cont de R2 ASE4; fuente julio-2 `src#37` Total = 5.663.564,75."),
+        // R2 ASE4 (BOGOTA LIMPIA) — 3 filas de agosto-2 sin slot en la geometría v2.
         new(HojaDetalleR2R4.R2, 4, "|||Subsidio(-)/Contribucion(+)", "A/EAB", 1, MotivoCanalA,
-            "T0-Plan47 §6.4: la mitad Subs/Cont del bloque oficial de ASE4 no trae el grupo A/EAB; fuente agosto-2 `src#28` Total = -12.462,26."),
+            "T0-Plan48 §2.2: la mitad Subs/Cont del bloque v2 de ASE4 no trae el grupo A/EAB; fuente agosto-2 `src#28` Total = -12.462,26."),
         new(HojaDetalleR2R4.R2, 4, "||A|Total", "A/EAB", 1, MotivoCanalA,
-            "T0-Plan47 §6.4: la mitad Subs/Cont del bloque oficial de ASE4 no trae `||A|Total`; fuente agosto-2 `src#29` Total = -12.462,26."),
+            "T0-Plan48 §2.2: la mitad Subs/Cont del bloque v2 de ASE4 no trae `||A|Total`; fuente agosto-2 `src#29` Total = -12.462,26."),
         new(HojaDetalleR2R4.R2, 4, "|EAB|Total|", null, 1, MotivoCanalA,
-            "T0-Plan47 §6.4: la mitad Subs/Cont del bloque oficial de ASE4 no trae `|EAB|Total|`; fuente agosto-2 `src#30` Total = -12.462,26."),
+            "T0-Plan48 §2.2: la mitad Subs/Cont del bloque v2 de ASE4 no trae `|EAB|Total|`; fuente agosto-2 `src#30` Total = -12.462,26."),
     ];
 
     /// <summary>Total de filas-fuente documentadas (suma de <see cref="Entrada.Cantidad"/>).</summary>

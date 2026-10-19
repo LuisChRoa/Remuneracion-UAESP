@@ -163,10 +163,10 @@ public static class WorkbookLeafCellMapQ2
         new Dictionary<int, (string, string, string)>
         {
             [1] = ("E21", "E32", "K21"),
-            [2] = ("E94", "E112", "K94"),
-            [3] = ("E182", "E193", "K182"),
-            [4] = ("E309", "E327", "K309"),
-            [5] = ("E404", "E418", "K404")
+            [2] = ("E101", "E123", "K101"),
+            [3] = ("E193", "E204", "K193"),
+            [4] = ("E327", "E349", "K327"),
+            [5] = ("E426", "E440", "K426")
         };
 
     /// <summary>
@@ -176,10 +176,10 @@ public static class WorkbookLeafCellMapQ2
         new Dictionary<int, (string, string[])[]>
         {
             [1] = [("E47", ["E21", "E32", "K21"])],
-            [2] = [("E144", ["E94", "E112", "K94"])],
-            [3] = [("E262", ["E182", "E193", "K182"])],
-            [4] = [("E362", ["E309", "E327", "K309"])],
-            [5] = [("E446", ["E418", "E404", "K404"])]
+            [2] = [("E155", ["E101", "E123", "K101"])],
+            [3] = [("E273", ["E193", "E204", "K193"])],
+            [4] = [("E384", ["E327", "E349", "K327"])],
+            [5] = [("E468", ["E440", "E426", "K426"])]
         };
 
     /// <summary>
@@ -222,10 +222,10 @@ public static class WorkbookLeafCellMapQ2
         (HojaConsolidado, "D12", ["F568", "Reporte Componentes R1"]),
         (HojaConsolidado, "D13", ["F680", "Reporte Componentes R1"]),
         (HojaConsolidado, "D28", ["E47", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D29", ["E144", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D30", ["E262", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D31", ["E362", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D32", ["E446", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D29", ["E155", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D30", ["E273", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D31", ["E384", "Rem. Anticipos R2"]),
+        (HojaConsolidado, "D32", ["E468", "Rem. Anticipos R2"]),
         (HojaConsolidado, "D47", ["F77", "Reporte Componentes R1"]),
         (HojaConsolidado, "D48", ["F256", "Reporte Componentes R1"]),
         (HojaConsolidado, "D49", ["F417", "Reporte Componentes R1"]),
@@ -280,10 +280,10 @@ public static class WorkbookLeafCellMapQ2
             (hojaDetRetri, "D27", ["D13", "CONSOLIDADO_TOTAL RECAUDO", "D108"]),
             (hojaDetRetri, "D28", ["D14", "CONSOLIDADO_TOTAL RECAUDO", "D109"]),
             (hojaDetRetri, "D32", ["D23", "F75", "E47", "D73", "F77", "AJUSTES", "D47", "D9"]),
-            (hojaDetRetri, "D33", ["D24", "F254", "E144", "D174", "F256", "AJUSTES", "D48", "D10"]),
-            (hojaDetRetri, "D34", ["D25", "F415", "F417", "E262", "D211", "AJUSTES", "D49", "D11"]),
-            (hojaDetRetri, "D35", ["D26", "F568", "F570", "E362", "D326", "AJUSTES", "D50", "D12"]),
-            (hojaDetRetri, "D36", ["D27", "F680", "F682", "E446", "D361", "AJUSTES", "D51", "D13"]),
+            (hojaDetRetri, "D33", ["D24", "F254", "E155", "D174", "F256", "AJUSTES", "D48", "D10"]),
+            (hojaDetRetri, "D34", ["D25", "F415", "F417", "E273", "D211", "AJUSTES", "D49", "D11"]),
+            (hojaDetRetri, "D35", ["D26", "F568", "F570", "E384", "D326", "AJUSTES", "D50", "D12"]),
+            (hojaDetRetri, "D36", ["D27", "F680", "F682", "E468", "D361", "AJUSTES", "D51", "D13"]),
             (hojaDetValiRetri, "D16", ["D9", "CONSOLIDADO_TOTAL RECAUDO", "U104"]),
             (hojaDetValiRetri, "D17", ["D10", "CONSOLIDADO_TOTAL RECAUDO", "U105"]),
             (hojaDetValiRetri, "D18", ["D11", "CONSOLIDADO_TOTAL RECAUDO", "U106"]),
@@ -291,11 +291,11 @@ public static class WorkbookLeafCellMapQ2
             (hojaDetValiRetri, "D20", ["D13", "CONSOLIDADO_TOTAL RECAUDO", "U108"]),
             (hojaDetValiRetri, "D21", ["D14", "CONSOLIDADO_TOTAL RECAUDO", "U109"]),
             (hojaDetValiRetri, "D24", ["M75", "M77", "L47", "J73", "D16", "AJUSTES", "U47", "D9"]),
-            (hojaDetValiRetri, "D25", ["M254", "L144", "J174", "M256", "D17", "AJUSTES", "U48", "D10"]),
-            (hojaDetValiRetri, "D26", ["M415", "M417", "L262", "J211", "D18", "AJUSTES", "U49", "D11"]),
-            (hojaDetValiRetri, "D27", ["M568", "M570", "L362", "J326", "D19", "AJUSTES", "U50", "D12"]),
-            (hojaDetValiRetri, "D28", ["M680", "M682", "L446", "J361", "D20", "AJUSTES", "U51", "D13"]),
-            (hojaDetValiRetri, "D29", ["M75", "L47", "J73", "M254", "L144", "J174", "M415", "L262", "J211", "M568", "L362", "J326", "M680", "L446", "J361", "D21", "AJUSTES", "U52", "D14"])
+            (hojaDetValiRetri, "D25", ["M254", "L155", "J174", "M256", "D17", "AJUSTES", "U48", "D10"]),
+            (hojaDetValiRetri, "D26", ["M415", "M417", "L273", "J211", "D18", "AJUSTES", "U49", "D11"]),
+            (hojaDetValiRetri, "D27", ["M568", "M570", "L384", "J326", "D19", "AJUSTES", "U50", "D12"]),
+            (hojaDetValiRetri, "D28", ["M680", "M682", "L468", "J361", "D20", "AJUSTES", "U51", "D13"]),
+            (hojaDetValiRetri, "D29", ["M75", "L47", "J73", "M254", "L155", "J174", "M415", "L273", "J211", "M568", "L384", "J326", "M680", "L468", "J361", "D21", "AJUSTES", "U52", "D14"])
         ];
     }
 

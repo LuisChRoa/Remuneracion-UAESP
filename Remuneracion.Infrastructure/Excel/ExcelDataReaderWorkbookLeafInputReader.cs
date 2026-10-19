@@ -1660,20 +1660,21 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             },
             2 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
             {
-                ["E94"] = e15, ["E112"] = e26, ["K94"] = k15
+                ["E101"] = e15, ["E123"] = e26, ["K101"] = k15
             },
             3 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
             {
-                ["E182"] = e15, ["E193"] = e26, ["K182"] = k15
+                ["E193"] = e15, ["E204"] = e26, ["K193"] = k15
             },
             4 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
             {
-                ["E309"] = e15, ["E327"] = e26, ["K309"] = k15
+                ["E327"] = e15, ["E349"] = e26, ["K327"] = k15
             },
             5 => new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
             {
-                // T0: template E404 = Componente (e15), E418 = Subs/Cont (e26); E446 = E418+E404-K404.
-                ["E404"] = e15, ["E418"] = e26, ["K404"] = k15
+                // T0-Plan48 §1.3: template v2 E426 = Componente (e15), E440 = Subs/Cont (e26);
+                // E468 = E440+E426-K426.
+                ["E426"] = e15, ["E440"] = e26, ["K426"] = k15
             },
             _ => throw new CalculoInvalidoException($"ASE {ase.Id} no está soportado por el lector leaf.")
         };

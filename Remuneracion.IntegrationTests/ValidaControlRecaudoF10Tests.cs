@@ -53,6 +53,10 @@ public sealed class ValidaControlRecaudoF10Tests
         EjecutarFlujo(CarpetaJulio, periodo, salida.Ruta);
 
         var fuente = TotalControlFuente(periodo, CarpetaJulio);
+        // Plan 48 (H1.2): en la v2 `F10 = E7+E10` es FORMULA; el valor efectivo del control se
+        // lee del cache sellado de C14 (= F10 resuelto por read-back). Se certifica que F10 sigue
+        // siendo formula (la App no la sobrescribe).
+        Assert.NotNull(LeerFormula(salida.Ruta, HojaControl, CeldaControl));
         var f10 = LeerCeldaNumerica(salida.Ruta, HojaControl, CeldaControl);
 
         Assert.InRange(f10 - fuente, -Tol, Tol);
@@ -72,6 +76,8 @@ public sealed class ValidaControlRecaudoF10Tests
         EjecutarFlujo(CarpetaAgosto, periodo, salida.Ruta, Insumos.PlantillaAgosto2026082);
 
         var fuente = TotalControlFuente(periodo, CarpetaAgosto);
+        // Plan 48 (H1b): F10 es formula en la v2 y el writer sella su cache EVALUADO.
+        Assert.NotNull(LeerFormula(salida.Ruta, HojaControl, CeldaControl));
         var f10 = LeerCeldaNumerica(salida.Ruta, HojaControl, CeldaControl);
 
         Assert.InRange(f10 - fuente, -Tol, Tol);
@@ -83,17 +89,46 @@ public sealed class ValidaControlRecaudoF10Tests
     }
 
     /// <summary>
-    /// Guard anti-fórmula intacto (R-P-3): si la celda destino F10 fuera fórmula en la plantilla,
-    /// la escritura lanza <c>ERR-PLANTILLA</c> y NO deja archivo parcial (nunca sobrescritura).
+    /// Guard anti-fórmula intacto (R-P-3): Plan 48 H1.2 puebla <c>D7:D10</c> como literales; si una
+    /// celda destino (<c>D7</c>) fuera fórmula en la plantilla, la escritura lanza
+    /// <c>ERR-PLANTILLA</c> y NO deja archivo parcial (nunca sobrescritura). En la v2 <c>F10</c> ya
+    /// es fórmula por diseño y la App la respeta sin escribirla (no es un caso de error).
+    /// </summary>
+    /// <summary>
+    /// Plan 48 (H1b — R-FIXTURE): en la v2 la App **no escribe** `F10` (es fórmula). Se prueba:
+    /// (a) el destino con `<f>` NO se sobrescribe (el texto de la fórmula mutada se conserva) y
+    /// (b) el sellado deja el valor EVALUADO correcto (`72497949967`) y `C14/C15` lo reflejan.
     /// </summary>
     [Fact]
-    public void F10_DestinoFormula_LanzaErrPlantilla_SinSobrescribir()
+    public void F10_DestinoFormula_NoSeSobrescribe_YSelladoEvaluado()
+    {
+        using var temp = new DirectorioTemporal("remuneracion-f10-nooverwrite-");
+        var plantillaMutada = Path.Combine(temp.Ruta, "plantilla-mutada.xlsx");
+        File.Copy(Plantilla, plantillaMutada);
+
+        // Fórmula mutada que evalúa al MISMO valor esperado: si el writer la pisara, el texto
+        // cambiaría; si no la escribe, el sellado deja 72.497.949.967.
+        ConvertirEnFormula(plantillaMutada, HojaControl, CeldaControl, "72497949967");
+
+        var salida = Path.Combine(temp.Ruta, "salida.xlsx");
+        EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, salida, plantillaMutada);
+
+        Assert.Equal("72497949967", LeerFormula(salida, HojaControl, CeldaControl));
+        Assert.InRange(LeerCeldaNumerica(salida, HojaControl, CeldaControl) - 72497949967m, -Tol, Tol);
+        Assert.InRange(LeerCeldaNumerica(salida, HojaValidacionTotal, "C14") - 72497949967m, -Tol, Tol);
+        Assert.True(
+            LeerBooleanoCelda(salida, HojaValidacionTotal, "C15"),
+            "C15 debe quedar True con F10 sellado al valor evaluado.");
+    }
+
+    [Fact]
+    public void D7_DestinoFormula_LanzaErrPlantilla_SinSobrescribir()
     {
         using var temp = new DirectorioTemporal("remuneracion-f10-formula-");
         var plantillaMutada = Path.Combine(temp.Ruta, "plantilla-mutada.xlsx");
         File.Copy(Plantilla, plantillaMutada);
 
-        ConvertirEnFormula(plantillaMutada, HojaControl, CeldaControl, "1+1");
+        ConvertirEnFormula(plantillaMutada, HojaControl, "D7", "1+1");
 
         var salida = Path.Combine(temp.Ruta, "salida.xlsx");
         var ex = Assert.Throws<CalculoInvalidoException>(() =>

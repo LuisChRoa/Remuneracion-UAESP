@@ -371,3 +371,13 @@ del Plan 46. Las expectativas byte-level que siguen siendo válidas NO se tocaro
 
 **FRENTE 46 CERRADO (2026-10-17).**
 
+---
+
+## Nota de cierre (Plan 48, 2026-10-19)
+
+El Plan 48 adoptó la **v2** como base única y re-congeló contra ella la geometría de R2/consumidores/
+control de recaudo. **El frente R1 de este plan quedó INTACTO**: la geometría R1 es idéntica entre v1
+y v2; el 48 solo añadió el assert de no regresión de la fila 649 (el mirror la escribe y coincide con
+el manual). La paridad se atendió con el manual v2. No se reescribe la historia; detalle en
+`plans/48` y `Docs/T0-Plan48-Adopcion-Plantilla-v2.md`.
+

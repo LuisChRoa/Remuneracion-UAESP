@@ -156,8 +156,11 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                 // Plan 29 (T3, Unidad R): desglose-detalle R2/R4 en la MISMA pasada atómica.
                 EscribirCeldasDetalleR2R4(workbookPart, leafInputs);
 
-                // Plan 29 (T5, Unidad P — R-P-3/T0f): total de control de recaudo (F10).
+                // Plan 29 (T5, Unidad P — R-P-3/T0f) + Plan 48 (H1.2): control de recaudo.
                 EscribirControlRecaudoTotal(workbookPart, [leafInputs]);
+                // Plan 48 (H1b): sella los cachés EVALUADOS de E7/E10/F10 (la v2 los trae como
+                // fórmulas); jamás se inventa el valor: si no es resoluble, no se sella.
+                SellarCachesControlRecaudo(workbookPart);
 
                 // Plan 28 (Unidad F): sella las fechas del período desde el R10 (solo si el
                 // orquestador las aportó). El path single-ASE sin R10 no trae fechas → no-op.
@@ -326,9 +329,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                     EscribirCeldasDetRetriQ2(workbookPart, leafInputs);
                 }
 
-                // Plan 29 (T5, Unidad P — R-P-3/T0f): total de control de recaudo (F10) como
-                // literal en la MISMA pasada atómica, tras las validaciones/control.
+                // Plan 29 (T5, Unidad P — R-P-3/T0f) + Plan 48 (H1.2): control de recaudo.
                 EscribirControlRecaudoTotal(workbookPart, leafInputs);
+                // Plan 48 (H1b): sella los cachés EVALUADOS de E7/E10/F10 (fórmulas v2).
+                SellarCachesControlRecaudo(workbookPart);
 
                 // Plan 28 (Unidad F): sello de fechas del período desde el R10 del período.
                 EscribirFechasPeriodo(workbookPart, resultado);
@@ -767,7 +771,9 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             }
         }
 
-        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapPorAseProtectedConsolidado)
+        // Plan 48 (H1b — S-3 del review): punto ÚNICO de verdad = `WorkbookLeafCellMapQ2.ConsolidadoProtected`
+        // (la copia inline del writer se retiró; cero cambio de comportamiento).
+        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapQ2.ConsolidadoProtected)
         {
             var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
             ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
@@ -1000,45 +1006,6 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
 
     private static string ReemplazarSufijo(string texto, string codigoCompleto) =>
         texto.Replace(AnclaSufijoHojasQ1, codigoCompleto, StringComparison.Ordinal);
-
-    /// <summary>
-    /// Filas CONSOLIDADO del mapa ampliado multi-ASE (plan §2.3): D9:D13, D28:D32, D47:D51,
-    /// D66:D70, D85:D89, D104:D108 (maestro + réplicas shared), D109. Fórmulas jamás se escriben.
-    /// </summary>
-    private static readonly (string Hoja, string Celda, string[] Fragmentos)[] WorkbookLeafCellMapPorAseProtectedConsolidado =
-    [
-        (HojaConsolidado, "D9", ["F75", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D10", ["F254", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D11", ["F415", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D12", ["F568", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D13", ["F680", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D28", ["E47", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D29", ["E144", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D30", ["E262", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D31", ["E362", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D32", ["E446", "Rem. Anticipos R2"]),
-        (HojaConsolidado, "D47", ["F77", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D48", ["F256", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D49", ["F417", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D50", ["F570", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D51", ["F682", "Reporte Componentes R1"]),
-        (HojaConsolidado, "D66", ["D73", "Reversion Pagos R4"]),
-        (HojaConsolidado, "D67", ["D174", "Reversion Pagos R4"]),
-        (HojaConsolidado, "D68", ["D211", "Reversion Pagos R4"]),
-        (HojaConsolidado, "D69", ["D326", "Reversion Pagos R4"]),
-        (HojaConsolidado, "D70", ["D361", "Reversion Pagos R4"]),
-        (HojaConsolidado, "D85", ["D47", "AJUSTES"]),
-        (HojaConsolidado, "D86", ["D48", "AJUSTES"]),
-        (HojaConsolidado, "D87", ["D49", "AJUSTES"]),
-        (HojaConsolidado, "D88", ["D50", "AJUSTES"]),
-        (HojaConsolidado, "D89", ["D51", "AJUSTES"]),
-        (HojaConsolidado, "D104", ["D9", "D28", "D47", "D66", "D85"]),
-        (HojaConsolidado, "D105", ["D10", "D29", "D48", "D67", "D86"]),
-        (HojaConsolidado, "D106", []), // shared follower del maestro D104
-        (HojaConsolidado, "D107", ["D12", "D31", "D50", "D69", "D88"]),
-        (HojaConsolidado, "D108", ["D13", "D32", "D51", "D70", "D89"]),
-        (HojaConsolidado, "D109", ["D104", "D108", "SUM"])
-    ];
 
     private static void EscribirCeldasLeaf(WorkbookPart workbookPart, WorkbookLeafInputs leafInputs)
     {
@@ -1728,13 +1695,84 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             return; // Sin Recaudo * no hay total que poblar (HU-07 puro / single-ASE legacy).
         }
 
-        var totalControl = recaudos.Sum(r => r.Total);
-        EscribirValorNumerico(
-            workbookPart,
-            WorkbookLeafCellMapValidaciones.HojaValidaControlRecaudo,
-            WorkbookLeafCellMapValidaciones.CeldaControlRecaudoTotal,
-            totalControl,
-            $"ValidaControlRecaudo.{WorkbookLeafCellMapValidaciones.CeldaControlRecaudoTotal}");
+        // Plan 48 (H1.2): la v2 deja D7:D10 = 0 y hace E7/E10/F10 fórmulas. Se pueblan D7:D10 POR
+        // ETIQUETA de la columna C (tabla citada) desde el TOTAL (fila 27) de cada Recaudo *.
+        var hoja = WorkbookLeafCellMapValidaciones.HojaValidaControlRecaudo;
+        var worksheet = ObtenerHoja(workbookPart, hoja, nameof(GenerarWorkbook));
+        var porEmpresa = recaudos.ToDictionary(r => r.Empresa.Id, r => r.Total);
+        var porEtiqueta = WorkbookLeafCellMapValidaciones.ControlRecaudoPorEtiqueta
+            .ToDictionary(e => NormalizarEtiqueta(e.Etiqueta), e => e.EmpresaId, StringComparer.Ordinal);
+
+        var totalControl = 0m;
+        foreach (var cell in worksheet.Descendants<Cell>())
+        {
+            var referencia = cell.CellReference?.Value;
+            if (referencia is null || referencia.Length < 2 || referencia[0] != 'C' || !char.IsAsciiDigit(referencia[1]))
+            {
+                continue;
+            }
+
+            var etiqueta = NormalizarEtiqueta(LeerTextoCelda(cell, workbookPart));
+            if (!porEtiqueta.TryGetValue(etiqueta, out var empresaId)
+                || !porEmpresa.TryGetValue(empresaId, out var total))
+            {
+                continue;
+            }
+
+            var destino = "D" + referencia[1..];
+            // Guard anti-fórmula de EscribirValorNumerico: si el destino D fuera fórmula lanza
+            // ERR-PLANTILLA (nunca sobrescritura). No se hace skip silencioso.
+            EscribirValorNumerico(workbookPart, hoja, destino, total, $"ValidaControlRecaudo.{destino}");
+            totalControl += total;
+        }
+
+        // F10: en la v1 es literal de control; en la v2 es la fórmula E7+E10 (la App NO la escribe:
+        // la calcula Excel y su caché se resuelve por read-back para validar C14). Solo se puebla
+        // cuando la celda NO es fórmula.
+        var cellF10 = ObtenerCelda(worksheet, WorkbookLeafCellMapValidaciones.CeldaControlRecaudoTotal);
+        if (cellF10?.CellFormula is null)
+        {
+            EscribirValorNumerico(
+                workbookPart,
+                hoja,
+                WorkbookLeafCellMapValidaciones.CeldaControlRecaudoTotal,
+                totalControl,
+                $"ValidaControlRecaudo.{WorkbookLeafCellMapValidaciones.CeldaControlRecaudoTotal}");
+        }
+    }
+
+    /// <summary>Normaliza un rótulo para el match por etiqueta (sin espacios, mayúsculas).</summary>
+    private static string NormalizarEtiqueta(string texto) =>
+        new string(texto.Where(c => !char.IsWhiteSpace(c)).ToArray()).ToUpperInvariant();
+
+    /// <summary>
+    /// Plan 48 (H1b — patrón Plan 40 «evalúa y sella»): tras escribir <c>D7:D10</c>, sella los
+    /// <c>&lt;v&gt;</c> de <c>E7 = SUM(D7:D9)</c>, <c>E10 = SUM(D10)</c> y <c>F10 = E7+E10</c> con el
+    /// valor EVALUADO por read-back (nunca se inventa: si no es resoluble, no se sella). Preserva la
+    /// <c>&lt;f&gt;</c> intacta. En la v1 estas celdas son literales (las escribe la App) y el método
+    /// es no-op; en la v2 son fórmulas y el gate <c>VALIDACION_TOTAL!C14</c> lee su valor.
+    /// </summary>
+    private static void SellarCachesControlRecaudo(WorkbookPart workbookPart)
+    {
+        var hoja = WorkbookLeafCellMapValidaciones.HojaValidaControlRecaudo;
+        var worksheet = ObtenerHoja(workbookPart, hoja, nameof(GenerarWorkbook));
+        var resolutor = new ResolutorValorValidacion(workbookPart);
+        foreach (var celda in WorkbookLeafCellMapValidaciones.CeldasSelladoControlRecaudo)
+        {
+            var cell = ObtenerCelda(worksheet, celda);
+            if (cell?.CellFormula is null)
+            {
+                continue; // literal escrito por la App (v1) o celda sin fórmula: no se toca.
+            }
+
+            if (!resolutor.TryEvaluar(hoja, celda, out var valor))
+            {
+                continue; // no evaluable ⇒ no se sella (E1-1: nunca un valor inventado).
+            }
+
+            cell.CellValue = new CellValue(valor.ToString(CultureInfo.InvariantCulture));
+            cell.DataType = CellValues.Number;
+        }
     }
 
     /// <summary>

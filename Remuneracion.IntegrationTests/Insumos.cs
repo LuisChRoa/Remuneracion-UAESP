@@ -31,12 +31,15 @@ internal static class Insumos
     }
 
     /// <summary>
-    /// Plan 39 (T4): plantilla OFICIAL única (<c>Docs/Plantilla estandarizada/Formato Remuneracion
-    /// 2026xx-x Total.xlsx</c>) — INPUT DIRECTO de la App para todos los períodos y oráculo
-    /// geométrico. Ruta EXPLÍCITA (nunca la raíz <c>Docs/Insumos</c> como fuente de plantilla).
+    /// Plan 48 (H1): plantilla OFICIAL única = base <b>v2</b>
+    /// (<c>Docs/Plantilla estandarizada/v2/Formato Remuneracion 2026xx-x Total vf.xlsx</c>) — INPUT
+    /// DIRECTO de la App para todos los períodos y oráculo geométrico. La v1
+    /// (<c>Docs/Plantilla estandarizada/Formato Remuneracion 2026xx-x Total.xlsx</c>) queda como
+    /// histórica intacta (SHA256 propio) y NO la usa el pipeline. Ruta EXPLÍCITA (nunca la raíz
+    /// <c>Docs/Insumos</c> como fuente de plantilla).
     /// </summary>
     public static string PlantillaOficial() =>
-        Path.Combine(Raiz(), "Docs", "Plantilla estandarizada", "Formato Remuneracion 2026xx-x Total.xlsx");
+        Path.Combine(Raiz(), "Docs", "Plantilla estandarizada", "v2", "Formato Remuneracion 2026xx-x Total vf.xlsx");
 
     private static readonly object CandadoBases = new();
     private static readonly Dictionary<string, string> BasesPorPeriodo = new();

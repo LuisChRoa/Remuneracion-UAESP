@@ -45,6 +45,33 @@ public static class WorkbookLeafCellMapValidaciones
     public const string CeldaControlRecaudoTotal = "F10";
 
     /// <summary>
+    /// Plan 48 (H1.2 — T0 §1.5/§4.2): filas del bloque de control de recaudo de
+    /// <c>Valida - Control Recaudo</c>. En la v2 la plantilla deja <c>D7:D10 = 0</c> y convierte
+    /// <c>E7 = SUM(D7:D9)</c>, <c>E10 = SUM(D10)</c> y <c>F10 = E7+E10</c> en fórmulas. La App debe
+    /// poblar <c>D7:D10</c> desde la fila 27 (TOTAL) de cada <c>Recaudo *</c> — la fila se localiza
+    /// POR ETIQUETA de la columna <c>C</c>, nunca por índice. Tabla de DATOS citada por bytes
+    /// (manual v2: D7=68.144.618.192, D8=28.645.323, D9=40.117.400, D10=4.284.569.052).
+    /// El label <c>ENEL / RECIP.</c> mapea a ENEL (id 2) y <c>EAAB / RECIP.</c> a Reciprocidad (id 1):
+    /// son los rótulos heredados del template, no una regla por período/empresa nueva.
+    /// </summary>
+    public static readonly IReadOnlyList<(string Etiqueta, int EmpresaId)> ControlRecaudoPorEtiqueta =
+    [
+        ("ENEL / RECIP.", 2),
+        ("ENERBIT", 3),
+        ("EAAB / RECIP.", 1),
+        ("DIRECTA OCCIDENTE", 4),
+    ];
+
+    /// <summary>
+    /// Plan 48 (H1b — S-1 del review): celdas cuyo <c>&lt;v&gt;</c> sella el writer tras escribir
+    /// <c>D7:D10</c> con el valor EVALUADO por read-back (jamás inventado). Punto ÚNICO de
+    /// congelamiento: el writer consume esta lista, no un arreglo inline. En la v2 las tres son
+    /// fórmulas (<c>E7=SUM(D7:D9)</c>, <c>E10=SUM(D10)</c>, <c>F10=E7+E10</c>); en la v1 son literales
+    /// y el sellado es no-op.
+    /// </summary>
+    public static readonly IReadOnlyList<string> CeldasSelladoControlRecaudo = ["E7", "E10", "F10"];
+
+    /// <summary>
     /// HU-14 (W-1): sub-bloques booleanos de <c>VALIDACION_TOTAL</c> gateados TRUE exacto por
     /// ASE. Amparo T0-0.4 HU-13 (TRUE en ambos goldens; re-verificado por los tests W-1).
     /// </summary>
