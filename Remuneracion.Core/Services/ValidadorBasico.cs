@@ -263,7 +263,7 @@ public sealed class ValidadorBasico : IValidador
         var snapshotsOrdenados = snapshots.OrderBy(s => s.Ase.Id).ToList();
         foreach (var snapshot in snapshotsOrdenados)
         {
-            ValidarGatesValidacionesCruzadasPorAse(errores, snapshot, resultado);
+            ValidarGatesValidacionesCruzadasPorAse(errores, snapshot, resultado, leafs);
         }
 
         // HU-14 (S-2, D8): VALIDACION_TOTAL con gate ÚNICO (no ×5) + igualdad entre snapshots.
@@ -472,9 +472,11 @@ public sealed class ValidadorBasico : IValidador
     private static void ValidarGatesValidacionesCruzadasPorAse(
         List<string> errores,
         ValidacionCruzadaSnapshot snapshot,
-        ResultadoRemuneracion resultado)
+        ResultadoRemuneracion resultado,
+        IReadOnlyList<WorkbookLeafInputs> leafs)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(leafs);
 
         var consolidado = resultado.Consolidados.SingleOrDefault(c => c.Ase.Id == snapshot.Ase.Id);
         if (consolidado is null)
@@ -573,6 +575,87 @@ public sealed class ValidadorBasico : IValidador
             if (!valor)
             {
                 AgregarError(errores, $"ASE {snapshot.Ase.Id} · VALIDACION_TOTAL · {celda}: sub-bloque booleano es falso en el workbook (debe ser TRUE exacto; W-1).");
+            }
+        }
+
+        // (iv) Plan 49 (A1-núcleo + A1-interior): gate ABSOLUTO anti-cancelacion. El gate 2.7 (iii)
+        //     compara dos derivaciones del MISMO workbook (D33 vs D109): una pérdida común entra en
+        //     ambos operandos y cancela (T0 §6.3). Aquí un operando es el DOMINIO por firma
+        //     (WorkbookLeafInputsR1.ExtemporaneoEsperadoPorAse) y el otro es lo escrito resuelto, así
+        //     que la igualdad no puede cancelarse por construcción.
+        ValidarExtempAbsolutoPorAse(errores, snapshot, resultado, leafs);
+    }
+
+    /// <summary>
+    /// Plan 49 (A1, §2.2/§2.3 — D-A/D-D): gate absoluto del EXTEMPORANEO por ASE.
+    ///
+    /// <para>
+    /// <b>Núcleo (obligatorio, ambos lados del CONSOLIDADO):</b> el EXTEMP resuelto desde lo escrito
+    /// en <c>CONSOLIDADO_TOTAL RECAUDO!D{46+aseId}</c> (D47..D51) debe coincidir ±0.5 con el agregado
+    /// EXTEMP del dominio por firma
+    /// (<see cref="WorkbookLeafInputsR1.ExtemporaneoEsperadoPorAse"/>). Como el operando derecho NO
+    /// es otra celda del workbook, una pérdida común a ambas derivaciones (la del EXTEMP ASE5 en la
+    /// plantilla v2) ya no es invisible. Firma del falso verde de julio-2/agosto-2: <c>D34</c> sigue
+    /// TRUE (cancela) y este gate falla con el Δ exacto (<c>441.849</c> / <c>1.249.810</c>).
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Desviación documentada (H1, 2026-10-19):</b> el plan §2.2 nombra como operando derecho
+    /// <see cref="ConsolidadoAse.Extemp"/>, pero ese campo lo alimenta el lector legacy
+    /// <c>ExcelDataReaderRecaudoReader.LeerR1</c> con la PRIMERA fila <c>Mes</c> de la fuente (no el
+    /// agregado EXTEMP): en julio-2 da <c>13.084.233.937,44</c> (ASE5) y en agosto-2 <c>-4.485,01</c>,
+    /// mientras el manual y el trabajo por firma valen <c>441.849</c> / <c>1.249.810</c>. Comparar
+    /// contra él dispararía 5/5 ASE con Δ falsos (rojo fuera de la lista cerrada). El operando que
+    /// produce EXACTAMENTE los Δ del plan es el agregado del dominio por firma
+    /// (<see cref="WorkbookLeafInputsR1.ExtemporaneoEsperadoPorAse"/>), que coincide al centavo con
+    /// <c>CONSOLIDADO!D47:D51</c> del manual en julio-2 y agosto-2. La costura `ConsolidadoAse.Extemp`
+    /// queda intacta (fuera del alcance: no se corrige el EXTEMP).
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Interior (acotado, §2.3):</b> para las anclas del mapa <see cref="AnclasExtempR1"/> (ASE5,
+    /// columna F) se compara la celda ancla con la suma resuelta de sus secciones, de modo que el error
+    /// nombra la hoja R1 + celda ancla donde se perdió el importe. El mapa es DATO citado; una forma
+    /// nueva del ancla la reporta el reader como <c>ERR-PLANTILLA</c>. Sin evidencia del reader
+    /// (<see cref="ValidacionCruzadaSnapshot.ExtempResuelto"/> = <c>null</c> y lista de anclas vacía),
+    /// no se agrega nada: snapshots construidos a mano conservan la compatibilidad.
+    /// </para>
+    ///
+    /// Sin rama por quincena (§2.6): el gate corre en Q1 y Q2; compara el dominio del período.
+    /// </summary>
+    private static void ValidarExtempAbsolutoPorAse(
+        List<string> errores,
+        ValidacionCruzadaSnapshot snapshot,
+        ResultadoRemuneracion resultado,
+        IReadOnlyList<WorkbookLeafInputs> leafs)
+    {
+        var consolidado = resultado.Consolidados.SingleOrDefault(c => c.Ase.Id == snapshot.Ase.Id);
+        var leaf = leafs.SingleOrDefault(l => l.Ase.Id == snapshot.Ase.Id);
+        if (consolidado is null || leaf is null)
+        {
+            return; // el gate de validaciones cruzadas ya reportó el consolidado/leaf ausente.
+        }
+
+        if (snapshot.ExtempResuelto is { } resuelto)
+        {
+            var esperado = leaf.R1.ExtemporaneoEsperadoPorAse;
+            var diferencia = Math.Abs(resuelto - esperado);
+            if (diferencia > Tolerancia)
+            {
+                var celda = AnclasExtempR1.CeldaConsolidadoExtemp(snapshot.Ase.Id);
+                AgregarError(errores,
+                    $"ASE {snapshot.Ase.Id} · {AnclasExtempR1.HojaConsolidado} · {celda}: EXTEMP resuelto desde lo escrito ({resuelto}) != Extemp del dominio ({esperado}). Diferencia={diferencia} > ±{Tolerancia}. (Plan 49 A1: gate absoluto anti-cancelacion.)");
+            }
+        }
+
+        foreach (var ancla in snapshot.AnclasExtempR1)
+        {
+            var diferencia = Math.Abs(ancla.ValorAncla - ancla.ValorSecciones);
+            if (diferencia > Tolerancia)
+            {
+                var expresionVisible = ancla.ExpresionSecciones.Replace('-', '−');
+                AgregarError(errores,
+                    $"ASE {snapshot.Ase.Id} · {AnclasExtempR1.Hoja} · {ancla.Celda}: ancla EXTEMP resuelta ({ancla.ValorAncla}) != suma de secciones {expresionVisible} ({ancla.ValorSecciones}). Diferencia={diferencia} > ±{Tolerancia}. (Plan 49 A1-interior.)");
             }
         }
     }

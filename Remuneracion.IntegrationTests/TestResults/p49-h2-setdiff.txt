@@ -1,0 +1,74 @@
+Plan 49 - H2 set-diff (2026-10-19)
+====================================
+
+Base : Remuneracion.IntegrationTests/TestResults/p48-h3-suite.trx
+       Total 1059 / Passed 1021 / Failed 38 / Skipped 0
+Nueva: Remuneracion.IntegrationTests/TestResults/p49-h2-suite.trx
+       Total 1061 / Passed 1012 / Failed 49 / Skipped 0
+
+Delta: +2 Total (los 2 verdes nuevos de A2), +11 Failed, -9 Passed netos, 0 Skipped.
+Bajas: 0.
+Altas: 11 -> LISTA CERRADA (todas Plan 49 A1 sobre julio-2 = 2026072). 0 altas fuera de lista.
+
+A2 (verdes nuevos, S2.1):
+  + GateAbsolutoAntiCancelacionTests.Caso1_CancelacionSimulada_D34Verde_GateAbsolutoFallaConDeltaExacto
+  + GateAbsolutoAntiCancelacionTests.Caso2_ResueltoIgualAlDominio_CeroErroresA1
+
+# ---------------------------------------------------------------------------
+# LISTA CERRADA DE ALTAS (test -> evidencia)
+# ---------------------------------------------------------------------------
+
+[A1 directo: el fallo ES el mensaje `Plan 49 A1`]
+1. ComposicionServiciosTests.O1_ComposicionDelHost_LaViaDeProduccionCierraConReconocimiento
+   -> A1 nucleo ASE5 D51 (0 vs 441849.00) + interior F682/F702 (0 vs 441849.00).
+2. DivergenciaDeclaradaCierreT4Tests.T4_DeclaradaReconocida_ElRunCompletaConArchivoReporteYLog
+   -> idem (julio-2).
+3. HuellaAceptacionO3Tests.O3_Log_Huella_RegistraUsuarioYCanalComoPropiedadesEstructuradas
+   -> idem (julio-2).
+4. ProcesadorPeriodoTests.Ejecutar_Periodo2026072_ConLectorOracle_VeredictosValidacionesNoVacios
+   -> idem (julio-2).
+5. SalidaSinValidarO4Tests.O4_CorridaCerradaBien_ProduceNombreLimpio
+   -> idem (julio-2).
+
+[A1 causado aguas abajo: la excepcion de A1 cambia el flujo y rompe la asercion previa]
+6. ComposicionServiciosTests.O1_ComposicionDelHost_NoCierraEnVerdeSinValidar
+   -> esperaba CalculoInvalidoException con Clasificacion declarada; A1 es NO declarada y
+      aborta antes de la ultima puerta (Plan 42 D-F) => Clasificacion null.
+7. DivergenciaDeclaradaCliTests.T3_Q2_ConFlag_CierraConCodigoDistintoYReporte
+   -> esperaba codigo 6 (declarada reconocida); A1 devuelve codigo 1 (ERR-VALIDACION).
+8. DivergenciaDeclaradaCliTests.T3_Q2_SinFlag_BloqueaConValidacion
+   -> esperaba el id sintetico/`VALIDACION_TOTAL` en stderr; el mensaje es A1.
+9. DivergenciaDeclaradaReejecucionUiTests.Ui_ReejecucionEnDosPasadas_PrimeraLanzaYSegundaCierraConReporte
+   -> 1.a pasada esperaba Clasificacion declarada; A1 no ofrece reconocimiento.
+10. DivergenciaDeclaradaT0Tests.T0_CorridaVivaQ2_OccidenteAse5_DeltaExactoYClasificacionDeclarada
+   -> esperaba la clasificacion sintetica; A1 aborta antes => Clasificacion null.
+11. RegresionEvaluaSellaPlan40Tests.T4_EndToEnd_Oficial_EvaluaSella_DefectoEspejoDeclarado
+    (codigo: "2026072", carpetaRel: "Docs/Prueba Julio-2/Insumos")
+   -> esperaba `VALIDACION_TOTAL · C15` (fixture sintetico) y 5 errores; A1 agrega errores
+      no declarados en ASE5 y cambia el mensaje.
+
+# ---------------------------------------------------------------------------
+# EVIDENCIA DE LOS DELTA EXACTOS (S1.3)
+# ---------------------------------------------------------------------------
+
+julio-2 (2026072), output v2 + lector real:
+  ASE5 `CONSOLIDADO_TOTAL RECAUDO!D51` resuelto = 0 vs dominio (leaf) = 441849.00 -> Delta = 441849.00
+  ASE5 `Reporte Componentes R1!F682` = 0 vs F660+F629-L629 = 441849.00      -> Delta = 441849.00
+  ASE5 `Reporte Componentes R1!F702` = 0 vs F659+F628-L628 = 441849.00      -> Delta = 441849.00
+  (ASE1-4: resuelto == dominio exacto -> sin error A1)
+
+agosto-2 (2026082), `Docs/Prueba Agosto-2/Resultado/7/... (sin validar).xlsx` + fuentes reales:
+  ASE1 63570.00 / ASE2 221630.00 / ASE3 0 / ASE4 4030410.00 -> resuelto == dominio
+  ASE5 `D51` resuelto = 0 vs dominio = 1249810.00 -> Delta = 1249810.00
+  ASE5 `F682` = 0 vs F660+F629-L629 = 1249810.00   -> Delta = 1249810.00
+  ASE5 `F702` = 0 vs F659+F628-L628 = 1249810.00   -> Delta = 1249810.00
+
+# ---------------------------------------------------------------------------
+# GATES S0
+# ---------------------------------------------------------------------------
+
+- 0 Skip, 0 `Assert.True(true)`, 0 tests borrados, 0 tests reverdecidos/re-congelados.
+- El rojo de julio-2 es el EXITO del plan (el falso verde deja de ser verde). Prohibido
+  revertirlo tocando tests: se retira con la v3 de la propietaria (fórmulas F682/F702) + T0.
+- Plantillas v1/v2: SHA256 intactos antes/despues (ver reporte H1/H3).
+- Cero cambios de formula (`<f>`): el writer sigue values-only; el gate solo lee.

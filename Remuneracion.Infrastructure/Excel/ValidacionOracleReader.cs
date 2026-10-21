@@ -188,8 +188,104 @@ public sealed class ValidacionOracleReader : IValidacionOracleReader
             ValidacionTotalOkP = valorTotalP,
             Controles = controles,
             SubBloquesValidacionTotal = subBloques,
-            SubBloquesValidacionTotalEvidencia = evidencia
+            SubBloquesValidacionTotalEvidencia = evidencia,
+            ExtempResuelto = ResolverExtempConsolidado(resolutor, aseId),
+            AnclasExtempR1 = ResolverAnclasExtempR1(resolutor, aseId)
         };
+    }
+
+    /// <summary>
+    /// Plan 49 (A1-núcleo, §2.2): EXTEMP del ASE resuelto desde lo escrito en
+    /// <c>CONSOLIDADO_TOTAL RECAUDO!D{46+aseId}</c>. El resolutor sigue el texto-<c>&lt;f&gt;</c>
+    /// (nunca el caché <c>&lt;v&gt;</c>): en la v2, <c>D51 → 'Reporte Componentes R1'!F682</c> y
+    /// <c>F682</c> es un literal <c>0</c> (defecto de plantilla del T0 §3.4). Celda ausente o
+    /// cadena no resoluble = <c>ERR-PLANTILLA</c> nombrando hoja+celda (nunca 0 silencioso).
+    /// El reader NO juzga: solo expone el valor para que el validador lo compare con el dominio.
+    /// </summary>
+    private static decimal ResolverExtempConsolidado(ResolutorValorValidacion resolutor, int aseId)
+    {
+        var hoja = AnclasExtempR1.HojaConsolidado;
+        var celda = AnclasExtempR1.CeldaConsolidadoExtemp(aseId);
+
+        if (!resolutor.ExisteCelda(hoja, celda))
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"La celda '{hoja}!{celda}' (EXTEMP del ASE {aseId}) no existe en el workbook. (Plan 49 A1: el gate absoluto necesita la celda del CONSOLIDADO; sin ella no hay 0 silencioso.)");
+        }
+
+        if (!resolutor.TryEvaluar(hoja, celda, out var valor))
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"La celda '{hoja}!{celda}' (EXTEMP del ASE {aseId}) no es resoluble desde lo escrito. (Plan 49 A1: tercera forma = ERR-PLANTILLA, nunca 0 silencioso.)");
+        }
+
+        return valor;
+    }
+
+    /// <summary>
+    /// Plan 49 (A1-interior, §2.3): evidencia de las anclas EXTEMP del interior R1 según el mapa
+    /// <see cref="AnclasExtempR1"/> (ASE5, columna F). El ancla DEBE ser un literal (la v2 perdió la
+    /// fórmula del manual); con <c>&lt;f&gt;</c> inesperado o ausente con secciones presentes =
+    /// <c>ERR-PLANTILLA</c> nombrando hoja+celda. Un workbook que no trae NINGUNA de las celdas de la
+    /// geometría (p. ej. el manual legacy, usado SOLO como fixture de lectura) no es una tercera
+    /// forma de la v2: no hay ancla que verificar y la lista queda vacía.
+    /// </summary>
+    private static IReadOnlyList<AnclaExtempR1Evidencia> ResolverAnclasExtempR1(
+        ResolutorValorValidacion resolutor,
+        int aseId)
+    {
+        var anclas = AnclasExtempR1.PorAse(aseId);
+        if (anclas.Count == 0)
+        {
+            return [];
+        }
+
+        var hoja = AnclasExtempR1.Hoja;
+        var evidencias = new List<AnclaExtempR1Evidencia>(anclas.Count);
+        foreach (var ancla in anclas)
+        {
+            var existeAncla = resolutor.ExisteCelda(hoja, ancla.Celda);
+            var seccionesPresentes = ancla.CeldasSeccion.Count(c => resolutor.ExisteCelda(hoja, c));
+
+            if (!existeAncla && seccionesPresentes == 0)
+            {
+                continue; // geometría del ancla no presente en este workbook (no es la v2).
+            }
+
+            if (!existeAncla)
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"La celda-ancla '{hoja}!{ancla.Celda}' (EXTEMP del ASE {aseId}) no existe aunque sus secciones sí: forma parcial de la plantilla. (Plan 49 A1-interior: tercera forma = ERR-PLANTILLA.)");
+            }
+
+            if (!string.IsNullOrEmpty(resolutor.TextoFormulaEfectiva(hoja, ancla.Celda)))
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"La celda-ancla '{hoja}!{ancla.Celda}' (EXTEMP del ASE {aseId}) trae fórmula y el contrato T0 la congeló como literal. (Plan 49 A1-interior: tercera forma = ERR-PLANTILLA; una v3 exige re-congelar el mapa con su T0.)");
+            }
+
+            if (!resolutor.TryEvaluar(hoja, ancla.Celda, out var valorAncla)
+                || !resolutor.TryEvaluar(hoja, ancla.ExpresionSecciones, out var valorSecciones))
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"La celda-ancla '{hoja}!{ancla.Celda}' o sus secciones ({ancla.ExpresionSecciones}) no son resolubles desde lo escrito. (Plan 49 A1-interior: tercera forma = ERR-PLANTILLA.)");
+            }
+
+            evidencias.Add(new AnclaExtempR1Evidencia
+            {
+                Celda = ancla.Celda,
+                ExpresionSecciones = ancla.ExpresionSecciones,
+                ValorAncla = valorAncla,
+                ValorSecciones = valorSecciones
+            });
+        }
+
+        return evidencias;
     }
 
     /// <summary>

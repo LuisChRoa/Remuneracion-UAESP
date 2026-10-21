@@ -176,6 +176,21 @@ Desde **2026-10-19** la **v2** (`Docs/Plantilla estandarizada/v2/Formato Remuner
 4. **R1 682/702:** la zona de fórmulas que el manual añadió (`F682/F692/F702`, shared `H682:AO682`/`H702:AO702`) **NO se adopta** (delta documentado, P5a pendiente); la v2 no las trae.
 5. **`<f>`:** la App no crea ni modifica fórmulas; solo el sellado autorizado escribe `<v>` (nunca `<f>`). Cero `InsertRow`/`DeleteRow`.
 
+### A1 — gate absoluto del EXTEMPORÁNEO (Plan 49; corrige el punto 4 de la sección v2)
+
+Si una corrida termina con un error que contiene **`Plan 49 A1`**, significa que el EXTEMPORÁNEO de un ASE **no llegó al CONSOLIDADO** de la salida. Ejemplo julio-2:
+
+```text
+ASE 5 · CONSOLIDADO_TOTAL RECAUDO · D51: EXTEMP resuelto desde lo escrito (0) != Extemp del dominio (441849.00).
+Diferencia=441849.00 > ±0.5. (Plan 49 A1: gate absoluto anti-cancelacion.)
+ASE 5 · Reporte Componentes R1 · F682: ancla EXTEMP resuelta (0) != suma de secciones F660+F629−L629 (441849.00).
+```
+
+1. **Qué pasó:** la plantilla **v2** (heredado de la legacy) trae las anclas `Reporte Componentes R1!F682` (consume `CONSOLIDADO!D51`) y `F702` (consume `REMUNERACION_OCCIDENTE!D51`) como **literal 0 sin fórmula**. La app no las escribe (values-only, fuera de su contrato) y la plantilla no las calcula ⇒ el EXTEMPORÁNEO del **ASE5** no llega al CONSOLIDADO. El gate viejo (`D34/F34/O25`) **no lo veía** porque la pérdida entraba en sus dos operandos y **cancelaba**.
+2. **Por qué el punto 4 de la sección v2 queda corregido:** `F682/F702` **no** son "delta del manual": son **anclas consumidoras**. No pueden congelarse como diferencia esperada (regla: ninguna celda referenciada por otra hoja se congela como delta sin demostrar que no altera al consumidor).
+3. **Qué hacer:** **NO** editar la plantilla, **NO** forzar el valor, **NO** aceptar como divergencia declarada (es deuda **NO declarada**: falla en duro, por diseño). Reportar a la **propietaria de la plantilla/UAESP** con el ASE, la celda y el Δ que nombra el error. La corrección es una **v3** de la plantilla (restaurar `F682 = F660+F629-L629` y `F702 = F659+F628-L628`) con su T0 de bytes.
+4. **Condición de retiro del rojo:** cuando exista la v3 auditada, se re-congela el mapa de anclas con su T0 y las salidas de julio-2/agosto-2 vuelven a verde **por la plantilla**, nunca reverdeciendo tests ni declarando la diferencia.
+
 ### M2 — Especiales ausente
 
 Ninguna fuente de saldos-nota trae columna "Especiales": `TieneColumnaEspeciales = false` está fijado por código y el valor ausente se trata como **0**. No es un error: es el comportamiento esperado (5/5 sin columna).

@@ -27,6 +27,10 @@ public sealed class T0ResidualOccidenteAse5Tests
     private const string HojaR1 = "Reporte Componentes R1";
     private const string HojaValidacionTotal = "VALIDACION_TOTAL";
 
+    #region DEUDA-DECLARADA Plan 49 (T0-EXTEMP-Ase5-Plan49 §4.3/§8.1)
+    // La celda F682/F702 es ancla consumidora (CONSOLIDADO!D51). El assert congela el
+    // defecto de la plantilla v2 (literal 0), NO un comportamiento esperado.
+    // Condición de retiro: v3 de la propietaria con la fórmula restaurada + T0 nuevo.
     [Fact]
     public void Oficial_Ase5_ExtempAnchorsSonValor_NoFormula()
     {
@@ -46,6 +50,7 @@ public sealed class T0ResidualOccidenteAse5Tests
         Assert.Equal("F341+F314-L314", FormulaDe(hoja, "F437"));
         Assert.Equal("F529+F485-L485", FormulaDe(hoja, "F590"));
     }
+    #endregion
 
     [Fact]
     public void Oficial_Ase5_AnclasNoConsumenLasFilasOportuno()

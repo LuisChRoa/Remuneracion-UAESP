@@ -443,11 +443,16 @@ public sealed class AdopcionPlantillaV2T0Plan48Tests
         Assert.Equal("H629", manual.Formula("S682"));
         Assert.Equal("H629", manual.Formula("AN682"));
 
+        #region DEUDA-DECLARADA Plan 49 (T0-EXTEMP-Ase5-Plan49 §4.3/§8.1)
+        // La celda F682/F702 es ancla consumidora (CONSOLIDADO!D51). El assert congela el
+        // defecto de la plantilla v2 (literal 0), NO un comportamiento esperado.
+        // Condición de retiro: v3 de la propietaria con la fórmula restaurada + T0 nuevo.
         // En la v2 esas celdas están vacías (sin fórmula): el delta es del manual, no de la base.
         foreach (var r in new[] { "F682", "F692", "F702", "W682", "S682", "AN682", "F683", "F693", "F703" })
         {
             Assert.False(v2.TieneFormula(r), $"V2 no debe traer fórmula en {r}.");
         }
+        #endregion
     }
 
     // ── S1.6: ancla del oráculo reproducida (manual v2) ───────────────────────────────────────

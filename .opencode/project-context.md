@@ -449,5 +449,31 @@ Las **filas-frontera** (`Mes/Total`, `Aplicacion…/Total`) viajan con la secci�
 - **Q1:** fuera de alcance. El end-to-end Q1 usa la **v1 histórica** como dato del test; Q2 corre con v2. **Ratificado 2026-10-19 (P5c): la v2 es la base unica para TODOS los periodos.** Consecuencia obligatoria: procesar una Q1 real con la v2 exige cerrar su frente (hoy falla con `ERR-SIN-SLOT` en R1 ASE2 `||NUEVO ESQUEMA|Total|`, el contrato de seccion faltante de Q1); el end-to-end Q1 se mantiene con la v1 solo como referencia historica hasta esa autorizacion. Cualquier cambio de comportamiento Q1 exige autorización separada.
 - **Riesgos residuales declarados:** (a) el fixture `AdopcionPlantillaV2T0Plan48Tests` depende de `%TEMP%\opencode\p47-h2c` (no reproducible en máquina limpia; falla con mensaje accionable); (b) `Insumos.BaseDelPeriodo` deriva **todos** los períodos de la v2 y la propietaria solo auditó julio-2 (**P5c RESUELTA 2026-10-19: el Ingeniero ratifico que la v2 es la referencia para TODOS los periodos y la unica base de aqui en adelante; v1 queda historica. La cobertura de evidencia sigue limitada a julio-2: solo ese periodo fue auditado por la propietaria**); (c) acoplamiento a geometría/rótulos v2: una v3 exigirá re-congelar por T0 con fail-fast visible.
 
+## Doctrina gate absoluto anti-cancelación + regla celda-referenciada (Plan 49 — vigente)
+
+**Principio rector (`una igualdad entre dos derivaciones del MISMO workbook nunca prueba corrección; solo prueba consistencia`):** toda pérdida **común** a ambas derivaciones es invisible por construcción. El gate 2.7 (`VALIDACION_TOTAL!C15/D25/O25/D34/F34`, `ValidadorBasico.ValidarGatesValidacionesCruzadasPorAse`) compara `D33` (lado empresas) contra `D109` (lado ASE) y por eso **canceló** la pérdida de `1.249.810,00` del EXTEMPORÁNEO ASE5 (entraba en ambos lados), mientras el `12.462,26` asimétrico del R2 sí lo rompía. La clase se cierra con un gate **absoluto** donde un operando es el **dominio**, no otra celda del workbook.
+
+### A1-núcleo (obligatorio, Q1 y Q2 sin exención)
+
+- **Hecho:** `Remuneracion.Core.Services.ValidadorBasico.ValidarExtempAbsolutoPorAse`, invocado desde `ValidarGatesValidacionesCruzadasPorAse`; `ClasificarDivergenciasDeclaradas` lo **hereda** sin código extra (reutiliza `Validar`), así que una pérdida A1 es una divergencia **NO declarada** y falla en duro (Plan 42 D-F: la declarada es la última puerta).
+- **Evidencia (Infrastructure, read-only):** `ValidacionOracleReader` expone en el snapshot `ExtempResuelto` (= `CONSOLIDADO_TOTAL RECAUDO!D{46+aseId}` resuelto con `ResolutorValorValidacion`: texto-`<f>` + literales, **prohibido `<v>` stale**) y `AnclasExtempR1` (evidencia interior). El reader **no juzga**; el juicio vive en Core.
+- **Operando derecho (desviación documentada 2026-10-19):** el plan §2.2 nombra `ConsolidadoAse.Extemp`; en el codebase ese campo lo alimenta el lector legacy (`LeerR1` toma la **primera** fila `Mes` de la fuente), no el agregado EXTEMP: julio-2 ASE5 = `13.084.233.937,44`, agosto-2 ASE5 = `-4.485,01`, frente a `441.849,00` / `1.249.810,00` del manual. El operando que produce los Δ del plan es el **agregado del dominio por firma** `WorkbookLeafInputsR1.ExtemporaneoEsperadoPorAse` (coincide al centavo con `CONSOLIDADO!D47:D51` del manual en julio-2 y agosto-2). `ConsolidadoAse.Extemp` queda **intacto** (fuera de alcance: el plan no corrige el EXTEMP).
+- **Firma del falso verde (probada):** julio-2 → `D51 = 0` vs `441.849,00` (Δ `441.849,00`); agosto-2 → `D51 = 0` vs `1.249.810,00` (Δ `1.249.810,00`); ASE1-4 cierran exacto.
+
+### A1-interior (acotado: ASE5, columna F)
+
+- Mapa **DATO citado** del T0 §3.4: `Remuneracion.Core.Models.AnclasExtempR1` → ASE5 `{F682: F660+F629−L629; F702: F659+F628−L628}`. El error nombra **hoja R1 + celda ancla** (localiza dónde se perdió el importe).
+- Tercera forma (ancla ausente con secciones presentes, o ancla con `<f>` inesperado) = **`ERR-PLANTILLA`** nombrando hoja+celda, nunca 0 silencioso ni fallback posicional. Una v3 exige re-congelar el mapa con su T0. Un workbook sin NINGUNA celda de esa geometría (p. ej. el manual legacy, fixture de lectura) no es tercera forma: no hay ancla que verificar.
+
+### Regla celda-referenciada (doctrina de T0)
+
+**Ninguna celda referenciada por otra hoja puede congelarse como "delta del manual" sin demostrar que el valor NO altera el consumidor.** La prueba de que `F682/F702` era un defecto no fue la diferencia de texto: fue que `CONSOLIDADO!D51`, `DetRetri!D36`, `DetValiRetri!D28` y `REMUNERACION_OCCIDENTE!D51` la consumen. Los 5 T0 que asertaban el literal están **reclasificados como DEUDA DECLARADA** (región `DEUDA-DECLARADA Plan 49`, asserts **byte-idénticos**: `GeometriaPlantillaEstandarizadaT0Tests`, `T0ResidualOccidenteAse5Tests`, `AdopcionPlantillaV2T0Plan48Tests`, `R1FuenteCanalConceptoT0Tests`, `DetRetriQ2Tests`). Condición de retiro: **v3 de la propietaria** con la fórmula restaurada + T0 nuevo.
+
+### Estado de suite y rojo esperado
+
+- Suite `p49-h2-suite.trx`: **1061 Total / 1012 Passed / 49 Failed / 0 Skipped** vs base `p48-h3-suite.trx` (1059/1021/38/0): **11 altas, 0 bajas**, todas `Plan 49 A1` sobre **julio-2** (detalle en `Remuneracion.IntegrationTests/TestResults/p49-h2-setdiff.txt`). No se re-congelaron ni se reverdecieron: el rojo es el éxito del plan hasta la v3.
+- **Prohibido reverdecer** julio-2/agosto-2 tocando tests; el `12.462,26` del R2 ASE4 **no** se declara en este plan (T0 de dueño propio).
+
+
 
 

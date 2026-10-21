@@ -122,6 +122,31 @@ public sealed class SubBloqueValidacionTotalEvidencia
 }
 
 /// <summary>
+/// Plan 49 (A1-interior, §2.3): evidencia EVALUABLE de UN ancla EXTEMPORANEO del interior de
+/// <c>Reporte Componentes R1</c>. El reader resuelve ambos operandos desde lo escrito (texto-
+/// <c>&lt;f&gt;</c> + literales, nunca caché <c>&lt;v&gt;</c> stale) y el validador de Core juzga
+/// <c>ValorAncla</c> vs <c>ValorSecciones</c> con ±0.5, nombrando hoja + celda. El mapa de anclas
+/// (<see cref="AnclasExtempR1"/>) es DATO citado del T0; el reader no decide.
+/// </summary>
+public sealed class AnclaExtempR1Evidencia
+{
+    /// <summary>Celda ancla del interior R1 (p. ej. <c>F682</c>).</summary>
+    public string Celda { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Expresión de la suma de secciones (p. ej. <c>F660+F629-L629</c>), en el mismo texto que
+    /// usa el resolutor.
+    /// </summary>
+    public string ExpresionSecciones { get; set; } = string.Empty;
+
+    /// <summary>Valor resuelto de la celda ancla desde lo escrito.</summary>
+    public decimal ValorAncla { get; set; }
+
+    /// <summary>Valor resuelto de la suma de secciones desde lo escrito.</summary>
+    public decimal ValorSecciones { get; set; }
+}
+
+/// <summary>
 /// HU-13 (2.7): snapshot-oráculo de validaciones cruzadas de UN ASE en UN período.
 /// Oráculo de LECTURA (D1): lo puebla <c>IValidacionOracleReader</c> (Infrastructure, OpenXML
 /// read-only, asserts W2) y lo consume el validador de dominio — que NUNCA abre .xlsx.
@@ -184,4 +209,21 @@ public sealed class ValidacionCruzadaSnapshot
     /// </summary>
     public IReadOnlyDictionary<string, SubBloqueValidacionTotalEvidencia> SubBloquesValidacionTotalEvidencia { get; set; } =
         new Dictionary<string, SubBloqueValidacionTotalEvidencia>();
+
+    /// <summary>
+    /// Plan 49 (A1-núcleo, §2.2): EXTEMP del ASE resuelto desde lo escrito en
+    /// <c>CONSOLIDADO_TOTAL RECAUDO!D{46+aseId}</c> (D47..D51) por el resolutor acotado.
+    /// El gate absoluto lo compara contra <see cref="ConsolidadoAse.Extemp"/> del dominio (un
+    /// operando NO es otra celda del workbook: por construcción no puede cancelarse).
+    /// <c>null</c> = snapshot sin evidencia (construcciones manuales de test / reader previo):
+    /// el gate A1 no corre y el comportamiento anterior queda intacto.
+    /// </summary>
+    public decimal? ExtempResuelto { get; set; }
+
+    /// <summary>
+    /// Plan 49 (A1-interior, §2.3): evidencia de las anclas EXTEMP del interior R1 (solo ASE5,
+    /// solo columna F, mapa <see cref="AnclasExtempR1"/>). Vacío = este ASE no tiene anclas
+    /// gateadas en el interior (o el workbook no trae esa geometría).
+    /// </summary>
+    public IReadOnlyList<AnclaExtempR1Evidencia> AnclasExtempR1 { get; set; } = [];
 }

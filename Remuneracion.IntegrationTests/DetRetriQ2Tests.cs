@@ -35,9 +35,14 @@ public sealed class DetRetriQ2Tests
         Assert.InRange(leaf.R1.CeldasPorAse["L613"] - 14901729.33m, -Tolerancia, Tolerancia);
         Assert.InRange(leaf.R1.TotalOportunoEsperadoPorAse - 12033011685.71m, -Tolerancia, Tolerancia);
 
+        #region DEUDA-DECLARADA Plan 49 (T0-EXTEMP-Ase5-Plan49 §4.3/§8.1)
+        // La celda F682/F702 es ancla consumidora (CONSOLIDADO!D51). El assert congela el
+        // defecto de la plantilla v2 (literal 0), NO un comportamiento esperado.
+        // Condición de retiro: v3 de la propietaria con la fórmula restaurada + T0 nuevo.
         // EXTEMP ASE5-Q2: el template deja F682 en VALOR 0 (sin fórmula); el agregado del reader
         // (Σ Aplicacion − Especiales de la primera) = 441849 = D51 golden.
         Assert.InRange(leaf.R1.ExtemporaneoEsperadoPorAse - 441849m, -Tolerancia, Tolerancia);
+        #endregion
 
         // Coherencia contra la fuente (gate HU-02): F25 = primera fila Mes/Total = Extemporaneo.
         Assert.InRange(leaf.R1.F25 - 13084233937.44m, -Tolerancia, Tolerancia);

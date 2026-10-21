@@ -206,8 +206,13 @@ public sealed class R1FuenteCanalConceptoT0Tests
 
         Assert.Equal("F647+F673+F612-L612-L647", FormulaDe(hoja, "F700"));
         Assert.Equal("F674+F648+F613-L613-L648", FormulaDe(hoja, "F680"));
+        #region DEUDA-DECLARADA Plan 49 (T0-EXTEMP-Ase5-Plan49 §4.3/§8.1)
+        // La celda F682/F702 es ancla consumidora (CONSOLIDADO!D51). El assert congela el
+        // defecto de la plantilla v2 (literal 0), NO un comportamiento esperado.
+        // Condición de retiro: v3 de la propietaria con la fórmula restaurada + T0 nuevo.
         Assert.Null(FormulaDe(hoja, "F682"));
         Assert.Null(FormulaDe(hoja, "F702"));
+        #endregion
 
         // F628 / F659 = filas Oportuno de OCCIDENTE (D=Total, C=OCCIDENTE) sin consumidor.
         Assert.Equal("OCCIDENTE", TextoCelda(hoja, ss, "C628"));

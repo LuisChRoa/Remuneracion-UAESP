@@ -212,6 +212,13 @@ internal sealed class ResolutorValorValidacion
     }
 
     /// <summary>
+    /// Plan 49 (A1): verdad si la celda EXISTE en la hoja indicada (aunque no tenga valor). Necesario
+    /// para distinguir "celda ausente" de "literal 0" al resolver el EXTEMP desde lo escrito, sin
+    /// caer en la semántica de Excel (celda ausente = 0) que ocultaría un ancla borrada.
+    /// </summary>
+    public bool ExisteCelda(string hoja, string celda) => ObtenerCelda(hoja, celda) is not null;
+
+    /// <summary>
     /// Texto-<c>&lt;f&gt;</c> EFECTIVO de una celda: su propio texto, o el del maestro compartido
     /// desplazado a esta celda (follower). Vacío si no es fórmula o no hay maestro resoluble.
     /// </summary>

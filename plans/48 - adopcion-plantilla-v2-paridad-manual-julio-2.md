@@ -374,3 +374,25 @@ Suite `p48-h3-suite.trx`: **1059 Total / 1021 Passed / 38 Failed / 0 Skipped**; 
 `o43-final-failed.txt` (39): **0 altas / 1 baja heredada**
 (`ProcesadorPeriodoTests.Ejecutar_Periodo2026072_ConLectorOracle_VeredictosValidacionesNoVacios`);
 vs `p47-warnings.trx` (38): 0 altas / 0 bajas. SHAs v1/v2 intactos; cero commits.
+
+#### Addendum 2026-10-19 — el falso verde de julio-2 queda CERRADO por el Plan 49 (no se reescribe la historia)
+
+El Plan 49 (`plans/49 - cerrar-falso-verde-gate-2.7.md`, APROBADO 2026-10-19) probó con bytes
+(`Docs/T0-EXTEMP-Ase5-Plan49.md`) que este cierre convivía con un **falso verde**: la corrida
+promovida de julio-2 tiene `CONSOLIDADO_TOTAL RECAUDO!D51 = 0` frente a `441.849` del manual, y el
+gate `D34/F34/O25` **no lo veía** porque la pérdida del EXTEMPORÁNEO ASE5 entraba en **ambos**
+operandos y cancelaba. La clasificación de §9.7 ("las 9 fórmulas faltantes de 682/692/702 son delta
+del manual") queda **incorrecta**: esas celdas son **anclas consumidoras** (`CONSOLIDADO!D51`,
+`DetRetri!D36`, `DetValiRetri!D28`, `REMUNERACION_OCCIDENTE!D51`), no cosmética.
+
+Qué cambió (solo Plan 49, este documento no se reescribe):
+
+- Gate **absoluto** `ValidadorBasico.ValidarExtempAbsolutoPorAse` (núcleo workbook-vs-dominio +
+  interior R1 `F682/F702` vs secciones), evidencia en `ValidacionOracleReader`
+  (`ExtempResuelto`/`AnclasExtempR1`). Corre en Q1 y Q2 sin exención.
+- Los 5 T0 de §8.1 del T0-Plan49 quedan **DEUDA DECLARADA** (región, asserts byte-idénticos);
+  retiro cuando llegue la **v3** de la propietaria con las fórmulas restauradas.
+- La suite pasa a `p49-h2-suite.trx`: **1061/1012/49/0** con **11 altas, 0 bajas** (todas `Plan 49
+  A1` sobre julio-2). Esas altas son el **rojo honesto** del plan; **prohibido reverdecarlas**.
+- La corrección de plantilla (EXTEMP ASE5 y R2 ASE4 `12.462,26`) sigue **FUERA**: depende de la v3
+  y de un T0 de dueño propio.
