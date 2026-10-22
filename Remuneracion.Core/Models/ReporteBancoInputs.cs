@@ -63,11 +63,31 @@ public sealed class ReporteBancoAseInputs
     public Ase Ase { get; set; } = new();
 
     /// <summary>
-    /// Empresas del bloque con sus 4 conceptos. Solo las empresas del mapa congelado por
-    /// T0-0.7 (ver <c>WorkbookLeafCellMapReporteBanco</c>); las columnas sin fuente en Q1
-    /// (CIUDAD LIMPIA/EAB) no se escriben.
+    /// Empresas del bloque con sus 4 conceptos. Solo las empresas <b>presentes</b> en el Resumen
+    /// de la fuente: la fuente ausente no se emite (el writer itera presentes y deja el 0 de la
+    /// plantilla). Ver <see cref="FuentesAusentesBanco"/>.
     /// </summary>
     public IReadOnlyList<ReporteBancoEmpresaInputs> Empresas { get; set; } = [];
+
+    /// <summary>
+    /// Plan 51 (A2, §2.2): huella durable de las fuentes de recaudo del catálogo que la plantilla
+    /// declara para este ASE (<c>WorkbookLeafCellMapReporteBanco.EditablesPorAse[ase].Keys</c>) y
+    /// que <b>no vinieron</b> en el Resumen del reporte por banco. Formato <c>BANCO:{label}</c>
+    /// (p. ej. <c>BANCO:NUEVO ESQUEMA</c>). Vacía = todas las fuentes esperadas vinieron
+    /// (comportamiento anterior). La ausencia es un caso NORMAL: sus celdas destino quedan en el 0
+    /// de la plantilla (no se emite fila, no hay <c>TotalFuente = 0</c> que confundir con un total
+    /// real) y no es divergencia ni error.
+    /// </summary>
+    public IReadOnlyList<string> FuentesAusentesBanco { get; set; } = [];
+
+    /// <summary>
+    /// Plan 51 (A3, §2.3): evidencia de celdas de header del Resumen que no resuelven a ninguna
+    /// fuente del vocabulario del negocio (catálogo + rótulo vigente por ASE + sinonimia citada) y
+    /// que no son <c>Total</c>. Formato <c>BANCO:{label}</c>. Solo se convierte en fail-fast si
+    /// coexiste con una <see cref="FuentesAusentesBanco"/> del MISMO ASE (posible fuente presente
+    /// no reconocida: cambio de etiqueta). Vacía = sin hallazgos.
+    /// </summary>
+    public IReadOnlyList<string> EtiquetasBancoNoReconocidas { get; set; } = [];
 }
 
 /// <summary>

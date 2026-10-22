@@ -22,36 +22,41 @@ public static class WorkbookLeafCellMapPorEmpresa
     public const string HojaR4 = WorkbookLeafCellMap.HojaR4;
 
     /// <summary>
-    /// Semántica de un operando R1 en la fuente (Recaudoporcomponente).
-    /// Main = mayor |valor| de la empresa; Menor/Medio = los otros bloques de la misma empresa.
+    /// Semántica de un operando R1 en la fuente (Recaudoporcomponente). Plan 53 (D1/D2): cada celda del
+    /// mapa declara ADEMÁS su <see cref="SeccionEsperadaR1"/> — la sección del bloque que debe
+    /// alimentarla (nunca la ocurrencia ni el mayor/menor <c>|F|</c>: Plan 52 §13).
+    /// El rol se resuelve con <see cref="ResolvedorOperandosEmpresaR1"/> sobre las secciones ya tipadas
+    /// por <see cref="ContratoSeccionPeriodFreeR1.SeccionPorCierre"/> (Plan 46); la sección declarada
+    /// ausente deja la celda en 0 y un empate de sección es STOP.
+    /// Evidencia celda a celda: <c>Docs/T0-Plan53-Contrato-Seccion-Por-Operando-R1.md</c>.
     /// </summary>
     public enum FuenteR1
     {
-        /// <summary>Fila Total principal de la empresa (mayor |F|).</summary>
+        /// <summary>Fila Total del bloque que CIERRA (última sección presente).</summary>
         TotalMain,
 
         /// <summary>Especiales (L) de la fila Total principal.</summary>
         EspecialesMain,
 
-        /// <summary>Fila Subsidio(-)/Contribucion(+) principal (mayor |F|).</summary>
+        /// <summary>Fila Subsidio(-)/Contribucion(+) del bloque que cierra (última sección de Subs).</summary>
         SubsMain,
 
-        /// <summary>Primer bloque Total de la empresa (menor |F|).</summary>
+        /// <summary>Fila Total de la PRIMERA sección del bloque (el "otro" bloque; ausente → 0).</summary>
         TotalMenor,
 
-        /// <summary>Especiales (L) del primer bloque Total.</summary>
+        /// <summary>Especiales (L) de la fila Total de la primera sección.</summary>
         EspecialesMenor,
 
-        /// <summary>Primer bloque Subsidio(-)/Contribucion(+) (menor |F|).</summary>
+        /// <summary>Fila Subsidio(-)/Contribucion(+) de la primera sección de Subs (ausente → 0).</summary>
         SubsMenor,
 
-        /// <summary>Bloque Total intermedio (caso ASE3/ASE4: 3 filas Total).</summary>
+        /// <summary>Fila Total de la sección intermedia (solo con ≥3 secciones; si no → 0).</summary>
         TotalMedio,
 
-        /// <summary>Especiales (L) del bloque Total intermedio.</summary>
+        /// <summary>Especiales (L) de la fila Total intermedia.</summary>
         EspecialesMedio,
 
-        /// <summary>Bloque "5" del nuevo esquema (RECIPROCIDAD ASE2).</summary>
+        /// <summary>Bloque "5" del nuevo esquema (RECIPROCIDAD ASE2): canal <c>D=5</c>, sin sección.</summary>
         Block5Total
     }
 
@@ -77,54 +82,129 @@ public static class WorkbookLeafCellMapPorEmpresa
     }
 
     /// <summary>
-    /// Celdas editables R1 por (empresa × ASE). Valor = la celda del template que recibe el
-    /// operando y su semántica de fuente. Solo las empresas con detalle no-estático.
+    /// Celdas editables R1 por (empresa × ASE). Plan 53 (H1.3, D1/D2): cada entrada declara la celda del
+    /// template, el operando de la fuente <b>y la sección que debe alimentarla</b>
+    /// (<see cref="SeccionEsperadaR1"/>) — el contrato se deriva de la plantilla/manual y está congelado
+    /// celda a celda en <c>Docs/T0-Plan53-Contrato-Seccion-Por-Operando-R1.md</c> §3 (56 entradas;
+    /// triple evidencia: sección de la fuente + `<f>` consumidora donde existe + oráculo del manual).
+    /// Solo las empresas con detalle no-estático.
     /// </summary>
-    public static readonly IReadOnlyDictionary<(int EmpresaId, int AseId), (string Celda, FuenteR1 Fuente)[]> EditablesR1PorEmpresa =
-        new Dictionary<(int, int), (string, FuenteR1)[]>
+    public static readonly IReadOnlyDictionary<(int EmpresaId, int AseId), (string Celda, FuenteR1 Fuente, SeccionEsperadaR1 Seccion)[]> EditablesR1PorEmpresa =
+        new Dictionary<(int, int), (string, FuenteR1, SeccionEsperadaR1)[]>
         {
             // ASE1: ENEL F56 = F33+F14-L14; OCCIDENTE F66 = F40+F24-L24 + EXTEMP F68 = F29+F9-L9.
-            [(2, 1)] = [( "F33", FuenteR1.SubsMain), ("F14", FuenteR1.TotalMain), ("L14", FuenteR1.EspecialesMain)],
+            [(2, 1)] =
+            [
+                ("F33", FuenteR1.SubsMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F14", FuenteR1.TotalMain, SeccionEsperadaR1.UltimaOportuna),
+                ("L14", FuenteR1.EspecialesMain, SeccionEsperadaR1.UltimaOportuna)
+            ],
             [(4, 1)] =
             [
-                ("F40", FuenteR1.SubsMain), ("F24", FuenteR1.TotalMain), ("L24", FuenteR1.EspecialesMain),
-                ("F29", FuenteR1.SubsMenor), ("F9", FuenteR1.TotalMenor), ("L9", FuenteR1.EspecialesMenor)
+                ("F40", FuenteR1.SubsMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F24", FuenteR1.TotalMain, SeccionEsperadaR1.UltimaOportuna),
+                ("L24", FuenteR1.EspecialesMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F29", FuenteR1.SubsMenor, SeccionEsperadaR1.Primera),
+                ("F9", FuenteR1.TotalMenor, SeccionEsperadaR1.Primera),
+                ("L9", FuenteR1.EspecialesMenor, SeccionEsperadaR1.Primera)
             ],
 
             // ASE2: RECIP F181 = F102+F122+F86; ENEL F186 = F117+F95+F83-L95;
             //       OCCIDENTE F196 = F129+F112+F89-L112.
-            [(1, 2)] = [("F102", FuenteR1.TotalMain), ("F122", FuenteR1.SubsMain), ("F86", FuenteR1.Block5Total)],
-            [(2, 2)] = [("F117", FuenteR1.SubsMain), ("F95", FuenteR1.TotalMain), ("F83", FuenteR1.TotalMenor), ("L95", FuenteR1.EspecialesMain)],
-            [(4, 2)] = [("F129", FuenteR1.SubsMain), ("F112", FuenteR1.TotalMain), ("F89", FuenteR1.TotalMenor), ("L112", FuenteR1.EspecialesMain)],
+            [(1, 2)] =
+            [
+                ("F102", FuenteR1.TotalMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F122", FuenteR1.SubsMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F86", FuenteR1.Block5Total, SeccionEsperadaR1.UltimaOportuna)
+            ],
+            [(2, 2)] =
+            [
+                ("F117", FuenteR1.SubsMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F95", FuenteR1.TotalMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F83", FuenteR1.TotalMenor, SeccionEsperadaR1.Primera),
+                ("L95", FuenteR1.EspecialesMain, SeccionEsperadaR1.UltimaOportuna)
+            ],
+            [(4, 2)] =
+            [
+                ("F129", FuenteR1.SubsMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F112", FuenteR1.TotalMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F89", FuenteR1.TotalMenor, SeccionEsperadaR1.Primera),
+                ("L112", FuenteR1.EspecialesMain, SeccionEsperadaR1.UltimaOportuna)
+            ],
 
             // ASE3: ENEL F326 = F246+F227+F213-L227; OCCIDENTE F336 = F253+F237+F216-L237
             //       + EXTEMP F338 = F242+F222.
-            [(2, 3)] = [("F246", FuenteR1.SubsMain), ("F227", FuenteR1.TotalMain), ("F213", FuenteR1.TotalMenor), ("L227", FuenteR1.EspecialesMain)],
+            [(2, 3)] =
+            [
+                ("F246", FuenteR1.SubsMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F227", FuenteR1.TotalMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F213", FuenteR1.TotalMenor, SeccionEsperadaR1.Primera),
+                ("L227", FuenteR1.EspecialesMain, SeccionEsperadaR1.UltimaOportuna)
+            ],
             [(4, 3)] =
             [
-                ("F253", FuenteR1.SubsMain), ("F237", FuenteR1.TotalMain), ("F216", FuenteR1.TotalMenor),
-                ("L237", FuenteR1.EspecialesMain), ("F242", FuenteR1.SubsMenor), ("F222", FuenteR1.TotalMedio)
+                ("F253", FuenteR1.SubsMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F237", FuenteR1.TotalMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F216", FuenteR1.TotalMenor, SeccionEsperadaR1.Primera),
+                ("L237", FuenteR1.EspecialesMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F242", FuenteR1.SubsMenor, SeccionEsperadaR1.Primera),
+                ("F222", FuenteR1.TotalMedio, SeccionEsperadaR1.Intermedia)
             ],
 
             // ASE4: RECIP F442 = F409+F380-L380; ENEL F447 = F404+F373+F353-L373
             //       + EXTEMP F449 = F395+F362; OCCIDENTE F457 = F416+F390+F356-L390 + EXTEMP F459 = F400+F368.
-            [(1, 4)] = [("F409", FuenteR1.SubsMain), ("F380", FuenteR1.TotalMain), ("L380", FuenteR1.EspecialesMain)],
+            [(1, 4)] =
+            [
+                ("F409", FuenteR1.SubsMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F380", FuenteR1.TotalMain, SeccionEsperadaR1.UltimaOportuna),
+                ("L380", FuenteR1.EspecialesMain, SeccionEsperadaR1.UltimaOportuna)
+            ],
             [(2, 4)] =
             [
-                ("F404", FuenteR1.SubsMain), ("F373", FuenteR1.TotalMain), ("F353", FuenteR1.TotalMenor),
-                ("L373", FuenteR1.EspecialesMain), ("F395", FuenteR1.SubsMenor), ("F362", FuenteR1.TotalMedio)
+                ("F404", FuenteR1.SubsMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F373", FuenteR1.TotalMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F353", FuenteR1.TotalMenor, SeccionEsperadaR1.Primera),
+                ("L373", FuenteR1.EspecialesMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F395", FuenteR1.SubsMenor, SeccionEsperadaR1.Primera),
+                ("F362", FuenteR1.TotalMedio, SeccionEsperadaR1.Intermedia)
             ],
             [(4, 4)] =
             [
-                ("F416", FuenteR1.SubsMain), ("F390", FuenteR1.TotalMain), ("F356", FuenteR1.TotalMenor),
-                ("L390", FuenteR1.EspecialesMain), ("F400", FuenteR1.SubsMenor), ("F368", FuenteR1.TotalMedio)
+                ("F416", FuenteR1.SubsMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F390", FuenteR1.TotalMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F356", FuenteR1.TotalMenor, SeccionEsperadaR1.Primera),
+                ("L390", FuenteR1.EspecialesMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F400", FuenteR1.SubsMenor, SeccionEsperadaR1.Primera),
+                ("F368", FuenteR1.TotalMedio, SeccionEsperadaR1.Intermedia)
             ],
 
             // ASE5: ENEL F529 = F502+F483+F474-L483; ENERBIT F534 = F505+F487-L487;
             //       OCCIDENTE F539 = F512+F497+F477-L497.
-            [(2, 5)] = [("F502", FuenteR1.SubsMain), ("F483", FuenteR1.TotalMain), ("F474", FuenteR1.TotalMenor), ("L483", FuenteR1.EspecialesMain)],
-            [(3, 5)] = [("F505", FuenteR1.SubsMain), ("F487", FuenteR1.TotalMain), ("L487", FuenteR1.EspecialesMain)],
-            [(4, 5)] = [("F512", FuenteR1.SubsMain), ("F497", FuenteR1.TotalMain), ("F477", FuenteR1.TotalMenor), ("L497", FuenteR1.EspecialesMain)]
+            // Plan 53 (D5): las celdas Main/Especiales de ASE5 declaran `UnicaRecaudo` — el T0 probó que
+            // en octubre-1 las 3 empresas traen UNA sola fila en la única sección de recaudo; el rol
+            // prohíbe la lectura "única primera ⇒ Menor" (D3-del-52, derogada) y mantiene la identidad
+            // `F483/F487/F497` (§9 #13–#17). `F474/F477` (Primera) quedan en 0 donde la fuente no trae
+            // una primera sección distinta.
+            [(2, 5)] =
+            [
+                ("F502", FuenteR1.SubsMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F483", FuenteR1.TotalMain, SeccionEsperadaR1.UnicaRecaudo),
+                ("F474", FuenteR1.TotalMenor, SeccionEsperadaR1.Primera),
+                ("L483", FuenteR1.EspecialesMain, SeccionEsperadaR1.UnicaRecaudo)
+            ],
+            [(3, 5)] =
+            [
+                ("F505", FuenteR1.SubsMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F487", FuenteR1.TotalMain, SeccionEsperadaR1.UnicaRecaudo),
+                ("L487", FuenteR1.EspecialesMain, SeccionEsperadaR1.UnicaRecaudo)
+            ],
+            [(4, 5)] =
+            [
+                ("F512", FuenteR1.SubsMain, SeccionEsperadaR1.UltimaOportuna),
+                ("F497", FuenteR1.TotalMain, SeccionEsperadaR1.UnicaRecaudo),
+                ("F477", FuenteR1.TotalMenor, SeccionEsperadaR1.Primera),
+                ("L497", FuenteR1.EspecialesMain, SeccionEsperadaR1.UnicaRecaudo)
+            ]
         };
 
     /// <summary>

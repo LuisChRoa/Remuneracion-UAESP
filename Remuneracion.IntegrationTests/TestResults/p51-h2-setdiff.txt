@@ -1,0 +1,108 @@
+Plan 51 - H2 - set-diff vs p50-h2-suite.trx
+Generado: 2026-10-22 (implementer H2)
+
+BASE  p50-h2-suite.trx : Total 1141 / Passed 1074 / Failed 67 / Skipped 0
+NUEVO p51-h2-suite.trx : Total 1260 / Passed 1193 / Failed 67 / Skipped 0
+
+RESUMEN
+  Altas : 119 (todas de este plan; ninguna de la base cambio de nombre)
+  Bajas : 0
+  Rojos nuevos fuera de la base : 0
+  Rojos de la base curados : 0 (el set de 67 rojos es IDENTICO, nombre por nombre)
+
+ALTAS (lista cerrada, por causa)
+  Causa A - H0 T0 read-only (ReporteBancoHeadersT0Plan51Tests): 105 casos
+    * 20 x T0P51_MatrizHeaders_PorPeriodoAse (5 ASE x 4 periodos)
+    * 20 x T0P51_Total_SeDistingueDeUnaFuente_EnLas20Muestras
+    * 20 x T0P51_ConceptosYFilaTotal_SeSiguenLeyendoIgual
+    * 20 x T0P51_SigmaConceptosVsTotalFuente_PorEmpresaPresente
+    * 20 x T0P51_ParidadEsperadoVsObservado_SubconjuntoValido
+    *  5 x Fact: Concepto7_NoVieneEnNingunaDeLas20Muestras / HeadersNoReconocidos_VacioEnLas20Muestras / Octubre1_Ase2_TieneDosFuentes / Octubre1_Ase4_TambienOmiteNuevoEsquema / Octubre1_Ase5_TresFuentes
+  Causa B - H1 A1+A2+A4 (ReporteBancoFuentesOpcionalesPlan51Tests): 10 casos
+    * Remuneracion.IntegrationTests.ReporteBancoFuentesOpcionalesPlan51Tests.LeerReporteBanco_CeroFuentesReconocidas_FailFastEstructuraRota
+    * Remuneracion.IntegrationTests.ReporteBancoFuentesOpcionalesPlan51Tests.LeerReporteBanco_DesconocidaSinAusencia_EsSoloEvidencia
+    * Remuneracion.IntegrationTests.ReporteBancoFuentesOpcionalesPlan51Tests.LeerReporteBanco_FuenteReconocidaSinCeldasDestino_FailFastDesync
+    * Remuneracion.IntegrationTests.ReporteBancoFuentesOpcionalesPlan51Tests.LeerReporteBanco_HeaderDesplazado_ResuelvePorEtiquetaYNoPorPosicion
+    * Remuneracion.IntegrationTests.ReporteBancoFuentesOpcionalesPlan51Tests.LeerReporteBanco_Julio1_Ase2_TresFuentes_SinAusenciasNiEvidencia
+    * Remuneracion.IntegrationTests.ReporteBancoFuentesOpcionalesPlan51Tests.LeerReporteBanco_Octubre1_Ase2_NoLanzaThrowPosicional_OmiteNuevoEsquemaConHuella
+    * Remuneracion.IntegrationTests.ReporteBancoFuentesOpcionalesPlan51Tests.LeerReporteBanco_Octubre1_Ase4_TambienOmiteNuevoEsquemaConHuella
+    * Remuneracion.IntegrationTests.ReporteBancoFuentesOpcionalesPlan51Tests.LeerReporteBanco_SinonimoReciprocidad_ResuelveLaClaveDeLaPlantilla
+    * Remuneracion.IntegrationTests.ReporteBancoFuentesOpcionalesPlan51Tests.LeerReporteBanco_Total_NuncaEsFuenteNiEvidencia
+    * Remuneracion.IntegrationTests.ReporteBancoFuentesOpcionalesPlan51Tests.Writer_BloqueConFuenteAusente_EscribePresentesYC59_DejaLaAusenteEnCero
+  Causa C - H2 A3-banco (ControlBancoNoReconocidoPlan51Tests): 4 casos
+    * Remuneracion.IntegrationTests.ControlBancoNoReconocidoPlan51Tests.A3Banco_AusenciaCoherenteSinDesconocidas_VerdeConHuella
+    * Remuneracion.IntegrationTests.ControlBancoNoReconocidoPlan51Tests.A3Banco_DesconocidaConAusenciaEnElMismoAse_FailFast
+    * Remuneracion.IntegrationTests.ControlBancoNoReconocidoPlan51Tests.A3Banco_DesconocidaSinAusencia_EsSoloEvidencia
+    * Remuneracion.IntegrationTests.ControlBancoNoReconocidoPlan51Tests.A3Banco_NoContaminaElControlR1R2R4DelPlan50
+
+BAJAS
+  (ninguna)
+
+ROJOS (67) - identicos a la base, sin cambios
+  = Remuneracion.IntegrationTests.AdopcionPlantillaV2T0Plan48Tests.T0P48_P3_R1_Manual_492_Formulas_DosPatrones
+  = Remuneracion.IntegrationTests.AdopcionPlantillaV2T0Plan48Tests.T0P48_P6_TablaParidad_40Hojas_ConteosReales
+  = Remuneracion.IntegrationTests.AdopcionPlantillaV2T0Plan48Tests.T0P48_Sha256_V1_V2_Intactas
+  = Remuneracion.IntegrationTests.AjustesSfTTests.WriterQ2_AjustesSfTNull_ComportamientoHu10Intacto
+  = Remuneracion.IntegrationTests.BalanceScTests.J9Consolidado_NoEsOraculoDeValoresBce
+  = Remuneracion.IntegrationTests.BaseConsistente2026082Tests.BaseAgosto2026082_EsInternamenteConsistenteConElManual
+  = Remuneracion.IntegrationTests.BaseConsistente2026082Tests.BaseAgosto2026082_MetadatosCanonicosEsperados
+  = Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S5_OficialDirecto_EndToEnd_L9L13PorQuincena(codigo: "2026071", carpetaRel: "Docs/Prueba Julio-1/Insumos", columna: "N")
+  = Remuneracion.IntegrationTests.CodigosSalidaCliTests.Ejecucion_5Ase_Q1_Devuelve0_ConArchivoYResultadoOk
+  = Remuneracion.IntegrationTests.ComparadorSalidaVsManualTests.Salida5AseQ2_vs_Manual_CeroDivergenciasFueraDeBrechasDeclaradas(etiqueta: "agosto")
+  = Remuneracion.IntegrationTests.ComparadorSalidaVsManualTests.Salida5AseQ2_vs_Manual_CeroDivergenciasFueraDeBrechasDeclaradas(etiqueta: "julio")
+  = Remuneracion.IntegrationTests.ComposicionServiciosTests.O1_ComposicionDelHost_LaViaDeProduccionCierraConReconocimiento
+  = Remuneracion.IntegrationTests.ComposicionServiciosTests.O1_ComposicionDelHost_NoCierraEnVerdeSinValidar
+  = Remuneracion.IntegrationTests.DivergenciaDeclaradaCierreT4Tests.T4_DeclaradaReconocida_ElRunCompletaConArchivoReporteYLog
+  = Remuneracion.IntegrationTests.DivergenciaDeclaradaCierreT4Tests.T4_NoDeclaradaInyectada_SigueBloqueandoAunqueLaDeclaradaEsteReconocida
+  = Remuneracion.IntegrationTests.DivergenciaDeclaradaCliTests.T3_Q2_ConFlag_CierraConCodigoDistintoYReporte
+  = Remuneracion.IntegrationTests.DivergenciaDeclaradaCliTests.T3_Q2_SinFlag_BloqueaConValidacion
+  = Remuneracion.IntegrationTests.DivergenciaDeclaradaReejecucionUiTests.Ui_ReejecucionEnDosPasadas_PrimeraLanzaYSegundaCierraConReporte
+  = Remuneracion.IntegrationTests.DivergenciaDeclaradaT0Tests.T0_CorridaVivaQ2_OccidenteAse5_DeltaExactoYClasificacionDeclarada
+  = Remuneracion.IntegrationTests.DivergenciaDeclaradaT0Tests.T0_Oficial_Sha256Intacto
+  = Remuneracion.IntegrationTests.GoldenBalanceScTests.ProcesadorPeriodo_CapaA2_4_BceContraGolden
+  = Remuneracion.IntegrationTests.GoldenConciliacionEmpresaTests.ProcesadorPeriodo_CapaA2_2_EmpresasYRecaudosContraGolden
+  = Remuneracion.IntegrationTests.GoldenInterventoriaTests.CapaA_InterventoriaYLEspeciales_AmbosCanonicos
+  = Remuneracion.IntegrationTests.GoldenLeafPathTests.Procesador_CapaA_LeafVisiblesFormulasYHashSinUsarCacheDeSalida
+  = Remuneracion.IntegrationTests.GoldenMultiAseTests.ProcesadorPeriodo_CapaAX5_LeafVisiblesFormulasHashYSumas
+  = Remuneracion.IntegrationTests.GoldenReporteBancoTests.ProcesadorPeriodo_CapaA2_3_BloquesYConsolidadoContraGolden
+  = Remuneracion.IntegrationTests.GoldenResumenMesYR10Tests.GoldenQ1_S3_ResumenMes_DE_EsCopia1a1DeLosRecaudos
+  = Remuneracion.IntegrationTests.GoldenValidacionesCruzadasTests.CapaA_Q1_EvaluacionHonesta_RecaudoCierra_EspejoNo
+  = Remuneracion.IntegrationTests.HuellaAceptacionO3Tests.O3_Log_Huella_RegistraUsuarioYCanalComoPropiedadesEstructuradas
+  = Remuneracion.IntegrationTests.IntegridadCalcChainYSelloFechasTests.SalidaJulioQ1_SinCalcChainYFullCalcOnLoad_FechasJulioIntactas
+  = Remuneracion.IntegrationTests.InterventoriaTests.D3b_LEspecialesMenores_TodaLNumericaFueraDeMapas_EsCero_EnAmbosCanonicos
+  = Remuneracion.IntegrationTests.MicroFixesHu17Tests.L1_Hu12_BloqueVacio_NoSeLimpia_OutputIgualTemplate
+  = Remuneracion.IntegrationTests.MicroFixesHu17Tests.S3_Hu16_Writer_TextoEnLCeldaId_FailFastNombraCelda
+  = Remuneracion.IntegrationTests.MicroFixesHu17Tests.S4_Hu16_InterventoriaLecturaPorAse_Debug_HitoInformation
+  = Remuneracion.IntegrationTests.MicroFixesHu17Tests.W22_Hu14_Validaciones_CulturaEsCo_LineaYEventoCoherentes
+  = Remuneracion.IntegrationTests.ObservabilidadTests.BloqueValidaciones_PropiedadValidacion_NombreReal_ConAseId
+  = Remuneracion.IntegrationTests.ObservabilidadTests.EjecucionPeriodo_RunIdCorrelacionaInicioAFin_YAseId
+  = Remuneracion.IntegrationTests.ObservabilidadTests.Niveles_HitosInformation_DetalleDebug
+  = Remuneracion.IntegrationTests.ParidadCliTests.Paridad_1Ase_Q1_Ase3_CliVsDirecto_ValoresIguales
+  = Remuneracion.IntegrationTests.ParidadCliTests.Paridad_5Ase_Q1_CliVsDirecto_ValoresYSnapshotsIguales
+  = Remuneracion.IntegrationTests.ParidadCliTests.Paridad_5Ase_Q2_CliVsDirecto_IncluyeAjustesYDetRetri
+  = Remuneracion.IntegrationTests.ProcesadorPeriodoTests.Ejecutar_Periodo2026071_ConLectorOracle_VeredictosValidacionesNoVacios
+  = Remuneracion.IntegrationTests.ProcesadorPeriodoTests.Ejecutar_Periodo2026071_SalidaGeneradaCon5Consolidados
+  = Remuneracion.IntegrationTests.ProcesadorPeriodoTests.Ejecutar_Periodo2026072_ConLectorOracle_VeredictosValidacionesNoVacios
+  = Remuneracion.IntegrationTests.Regresion2026082Tests.Ejecutar_Periodo2026082_Modo5Ase_EndToEnd_DetRetri5De5VsR10
+  = Remuneracion.IntegrationTests.RegresionEvaluaSellaPlan40Tests.T4_EndToEnd_Oficial_EvaluaSella_DefectoEspejoDeclarado(codigo: "2026071", carpetaRel: "Docs/Prueba Julio-1/Insumos")
+  = Remuneracion.IntegrationTests.RegresionEvaluaSellaPlan40Tests.T4_EndToEnd_Oficial_EvaluaSella_DefectoEspejoDeclarado(codigo: "2026072", carpetaRel: "Docs/Prueba Julio-2/Insumos")
+  = Remuneracion.IntegrationTests.RegresionOficialPlan39Tests.T5_RegresionOficial_HealthyOpen_VarianteL_DetRetriVsR10(codigo: "2026071", carpetaRel: "Docs/Prueba Julio-1/Insumos", columna: "N")
+  = Remuneracion.IntegrationTests.RevisionPestanasLenteR1T0Plan47Tests.T0P47_P6_R2_MatrizFilasYEmparejamiento_Congelada(ase: 4)
+  = Remuneracion.IntegrationTests.RobustezDeudaHu13Tests.S1_BooleanoTipoB_LiteralFalse_EsFalse
+  = Remuneracion.IntegrationTests.RobustezDeudaHu13Tests.S1_LiteralFalse_VerificacionP_False_NoTrue(literal: "FALSE")
+  = Remuneracion.IntegrationTests.RobustezDeudaHu13Tests.S1_LiteralFalse_VerificacionP_False_NoTrue(literal: "false")
+  = Remuneracion.IntegrationTests.RobustezDeudaHu13Tests.S2_O9Roto_ExactamenteUnError_NoCinco
+  = Remuneracion.IntegrationTests.RobustezDeudaHu13Tests.S3_ReaderOracle_UsaLaMismaFactory_SnapshotsCanonicos
+  = Remuneracion.IntegrationTests.RobustezDeudaHu13Tests.S4_ControlInformativoSinCache_ConservaElCeroTolerado
+  = Remuneracion.IntegrationTests.RobustezDeudaHu13Tests.W1_SubBloquesValidacionTotal_ProtegidasYEvaluadas
+  = Remuneracion.IntegrationTests.SalidaSinValidarO4Tests.O4_CorridaCerradaBien_ProduceNombreLimpio
+  = Remuneracion.IntegrationTests.SelladoCacheFormulaT2Tests.T2_SelladoCoincideConEvaluacion_YFormulaIntacta
+  = Remuneracion.IntegrationTests.SharedFormulaR1GateTests.S1_RegenFrescaJulio_MaestrosSharedPreservados
+  = Remuneracion.IntegrationTests.ValidacionOracleReaderTests.GoldenConCacheReal_LecturaSobreSalidaQ1_EquivaleALaPlantilla
+  = Remuneracion.IntegrationTests.ValidacionOracleReaderTests.Q1Golden_SnapshotCierra_TodasLasValidaciones
+  = Remuneracion.IntegrationTests.ValidacionOracleReaderTests.Q2Canonico_SnapshotLeeSinFallo_ConCacheCero
+  = Remuneracion.IntegrationTests.ValidacionOracleReaderTests.Reader_NuncaEscribe_HashIntactoEnCanonicos
+  = Remuneracion.IntegrationTests.ValidacionTotalEvaluaT1Tests.T1_TextosFormula_CoincidenTabla_EnSalidaRealYManual
+  = Remuneracion.IntegrationTests.ValidadorInteriorR1GateTests.S1_Agosto2026082_FormaInteriorVerde
+  = Remuneracion.IntegrationTests.ValidadorInteriorR1GateTests.S1_Julio2026072_FormaInteriorVerde
+  = Remuneracion.IntegrationTests.WorkbookLeafInputsTests.GenerarWorkbook_EscribeSoloLeafYPreservaFormulas

@@ -248,20 +248,53 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             ?? throw new CalculoInvalidoException(
                 $"ASE {ase.Id}: no se encontró la fila de encabezados de empresas después del Resumen en el ReportePagosxBanco.");
 
-        // Mapa de columnas fuente por ASE (T0-0.3, V10): empresa → índice de columna (1-based).
-        // Fail-fast: si la columna esperada no trae el header exacto, falla nombrando ASE+empresa-columna.
-        var columnas = WorkbookLeafCellMapReporteBanco.ColumnasFuentePorAse[ase.Id];
+        // Plan 51 (A1, §2.1 D-1): reconocimiento de las columnas fuente POR HEADER, nunca por
+        // índice congelado. El vocabulario es el del negocio ya usado por A3 en R1/R2/R4
+        // (catálogo + rótulo vigente por ASE + sinonimia citada) y lo ESPERADO por ASE lo declara
+        // la plantilla (`EditablesPorAse[ase].Keys`). `Total` se excluye antes del vocabulario;
+        // una celda vacía no es evidencia; una etiqueta reconocida sin celdas destino es desync
+        // mapa↔plantilla (fail-fast); cero fuentes reconocidas es estructura rota (fail-fast).
+        var editables = WorkbookLeafCellMapReporteBanco.ObtenerEditables(ase.Id);
+        var esperadas = editables.Keys.ToList();
         var indicesEmpresa = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (empresa, indice) in columnas)
+        var etiquetasNoReconocidas = new List<string>();
+        for (var indice = 1; indice < filaHeaders.Length; indice++)
         {
-            var header = ExcelWorksheetNavigator.CeldaTexto(filaHeaders.ElementAtOrDefault(indice));
-            if (!header.Equals(empresa, StringComparison.OrdinalIgnoreCase))
+            var header = ExcelWorksheetNavigator.CeldaTexto(filaHeaders[indice]);
+            if (string.IsNullOrWhiteSpace(header))
             {
-                throw new CalculoInvalidoException(
-                    $"ASE {ase.Id}: la columna fuente {indice} del Resumen debería ser '{empresa}' pero dice '{header}'. Mapa T0-0.3 no coincide con la fuente.");
+                continue;
             }
 
-            indicesEmpresa[empresa] = indice;
+            if (NormalizarEtiqueta(header) == "total")
+            {
+                continue; // "Total" no es fuente (exclusión explícita, §2.3.1).
+            }
+
+            if (!EsFuenteDelVocabulario(header, ase.Id))
+            {
+                etiquetasNoReconocidas.Add($"BANCO:{header}");
+                continue;
+            }
+
+            var empresa = esperadas.FirstOrDefault(esperada => SinonimosEmpresaR1.SonMismaEmpresa(header, esperada));
+            if (empresa is null)
+            {
+                throw new CalculoInvalidoException(
+                    $"ASE {ase.Id} · BANCO: la fuente '{header}' viene en el Resumen pero el mapa de la plantilla no declara celdas destino para ese ASE (mapa↔plantilla desincronizados).");
+            }
+
+            if (!indicesEmpresa.TryAdd(empresa, indice))
+            {
+                throw new CalculoInvalidoException(
+                    $"ASE {ase.Id} · BANCO: la fuente '{empresa}' aparece más de una vez en la fila de headers del Resumen (columnas {indicesEmpresa[empresa]} y {indice}); la geometría es ambigua.");
+            }
+        }
+
+        if (indicesEmpresa.Count == 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id} · BANCO: no se reconoció ninguna fuente de recaudo en la fila de headers del Resumen. Estructura rota: el reporte por banco debe traer al menos una fuente del catálogo.");
         }
 
         // Filas de concepto (1/2/3/7) + fila Total, por prefijo normalizado (T0-0.4).
@@ -327,15 +360,71 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             })
             .ToList();
 
+        // Plan 51 (A2, §2.2): la fuente esperada que no vino se OMITE (no se emite fila: el writer
+        // itera presentes y sus celdas quedan en el 0 de la plantilla) con 1 Warning por (ASE,
+        // fuente) y huella durable `BANCO:{label}`.
+        var fuentesAusentes = new List<string>();
+        foreach (var esperada in esperadas.Where(e => !indicesEmpresa.ContainsKey(e)))
+        {
+            RegistrarFuenteAusenteBanco(ase, esperada, editables[esperada].Length);
+            fuentesAusentes.Add($"BANCO:{esperada}");
+        }
+
+        var bloque = new ReporteBancoAseInputs
+        {
+            Ase = ase,
+            Empresas = empresas,
+            FuentesAusentesBanco = fuentesAusentes,
+            EtiquetasBancoNoReconocidas = etiquetasNoReconocidas
+        };
+
         // Gate D5-i (coherencia): bloque == resumen fuente antes de devolver (fail-fast ASE+empresa).
-        WorkbookLeafCoherence.ValidarContraFuentesBanco(new ReporteBancoAseInputs { Ase = ase, Empresas = empresas }, empresas);
+        WorkbookLeafCoherence.ValidarContraFuentesBanco(bloque, empresas);
 
         return new ReporteBancoInputs
         {
-            Ases = [new ReporteBancoAseInputs { Ase = ase, Empresas = empresas }],
+            Ases = [bloque],
             Quincena = periodo.NumeroQuincena,
             Consolidado = null // D2(b): filas 1–7 son fórmulas (T0-0.1); se protegen, no se escriben.
         };
+    }
+
+    /// <summary>
+    /// Plan 51 (A1/D-1): verdad si el header pertenece al vocabulario de FUENTES de recaudo del
+    /// negocio — los rótulos del catálogo, el rótulo vigente de la fuente por ASE (Plan 34) y la
+    /// sinonimia citada (<c>RECIPROCIDAD ↔ NUEVO ESQUEMA</c>). Es evidencia de reconocimiento, sin
+    /// juicio: no crea empresas ni escribe nada.
+    /// </summary>
+    private static bool EsFuenteDelVocabulario(string header, int aseId)
+    {
+        foreach (var empresa in EmpresaFacturacion.Catalogo)
+        {
+            if (SinonimosEmpresaR1.SonMismaEmpresa(header, empresa.LabelTemplate)
+                || SinonimosEmpresaR1.SonMismaEmpresa(header, ObtenerLabelFuente(empresa.Id, aseId)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Plan 51 (A2, §2.2): huella de una fuente de recaudo ausente en el reporte por banco — UN
+    /// <c>Log.Warning</c> por (ASE, fuente), con el conteo de celdas destino que quedan en 0.
+    /// Lenguaje administrativo (doctrina Plan 26 D-E): sin jerga de código.
+    /// </summary>
+    private static void RegistrarFuenteAusenteBanco(Ase ase, string label, int celdasEnCero)
+    {
+        Log.ForContext("AseId", ase.Id)
+            .ForContext("Reporte", "BANCO")
+            .ForContext("Fuente", label)
+            .ForContext("CeldasEnCero", celdasEnCero)
+            .Warning(
+                "ASE {AseId}: la fuente de recaudo {Fuente} no viene en el reporte por banco del período; sus {CeldasEnCero} celdas quedan en 0 (ausencia registrada, no es error).",
+                ase.Id,
+                label,
+                celdasEnCero);
     }
 
     /// <summary>
@@ -657,8 +746,43 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         // Plan 21 (T2, R-E-1): la fuente R1 trae UN bloque por archivo. Se lee la hoja Sheet1 y se
         // delimita la zona por ETIQUETAS (nunca por fila/columna fija). Sin cardinalidades ni
         // ocurrencias: la secuencia observada ES la especificación del período (D-B).
+        // Plan 53 (H1.2, D3.4): la construcción de la secuencia es COMPARTIDA con la conciliación por
+        // empresa (`ExtraerCeldasR1`) — un solo scan de fronteras, prohibido reimplementarlo.
         const string hoja = "Sheet1";
         var filas = ExcelWorksheetNavigator.LeerFilas(rutaR1, hoja);
+        var secuencia = ConstruirSecuenciaEspejoR1(ase, filas, Path.GetFileName(rutaR1));
+
+        var bloque = new BloqueEspejoAseInputs
+        {
+            Ase = ase,
+            Encabezados = secuencia.Encabezados,
+            Filas = secuencia.Filas,
+            TieneColumnaEspeciales = secuencia.TieneEspeciales
+        };
+
+        // Invariantes duras T0e: si falta una, fail-fast que nombra ASE + reporte + fila esperada.
+        // W-7 (auditoría PR3): el chequeo vive en el modelo (FaltantesInvariantesDeCierre) para no
+        // duplicar la definición con ProcesadorPeriodo.ValidarInvariantesEspejoR1.
+        var faltantes = bloque.FaltantesInvariantesDeCierre();
+        if (faltantes.Count > 0)
+        {
+            throw new CalculoInvalidoException(
+                $"ASE {ase.Id}: la fuente R1 ({Path.GetFileName(rutaR1)}) no trae las filas invariantes de cierre T0e: {string.Join(", ", faltantes)}.");
+        }
+
+        return bloque;
+    }
+
+    /// <summary>
+    /// Plan 53 (H1.2, D3.4): secuencia espejo de la hoja <c>Sheet1</c> de la fuente R1 — la MISMA
+    /// ventana que consume <see cref="LeerEspejoR1"/> (primera fila <c>E='Vlr Servicio'</c> hasta la fila
+    /// invariante <c>A='Total'</c> con <c>B</c> vacío), con el <b>índice crudo</b> de cada fila (para
+    /// resolver sus valores por las columnas F/L del contrato) y los encabezados detectados.
+    /// Punto ÚNICO de construcción: prohibido reimplementar el scan de fronteras (Plan 53 §4.5).
+    /// </summary>
+    private static SecuenciaEspejoR1 ConstruirSecuenciaEspejoR1(Ase ase, List<object?[]> filas, string? nombreArchivo)
+    {
+        var archivo = nombreArchivo is null ? "la fuente R1" : $"la fuente R1 ({nombreArchivo})";
 
         // Encabezados por detección dinámica: la fila de headers es la inmediatamente anterior a
         // la primera fila de datos (E='Vlr Servicio'). Así la ausencia de la columna
@@ -668,7 +792,7 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         if (indicePrimeraFila <= 0)
         {
             throw new CalculoInvalidoException(
-                $"ASE {ase.Id}: la fuente R1 ({Path.GetFileName(rutaR1)}) no trae la fila 'Vlr Servicio' que delimita el inicio del bloque espejo.");
+                $"ASE {ase.Id}: {archivo} no trae la fila 'Vlr Servicio' que delimita el inicio del bloque espejo.");
         }
 
         var indiceHeader = indicePrimeraFila - 1;
@@ -701,10 +825,11 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         if (indiceTotal < 0)
         {
             throw new CalculoInvalidoException(
-                $"ASE {ase.Id}: la fuente R1 ({Path.GetFileName(rutaR1)}) no trae la fila invariante 'Total' (A='Total', B vacío) que cierra el bloque espejo.");
+                $"ASE {ase.Id}: {archivo} no trae la fila invariante 'Total' (A='Total', B vacío) que cierra el bloque espejo.");
         }
 
         var filasEspejo = new List<FilaEspejoR1>();
+        var indicesCrudos = new List<int>();
         for (var i = indicePrimeraFila; i <= indiceTotal; i++)
         {
             var fila = filas[i];
@@ -714,28 +839,23 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             }
 
             filasEspejo.Add(ConstruirFilaEspejo(fila, encabezados, indicesPorEncabezado, indiceEspeciales));
+            indicesCrudos.Add(i);
         }
 
-        var bloque = new BloqueEspejoAseInputs
-        {
-            Ase = ase,
-            Encabezados = encabezados,
-            Filas = filasEspejo,
-            TieneColumnaEspeciales = tieneEspeciales
-        };
-
-        // Invariantes duras T0e: si falta una, fail-fast que nombra ASE + reporte + fila esperada.
-        // W-7 (auditoría PR3): el chequeo vive en el modelo (FaltantesInvariantesDeCierre) para no
-        // duplicar la definición con ProcesadorPeriodo.ValidarInvariantesEspejoR1.
-        var faltantes = bloque.FaltantesInvariantesDeCierre();
-        if (faltantes.Count > 0)
-        {
-            throw new CalculoInvalidoException(
-                $"ASE {ase.Id}: la fuente R1 ({Path.GetFileName(rutaR1)}) no trae las filas invariantes de cierre T0e: {string.Join(", ", faltantes)}.");
-        }
-
-        return bloque;
+        return new SecuenciaEspejoR1(filasEspejo, indicesCrudos, encabezados, indicesPorEncabezado, tieneEspeciales, indiceEspeciales);
     }
+
+    /// <summary>
+    /// Plan 53 (H1.2): secuencia espejo construida una sola vez por hoja + el índice CRUDO de cada fila
+    /// (la ventana puede saltar filas fantasma, así que el índice del espejo NO coincide con el crudo).
+    /// </summary>
+    private sealed record SecuenciaEspejoR1(
+        List<FilaEspejoR1> Filas,
+        List<int> IndicesCrudos,
+        List<string> Encabezados,
+        Dictionary<string, int> IndicesPorEncabezado,
+        bool TieneEspeciales,
+        int IndiceEspeciales);
 
     /// <summary>
     /// Plan 21 (T2): encabezados de columna de la fila de headers, en orden físico, con su índice
@@ -1463,10 +1583,18 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
 
     /// <summary>
     /// Extrae los operandos R1 por empresa según <see cref="WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa"/>.
+    ///
+    /// Plan 53 (H1.2, A1/A2/D1/D4/D5): cada celda se resuelve por la <b>sección declarada</b> en el
+    /// contrato (tercer campo del mapa) sobre las filas-empresa ya tipadas con
+    /// <see cref="ContratoSeccionPeriodFreeR1.SeccionPorCierre"/> (Plan 46) — <b>fin del camino
+    /// ordinal</b> (<c>OrderByDescending(|F|)</c>, <c>[0]</c>, <c>[count-1]</c>, <c>[1]</c>: Plan 52 §13
+    /// y Plan 41 E1-1). Sección declarada ausente → <c>0m</c> (la fuente no la trae: es normal, reglas 6
+    /// y 7); empate (2 filas-empresa en la misma sección) → <c>CalculoInvalidoException</c> accionable
+    /// (ASE + empresa + sección + filas).
+    ///
     /// Plan 50 (A1, §2.1): si el label de la empresa NO trae NINGUNA fila <c>Total</c> en la fuente
     /// (ausencia total), los operandos del mapa quedan en <b>0 explícito</b> con huella
-    /// (<see cref="RegistrarFuenteAusente"/>) — no aborta. Si el label trae filas pero falta un bloque
-    /// que un operando exige (caso parcial), se mantiene el fail-fast vigente (§7.3 ratificado).
+    /// (<see cref="RegistrarFuenteAusente"/>) — no aborta.
     /// </summary>
     private static IReadOnlyDictionary<string, decimal> ExtraerCeldasR1(
         Ase ase, EmpresaFacturacion empresa, List<object?[]> filas, List<string> fuentesAusentes)
@@ -1479,39 +1607,56 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
 
         var label = ObtenerLabelFuente(empresa.Id, ase.Id);
 
+        // Plan 53 (D3.4): la secuencia espejo se construye con el MISMO builder que LeerEspejoR1 (un solo
+        // scan de fronteras); el tipado de sección usa el predicado vigente del Plan 46.
+        var secuencia = ConstruirSecuenciaEspejoR1(ase, filas, nombreArchivo: null);
+        var espejo = secuencia.Filas;
+
         // Zonas de la fuente R1: la fila "Componente" (col A) separa el bloque de Componente
         // (filas Total por empresa) del bloque de Subsidio(-)/Contribucion(+).
-        var indiceComponente = filas.FindIndex(f =>
-            ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(0)).Equals("Componente", StringComparison.OrdinalIgnoreCase));
+        var indiceComponente = espejo.FindIndex(f =>
+            ExcelWorksheetNavigator.CeldaTexto(f.A).Equals("Componente", StringComparison.OrdinalIgnoreCase));
         if (indiceComponente < 0)
         {
             throw new CalculoInvalidoException(
                 $"ASE {ase.Id}: no se encontró la fila 'Componente' en la fuente R1 para localizar los bloques por empresa.");
         }
 
-        bool EsFilaEmpresa(object?[] f) =>
-            ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(2)).Equals(label, StringComparison.OrdinalIgnoreCase)
-            && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(3)).Equals("Total", StringComparison.OrdinalIgnoreCase);
+        bool EsFilaEmpresa(FilaEspejoR1 f) =>
+            ExcelWorksheetNavigator.CeldaTexto(f.C).Equals(label, StringComparison.OrdinalIgnoreCase)
+            && ExcelWorksheetNavigator.CeldaTexto(f.D).Equals("Total", StringComparison.OrdinalIgnoreCase);
 
-        var filasTotal = filas
-            .Select((fila, indice) => (fila, indice))
-            .Where(t => t.indice < indiceComponente && EsFilaEmpresa(t.fila))
-            .Select(t => t.fila)
-            .OrderByDescending(f => Math.Abs(ExcelWorksheetNavigator.CeldaNumero(f.ElementAtOrDefault(5))))
-            .ToList();
+        // Filas-empresa del bloque (Totales: antes de 'Componente'; Subs: después), ya tipadas por
+        // sección. El índice que viaja es el CRUDO (el contrato de columnas F=5 / L=11 es del reader).
+        List<FilaSeccionadaR1> Bloque(bool subs)
+        {
+            var bloque = new List<FilaSeccionadaR1>();
+            for (var i = 0; i < espejo.Count; i++)
+            {
+                var enBloque = subs ? i > indiceComponente : i < indiceComponente;
+                if (!enBloque || !EsFilaEmpresa(espejo[i]))
+                {
+                    continue;
+                }
 
-        var filasSubs = filas
-            .Select((fila, indice) => (fila, indice))
-            .Where(t => t.indice > indiceComponente && EsFilaEmpresa(t.fila))
-            .Select(t => t.fila)
-            .OrderByDescending(f => Math.Abs(ExcelWorksheetNavigator.CeldaNumero(f.ElementAtOrDefault(5))))
-            .ToList();
+                var seccion = ContratoSeccionPeriodFreeR1.SeccionPorCierre(espejo, i)
+                    ?? throw new CalculoInvalidoException(
+                        $"ASE {ase.Id}: la fila de la empresa {empresa.Nombre} de la fuente R1 no es tipable por sección (firma AFaseo).");
+
+                bloque.Add(new FilaSeccionadaR1(secuencia.IndicesCrudos[i], seccion));
+            }
+
+            return bloque;
+        }
+
+        var filasTotal = Bloque(subs: false);
+        var filasSubs = Bloque(subs: true);
 
         // Plan 50 (A1, §2.1 punto 1): ausencia TOTAL del label = 0 explícito por celda del mapa +
         // huella. No se llama a ValorDe/EspecialesDe (rama previa: no hay throw que capturar).
         if (filasTotal.Count == 0 && filasSubs.Count == 0)
         {
-            foreach (var (celda, _) in mapa)
+            foreach (var (celda, _, _) in mapa)
             {
                 celdas[celda] = 0m;
             }
@@ -1528,23 +1673,61 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
                 .Select(f => ExcelWorksheetNavigator.CeldaNumero(f.ElementAtOrDefault(5)))
                 .FirstOrDefault();
 
-        foreach (var (celda, fuente) in mapa)
+        // Plan 53 (A2): resolución por sección declarada. Ausente → 0 explícito (sin throw, sin huella
+        // nueva); empate → STOP accionable (ASE + empresa + sección + filas).
+        decimal PorSeccion(
+            WorkbookLeafCellMapPorEmpresa.FuenteR1 operando,
+            SeccionEsperadaR1 esperada,
+            string concepto)
         {
-            decimal valor = fuente switch
+            var esDeSubs = operando is WorkbookLeafCellMapPorEmpresa.FuenteR1.SubsMain
+                or WorkbookLeafCellMapPorEmpresa.FuenteR1.SubsMenor;
+            var bloque = esDeSubs ? filasSubs : filasTotal;
+
+            var resultado = ResolvedorOperandosEmpresaR1.Resolver(bloque, esperada);
+            if (resultado.EsAmbigua)
             {
-                WorkbookLeafCellMapPorEmpresa.FuenteR1.TotalMain => ValorDe(filasTotal, 0, ase.Id, empresa.Nombre, "Total"),
-                WorkbookLeafCellMapPorEmpresa.FuenteR1.EspecialesMain => EspecialesDe(filasTotal, 0, ase.Id, empresa.Nombre),
-                WorkbookLeafCellMapPorEmpresa.FuenteR1.SubsMain => ValorDe(filasSubs, 0, ase.Id, empresa.Nombre, "Subsidio/Contribución"),
-                WorkbookLeafCellMapPorEmpresa.FuenteR1.TotalMenor => ValorDe(filasTotal, filasTotal.Count - 1, ase.Id, empresa.Nombre, "Total (bloque menor)"),
-                WorkbookLeafCellMapPorEmpresa.FuenteR1.EspecialesMenor => EspecialesDe(filasTotal, filasTotal.Count - 1, ase.Id, empresa.Nombre),
-                WorkbookLeafCellMapPorEmpresa.FuenteR1.SubsMenor => ValorDe(filasSubs, filasSubs.Count - 1, ase.Id, empresa.Nombre, "Subsidio/Contribución (bloque menor)"),
-                WorkbookLeafCellMapPorEmpresa.FuenteR1.TotalMedio => ValorDe(filasTotal, 1, ase.Id, empresa.Nombre, "Total (bloque medio)"),
-                WorkbookLeafCellMapPorEmpresa.FuenteR1.EspecialesMedio => EspecialesDe(filasTotal, 1, ase.Id, empresa.Nombre),
+                throw new CalculoInvalidoException(
+                    $"ASE {ase.Id}: la empresa {empresa.Nombre} trae {resultado.FilasAmbiguas.Count} filas {concepto} en la misma sección {resultado.Seccion} de la fuente R1 " +
+                    $"(filas {string.Join(", ", resultado.FilasAmbiguas)}); no hay regla de desempate aprobada (Plan 53 §6).");
+            }
+
+            if (resultado.EsAusente)
+            {
+                return 0m; // la fuente no trae esa sección para esta empresa: 0 explícito (reglas 6 y 7)
+            }
+
+            var indice = resultado.Fila!.Value;
+            return operando is WorkbookLeafCellMapPorEmpresa.FuenteR1.EspecialesMain
+                or WorkbookLeafCellMapPorEmpresa.FuenteR1.EspecialesMenor
+                or WorkbookLeafCellMapPorEmpresa.FuenteR1.EspecialesMedio
+                ? EspecialesDe(filas, indice, ase.Id, empresa.Nombre)
+                : ValorDe(filas, indice, ase.Id, empresa.Nombre, concepto);
+        }
+
+        foreach (var (celda, fuente, seccion) in mapa)
+        {
+            celdas[celda] = fuente switch
+            {
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.TotalMain =>
+                    PorSeccion(fuente, seccion, "Total"),
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.EspecialesMain =>
+                    PorSeccion(fuente, seccion, "Total"),
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.SubsMain =>
+                    PorSeccion(fuente, seccion, "Subsidio/Contribución"),
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.TotalMenor =>
+                    PorSeccion(fuente, seccion, "Total (primera sección)"),
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.EspecialesMenor =>
+                    PorSeccion(fuente, seccion, "Total (primera sección)"),
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.SubsMenor =>
+                    PorSeccion(fuente, seccion, "Subsidio/Contribución (primera sección)"),
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.TotalMedio =>
+                    PorSeccion(fuente, seccion, "Total (sección intermedia)"),
+                WorkbookLeafCellMapPorEmpresa.FuenteR1.EspecialesMedio =>
+                    PorSeccion(fuente, seccion, "Total (sección intermedia)"),
                 WorkbookLeafCellMapPorEmpresa.FuenteR1.Block5Total => Bloque5Total(),
                 _ => 0m
             };
-
-            celdas[celda] = valor;
         }
 
         return celdas;
@@ -1693,7 +1876,7 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         }
 
         decimal totalMain = 0m, especialesMain = 0m, subsMain = 0m, totalMenor = 0m, block5 = 0m;
-        foreach (var (celda, fuente) in WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa[(empresaId, aseId)])
+        foreach (var (celda, fuente, _) in WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa[(empresaId, aseId)])
         {
             var valor = celdas.GetValueOrDefault(celda);
             switch (fuente)

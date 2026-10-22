@@ -359,7 +359,7 @@ Sin estas aprobaciones el plan no avanza de H0 a H1 (1, 2, 4, 5) ni cierra H2 (t
 
 **Residuos declarados con su propio T0 (no se parchean):**
 
-1. `R-PARCIAL-OCT-ASE3-R1-OCC` — octubre-1 ASE3 R1 OCCIDENTE trae **una sola** fila `Total` y el mapa exige `TotalMedio` (índice 1) → fail-fast vigente (§7.3). T0 §2.2.
+1. `R-PARCIAL-OCT-ASE3-R1-OCC` — **RECLASIFICADO 2026-10-22:** NO es estructura rota. La fuente OCCIDENTE no trae la primera sección (`AFaseo`) en octubre-1, y eso es normal (fuentes Y canales pueden faltar; indicación de la propietaria). El defecto es el **mapa por ocurrencia**: debe resolver por sección y dejar en 0 la sección ausente, sin reutilizar `filas[count-1]` (eso duplicaría el bloque grande). Fix en plan propio.
 2. `R-SIGMA-Q2` — el gate Σ empresas-vs-bloque no descompone el visible de bloque en Q2 (14 divergencias medidas) → acotado a Q1 (comportamiento Q2 idéntico al anterior). T0 §4.2.
 3. `R-MAPA-V2-R2-ASE4` — celda destino R2 (1,4) es fórmula en la v2 → A2 no se habilita. T0 §4.3.
 

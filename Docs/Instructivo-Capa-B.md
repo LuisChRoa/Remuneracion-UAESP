@@ -254,3 +254,26 @@ ASE 2 · R1:NUEVO ESQUEMA
 
 Un **0 con ausencia registrada es normal**; un **aviso de etiqueta no reconocida es un defecto** que se
 escala, nunca se "arregla" a mano en el archivo.
+
+## 12. Fuente de recaudo que no viene en el reporte por banco (nuevo — Plan 51)
+
+En el **reporte por banco** (`ReportePagosxBanco`) vale la misma regla: una fuente de recaudo (ENEL,
+OCCIDENTE, NUEVO ESQUEMA, ENERBIT) **puede no venir** en el resumen del período. **No es un error y no hay
+que hacer nada**: la aplicación deja en **0** las casillas de esa fuente en la hoja `REPORTE RECAUDO x BANCO`
+y registra la ausencia con una línea por ASE y fuente, por ejemplo:
+
+```
+ASE 2 · BANCO:NUEVO ESQUEMA
+```
+
+**Cómo leerlo en la revisión:**
+
+| Lo que ve | Qué significa | Qué hacer |
+|---|---|---|
+| Un **0** en el bloque de una fuente del reporte por banco, y esa fuente aparece en la lista de ausencias (`… · BANCO:…`) | La fuente no vino en el resumen del banco del período (caso normal) | Verificar que el bloque de esa fuente esté en 0 y continuar |
+| Un **0** sin ninguna línea de ausencia `BANCO:` | La fuente sí vino y su valor es 0 | Nada: es un 0 real |
+| Un error de **"posible fuente presente no reconocida"** que nombra un ASE, `BANCO` y una etiqueta | El resumen del banco trae un nombre de fuente que no se reconoce (posible cambio de etiqueta) | **Detener y escalar**: se reporta al Ingeniero con el ASE y las etiquetas que indica el mensaje |
+| Un error que dice que **no se reconoció ninguna fuente** en el resumen | La estructura del reporte está rota (no es una fuente ausente) | **Detener y escalar**: solicitar el reporte por banco completo |
+
+Las columnas de cada fuente se reconocen **por el nombre del encabezado**, no por su posición: si el banco
+cambia el orden de las columnas, la aplicación lo sigue leyendo bien.

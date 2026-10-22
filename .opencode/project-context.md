@@ -37,7 +37,7 @@ dotnet run --project Remuneracion.WinForms/Remuneracion.WinForms.csproj
 No hay test project / CI / lint config. Para tests: crear xUnit `net10.0` referenciando Core (e Infrastructure para I/O) y sumar al `.slnx`.
 
 ## Reglas de Negocio Críticas
-- **NUNCA** sobrescribir fórmulas en el template Excel — pegar solo valores.
+- **LA PLANTILLA ESTÁNDAR ES INTOCABLE (regla absoluta, ratificada 2026-10-22):** **NUNCA** modificar fórmulas, **NUNCA** agregar ni eliminar filas, **NUNCA** agregar ni eliminar columnas. El pipeline es **values-only** sobre celdas existentes; el guard anti-fórmula (`ERR-PLANTILLA`) no se relaja. Las únicas excepciones declaradas con allow-list + gates son la Phase 0 offline (Plan 39/40) y el espejo R1 5→1 (Plan 21); nada más toca `<f>` ni la geometría.
 - **ASE4 (Bogotá Limpia)**: sin columna "Especiales" — chequear headers dinámicamente; si ausente usar 0.
 - **SALDOS POR NOTA** y **RETRIBUCION NEGATIVA**: solo quincena 2 (`Periodo.NumeroQuincena == 2`); `AjustesSfT` = 0 en quincena 1.
 - **Tolerancia:** diferencias ≤ ±0.5 entre calculado y fuente son aceptables (redondeo).
@@ -68,6 +68,8 @@ Jerarquía: cada **fuente** tiene sus **canales**; cada canal, sus **conceptos**
 3. **Q1 y Q2 se tratan igual** en este manejo: no hay reglas particulares por quincena.
 4. **Nunca abortar por ausencia de una fuente de recaudo**; registrar la ausencia y continuar.
 5. Los **invariantes de cierre de la fuente** (`A='Componente' B='Total'`, `A='Subs/Cont' B='Total'`, `A='Total'`) siguen siendo fail-fast si faltan (T0e, Plan 21): son estructura del reporte, no una fuente opcional.
+6. **Las fuentes Y los canales pueden venir o no venir** (indicación de la propietaria, ratificada 2026-10-22): una sección o canal ausente **no es estructura rota**; su celda destino queda en **0**. Es normal que una fuente no traiga una sección completa (p. ej. `AFaseo`/primera sección). Prohibido resolver por ocurrencia/índice: una sección ausente **no debe duplicar** el bloque de otra sección (`TotalMenor` = 0, nunca reutilizar `filas[count-1]`).
+7. **La señal de sección es la frontera** (`Mes`, `Aplicacion`, `Componente`), no el índice. El mapeo por empresa debe resolver por **(firma + sección + canal)** como el espejo R1 (Planes 45/46), nunca por posición.
 
 ## Cell Reference Map (CONSOLIDADO)
 | Cells | Cálculo | Fuente |
@@ -531,3 +533,49 @@ El T0 midió que `Σ fuentes presentes vs total del reporte` **no es viable**: e
 - H1: `FuentesAusentesPlan50Tests` (ausencia→0+huella, parcial→fail-fast, invariante→fail-fast, period-free) · `ControlAntiFalsoCeroPlan50Tests` (A3).
 - **Línea base viva del árbol** (post-commit `d55e621`, que reemplazó la v2): `TestResults/p50-h0-baseline.trx` = 1061/994/67/0 — 18 rojos más que `p49-h2-suite.trx` (1061/1012/49/0) por el cambio de plantilla, **antes** del Plan 50. El set-diff de H2 se hace contra esa base.
 
+## Doctrina reporte por banco: columnas por HEADER + fuente ausente omitida (Plan 51 — vigente)
+
+**Principio rector (`la columna de la fuente del banco se reconoce por su ETIQUETA, no por su índice; la fuente que no viene se omite con huella`):** el Resumen del `ReportePagosxBanco` trae un header de empresas cuya **posición física cambia por ASE y por período** (ASE1/3: `ENEL[1] OCCIDENTE[2] Total[3]`; ASE2/4: `ENEL[1] NUEVO ESQUEMA[2] OCCIDENTE[3] Total[4]`; ASE5: `ENEL[1] ENERBIT[2] OCCIDENTE[3] Total[4]`; en octubre-1 ASE2 y ASE4 vienen SIN `NUEVO ESQUEMA` y `OCCIDENTE` baja a `[2]`). El mapa **posicional** del T0-0.3 abortaba con `la columna fuente 2 … debería ser 'NUEVO ESQUEMA' pero dice 'OCCIDENTE'`; quedó **retirado** (`ColumnasFuentePorAse` ya no existe).
+
+### A1 — header-scan (reader `LeerReporteBanco`)
+
+- Se recorre la fila de headers (columna `A` = etiqueta de concepto, nunca fuente). Cada celda **no vacía** y cuyo normalizado **≠ `total`** se resuelve contra el **vocabulario de fuentes del negocio**: los 5 `LabelTemplate` del catálogo + el rótulo vigente por ASE (`ObtenerLabelFuente`: empresa 1 en ASE2/4 → `NUEVO ESQUEMA`) + la sinonimia citada `RECIPROCIDAD ↔ NUEVO ESQUEMA` (Plan 34), vía `SinonimosEmpresaR1.SonMismaEmpresa`. La clave resultante es la de la **plantilla** (`EditablesPorAse[ase].Keys`), no un catálogo nuevo.
+- **Lo esperado por ASE lo declara la plantilla**: `EditablesPorAse[ase].Keys`. `Total` se excluye **antes** del vocabulario; las celdas vacías se ignoran.
+- **Ausente = esperada no observada** → la fuente **no se emite** (no se leen sus conceptos, el writer itera presentes y sus celdas quedan en el **0 de la plantilla**) + huella (A2). No hay `TotalFuente = 0` que confundir con un total real y la fuente ausente **no entra** al gate Σ por empresa.
+- **Sin ramas por período/empresa/fuente** (D-H): la ausencia se predica de la geometría observada (headers del resumen). El orden de columnas puede invertirse y el mapeo sigue correcto.
+
+### A2 — huella `BANCO:` (canal durable existente)
+
+`ReporteBancoAseInputs.FuentesAusentesBanco` = `BANCO:{label}` (p. ej. `BANCO:NUEVO ESQUEMA`) → `ResultadoProcesoPeriodo.FuentesAusentes` como `ASE {n} · BANCO:{label}` + **1 `Warning` por (ASE, fuente)** en lenguaje administrativo. Grano **ASE** (el banco no se replica ×5 como la conciliación por empresa). El prefijo `BANCO:` no contamina la partición por reporte R1/R2/R4 del Plan 50 (`ValidarFuentesRecaudoNoReconocidas` lee solo `leaf.Conciliacion`).
+
+### A3-banco — etiquetas, sin umbral (juicio en Core)
+
+`ReporteBancoAseInputs.EtiquetasBancoNoReconocidas` = `BANCO:{label}` (evidencia del reader) + `ValidadorBasico.ValidarEtiquetasBancoNoReconocidas` (juicio, junto al control del Plan 50, heredado por `ClasificarDivergenciasDeclaradas`):
+
+- **desconocida + ausente en el MISMO ASE** → fail-fast `ASE n · BANCO · control de fuentes: …` (firma de "fuente presente no reconocida", cambio de etiqueta), nunca 0 silencioso;
+- **desconocida sin ausencia** → sólo evidencia (no convierte en rojo lo sano);
+- **cero fuentes reconocidas** → fail-fast (estructura rota);
+- **fuente reconocida sin celdas destino** en `EditablesPorAse[ase]` → fail-fast (desync mapa↔plantilla, bug real);
+- **sin umbral numérico**: el gate Σ por empresa presente sigue intacto y la ausente no entra a él.
+
+### Superficie intacta
+
+`OpenXmlPlantillaWriter.EscribirCeldasBanco` **no cambia** (itera `bloque.Empresas`, consulta `editables.TryGetValue` solo para las presentes y escribe C59 siempre); plantillas v1/v2 intactas; conceptos 1/2/3/7 y fila `Total` se leen igual (prefijos + `total` intactos); cero fórmulas tocadas.
+
+### Evidencia
+
+- T0 read-only: `Remuneracion.IntegrationTests/ReporteBancoHeadersT0Plan51Tests.cs` (105 casos: matriz 5 ASE × 4 períodos, `Total`, conceptos, Σ, paridad, unknowns) + `Docs/T0-Plan51-Headers-Banco.md`.
+- H1: `ReporteBancoFuentesOpcionalesPlan51Tests` (10) · H2: `ControlBancoNoReconocidoPlan51Tests` (4).
+- Suite `p51-h2-suite.trx` = **1260 / 1193 / 67 / 0** vs base `p50-h2-suite.trx` (1141/1074/67/0): **119 altas (solo tests Plan 51), 0 bajas, 0 rojos nuevos**. `TestResults/p51-h2-setdiff.txt`.
+- **Desviación declarada del T0:** el plan esperaba que sólo ASE2 llegara con 2 fuentes en octubre-1; la medición mostró que **ASE4 también** (misma familia de ausencia legítima, absorbida por la regla genérica).
+
+## Doctrina contrato de SECCIÓN por operando/celda R1 (Plan 53 — vigente, fin del ordinal)
+
+**Principio rector (`la celda destino declara QUÉ SECCIÓN la alimenta; la ocurrencia y la magnitud quedan prohibidas`):** el mapa `WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa` deja de resolverse por ocurrencia sobre listas ordenadas por `|F|` (`Main=[0]`, `Medio=[1]`, `Menor=[count-1]` — el defecto que el Plan 52 §13 cerró con STOP) y pasa a declarar **tres campos por celda**: `(Celda, FuenteR1, SeccionEsperadaR1)`.
+
+- **Roles relativos** (`Remuneracion.Core.Models.SeccionEsperadaR1`): `UltimaOportuna` (última sección del bloque de la empresa), `Primera` (la primera **sólo si hay ≥2**: con una sola sección no existe "el otro" bloque), `Intermedia` (la de en medio **sólo si hay ≥3**, D4), `UnicaRecaudo` (la única sección de recaudo; misma resolución que `UltimaOportuna`, declarada donde el T0 probó la geometría de sección única y **prohíbe** la lectura "única primera ⇒ Menor" de la regla D3-del-52, derogada).
+- **Resolvedor puro** `Remuneracion.Core.Models.ResolvedorOperandosEmpresaR1` (sin I/O, sin período, sin empresa — D-H): recibe las filas-empresa **ya tipadas** por el predicado vigente `ContratoSeccionPeriodFreeR1.SeccionPorCierre` (Plan 46) y devuelve `fila | ausente | empate`. Sección declarada **ausente → `0m`** (la fuente no la trae: es normal, reglas 6 y 7); **empate** (2 filas-empresa en la misma sección) → `CalculoInvalidoException` accionable con ASE + empresa + sección + filas (no hay regla de desempate aprobada).
+- **Punto único de lectura**: `ExcelDataReaderWorkbookLeafInputReader.ConstruirSecuenciaEspejoR1` (ventana `E='Vlr Servicio'` → `A='Total'` con `B` vacío + índice crudo por fila) lo comparten `LeerEspejoR1` y `ExtraerCeldasR1`; prohibido reimplementar el scan de fronteras. Columnas de lectura intactas (F=5, Especiales=11); `Block5Total` (canal `D=5`) conserva semántica sin sección.
+- **Contrato derivado, no inventado**: 56 entradas congeladas celda a celda en `Docs/T0-Plan53-Contrato-Seccion-Por-Operando-R1.md` §3 (sección de la fuente + `<f>` consumidora donde existe + oráculo del manual del administrativo, 4/4 al centavo). El T0 midió **180/180 filas-empresa tipadas**, 0 empates, 0 intercalados y formas de ≤3 secciones.
+- **Evidencia y gates**: T0 read-only `SeccionPorOperandoR1T0Tests` (11) · unit del resolvedor `ResolvedorOperandosEmpresaR1Tests` (10) · contrato con insumos reales `ContratoSeccionPorOperandoR1Tests` (8, incluye no-duplicación oct-1 ASE3 OCCIDENTE y no-pérdida oct-1 ASE5 ENERBIT) · reescritura de `FuentesAusentesPlan50Tests.S2_1_ParcialConLabelPresente` a aserciones de valor (el residuo `R-PARCIAL-OCT-ASE3-R1-OCC` queda cerrado).
+- **Set-diff `p53-h2-setdiff.txt`**: **29 altas (solo tests Plan 53), 0 bajas, 0 cambios de resultado** contra `p51-h2-suite.trx`; ningún rojo nuevo. **Desviaciones declaradas:** (a) la pata "geometría del bloque oficial" de D2 no existe para 34/56 celdas (slots de valor de la v2 + direcciones fuera del bloque detalle; condición preexistente del frente E1-2) — la tipabilidad se sostiene en la sección de la fuente + el `<f>` donde existe + el manual; (b) la lista cerrada suma 2 Δ (`F474`/`F477` de octubre-1 ASE5) que §9 no enumeraba, normados por D5 (misma regla que §9 #1/#2/#5/#8/#12).

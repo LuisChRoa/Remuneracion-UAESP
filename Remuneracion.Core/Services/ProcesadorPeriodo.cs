@@ -560,11 +560,19 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             FuentesAusentes = leafs
                 .SelectMany(leaf => leaf.Conciliacion.SelectMany(conc => conc.FuentesAusentes)
                     .Select(fuente => $"ASE {leaf.Ase.Id} · {fuente}"))
+                .Concat(leafs
+                    .SelectMany(leaf => (leaf.ReporteBanco?.Ases ?? Array.Empty<ReporteBancoAseInputs>())
+                        .SelectMany(bloque => bloque.FuentesAusentesBanco)
+                        .Select(fuente => $"ASE {leaf.Ase.Id} · {fuente}")))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList(),
             EtiquetasNoReconocidas = leafs
                 .SelectMany(leaf => leaf.Conciliacion.SelectMany(conc => conc.EtiquetasNoReconocidas)
                     .Select(etiqueta => $"ASE {leaf.Ase.Id} · {etiqueta}"))
+                .Concat(leafs
+                    .SelectMany(leaf => (leaf.ReporteBanco?.Ases ?? Array.Empty<ReporteBancoAseInputs>())
+                        .SelectMany(bloque => bloque.EtiquetasBancoNoReconocidas)
+                        .Select(etiqueta => $"ASE {leaf.Ase.Id} · {etiqueta}")))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList()
         };

@@ -6,6 +6,20 @@
 > **Continuidad:** HU-01..HU-08 cerradas o en cierre (ruta leaf multi-ASE atómica single-write, mapas explícitos por `Ase.Id`, validador estricto, UI modo 5-ASE, Golden Capa A, build 0/0, tests 33/33, harness 24/24). Este plan NO reabre su semántica. Tándem con HU-08: las filas 59–80 validan contra las hojas `Recaudo *` que implementa HU-08.
 > **Estado:** PENDIENTE DE APROBACIÓN — no implementar hasta OK del Ingeniero.
 > **Fecha:** 2026-09-08
+>
+> **ACTUALIZACIÓN 2026-10-22 (Plan 51) — sin reescribir la historia de este documento:**
+> - **T0-0.3 (mapa POSICIONAL de columnas fuente por ASE, `WorkbookLeafCellMapReporteBanco.ColumnasFuentePorAse`): SUPERSEDED.** El plan
+>   `plans/51 - reporte-banco-fuentes-opcionales-por-header.md` (APROBADO 2026-10-22) reemplazó ese consumo por un
+>   **header-scan**: las columnas se resuelven por la ETIQUETA del header contra el vocabulario de fuentes del negocio y el
+>   conjunto esperado por ASE lo declara la plantilla (`EditablesPorAse[ase].Keys`). El mapa posicional se retiró del código.
+>   Motivo medido: en octubre-1 (`2026101`) ASE2 y ASE4 traen `{ENEL, OCCIDENTE, Total}` (sin `NUEVO ESQUEMA`), de modo que
+>   el índice congelado (`OCCIDENTE`=3) ya no coincide con la fuente (`OCCIDENTE`=2) y la corrida abortaba con
+>   `CalculoInvalidoException`. Evidencia: `Docs/T0-Plan51-Headers-Banco.md` §1.
+> - **T0-0.7 (lectura dinámica del Resumen desde el final + conceptos por prefijo normalizado + fila `Total` por etiqueta):
+>   RATIFICADO** sin cambios; el Plan 51 solo cambia la resolución de la COLUMNA de cada fuente.
+> - La fuente esperada que no viene se **omite con huella** (`ASE n · BANCO:{label}`) y sus celdas quedan en el 0 de la
+>   plantilla; la estructura rota (cero fuentes reconocidas, etiqueta desconocida + ausencia en el mismo ASE, fuente
+>   reconocida sin celdas destino) sigue en fail-fast.
 
 ---
 

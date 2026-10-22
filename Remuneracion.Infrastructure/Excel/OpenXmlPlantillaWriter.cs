@@ -1282,7 +1282,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     {
         if (!omitirR1 && WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa.TryGetValue((conc.Empresa.Id, aseId), out var r1))
         {
-            foreach (var (celda, _) in r1)
+            foreach (var (celda, _, _) in r1)
             {
                 if (!conc.CeldasR1.TryGetValue(celda, out var valor))
                 {

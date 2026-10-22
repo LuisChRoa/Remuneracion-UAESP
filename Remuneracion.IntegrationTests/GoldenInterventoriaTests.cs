@@ -120,7 +120,7 @@ public sealed class GoldenInterventoriaTests
 
         foreach (var entrada in WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa.Values)
         {
-            foreach (var (c, _) in entrada)
+            foreach (var (c, _, _) in entrada)
             {
                 if (c.StartsWith("L", StringComparison.OrdinalIgnoreCase) && string.Equals(c, celda, StringComparison.OrdinalIgnoreCase))
                 {

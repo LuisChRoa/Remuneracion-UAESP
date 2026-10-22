@@ -116,7 +116,7 @@ public sealed class InterventoriaTests
         // HU-08 (mapa por empresa): L de las filas Total por empresa.
         foreach (var entrada in WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa.Values)
         {
-            foreach (var (celda, _) in entrada)
+            foreach (var (celda, _, _) in entrada)
             {
                 if (celda.StartsWith("L", StringComparison.OrdinalIgnoreCase))
                 {

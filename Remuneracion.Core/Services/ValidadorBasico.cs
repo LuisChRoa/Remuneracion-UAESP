@@ -188,6 +188,12 @@ public sealed class ValidadorBasico : IValidador
         // reconocida → fail-fast (nunca un 0 silencioso).
         ValidarFuentesRecaudoNoReconocidas(errores, leafs);
 
+        // Plan 51 (A3-banco, §2.3): el reporte por banco tiene su propio juicio de etiquetas
+        // (grano ASE, canal durable `BANCO:`). Ausencia coherente = normal (0 de plantilla +
+        // huella); etiqueta desconocida CON ausencia en el mismo bloque = posible fuente presente
+        // no reconocida → fail-fast. Sin ausencia, la etiqueta desconocida es solo evidencia.
+        ValidarEtiquetasBancoNoReconocidas(errores, leafs);
+
         // HU-12 (2.6 ampliada, §2.5 regla 2): DetRetri-Q2 por ASE — SOLO en Q2 (Q1 sin cambios,
         // regresión ciega). Cada leaf debe traer DetRetriQ2 (error que nombra el ASE; nunca null)
         // y el Detalle debe coincidir con ROUND(D104:D108,0) vía DetRetriRounder (composición V0.4;
@@ -929,6 +935,56 @@ public sealed class ValidadorBasico : IValidador
                     errores,
                     $"ASE {leaf.Ase.Id} · {reporte} · control de fuentes: etiqueta(s) no reconocida(s) [{string.Join(", ", etiquetas)}] con fuente(s) ausente(s) [{string.Join(", ", fuentes)}]. (Plan 50 A3: posible fuente presente no reconocida.)");
             }
+        }
+    }
+
+    /// <summary>
+    /// Plan 51 (A3-banco, §2.3): el reporte por banco tiene su propio control de etiquetas, con
+    /// grano ASE y el canal durable <c>BANCO:</c> (no se toca el juicio R1/R2/R4 del Plan 50).
+    ///
+    /// - <see cref="ReporteBancoAseInputs.FuentesAusentesBanco"/> = fuente del catálogo que la
+    ///   plantilla declara para el ASE y no vino en el Resumen (ausencia legítima: se omite, sus
+    ///   celdas quedan en el 0 de la plantilla).
+    /// - <see cref="ReporteBancoAseInputs.EtiquetasBancoNoReconocidas"/> = celda de header que no
+    ///   resuelve al vocabulario de fuentes y no es <c>Total</c> (evidencia del reader).
+    ///
+    /// Si ambas coexisten en el MISMO ASE hay dinero en el reporte que ninguna fuente reconocida
+    /// explica: es la firma de "fuente presente no reconocida" (cambio de etiqueta) → FAIL en
+    /// duro, nunca 0 silencioso. Sin ausencia en ese ASE la etiqueta desconocida es sólo evidencia.
+    /// Sin umbral numérico: el juicio es de etiquetas (el gate Σ por empresa presente sigue
+    /// intacto en <see cref="ValidarReporteBanco"/> y la fuente ausente no entra a él).
+    /// </summary>
+    private static void ValidarEtiquetasBancoNoReconocidas(List<string> errores, IReadOnlyList<WorkbookLeafInputs> leafs)
+    {
+        foreach (var leaf in leafs.OrderBy(l => l.Ase.Id))
+        {
+            var ases = leaf.ReporteBanco?.Ases;
+            if (ases is null || ases.Count == 0)
+            {
+                continue;
+            }
+
+            var noReconocidas = ases
+                .SelectMany(ase => ase.EtiquetasBancoNoReconocidas)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (noReconocidas.Count == 0)
+            {
+                continue; // sin hallazgos: nada que juzgar.
+            }
+
+            var ausentes = ases
+                .SelectMany(ase => ase.FuentesAusentesBanco)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (ausentes.Count == 0)
+            {
+                continue; // etiqueta desconocida sin ausencia en el mismo ASE = sólo evidencia.
+            }
+
+            AgregarError(
+                errores,
+                $"ASE {leaf.Ase.Id} · BANCO · control de fuentes: etiqueta(s) no reconocida(s) [{string.Join(", ", noReconocidas.Select(EtiquetaDe))}] con fuente(s) ausente(s) [{string.Join(", ", ausentes.Select(EtiquetaDe))}]. (Plan 51 A3: posible fuente presente no reconocida.)");
         }
     }
 

@@ -11,10 +11,12 @@ namespace Remuneracion.Infrastructure.Excel;
 /// escribe con <see cref="Core.Models.ReporteBancoInputs.Quincena"/>. Solo las celdas de
 /// concepto de los bloques (filas 3–6 de cada bloque) son valores escribibles.
 ///
-/// El mapa de LECTURA de la fuente (columna del Resumen por ASE) es heterogéneo:
-/// ASE1 ENEL=1/OCC=2; ASE2 ENEL=1/NUEVO ESQUEMA=2/OCC=3; ASE3 ENEL=1/OCC=2;
-/// ASE4 ENEL=1/NUEVO ESQUEMA=2/OCC=3; ASE5 ENEL=1/ENERBIT=2/OCC=3 (V10 + T0-0.3).
-/// Prohibidos offsets y filas fijas para el Resumen (D1: el conteo de filas diarias varía).
+/// Plan 51 (A1): las columnas de la FUENTE se resuelven POR HEADER reconocido
+/// (<c>ExcelDataReaderWorkbookLeafInputReader.LeerReporteBanco</c>); lo ESPERADO por ASE lo
+/// declara este mapa (<see cref="EditablesPorAse"/>). El mapa posicional
+/// <c>ColumnasFuentePorAse</c> del T0-0.3 quedó retirado (era la causa del aborto por columna
+/// desplazada) y sus índices no se conservan ni como fallback. Prohibidos offsets y filas fijas
+/// para el Resumen (D1: el conteo de filas diarias varía).
 /// </summary>
 public static class WorkbookLeafCellMapReporteBanco
 {
@@ -41,24 +43,14 @@ public static class WorkbookLeafCellMapReporteBanco
     ];
 
     /// <summary>
-    /// Índice de columna de cada empresa en la fila de headers del Resumen de la fuente
-    /// (1-based sobre las columnas de datos; la columna 0 es la etiqueta de concepto).
-    /// Congelado por T0-0.3.
-    /// </summary>
-    public static readonly IReadOnlyDictionary<int, IReadOnlyDictionary<string, int>> ColumnasFuentePorAse =
-        new Dictionary<int, IReadOnlyDictionary<string, int>>
-        {
-            [1] = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["ENEL"] = 1, ["OCCIDENTE"] = 2 },
-            [2] = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["ENEL"] = 1, ["NUEVO ESQUEMA"] = 2, ["OCCIDENTE"] = 3 },
-            [3] = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["ENEL"] = 1, ["OCCIDENTE"] = 2 },
-            [4] = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["ENEL"] = 1, ["NUEVO ESQUEMA"] = 2, ["OCCIDENTE"] = 3 },
-            [5] = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { ["ENEL"] = 1, ["ENERBIT"] = 2, ["OCCIDENTE"] = 3 }
-        };
-
-    /// <summary>
     /// Celdas de concepto editables en el template por ASE × empresa (4 celdas por empresa:
     /// filas de concepto 1/2/3/7 del bloque). El índice del arreglo coincide con
     /// <see cref="Conceptos"/> (0..3). Congelado por T0-0.7.
+    ///
+    /// Plan 51 (D1-A): sus CLAVES son el conjunto ESPERADO de fuentes por ASE (la plantilla
+    /// manda). La fuente esperada que no viene en el Resumen se omite con huella
+    /// (<c>ReporteBancoAseInputs.FuentesAusentesBanco</c>); una fuente reconocida que no esté
+    /// aquí es desincronización mapa↔plantilla y falla en duro.
     /// </summary>
     public static readonly IReadOnlyDictionary<int, IReadOnlyDictionary<string, string[]>> EditablesPorAse =
         new Dictionary<int, IReadOnlyDictionary<string, string[]>>

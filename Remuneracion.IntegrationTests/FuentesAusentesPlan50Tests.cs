@@ -122,13 +122,21 @@ public sealed class FuentesAusentesPlan50Tests
     [Fact]
     public void S2_1_ParcialConLabelPresente_SigueSiendoFailFast()
     {
-        // Octubre-1 ASE3 R1: OCCIDENTE trae UNA sola fila Total y el mapa exige TotalMedio (índice 1).
-        // Regla ratificada §7.3: parcial = fail-fast vigente (residuo declarado, no 0 silencioso).
-        var ex = Assert.Throws<CalculoInvalidoException>(() => LeerConciliacion("Prueba Octubre-1", "2026101", 3));
+        // SUPERSEDIDO POR EL PLAN 53 (H1.4): el caso "parcial con label presente" de octubre-1 ASE3
+        // R1 OCCIDENTE (una sola fila `Total` en la sección oportuna) YA NO es fail-fast: la sección
+        // declarada del contrato (`TotalMenor`/`SubsMenor`/`TotalMedio`) está ausente en la fuente y su
+        // celda queda en **0 explícito** (reglas 6 y 7 del project-context; residuo
+        // `R-PARCIAL-OCT-ASE3-R1-OCC` cerrado). El método se conserva con aserciones de valor
+        // (Plan 53 §7-H1.4 / §9 "baja+alta declarada").
+        var leafs = LeerConciliacion("Prueba Octubre-1", "2026101", 3);
+        var occidente = leafs.Single(c => c.Empresa.Id == 4);
 
-        Assert.Contains("ASE 3", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Occidente", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("bloque medio", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(286711907.53m, occidente.CeldasR1["F237"]); // TotalMain (la única sección presente)
+        Assert.Equal(0m, occidente.CeldasR1["F216"]);            // TotalMenor → 0 (sin duplicar el bloque)
+        Assert.Equal(0m, occidente.CeldasR1["F242"]);            // SubsMenor → 0
+        Assert.Equal(0m, occidente.CeldasR1["F222"]);            // TotalMedio → 0 (< 3 secciones)
+        Assert.Equal(427389334.19m, occidente.VisibleR1);
+        Assert.DoesNotContain(occidente.FuentesAusentes, f => f.StartsWith("R1:", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
