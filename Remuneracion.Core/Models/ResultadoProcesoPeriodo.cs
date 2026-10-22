@@ -40,4 +40,20 @@ public sealed class ResultadoProcesoPeriodo
     /// salida. Vacío = no hubo cierre con declarada reconocida (no se emite reporte).
     /// </summary>
     public string ReporteDivergenciasDeclaradas { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Plan 50 (A1, §2.3): huella durable de las FUENTES DE RECAUDO AUSENTES por (ASE, reporte, label),
+    /// con formato <c>ASE {n} · {Reporte}:{label}</c> (p. ej. <c>ASE 2 · R1:NUEVO ESQUEMA</c>).
+    /// Vacía = comportamiento anterior (todas las fuentes del período vinieron). La ausencia es un caso
+    /// NORMAL: su celda destino quedó en 0 (no es divergencia ni error).
+    /// </summary>
+    public IReadOnlyList<string> FuentesAusentes { get; set; } = [];
+
+    /// <summary>
+    /// Plan 50 (A3, §2.5): evidencia de etiquetas de fuente observadas que no resuelven a ninguna
+    /// empresa del mapa, con formato <c>ASE {n} · {Reporte}:{label}</c>. Sólo se convierte en
+    /// fail-fast si coexiste con una <see cref="FuentesAusentes"/> del MISMO reporte (posible fuente
+    /// presente no reconocida). Vacía = sin hallazgos.
+    /// </summary>
+    public IReadOnlyList<string> EtiquetasNoReconocidas { get; set; } = [];
 }

@@ -50,4 +50,27 @@ public sealed class ConciliacionEmpresaInputs
     /// Visible esperado post-Excel del detalle por empresa en R4.
     /// </summary>
     public decimal VisibleR4 { get; set; }
+
+    /// <summary>
+    /// Plan 50 (A1, §2.3): huella auditable de las FUENTES DE RECAUDO AUSENTES en este ASE para esta
+    /// empresa, con formato <c>{Reporte}:{label}</c> (p. ej. <c>R1:NUEVO ESQUEMA</c>,
+    /// <c>R4:OCCIDENTE</c>). Vacía = comportamiento anterior (todas las fuentes del mapa vinieron).
+    ///
+    /// La ausencia es un caso NORMAL del negocio (§0.2 del plan): el reader materializa el 0
+    /// explícito en <see cref="CeldasR1"/>/<see cref="CeldasR2"/>/<see cref="CeldasR4"/> y registra
+    /// aquí la huella; los invariantes de cierre del reporte siguen siendo fail-fast.
+    /// </summary>
+    public IReadOnlyList<string> FuentesAusentes { get; set; } = [];
+
+    /// <summary>
+    /// Plan 50 (A3, §2.5 — control mínimo alternativo): evidencia READ-ONLY de etiquetas de fuente
+    /// observadas en los reportes de este ASE que NO resuelven a ninguna empresa del mapa (ni por la
+    /// sinonimia citada de <see cref="SinonimosEmpresaR1"/>), con formato <c>{Reporte}:{label}</c>
+    /// (p. ej. <c>R2:EAB</c>).
+    ///
+    /// Es evidencia del REPORTE: el reader la replica en las 5 entradas del ASE (no hay contrato por
+    /// ASE en <c>LeerConciliacionEmpresas</c>); el validador la deduplica. El juicio (fail-fast sólo
+    /// si además hay una fuente ausente en el mismo reporte) vive en <c>ValidadorBasico</c>.
+    /// </summary>
+    public IReadOnlyList<string> EtiquetasNoReconocidas { get; set; } = [];
 }

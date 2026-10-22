@@ -183,6 +183,11 @@ public sealed class ValidadorBasico : IValidador
             ValidarSigmaEmpresasPorAse(errores, leaf);
         }
 
+        // Plan 50 (A3, §2.5 — control mínimo alternativo): evidencia de etiquetas de fuente no
+        // reconocidas + ausencias declaradas en el MISMO reporte = posible fuente presente no
+        // reconocida → fail-fast (nunca un 0 silencioso).
+        ValidarFuentesRecaudoNoReconocidas(errores, leafs);
+
         // HU-12 (2.6 ampliada, §2.5 regla 2): DetRetri-Q2 por ASE — SOLO en Q2 (Q1 sin cambios,
         // regresión ciega). Cada leaf debe traer DetRetriQ2 (error que nombra el ASE; nunca null)
         // y el Detalle debe coincidir con ROUND(D104:D108,0) vía DetRetriRounder (composición V0.4;
@@ -828,6 +833,23 @@ public sealed class ValidadorBasico : IValidador
             return;
         }
 
+        // Plan 50 (A2, §2.4 — RESIDUO Q2 DECLARADO CON SU PROPIO T0 + residuo R-MAPA-V2-R2-ASE4):
+        // este gate (Σ visibles-empresa == visible de bloque) se definió sobre los mapas Q1 de HU-08 y
+        // NO es una descomposición válida del visible de bloque en Q2. Evidencia medida en bytes
+        // (`Docs/T0-Plan50-FuentesRecaudoOpcionales.md` §4):
+        //   - R4 solo declara las empresas con celda destino (p. ej. ASE1: ENEL no tiene celda), por lo
+        //     que la Σ omite dinero real del reporte (julio-2 ASE1 Δ = 15.533.961,70);
+        //   - R2 incluye etiquetas reales sin destino en el mapa (EAB, ENERBIT) → Δ = 73.523,10 /
+        //     6.242.402,48 / 6.055.022,95;
+        //   - el visible R1-Q2 se deriva por firma (espejo: roles Mes/Aplic), no de estos operandos.
+        // El recorte de la conciliación Q2 se MANTIENE (residuo R-MAPA-V2-R2-ASE4: R2!E285 es fórmula
+        // en la v2), así que hoy esta rama es defensiva; si un plan futuro levanta el recorte, el gate
+        // NO debe reactivarse en Q2 sin el contrato nuevo (T0 propio).
+        if (leaf.Periodo.NumeroQuincena != 1)
+        {
+            return;
+        }
+
         var sumaR1 = leaf.Conciliacion.Sum(c => c.VisibleR1);
         if (Math.Abs(sumaR1 - leaf.R1.TotalOportunoEsperadoPorAse) > Tolerancia)
         {
@@ -849,4 +871,76 @@ public sealed class ValidadorBasico : IValidador
 
     private static string DetalleEmpresas(WorkbookLeafInputs leaf, Func<ConciliacionEmpresaInputs, decimal> selector) =>
         string.Join(", ", leaf.Conciliacion.Select(c => $"{c.Empresa.Nombre}={selector(c)}"));
+
+    /// <summary>
+    /// Plan 50 (A3, §2.5 — control mínimo alternativo): el T0 de H0 demostró con bytes que la vía
+    /// aritmética (Σ fuentes presentes vs total del reporte) NO es viable en R1 (el total del cuadro
+    /// Componente no es la suma de las filas-etiqueta) ni en R2 (el total incluye la etiqueta real
+    /// <c>EAB</c>, sin destino en el mapa). El control mínimo es el de ETIQUETAS:
+    ///
+    /// - <see cref="ConciliacionEmpresaInputs.EtiquetasNoReconocidas"/> = etiquetas observadas en las
+    ///   filas de cierre del reporte que no resuelven a ninguna empresa del mapa (evidencia del reader,
+    ///   read-only, sin workbooks extra).
+    /// - Si además hay una <see cref="ConciliacionEmpresaInputs.FuentesAusentes"/> en el MISMO reporte
+    ///   del MISMO ASE, hay dinero en el reporte que ninguna fuente reconocida explica: es la firma de
+    ///   "fuente presente no reconocida" (cambio de etiqueta) → FAIL en duro, nunca 0 silencioso.
+    ///
+    /// Sin ausencias en el mismo reporte la etiqueta desconocida es sólo evidencia (p. ej. <c>EAB</c>,
+    /// fuente real sin destino en el mapa: deuda declarada del Plan 49, no se convierte en rojo).
+    /// </summary>
+    private static void ValidarFuentesRecaudoNoReconocidas(List<string> errores, IReadOnlyList<WorkbookLeafInputs> leafs)
+    {
+        foreach (var leaf in leafs.OrderBy(l => l.Ase.Id))
+        {
+            if (leaf.Conciliacion.Count == 0)
+            {
+                continue;
+            }
+
+            var noReconocidas = leaf.Conciliacion
+                .SelectMany(conc => conc.EtiquetasNoReconocidas)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (noReconocidas.Count == 0)
+            {
+                continue;
+            }
+
+            var ausentes = leaf.Conciliacion
+                .SelectMany(conc => conc.FuentesAusentes)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (ausentes.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (var reporte in noReconocidas.Select(n => ReporteDe(n)).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var ausentesDelReporte = ausentes.Where(a => ReporteDe(a).Equals(reporte, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (ausentesDelReporte.Count == 0)
+                {
+                    continue; // etiqueta desconocida sin ausencia en SU reporte = sólo evidencia.
+                }
+
+                var etiquetas = noReconocidas.Where(n => ReporteDe(n).Equals(reporte, StringComparison.OrdinalIgnoreCase)).Select(EtiquetaDe);
+                var fuentes = ausentesDelReporte.Select(EtiquetaDe);
+                AgregarError(
+                    errores,
+                    $"ASE {leaf.Ase.Id} · {reporte} · control de fuentes: etiqueta(s) no reconocida(s) [{string.Join(", ", etiquetas)}] con fuente(s) ausente(s) [{string.Join(", ", fuentes)}]. (Plan 50 A3: posible fuente presente no reconocida.)");
+            }
+        }
+    }
+
+    private static string ReporteDe(string entrada)
+    {
+        var separador = entrada.IndexOf(':');
+        return separador < 0 ? entrada : entrada[..separador];
+    }
+
+    private static string EtiquetaDe(string entrada)
+    {
+        var separador = entrada.IndexOf(':');
+        return separador < 0 ? entrada : entrada[(separador + 1)..];
+    }
 }

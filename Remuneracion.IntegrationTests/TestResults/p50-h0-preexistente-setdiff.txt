@@ -1,0 +1,37 @@
+Plan 50 - set-diff
+=================
+
+Base : Remuneracion.IntegrationTests\TestResults\p49-h2-suite.trx
+       Total 1061 / Passed 1012 / Failed 49 / Skipped 0
+Nueva: Remuneracion.IntegrationTests\TestResults\p50-h0-baseline.trx
+       Total 1061 / Passed 994 / Failed 67 / Skipped 0
+
+ROJOS NUEVOS (alta): 20
+  + Remuneracion.IntegrationTests.AdopcionPlantillaV2T0Plan48Tests.T0P48_P3_R1_Manual_492_Formulas_DosPatrones
+  + Remuneracion.IntegrationTests.AdopcionPlantillaV2T0Plan48Tests.T0P48_P6_TablaParidad_40Hojas_ConteosReales
+  + Remuneracion.IntegrationTests.AdopcionPlantillaV2T0Plan48Tests.T0P48_Sha256_V1_V2_Intactas
+  + Remuneracion.IntegrationTests.DivergenciaDeclaradaCierreT4Tests.T4_NoDeclaradaInyectada_SigueBloqueandoAunqueLaDeclaradaEsteReconocida
+  + Remuneracion.IntegrationTests.DivergenciaDeclaradaT0Tests.T0_Oficial_Sha256Intacto
+  + Remuneracion.IntegrationTests.ParidadCliTests.Paridad_1Ase_Q1_Ase3_CliVsDirecto_ValoresIguales
+  + Remuneracion.IntegrationTests.RevisionPestanasLenteR1T0Plan47Tests.T0P47_P6_R2_MatrizFilasYEmparejamiento_Congelada(ase: 4)
+  + Remuneracion.IntegrationTests.RobustezDeudaHu13Tests.S1_BooleanoTipoB_LiteralFalse_EsFalse
+  + Remuneracion.IntegrationTests.RobustezDeudaHu13Tests.S1_LiteralFalse_VerificacionP_False_NoTrue(literal: "false")
+  + Remuneracion.IntegrationTests.RobustezDeudaHu13Tests.S1_LiteralFalse_VerificacionP_False_NoTrue(literal: "FALSE") #2
+  + Remuneracion.IntegrationTests.RobustezDeudaHu13Tests.S2_O9Roto_ExactamenteUnError_NoCinco
+  + Remuneracion.IntegrationTests.RobustezDeudaHu13Tests.S3_ReaderOracle_UsaLaMismaFactory_SnapshotsCanonicos
+  + Remuneracion.IntegrationTests.RobustezDeudaHu13Tests.S4_ControlInformativoSinCache_ConservaElCeroTolerado
+  + Remuneracion.IntegrationTests.RobustezDeudaHu13Tests.W1_SubBloquesValidacionTotal_ProtegidasYEvaluadas
+  + Remuneracion.IntegrationTests.SelladoCacheFormulaT2Tests.T2_SelladoCoincideConEvaluacion_YFormulaIntacta
+  + Remuneracion.IntegrationTests.ValidacionOracleReaderTests.GoldenConCacheReal_LecturaSobreSalidaQ1_EquivaleALaPlantilla
+  + Remuneracion.IntegrationTests.ValidacionOracleReaderTests.Q1Golden_SnapshotCierra_TodasLasValidaciones
+  + Remuneracion.IntegrationTests.ValidacionOracleReaderTests.Q2Canonico_SnapshotLeeSinFallo_ConCacheCero
+  + Remuneracion.IntegrationTests.ValidacionOracleReaderTests.Reader_NuncaEscribe_HashIntactoEnCanonicos
+  + Remuneracion.IntegrationTests.ValidacionTotalEvaluaT1Tests.T1_TextosFormula_CoincidenTabla_EnSalidaRealYManual
+
+ROJOS REVERTIDOS (baja): 2
+  - Remuneracion.IntegrationTests.ValidadorTotalesR1GateTests.S1_Agosto2026082_GateVerde
+  - Remuneracion.IntegrationTests.ValidadorTotalesR1GateTests.S1_Julio2026072_GateVerde
+
+TESTS NUEVOS: 0 (verdes: 0)
+
+TESTS DESAPARECIDOS: 0

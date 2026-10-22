@@ -1,0 +1,86 @@
+Plan 50 — H2 set-diff (2026-10-21)
+==================================
+
+Comparación 1 (GATE del plan): contra la LÍNEA BASE VIVA del árbol
+------------------------------------------------------------------
+Base  : Remuneracion.IntegrationTests/TestResults/p50-h0-baseline.trx  (medida ANTES de tocar código)
+        Total 1061 / Passed 994 / Failed 67 / Skipped 0
+Nueva : Remuneracion.IntegrationTests/TestResults/p50-h2-suite.trx
+        Total 1141 / Passed 1074 / Failed 67 / Skipped 0
+
+  Altas (rojo nuevo) : 0
+  Bajas (rojo→verde) : 0
+  Tests nuevos       : 80 (80 verdes, 0 Skip)
+  Tests desaparecidos: 0
+
+  => CERO rojos nuevos fuera de lista. CERO tests debilitados/borrados. 0 Skip.
+
+
+Comparación 2 (nominal del plan): contra la base citada en `plans/50` (§7.5)
+----------------------------------------------------------------------------
+Base  : Remuneracion.IntegrationTests/TestResults/p49-h2-suite.trx
+        Total 1061 / Passed 1012 / Failed 49 / Skipped 0
+Nueva : Remuneracion.IntegrationTests/TestResults/p50-h2-suite.trx
+        Total 1141 / Passed 1074 / Failed 67 / Skipped 0
+
+  Altas : 20   Bajas : 2   Nuevos : 80 (80 verdes)
+
+  Las 20 altas y las 2 bajas NO son del Plan 50: provienen del reemplazo de la plantilla v2 en el
+  commit `d55e621 "Ajustes nueva plantilla"` (2026-10-21 12:01), que cambió el binario de
+  `Docs/Plantilla estandarizada/v2/Formato Remuneracion 2026xx-x Total vf.xlsx`
+  (`FF5CF7A8…` → `0F192AD2…`) y dos fuentes R2. La prueba: `p50-h0-baseline.trx` (medida en el árbol
+  ya modificado y SIN cambios del Plan 50) contiene exactamente esos mismos rojos.
+
+  Detalle y verificación reproducible: `TestResults/p50-h0-preexistente-setdiff.txt`.
+
+  Altas pre-existentes (19 + 1 artefacto de dos filas homónimas de Theory):
+    + AdopcionPlantillaV2T0Plan48Tests.T0P48_P3_R1_Manual_492_Formulas_DosPatrones
+    + AdopcionPlantillaV2T0Plan48Tests.T0P48_P6_TablaParidad_40Hojas_ConteosReales
+    + AdopcionPlantillaV2T0Plan48Tests.T0P48_Sha256_V1_V2_Intactas
+    + DivergenciaDeclaradaCierreT4Tests.T4_NoDeclaradaInyectada_SigueBloqueandoAunqueLaDeclaradaEsteReconocida
+    + DivergenciaDeclaradaT0Tests.T0_Oficial_Sha256Intacto
+    + ParidadCliTests.Paridad_1Ase_Q1_Ase3_CliVsDirecto_ValoresIguales
+    + RevisionPestanasLenteR1T0Plan47Tests.T0P47_P6_R2_MatrizFilasYEmparejamiento_Congelada(ase: 4)
+    + RobustezDeudaHu13Tests.S1_BooleanoTipoB_LiteralFalse_EsFalse
+    + RobustezDeudaHu13Tests.S1_LiteralFalse_VerificacionP_False_NoTrue(literal: "false")
+    + RobustezDeudaHu13Tests.S1_LiteralFalse_VerificacionP_False_NoTrue(literal: "FALSE") (2.ª fila)
+    + RobustezDeudaHu13Tests.S2_O9Roto_ExactamenteUnError_NoCinco
+    + RobustezDeudaHu13Tests.S3_ReaderOracle_UsaLaMismaFactory_SnapshotsCanonicos
+    + RobustezDeudaHu13Tests.S4_ControlInformativoSinCache_ConservaElCeroTolerado
+    + RobustezDeudaHu13Tests.W1_SubBloquesValidacionTotal_ProtegidasYEvaluadas
+    + SelladoCacheFormulaT2Tests.T2_SelladoCoincideConEvaluacion_YFormulaIntacta
+    + ValidacionOracleReaderTests.GoldenConCacheReal_LecturaSobreSalidaQ1_EquivaleALaPlantilla
+    + ValidacionOracleReaderTests.Q1Golden_SnapshotCierra_TodasLasValidaciones
+    + ValidacionOracleReaderTests.Q2Canonico_SnapshotLeeSinFallo_ConCacheCero
+    + ValidacionOracleReaderTests.Reader_NuncaEscribe_HashIntactoEnCanonicos
+    + ValidacionTotalEvaluaT1Tests.T1_TextosFormula_CoincidenTabla_EnSalidaRealYManual
+
+  Bajas pre-existentes (2):
+    - ValidadorTotalesR1GateTests.S1_Agosto2026082_GateVerde
+    - ValidadorTotalesR1GateTests.S1_Julio2026072_GateVerde
+
+
+Tests nuevos del Plan 50 (80, todos verdes)
+-------------------------------------------
+  FuentesRecaudoOpcionalesT0Plan50Tests (H0, read-only): 68
+    - matriz de ausencia total por período × ASE × reporte (45 filas congeladas)
+    - parcial octubre-1 ASE3 R1 OCCIDENTE (TotalMedio sin fila)
+    - A3: R1 no cierra (Δ medidos), R2 reconocidas no cierra (EAB), R4 cierra por construcción
+    - etiquetas no reconocidas por período × ASE × reporte (+ no coexistencia con ausencias)
+    - residuo Q2: ausencias R4 + `R-SIGMA-Q2` (Σ vs bloque medido en Q2)
+  FuentesAusentesPlan50Tests (H1): 7
+    - ASE2 octubre R1/R4 sin NUEVO ESQUEMA → 0 + huella (repro rojo 2026101, S2.3)
+    - ASE5 octubre y ASE3 agosto R4 sin OCCIDENTE → 0 + huella
+    - parcial con label presente → fail-fast vigente; invariante 'Componente' → fail-fast vigente
+    - reader period-free (Q1 y Q2)
+  ControlAntiFalsoCeroPlan50Tests (A3): 5
+    - etiqueta desconocida sin ausencias = sólo evidencia; con ausencia en el MISMO reporte = fail-fast
+    - ausencia en OTRO reporte no dispara (caso real octubre-1 ASE2: EAB en R2 + ausencias R1/R4)
+    - evidencia real del reader (EAB en R2, ausencias R1/R4)
+
+
+Gate G-Q1 (neutralidad de quincena)
+-----------------------------------
+  Q1 solo cambia en las ausencias (0 + huella): ningún fixture Q1 pasó de verde a rojo; el set-diff
+  contra la base viva es 0 altas / 0 bajas. Los rojos Q1 pre-existentes (ERR-SIN-SLOT del contrato de
+  sección R1 ASE2, Plan 41/46) siguen exactamente igual.

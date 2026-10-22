@@ -1,4 +1,4 @@
-# Project Context — Remuneración Quincenal UAESP
+﻿# Project Context — Remuneración Quincenal UAESP
 
 > Datos específicos del proyecto. Las skills son GLOBALES (`~/.config/opencode/skills/`) y contienen SOLO metodología. Este archivo contiene los datos de proyecto. El orquestador inyecta AMBOS al delegar.
 
@@ -44,6 +44,30 @@ No hay test project / CI / lint config. Para tests: crear xUnit `net10.0` refere
 - **Filas dinámicas:** buscar por headers, NO por número de fila.
 - **R4:** valores de reversión negativos en columna 4.
 - **Redondear a entero** antes de escribir en CONSOLIDADO columna D (`DetRetri`).
+
+## Modelo de la plantilla estándar (doctrina transversal — reunión con la propietaria, 2026-10-21)
+
+**La plantilla estándar define la ESTRUCTURA; la fuente del período solo aporta los VALORES.**
+
+| Elemento | Dónde vive (ej. `Reporte Componentes R1`) | Qué es |
+|---|---|---|
+| **Componente** | Encabezado de columna: `Componente TDF`, `Componente TTL`, `Componente TVIAT`, `Aprovechamiento`, `CCSA Prest.Aprov.`, `SERVICIO ESPECIALES`, … | Concepto económico del valor |
+| **Fuente de recaudo** | Columna **C**: `ENEL`, `OCCIDENTE`, `NUEVO ESQUEMA`, `ENERBIT`, … | Origen del recaudo |
+| **Canal de recaudo** | Columna **D**: `H`, `O`, `T`, `E`, `1`, `2`, `5`, … | Canal dentro de la fuente |
+| **Concepto** | Columna **E**: `Vlr Servicio`, `Vlr Intereses`, `Total` | Tipo de valor del canal |
+
+Jerarquía: cada **fuente** tiene sus **canales**; cada canal, sus **conceptos**; los valores son los **componentes**. La plantilla define qué fuentes/canales/conceptos existen por cuadro (no todos los cuadros traen los mismos) y **son los que se deben mapear**.
+
+**Columnas (verificado en bytes, obs Engram #2124):** la plantilla estándar trae los componentes en **F..Z** (21 columnas; incluye `Exonera-*`, que la fuente NO trae, y `Z = Rec.Intereses`); la fuente trae **F..U** (16). Los componentes se mapean **POR ENCABEZADO**, nunca por posición (ej.: `Rec.Intereses` fuente `U` → estándar `Z`); un componente sin contraparte en la fuente queda en **0**. La plantilla contiene **todas las filas posibles**; el llenado es dinámico desde la fuente.
+
+**Brecha conocida (2026-10-16, obs #2124):** la App interpretaba C/D/E de raíz y escribía solo `F` (Total) y `L` (SERVICIO ESPECIALES), dejando componentes en 0. Los planes 41-49 avanzaron el mapeo por firma/canal/encabezado; la **opcionalidad de la fuente** y la **unificación Q1/Q2** quedan pendientes de plan (ver rojo 2026101 ASE2).
+
+**Reglas operativas (ratificadas por el Ingeniero 2026-10-21):**
+1. **La plantilla manda en la estructura**; el mapeo es por **ETIQUETA** (fuente/canal/concepto), nunca por posición ni por ocurrencia.
+2. **Lo que la fuente no trae no se exige**: la celda destino queda en **0** (la plantilla ya está en 0). Es el mismo criterio de la plantilla estandarizada: se coloca lo que viene.
+3. **Q1 y Q2 se tratan igual** en este manejo: no hay reglas particulares por quincena.
+4. **Nunca abortar por ausencia de una fuente de recaudo**; registrar la ausencia y continuar.
+5. Los **invariantes de cierre de la fuente** (`A='Componente' B='Total'`, `A='Subs/Cont' B='Total'`, `A='Total'`) siguen siendo fail-fast si faltan (T0e, Plan 21): son estructura del reporte, no una fuente opcional.
 
 ## Cell Reference Map (CONSOLIDADO)
 | Cells | Cálculo | Fuente |
@@ -440,7 +464,7 @@ Las **filas-frontera** (`Mes/Total`, `Aplicacion…/Total`) viajan con la secci�
 
 ## Doctrina adopción plantilla v2 (Plan 48 — vigente)
 
-**Principio rector (`la v2 es la base única desde 2026-10-19; la v1 queda histórica`):** el pipeline consume `Docs/Plantilla estandarizada/v2/Formato Remuneracion 2026xx-x Total vf.xlsx` (SHA256 `FF5CF7A819110A1E1E2CA7BDAD553DD7A25141ADD472B1904BD496F082642632`); la v1 (`…C5214`) no la usa el pipeline y se conserva intacta como histórica. El re-congelamiento se hizo por T0 de bytes (`Docs/T0-Plan48-Adopcion-Plantilla-v2.md`), nunca por edición silenciosa.
+**Principio rector (`la v2 es la base única desde 2026-10-19; la v1 queda histórica`):** el pipeline consume `Docs/Plantilla estandarizada/v2/Formato Remuneracion 2026xx-x Total vf.xlsx` (SHA256 `0F192AD2721C77986B6A8CB85D1A92F782DCD2F69989F362E066FA17027F2DAB`); la v1 (`…C5214`) no la usa el pipeline y se conserva intacta como histórica. **Cambio ratificado 2026-10-21:** el commit `d55e621 "Ajustes nueva plantilla"` reemplazó el binario (`FF5CF7A8…` → `0F192AD2…`) antes del Plan 50 e introdujo 20 rojos de T0 preexistentes (SHA/geometría/fórmulas-caché) y 2 verdes legítimos en `ValidadorTotalesR1GateTests`; los 20 se re-congelan con T0 propio, no a ciegas. El Plan 50 no modificó la v2. **Deuda viva:** `Rem. Anticipos R2!E285/K285` pasaron de literal 0 (v1) a fórmula (v2) → el mapa R2 (1,4) no puede escribirse sin re-congelarse por T0 (`R-MAPA-V2-R2-ASE4`).
 
 - **Geometría R2 v2:** `BloquesR2` = ASE1 `3-33`, ASE2 `67-124`, ASE3 `175-205`, ASE4 `293-350`, ASE5 `404-441`. Cadena de consumidores a `E47/E155/E273/E384/E468` (`WorkbookLeafCellMapQ2`/`PorAse`, `ConsolidadoProtected`, `DetRetri`/`DetValiRetri`). El **cuadro OPORTUNO NO es escribible**: sus filas son fórmula o literal-0; el guard anti-fórmula lanza `ERR-PLANTILLA` si se intenta.
 - **Falso hueco cerrado (Plan 47 → Plan 48):** las 9 filas de julio-2 (canal `9` y `Vlr Intereses` del canal 2 de ASE2/ASE4) que el 47 documentó "sin slot" tienen slot en la v2; `CerosDocumentadosDetalleR2R4` conserva **solo 3 claves A/EAB de agosto-2**. Brecha de **53.283.379,41** cerrada (ASE2 `E87/E89=831.919,29`; ASE4 `E313/E314/E315=20.152.773,11 / -2.377,86 / 20.150.395,25`).
@@ -474,6 +498,36 @@ Las **filas-frontera** (`Mes/Total`, `Aplicacion…/Total`) viajan con la secci�
 - Suite `p49-h2-suite.trx`: **1061 Total / 1012 Passed / 49 Failed / 0 Skipped** vs base `p48-h3-suite.trx` (1059/1021/38/0): **11 altas, 0 bajas**, todas `Plan 49 A1` sobre **julio-2** (detalle en `Remuneracion.IntegrationTests/TestResults/p49-h2-setdiff.txt`). No se re-congelaron ni se reverdecieron: el rojo es el éxito del plan hasta la v3.
 - **Prohibido reverdecer** julio-2/agosto-2 tocando tests; el `12.462,26` del R2 ASE4 **no** se declara en este plan (T0 de dueño propio).
 
+## Doctrina fuentes de recaudo opcionales + control de etiquetas (Plan 50 — vigente)
 
+**Principio rector (`la fuente de recaudo ausente es un caso normal: 0 explícito con huella; la etiqueta desconocida NO`):** una fuente de recaudo (`ENEL`, `OCCIDENTE`, `NUEVO ESQUEMA`, `ENERBIT`) puede no venir en un período en R1, R2 o R4 de forma independiente. El reader materializa **0 por celda del mapa + huella auditable** y la corrida continúa; la **estructura rota** (invariantes de cierre T0e, fila `Componente`) sigue siendo fail-fast. Cero ramas por empresa/período: la ausencia se predica de la **geometría observada** (cero filas del label), no de una lista.
 
+### A1 — opcionalidad (reader, W-A)
+
+- **Ausencia total** (`filasTotal + filasSubs == 0` en R1, `filasEmpresa.Count == 0` en R2, sin fila `A=label B=Total` en R4) → todas las celdas del mapa por empresa = `0m`, un `Log.Warning` por (ASE, reporte, fuente) y entrada `{Reporte}:{label}` en `ConciliacionEmpresaInputs.FuentesAusentes` → propagada aditiva a `ResultadoProcesoPeriodo.FuentesAusentes` (`ASE n · R1:NUEVO ESQUEMA`).
+- **Parcial con label presente** (el label trae filas pero falta el bloque que un operando exige, p. ej. `TotalMedio` = índice 1 con una sola fila `Total`) → **fail-fast vigente** (mensajes actuales de `ValorDe`/`EspecialesDe`). Sólo un T0 de negocio con bytes puede moverlo a 0 documentado. **Caso vivo declarado:** octubre-1 ASE3 R1 OCCIDENTE (una sola fila `Total`) — `Docs/T0-Plan50-FuentesRecaudoOpcionales.md` §2.2.
+- **Writer intacto (W-A):** `OpenXmlPlantillaWriter.EscribirCeldasConciliacion` sigue exigiendo valor por celda del mapa; el 0 lo aporta el reader. El guard anti-fórmula (`ERR-PLANTILLA`) **no se relaja**.
+- **Precedente:** `AjustesSfT` con `EsOpcional` y `Bloque5Total → 0` (el mapa por empresa **no** gana flags).
+
+### A2 — Q2: recorte MANTENIDO por residuo de plantilla (`R-MAPA-V2-R2-ASE4`)
+
+El recorte de la conciliación por empresa en Q2 (`ProcesadorPeriodo`, HU-20-T0b/G2-D1) **sigue vigente**: al intentar levantarlo, la escritura de la celda destino `Rem. Anticipos R2!E285` (mapa `(1,4)`) aborta con **`ERR-PLANTILLA`** porque en la **v2** `E285 = E192+E203-K192` es fórmula (en la v1 era literal 0), igual que `K285`. Reactivarlo exige **re-congelar ese mapa por T0** (clase Plan 48), nunca editar el mapa ni relajar el guard. Evidencia: `Docs/T0-Plan50-FuentesRecaudoOpcionales.md` §4.3. **A1 es period-free**: el reader lee igual en Q1 y Q2; lo que se omite en Q2 es la llamada del procesador.
+
+### A3 — control anti-falso-0 = CONTROL DE ETIQUETAS (no aritmética)
+
+El T0 midió que `Σ fuentes presentes vs total del reporte` **no es viable**: en R1 el total del cuadro `Componente` no es la suma de las filas-etiqueta (Δ 2.015,07 / 243.714,65 / 558,05 / 30.180,94 en octubre-1; tampoco 0 en julio-2/agosto-2) y en R2 el total incluye la etiqueta real `EAB` (sin destino en el mapa) → Σ-reconocidas ≠ total. En R4 la igualdad es una tautología (la fila `Total` es la suma de las filas-etiqueta). Control implementado:
+
+- **Evidencia (reader, sin juicio):** `ConciliacionEmpresaInputs.EtiquetasNoReconocidas` = etiquetas observadas en las filas de cierre (`R1:C` con `D=Total`, `R2:B` con `C=Total`, `R4:A` con `B=Total`) que **no** pertenecen al vocabulario de fuentes (`EmpresaFacturacion.Catalogo` + rótulo vigente por ASE + sinonimia `RECIPROCIDAD ↔ NUEVO ESQUEMA`), formato `{Reporte}:{label}`.
+- **Juicio (Core):** `ValidadorBasico.ValidarFuentesRecaudoNoReconocidas` → **fail-fast** sólo si una etiqueta no reconocida coexiste con una **fuente ausente en el MISMO reporte** del mismo ASE (posible fuente presente no reconocida). Sin ausencia en ese reporte la etiqueta es **sólo evidencia** (hoy: `EAB` en R2 de ASE2/3/4 — deuda del Plan 49).
+- **Sin umbral numérico** (no hay resta): el control es de etiquetas. Es el mínimo alternativo del §2.5 del plan, con su T0 propio.
+
+### Residuo declarado del gate Σ (`R-SIGMA-Q2`)
+
+`Σ visibles-empresa == visible de bloque` (HU-08 §2.5: `ValidadorBasico.ValidarSigmaEmpresasPorAse` y el gemelo `WorkbookLeafCoherence.ValidarSigmaEmpresas` del writer) se definió sobre los mapas Q1 y **no descompone** el visible de bloque en Q2: R4 sólo declara empresas con celda destino (`ENEL` sin celda en ASE1/3/5), R2 omite etiquetas reales sin destino (`EAB`, `ENERBIT`) y el visible R1-Q2 se deriva por firma. Queda **acotado a Q1** (comportamiento Q2 idéntico al anterior). Corregirlo exige contrato nuevo + cobertura del mapa (T0 propio).
+
+### Regresión y evidencia
+
+- T0 read-only: `Remuneracion.IntegrationTests/FuentesRecaudoOpcionalesT0Plan50Tests.cs` (matriz período×ASE×reporte, parcial, aritmética A3 y etiquetas) + `Docs/T0-Plan50-FuentesRecaudoOpcionales.md`.
+- H1: `FuentesAusentesPlan50Tests` (ausencia→0+huella, parcial→fail-fast, invariante→fail-fast, period-free) · `ControlAntiFalsoCeroPlan50Tests` (A3).
+- **Línea base viva del árbol** (post-commit `d55e621`, que reemplazó la v2): `TestResults/p50-h0-baseline.trx` = 1061/994/67/0 — 18 rojos más que `p49-h2-suite.trx` (1061/1012/49/0) por el cambio de plantilla, **antes** del Plan 50. El set-diff de H2 se hace contra esa base.
 

@@ -5,6 +5,15 @@
 > **Continuidad:** HU-01..HU-19 cerradas. Este plan construye encima de: `ArchivoFuenteLocator.BuscarConciliacion`, `ExcelDataReaderWorkbookLeafInputReader.LeerRecaudoEmpresa/LeerRecaudosEmpresa`, `ProcesadorPeriodo` (recorte T0-0.6 líneas ~138-154 y 225-238), `OpenXmlPlantillaWriter.EscribirCeldasEmpresa`, `EmpresaFacturacion.Catalogo`, composición DetRetri-Q2 HU-12 (`DetRetriQ2Inputs` = ROUND(D104:D108,0)).
 > **Estado:** PENDIENTE DE APROBACIÓN — no implementar hasta OK del Ingeniero.
 > **Fecha:** 2026-09-22
+> **NOTA DE VIGENCIA (2026-10-21, Plan 50 — no reescribe la historia):** el recorte de **Recaudos** en Q2
+> (T3/G2) quedó levantado tal como se implementó. El recorte de la **conciliación por empresa** en Q2
+> (G2-D1) sigue **VIGENTE**: el Plan 50 (A2) autorizó levantarlo, pero el T0 de bytes demostró un bloqueo
+> de plantilla en la **v2** — la celda destino Rem. Anticipos R2!E285 (mapa HU-08 (1,4)) es fórmula
+> (E192+E203-K192; en la v1 era literal 0), igual que K285 → la escritura aborta con ERR-PLANTILLA.
+> La causa del recorte original (R4-por-empresa Q2 sin NUEVO ESQUEMA) ya **no aborta** gracias a A1
+> (ausencia de fuente = 0 con huella), pero el levantamiento completo exige **re-congelar el mapa R2 (1,4)
+> contra la v2 por T0** (clase Plan 48) — nunca editar el mapa a ciegas. Evidencia:
+> `Docs/T0-Plan50-FuentesRecaudoOpcionales.md` §4.3 (R-MAPA-V2-R2-ASE4).
 
 ---
 

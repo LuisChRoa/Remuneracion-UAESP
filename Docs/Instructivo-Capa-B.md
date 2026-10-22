@@ -228,3 +228,29 @@ El rango de fechas de los archivos fuente Q2 NO es homogéneo (p. ej. `Retribuci
 | | | | | | | | | |
 
 Rellene una fila por ejecución certificada. El SHA256 de la salida se obtiene con `Get-FileHash` (registro de que el archivo certificado no cambió después de la revisión).
+
+---
+
+## 11. Fuente de recaudo que no viene en el período (nuevo — Plan 50)
+
+Las fuentes de recaudo (ENEL, OCCIDENTE, NUEVO ESQUEMA, ENERBIT) **pueden no venir** en un período, en
+cualquiera de los tres reportes (recaudo por componente, saldos a favor, reversión) y de forma
+independiente entre ellos. **No es un error y no hay que hacer nada**: la aplicación deja en **0** las
+casillas de esa fuente y registra la ausencia en el archivo de log y en el resultado de la corrida, con
+una línea por fuente y reporte, por ejemplo:
+
+```
+ASE 2 · R1:NUEVO ESQUEMA
+```
+
+**Cómo leerlo en la revisión:**
+
+| Lo que ve | Qué significa | Qué hacer |
+|---|---|---|
+| Un **0** en las casillas de una fuente, y la fuente aparece en la lista de ausencias | La fuente no vino en el período (caso normal) | Verificar que el cuadro de esa fuente esté en 0 en el archivo y continuar |
+| Un **0** sin ninguna línea de ausencia | La fuente sí vino y su valor es 0 | Nada: es un 0 real |
+| Un error de **"posible fuente presente no reconocida"** que nombra un ASE, un reporte y una etiqueta | Hay dinero en el reporte que no corresponde a ninguna fuente conocida (por ejemplo, un nombre de fuente cambiado) | **Detener y escalar**: no se corrige en Excel, se reporta al Ingeniero con el ASE y el reporte que indica el mensaje |
+| Un error que dice que **no se encontró una fila** de una empresa | La estructura del reporte está incompleta (no es una fuente ausente) | **Detener y escalar**: solicitar el reporte completo |
+
+Un **0 con ausencia registrada es normal**; un **aviso de etiqueta no reconocida es un defecto** que se
+escala, nunca se "arregla" a mano en el archivo.

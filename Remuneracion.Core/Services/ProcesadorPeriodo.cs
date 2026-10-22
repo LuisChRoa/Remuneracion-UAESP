@@ -196,11 +196,13 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
                 .Information("ASE {AseId}: INTERVENTORIA = insumo externo declarado — hoja intacta (bloque anual estático K26:K30/N26:N30; no se escribe; veredicto D2b T0).", idAse);
 
             // HU-08 (2.2): conciliación por empresa de facturación de este ASE (fail-fast ASE+empresa).
-            // HU-20-T0b/G2-D1: el T0 re-verificó el layout R4-por-empresa Q2 y la divergencia
-            // PERSISTE (ASE2-Q2 trae ENEL+OCCIDENTE y NO la fila RECIPROCIDAD/"NUEVO ESQUEMA"; el
-            // mapa HU-08 congelado para Q1 no la puede resolver). Por el alcance acotado del plan,
-            // el levantamiento Q2 cubre SOLO Recaudos; la conciliación por empresa en Q2 queda
-            // como follow-up con su propio T0 (NUNCA se reescribe el mapa HU-08 a ciegas).
+            // HU-20-T0b/G2-D1 (recorte Q2) — MANTENIDO: el Plan 50 (A2, §2.4) autorizó levantar el
+            // recorte, pero el T0 de bytes de H0/H1 demostró un BLOQUEO DE PLANTILLA en v2: la celda
+            // de destino del mapa por empresa (1,4) `Rem. Anticipos R2!E285` (y su `K285`) es FÓRMULA
+            // en la v2 (`E285 = E192+E203-K192`; en la v1 era literal 0) → any Q2 write aborta con
+            // `ERR-PLANTILLA` ("no puede sobrescribir fórmulas"). Reactivar A2 exige re-congelar ese
+            // mapa por T0 (clase Plan 48: v3/propietaria), NUNCA editar el mapa ni relajar el guard:
+            // ver `Docs/T0-Plan50-FuentesRecaudoOpcionales.md` §4.3 (residuo R-MAPA-V2-R2-ASE4).
             // leaf.Conciliacion vacío en Q2 = comportamiento HU-07 puro para validador/writer.
             if (!esQuincena2)
             {
@@ -210,8 +212,8 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             }
             else
             {
-                progreso?.Report($"ASE {idAse}: conciliación por empresa omitida en Q2 (HU-20-T0b: layout R4 divergente persistente; alcance acotado a Recaudos).");
-                Log.Warning("ASE {AseId}: conciliación por empresa omitida en Q2 (HU-20-T0b: layout R4 divergente persistente; alcance acotado a Recaudos).", idAse);
+                progreso?.Report($"ASE {idAse}: conciliación por empresa omitida en Q2 (residuo R-MAPA-V2-R2-ASE4: la celda destino R2!E285 es fórmula en la plantilla v2; ver Plan 50 §2.4).");
+                Log.Warning("ASE {AseId}: conciliación por empresa omitida en Q2 (residuo R-MAPA-V2-R2-ASE4: R2!E285 es fórmula en la v2; ver Plan 50 §2.4).", idAse);
             }
 
             // HU-09 (2.3): reporte de recaudo por banco de este ASE (fail-fast ASE+empresa-columna).
@@ -554,7 +556,17 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             RutaSalida = solicitud.RutaSalida,
             Validaciones = lineasValidaciones,
             DivergenciasDeclaradas = clasificacion,
-            ReporteDivergenciasDeclaradas = rutaReporte
+            ReporteDivergenciasDeclaradas = rutaReporte,
+            FuentesAusentes = leafs
+                .SelectMany(leaf => leaf.Conciliacion.SelectMany(conc => conc.FuentesAusentes)
+                    .Select(fuente => $"ASE {leaf.Ase.Id} · {fuente}"))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            EtiquetasNoReconocidas = leafs
+                .SelectMany(leaf => leaf.Conciliacion.SelectMany(conc => conc.EtiquetasNoReconocidas)
+                    .Select(etiqueta => $"ASE {leaf.Ase.Id} · {etiqueta}"))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList()
         };
     }
 

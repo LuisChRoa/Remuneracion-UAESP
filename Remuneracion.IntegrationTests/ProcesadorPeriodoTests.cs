@@ -451,7 +451,11 @@ public sealed class ProcesadorPeriodoTests
         Assert.Equal(5, resultado.Leafs.Count);
         Assert.All(resultado.Leafs, l => Assert.NotNull(l.DetRetriQ2));
         Assert.All(resultado.Leafs, l => Assert.NotNull(l.AjustesSfT));
-        Assert.All(resultado.Leafs, l => Assert.Empty(l.Conciliacion)); // recorte 1 HU-11 (V0.6)
+        // Plan 50 (A2): el levantamiento del recorte Q2 quedó BLOQUEADO por el residuo
+        // `R-MAPA-V2-R2-ASE4` (la celda destino R2!E285 es fórmula en la v2; `ERR-PLANTILLA` al
+        // escribir). El recorte se MANTIENE: en Q2 la conciliación por empresa sigue vacía
+        // (`Docs/T0-Plan50-FuentesRecaudoOpcionales.md` §4.3). Re-congelado con esa evidencia.
+        Assert.All(resultado.Leafs, l => Assert.Empty(l.Conciliacion));
     }
 
     [Fact]

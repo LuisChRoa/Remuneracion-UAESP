@@ -1,6 +1,7 @@
 using Remuneracion.Core.Exceptions;
 using Remuneracion.Core.Interfaces;
 using Remuneracion.Core.Models;
+using Serilog;
 
 namespace Remuneracion.Infrastructure.Excel;
 
@@ -99,15 +100,20 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         var filasR4 = ExcelWorksheetNavigator.LeerFilas(rutaR4);
 
         var resultado = new List<ConciliacionEmpresaInputs>();
+        var etiquetasNoReconocidas = DetectarEtiquetasNoReconocidas(ase, filasR1, filasR2, filasR4);
         foreach (var empresa in EmpresaFacturacion.Catalogo)
         {
+            // Plan 50 (A1, §2.3): huella de ausencias por empresa (una entrada por reporte/fuente).
+            var fuentesAusentes = new List<string>();
             var inputs = new ConciliacionEmpresaInputs
             {
                 Empresa = empresa,
                 Ase = ase,
-                CeldasR1 = ExtraerCeldasR1(ase, empresa, filasR1),
-                CeldasR2 = ExtraerCeldasR2(ase, empresa, filasR2),
-                CeldasR4 = ExtraerCeldasR4(ase, empresa, filasR4)
+                CeldasR1 = ExtraerCeldasR1(ase, empresa, filasR1, fuentesAusentes),
+                CeldasR2 = ExtraerCeldasR2(ase, empresa, filasR2, fuentesAusentes),
+                CeldasR4 = ExtraerCeldasR4(ase, empresa, filasR4, fuentesAusentes),
+                FuentesAusentes = fuentesAusentes,
+                EtiquetasNoReconocidas = etiquetasNoReconocidas
             };
 
             inputs.VisibleR1 = CalcularVisibleR1(ase.Id, empresa.Id, inputs.CeldasR1);
@@ -118,6 +124,83 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         }
 
         return resultado;
+    }
+
+    /// <summary>
+    /// Plan 50 (A3, §2.5 — control mínimo alternativo): etiquetas de fuente observadas en las filas de
+    /// cierre de cada reporte que NO pertenecen al vocabulario de fuentes del negocio
+    /// (<see cref="EmpresaFacturacion.Catalogo"/> + su label por ASE + la sinonimia citada del
+    /// Plan 34). Es EVIDENCIA (sin juicio): no abre workbooks extra, reusa las filas ya leídas.
+    /// Formato <c>{Reporte}:{label}</c>.
+    /// </summary>
+    private static IReadOnlyList<string> DetectarEtiquetasNoReconocidas(
+        Ase ase, List<object?[]> filasR1, List<object?[]> filasR2, List<object?[]> filasR4)
+    {
+        var noReconocidas = new List<string>();
+
+        // Vocabulario de FUENTES de recaudo del negocio (dato del catálogo, nunca una rama por
+        // período/empresa): los rótulos de la plantilla y el rótulo vigente de la fuente por ASE.
+        var vocabulario = EmpresaFacturacion.Catalogo
+            .SelectMany(empresa => new[] { empresa.LabelTemplate, ObtenerLabelFuente(empresa.Id, ase.Id) })
+            .Where(label => label.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        void Analizar(string reporte, IEnumerable<string> observadas)
+        {
+            foreach (var observada in observadas.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (vocabulario.Any(conocida => SinonimosEmpresaR1.SonMismaEmpresa(observada, conocida)))
+                {
+                    continue;
+                }
+
+                noReconocidas.Add($"{reporte}:{observada}");
+            }
+        }
+
+        // R1: la etiqueta de la fuente vive en C y la fila de cierre es D='Total'.
+        Analizar(
+            "R1",
+            filasR1.Where(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(3)).Equals("Total", StringComparison.OrdinalIgnoreCase))
+                .Select(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(2)))
+                .Where(label => label.Length > 0));
+
+        // R2: la etiqueta vive en B y la fila de cierre es C='Total'.
+        Analizar(
+            "R2",
+            filasR2.Where(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(2)).Equals("Total", StringComparison.OrdinalIgnoreCase))
+                .Select(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)))
+                .Where(label => label.Length > 0));
+
+        // R4: la etiqueta vive en A y la fila de cierre es B='Total'.
+        Analizar(
+            "R4",
+            filasR4.Where(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)).Equals("Total", StringComparison.OrdinalIgnoreCase))
+                .Select(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(0)))
+                .Where(label => label.Length > 0));
+
+        return noReconocidas;
+    }
+
+    /// <summary>
+    /// Plan 50 (A1, §2.3): huella durable de una fuente de recaudo ausente — UN <c>Log.Warning</c> por
+    /// (ASE, reporte, fuente), con conteo de celdas en cero (nunca volcado por celda; R-RUIDO).
+    /// </summary>
+    private static void RegistrarFuenteAusente(Ase ase, string reporte, string label, EmpresaFacturacion empresa, int celdasEnCero)
+    {
+        Log.ForContext("AseId", ase.Id)
+            .ForContext("Reporte", reporte)
+            .ForContext("Fuente", label)
+            .ForContext("Empresa", empresa.Nombre)
+            .ForContext("CeldasEnCero", celdasEnCero)
+            .Warning(
+                "ASE {AseId}: la fuente de recaudo {Fuente} del reporte {Reporte} no viene en el período para {Empresa}; sus {CeldasEnCero} celdas quedan en 0 (ausencia registrada, no es error).",
+                ase.Id,
+                label,
+                reporte,
+                empresa.Nombre,
+                celdasEnCero);
     }
 
     /// <inheritdoc />
@@ -1380,11 +1463,13 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
 
     /// <summary>
     /// Extrae los operandos R1 por empresa según <see cref="WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa"/>.
-    /// Fail-fast: si la fuente no trae la fila Total/Subs de una empresa con operando declarado,
-    /// lanza <c>CalculoInvalidoException</c> que nombra ASE y empresa (nunca valor inventado).
+    /// Plan 50 (A1, §2.1): si el label de la empresa NO trae NINGUNA fila <c>Total</c> en la fuente
+    /// (ausencia total), los operandos del mapa quedan en <b>0 explícito</b> con huella
+    /// (<see cref="RegistrarFuenteAusente"/>) — no aborta. Si el label trae filas pero falta un bloque
+    /// que un operando exige (caso parcial), se mantiene el fail-fast vigente (§7.3 ratificado).
     /// </summary>
     private static IReadOnlyDictionary<string, decimal> ExtraerCeldasR1(
-        Ase ase, EmpresaFacturacion empresa, List<object?[]> filas)
+        Ase ase, EmpresaFacturacion empresa, List<object?[]> filas, List<string> fuentesAusentes)
     {
         var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
         if (!WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa.TryGetValue((empresa.Id, ase.Id), out var mapa))
@@ -1422,6 +1507,20 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             .OrderByDescending(f => Math.Abs(ExcelWorksheetNavigator.CeldaNumero(f.ElementAtOrDefault(5))))
             .ToList();
 
+        // Plan 50 (A1, §2.1 punto 1): ausencia TOTAL del label = 0 explícito por celda del mapa +
+        // huella. No se llama a ValorDe/EspecialesDe (rama previa: no hay throw que capturar).
+        if (filasTotal.Count == 0 && filasSubs.Count == 0)
+        {
+            foreach (var (celda, _) in mapa)
+            {
+                celdas[celda] = 0m;
+            }
+
+            RegistrarFuenteAusente(ase, "R1", label, empresa, mapa.Length);
+            fuentesAusentes.Add($"R1:{label}");
+            return celdas;
+        }
+
         decimal Bloque5Total() =>
             filas
                 .Where(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(3)).Equals("5", StringComparison.OrdinalIgnoreCase)
@@ -1452,7 +1551,7 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
     }
 
     private static IReadOnlyDictionary<string, decimal> ExtraerCeldasR2(
-        Ase ase, EmpresaFacturacion empresa, List<object?[]> filas)
+        Ase ase, EmpresaFacturacion empresa, List<object?[]> filas, List<string> fuentesAusentes)
     {
         var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
         if (!WorkbookLeafCellMapPorEmpresa.EditablesR2PorEmpresa.TryGetValue((empresa.Id, ase.Id), out var mapa))
@@ -1464,11 +1563,39 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         // La columna de Especiales se localiza por encabezado; si no existe (ASE2/ASE4, análogo a
         // ASE4 sin Especiales), el valor es 0 (ServEspK).
         var indiceEspeciales = ExcelWorksheetNavigator.IndiceColumnaPorEncabezado(filas, "Especiales");
+        var label = ObtenerLabelFuente(empresa.Id, ase.Id);
         var filasEmpresa = filas
-            .Where(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)).Equals(ObtenerLabelFuente(empresa.Id, ase.Id), StringComparison.OrdinalIgnoreCase)
+            .Where(f => ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)).Equals(label, StringComparison.OrdinalIgnoreCase)
                 && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(2)).Equals("Total", StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(f => Math.Abs(ExcelWorksheetNavigator.CeldaNumero(f.ElementAtOrDefault(4))))
             .ToList();
+
+        // Plan 50 (A1, §2.1 punto 1): ausencia total del label = 0 explícito + huella.
+        if (filasEmpresa.Count == 0)
+        {
+            foreach (var (celda, _) in mapa)
+            {
+                celdas[celda] = 0m;
+            }
+
+            RegistrarFuenteAusente(ase, "R2", label, empresa, mapa.Length);
+            fuentesAusentes.Add($"R2:{label}");
+            return celdas;
+        }
+
+        // Plan 50 (H1.2): la ausencia de la columna Especiales ya es 0 explícito por diseño; se le
+        // suma huella (una por ASE/empresa) para que el 0 sea auditable y no silencioso.
+        if (indiceEspeciales < 0 && mapa.Any(operando => operando.Fuente == WorkbookLeafCellMapPorEmpresa.FuenteR2.Especiales))
+        {
+            Log.ForContext("AseId", ase.Id)
+                .ForContext("Reporte", "R2")
+                .ForContext("Fuente", label)
+                .ForContext("Empresa", empresa.Nombre)
+                .Warning(
+                    "ASE {AseId}: el reporte R2 de {Empresa} no trae la columna Especiales; sus celdas de Especiales quedan en 0 (huella de columna ausente, no es error).",
+                    ase.Id,
+                    empresa.Nombre);
+        }
 
         foreach (var (celda, fuente) in mapa)
         {
@@ -1489,7 +1616,7 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
     }
 
     private static IReadOnlyDictionary<string, decimal> ExtraerCeldasR4(
-        Ase ase, EmpresaFacturacion empresa, List<object?[]> filas)
+        Ase ase, EmpresaFacturacion empresa, List<object?[]> filas, List<string> fuentesAusentes)
     {
         var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
         if (!WorkbookLeafCellMapPorEmpresa.EditablesR4PorEmpresa.TryGetValue((empresa.Id, ase.Id), out var mapa))
@@ -1498,11 +1625,24 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         }
 
         // R4 fuente: fila con col A = label y col B = "Total"; valor en col D (negativo).
+        var label = ObtenerLabelFuente(empresa.Id, ase.Id);
         var filaTotal = filas.FirstOrDefault(f =>
-                ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(0)).Equals(ObtenerLabelFuente(empresa.Id, ase.Id), StringComparison.OrdinalIgnoreCase)
-                && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)).Equals("Total", StringComparison.OrdinalIgnoreCase))
-            ?? throw new CalculoInvalidoException(
-                $"ASE {ase.Id}: no se encontró la fila Total de la empresa {empresa.Nombre} en la fuente R4.");
+            ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(0)).Equals(label, StringComparison.OrdinalIgnoreCase)
+            && ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1)).Equals("Total", StringComparison.OrdinalIgnoreCase));
+
+        // Plan 50 (A1, §2.1 punto 1): sin fila Total del label = ausencia total = 0 explícito + huella
+        // (antes: `?? throw`; ver §2.6 del plan — el throw queda reservado a la estructura rota).
+        if (filaTotal is null)
+        {
+            foreach (var (celda, _) in mapa)
+            {
+                celdas[celda] = 0m;
+            }
+
+            RegistrarFuenteAusente(ase, "R4", label, empresa, mapa.Length);
+            fuentesAusentes.Add($"R4:{label}");
+            return celdas;
+        }
 
         var total = ExcelWorksheetNavigator.CeldaNumero(filaTotal.ElementAtOrDefault(3));
         foreach (var (celda, fuente) in mapa)
