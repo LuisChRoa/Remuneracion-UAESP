@@ -58,6 +58,25 @@ No hay test project / CI / lint config. Para tests: crear xUnit `net10.0` refere
 
 Jerarquía: cada **fuente** tiene sus **canales**; cada canal, sus **conceptos**; los valores son los **componentes**. La plantilla define qué fuentes/canales/conceptos existen por cuadro (no todos los cuadros traen los mismos) y **son los que se deben mapear**.
 
+**Jerarquía de DOS NIVELES — sección (A) / subsección (B)** (ratificado por el Ingeniero 2026-10-23; verificado en bytes con ASE5/octubre-1 como **muestra**, no como alcance):
+
+> **Es un concepto general del manejo de la plantilla.** Aplica a **los 5 ASE** y a **ambas quincenas**: no pertenece a un ASE, no pertenece a una quincena y no es una regla de período. La plantilla lo declara; la app lo lee.
+
+| Nivel | Columna | Ejemplos | Qué cierra |
+|---|---|---|---|
+| **Sección** | **A** | `AFaseo`, `Componente`, `Subs/Cont` (`Total` = gran total) | el bloque completo de la sección |
+| **Subsección** | **B** | `Mes`, `Aplicacion nuevos x reversion` | el sub-bloque dentro de la sección |
+
+- La **identidad del cuadro** es **(sección A, subsección B, ocurrencia de B dentro de A)**. La fila-frontera `B='Mes'/'Aplicacion…' ∧ C='Total'` **es la subsección, NO la sección**.
+- Las etiquetas se escriben al **cierre** del bloque (la fila de total): `B=<subsección>/Total` cierra el sub-bloque; `A=<sección>/Total` cierra la sección.
+- Ejemplo verificado — `Reporte Componentes R1` v2, bloque `Área Limpia` (ASE5):
+  - `AFaseo` = 602–613 (subsección `Mes` en 613).
+  - `Componente` = 615–648 (subsecciones `Aplicacion nuevos x reversion` en 629 y `Mes` en 648).
+  - `Subs/Cont` = 650–674 (subsecciones `Aplicacion` en 660 y `Mes` en 674).
+  - Fuente ASE5 octubre-1: bloque 4–22 cierra en `Mes/Total` fila 23 y rotula `A=Componente` en 24 ⇒ **(Componente, Mes)**; bloque 25–37 cierra en 38 y rotula `A=Subs/Cont` en 39 ⇒ **(Subs/Cont, Mes)**.
+  - Consecuencia: `ENERBIT` (fila 12) tiene destino **`C637`** (dentro de `(Componente, Mes)`, filas 630–648). **No hay falta de sección en la plantilla**: sí se puede diligenciar. Buscarlo en la sección `AFaseo` (602–613) es el error de lectura.
+  - Aritmética que lo confirma: bloque1→`F648`, bloque2→`F674` ⇒ `TOT_OPT = F674+F648+F613−L613−L648 = 7.544.253.279,94` = R10 oficial.
+
 **Columnas (verificado en bytes, obs Engram #2124):** la plantilla estándar trae los componentes en **F..Z** (21 columnas; incluye `Exonera-*`, que la fuente NO trae, y `Z = Rec.Intereses`); la fuente trae **F..U** (16). Los componentes se mapean **POR ENCABEZADO**, nunca por posición (ej.: `Rec.Intereses` fuente `U` → estándar `Z`); un componente sin contraparte en la fuente queda en **0**. La plantilla contiene **todas las filas posibles**; el llenado es dinámico desde la fuente.
 
 **Brecha conocida (2026-10-16, obs #2124):** la App interpretaba C/D/E de raíz y escribía solo `F` (Total) y `L` (SERVICIO ESPECIALES), dejando componentes en 0. Los planes 41-49 avanzaron el mapeo por firma/canal/encabezado; la **opcionalidad de la fuente** y la **unificación Q1/Q2** quedan pendientes de plan (ver rojo 2026101 ASE2).
@@ -69,7 +88,7 @@ Jerarquía: cada **fuente** tiene sus **canales**; cada canal, sus **conceptos**
 4. **Nunca abortar por ausencia de una fuente de recaudo**; registrar la ausencia y continuar.
 5. Los **invariantes de cierre de la fuente** (`A='Componente' B='Total'`, `A='Subs/Cont' B='Total'`, `A='Total'`) siguen siendo fail-fast si faltan (T0e, Plan 21): son estructura del reporte, no una fuente opcional.
 6. **Las fuentes Y los canales pueden venir o no venir** (indicación de la propietaria, ratificada 2026-10-22): una sección o canal ausente **no es estructura rota**; su celda destino queda en **0**. Es normal que una fuente no traiga una sección completa (p. ej. `AFaseo`/primera sección). Prohibido resolver por ocurrencia/índice: una sección ausente **no debe duplicar** el bloque de otra sección (`TotalMenor` = 0, nunca reutilizar `filas[count-1]`).
-7. **La señal de sección es la frontera** (`Mes`, `Aplicacion`, `Componente`), no el índice. El mapeo por empresa debe resolver por **(firma + sección + canal)** como el espejo R1 (Planes 45/46), nunca por posición.
+7. **La señal de sección es la JERARQUÍA (A → B), no el índice.** `Componente` es **sección (A)**; `Mes` y `Aplicacion nuevos x reversion` son **subsecciones (B)**. El mapeo resuelve por **(firma + sección A + subsección B + canal)**, nunca por posición ni por ocurrencia sola. *(Corregido 2026-10-23: la redacción anterior trataba `Componente` como si fuera una frontera al mismo nivel que `Mes`.)*
 
 ## Cell Reference Map (CONSOLIDADO)
 | Cells | Cálculo | Fuente |
