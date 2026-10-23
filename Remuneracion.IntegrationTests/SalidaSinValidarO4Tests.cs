@@ -94,17 +94,23 @@ public sealed class SalidaSinValidarO4Tests
         {
             var (_, periodo, _) = ComposicionServicios.Crear();
 
-            // Q1 desde el oficial: el writer falla con ERR-SIN-SLOT ANTES de producir el workbook
-            // (borra su parcial). Ni el nombre definitivo ni el marcado deben existir.
-            var ex = Assert.Throws<CalculoInvalidoException>(() => periodo.Ejecutar(new SolicitudProcesoPeriodo
+            // Plan 56 (H2 — desviación documentada): el escenario "fallo ANTES de escribir" se ejerce
+            // con una PLANTILLA AUSENTE (ERR-PLANTILLA al abrir el workbook de salida, antes de tocar
+            // disco), no con el defecto ERR-SIN-SLOT de Q1 que este plan corrige (§2-D2/D3). La
+            // garantía probada es la misma: un fallo previo a la escritura no deja ni el nombre
+            // definitivo ni el marcado "sin validar".
+            var plantillaAusente = Path.Combine(dir, "no-existe-plantilla.xlsx");
+            var ex = Assert.Throws<ArchivoFuenteNoEncontradoException>(() => periodo.Ejecutar(new SolicitudProcesoPeriodo
             {
                 Periodo = Insumos.Periodo(),
                 CarpetaPeriodo = Insumos.CarpetaPeriodo,
-                RutaPlantilla = Insumos.PlantillaOficial(),
+                RutaPlantilla = plantillaAusente,
                 RutaSalida = salida
             }));
 
-            Assert.Equal(CodigoError.SinSlot, ex.Codigo);
+            // El código exacto depende del primer punto que abre la plantilla (preflight del lector
+            // leaf vs. escritor); ambos son fallos ESTRUCTURALES previos a la escritura.
+            Assert.Contains(ex.Codigo, new[] { CodigoError.Plantilla, CodigoError.FuenteNoEncontrada });
             Assert.False(File.Exists(salida), "Un fallo antes de escribir no debe dejar el nombre definitivo.");
             Assert.False(
                 File.Exists(NombresSalida.RutaSinValidar(salida)),

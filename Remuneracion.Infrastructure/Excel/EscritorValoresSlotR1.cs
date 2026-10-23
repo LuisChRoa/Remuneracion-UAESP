@@ -19,28 +19,28 @@ namespace Remuneracion.Infrastructure.Excel;
 /// lo no entregado queda en el cero del template; la fuente que trae fila sin slot hace fail-fast
 /// <c>ERR-SIN-SLOT</c> (nunca remap silencioso, nunca insert, nunca colocación por posición).
 ///
-/// Resolución (arsenal reinvertido, cero lógica nueva de negocio):
+/// Resolución (Plan 56 — identidad de cuadro A/B, §2-D2):
 /// <list type="bullet">
-/// <item>firma como localizador (<see cref="R1FirmaInterior"/> — mismos predicados que hoy);</item>
-/// <item>SECCIÓN-CONTRATO por frontera que la CIERRA (<see cref="ContratoSeccionPeriodFreeR1.SeccionPorCierre"/>,
-/// Plan 46 §2.2: <c>Mes</c>→Oportuno, <c>Aplicacion</c>→Aplicación, ordinal = ocurrencia de la
-/// frontera; cola → sección de arriba), con CANAL EFECTIVO (<see cref="ContratoSeccionPeriodFreeR1.CanalEfectivo"/>,
-/// Plan 46 §2.1) como parte de la llave firma+sección+canal. Es la resolución ÚNICA del contrato, sin
-/// fallback (Enmienda E-1, E1-1); el baseline histórico (neutralidad Q1) sigue usando la frontera
-/// ARRIBA (<see cref="SeccionEspejoR1.PorFronteraArriba"/>, API intacta para Plan 35-T2);</item>
-/// <item>empresa por sinonimia (<see cref="SinonimosEmpresaR1.SonMismaEmpresa"/>, Plan 34 intacto,
-/// catálogo abierto — cero ramas por nombre de empresa);</item>
-/// <item>AFaseo dual-firma (R-T-2): la fuente en variante <c>A='AFaseo' B='Total'</c> o en variante
-/// <c>D='AFASEO' E='Total'</c> resuelve al mismo slot F0 del ASE.</item>
+/// <item>IDENTIDAD del cuadro = <c>(sección A, subsección B, ocurrencia de B dentro de A)</c>, leída
+/// de las etiquetas de CIERRE de la propia hoja (<see cref="ContratoSeccionPeriodFreeR1.ParticionarJerarquia"/>):
+/// <c>B=&lt;sub&gt;/C='Total'</c> cierra la subsección y <c>A=&lt;sec&gt;/B='Total'</c> cierra la
+/// sección; <c>A='Total'</c> con B vacía es el gran total del bloque. NO hay lista de secciones ni
+/// identificadores de bloque/empresa/período en el camino de resolución (D-H);</item>
+/// <item>LLAVE de colocación dentro del cuadro: fuente <c>C</c> (por el catálogo abierto de sinonimia,
+/// <see cref="SinonimosEmpresaR1.SonMismaEmpresa"/>) → canal <c>D</c> efectivo
+/// (<see cref="ContratoSeccionPeriodFreeR1.FirmaCuadroR1"/>) → concepto <c>E</c>, con ordinal dentro
+/// de la firma cuando se repite en el cuadro. Los cierres de subsección/sección/gran total son destino
+/// declarado por su etiqueta;</item>
+/// <item>reglas de §2-D3 (<see cref="ContratoSeccionPeriodFreeR1.PlanificarJerarquiaR1"/>): ausencia en
+/// la fuente ⇒ cero del template; combinación ausente en TODO el bloque ⇒ <c>ERR-SIN-SLOT</c>
+/// accionable ANTES de escribir nada (sección + subsección + fuente + canal + concepto + hoja + rango);
+/// fila sin destino en SU cuadro pero declarada en el bloque ⇒ cero DOCUMENTADO (registro durable) si
+/// el cuadro cierra al centavo por sus filas-hoja, error si no cierra. Prohibido remap/reacomodo,
+/// insert/delete, <c>&lt;f&gt;</c> y colocación por posición;</item>
+/// <item>una fuente SIN secciones declaradas (secuencia sintética sin cierres A/B) conserva el camino
+/// histórico por firma (<see cref="TryPlanificar"/>): ningún bloque real de R1 cae ahí porque las
+/// invariantes T0e <c>Componente/Total</c> y <c>Subs/Cont/Total</c> son cierres de sección.</item>
 /// </list>
-///
-/// Plan 44 (F1/E-44.1) + Plan 45 (H1/S2): el LLENADO MULTICOLUMNA (F..Z por encabezado) está
-/// implementado; la SECCIÓN-CONTRATO para las filas sin empresa en C (P2/E-44.1) la fija el contrato
-/// PERIOD-FREE por ASE (<see cref="ContratoSeccionPeriodFreeR1"/>, Plan 45): alineación monotónica por
-/// tipo fuente↔oficial que absorbe las 3 formas probadas (julio-2 invertida de ASE5, agosto con 3
-/// <c>Mes</c>, Q1 sin <c>Aplicacion</c>) sin literales ni ramas por período/empresa (D-H). Las filas
-/// sin slot de la lista T0 caen a CERO DOCUMENTADO (<see cref="CerosDocumentadosR1"/>, no es error);
-/// fuera de la lista es <c>ERR-SIN-SLOT</c> fail-fast.
 ///
 /// Contrato de columnas (Plan 44 F1, §2.3 del plan + T0 §1/§7): la plantilla resuelve las columnas
 /// destino por ENCABEZADO del template (F..Z; la PRIMERA ocurrencia de un encabezado repetido manda:
@@ -52,16 +52,9 @@ namespace Remuneracion.Infrastructure.Excel;
 /// redondeo); el redondeo a entero es exclusivo del <c>DetRetri</c> (Plan 29 Unidad D). Ver la
 /// justificación completa en <see cref="EscribirValor"/>.
 ///
-/// Emparejamiento por (firma + SECCIÓN) con cursor INDEPENDIENTE por grupo: en la plantilla
-/// estandarizada los slots-resumen (AFaseo, Mes, …) están INTERCALADOS dentro del bloque y la fuente
-/// puede emitirlos en un orden distinto — p. ej. el AFaseo del ASE2 vive en F121 (en medio del
-/// bloque) mientras la fuente lo emite DESPUÉS de consumir filas posteriores del template. Un cursor
-/// GLOBAL monotónico no puede retroceder y deja ese AFaseo sin slot (falso <c>ERR-SIN-SLOT</c>). Por
-/// eso cada fila fuente consume el próximo slot libre DENTRO DE SU PROPIA (firma, sección). Los
-/// slots no consumidos quedan intactos en cero. Guard pre-write (REGLA, no excepción): la celda
-/// destino debe existir y NO traer <c>&lt;f&gt;</c>; si trae fórmula → <c>ERR-PLANTILLA</c> con hoja
-/// + celda + slot. Cero <c>InsertRow</c>/<c>DeleteRow</c>, cero <c>new CellFormula</c>, cero Reanclar
-/// en este path (el grep de cierre T1 lo demuestra).
+/// Guard pre-write (REGLA, no excepción): la celda destino debe existir y NO traer <c>&lt;f&gt;</c>;
+/// si trae fórmula → <c>ERR-PLANTILLA</c> con hoja + celda + slot. Cero <c>InsertRow</c>/<c>DeleteRow</c>,
+/// cero <c>new CellFormula</c>, cero Reanclar en este path (el grep de cierre T1 lo demuestra).
 ///
 /// El writer NO recibe ningún período (D-H) y no nombra ninguna empresa (catálogo abierto).
 /// <see cref="CompositorInteriorR1"/> queda como referencia de firma, no se usa aquí (D-C).
@@ -110,7 +103,15 @@ internal static class EscritorValoresSlotR1
         int CeldasL,
         int OmitidasPorNulo,
         int CerosDocumentados,
-        IReadOnlyList<string> EncabezadosSinDestino);
+        IReadOnlyList<string> EncabezadosSinDestino)
+    {
+        /// <summary>
+        /// Registro durable de los ceros documentados del Plan 56 (§2-D3): cuadro (A/B/ocurrencia),
+        /// firma fuente, canal, concepto y valor de cada fila que quedó en el cero del template porque
+        /// su cuadro cierra al centavo sin ella. Nunca descarte silencioso.
+        /// </summary>
+        public IReadOnlyList<ContratoSeccionPeriodFreeR1.CeroDocumentadoR1> CerosDetalle { get; init; } = [];
+    }
 
     /// <summary>
     /// Pega los valores del bloque espejo (leído por <c>LeerEspejoR1</c>, intacto) en los slots del
@@ -128,24 +129,59 @@ internal static class EscritorValoresSlotR1
         var mapaColumnas = LeerMapaColumnasDestino(hoja, workbookPart, aseId, inicio);
         var fuente = bloque.Filas;
 
-        // Plan 45 (§2.2) + NEUTRALIDAD Q1 (decisión del Ingeniero 2026-10-16, opción 1): la resolución
-        // es la SECCIÓN-CONTRATO PERIOD-FREE (Plan 45) con CERO DOCUMENTADO. Si el bloque ENTERO no es
-        // colocable con ella (la forma del período no está cubierta por el contrato — p. ej. Q1-ASE2
-        // trae el canal D=5 en la 1.ª, que el oficial no declara), se reproduce el comportamiento
-        // HISTÓRICO del Plan 41 (veto de sección SOLO en filas-dato de empresa; cursor por firma) para
-        // ese bloque: así Q1 conserva EXACTAMENTE su primer fail-fast (nombra NUEVO ESQUEMA, no D=5) y
-        // ninguna fila "gana" un fail-fast que el comportamiento previo no daba. Sin ramas por
-        // período/empresa: la decisión es por FORMA colocable, geometría pura (D-H).
-        var slots = LeerSlots(hoja, workbookPart, aseId, inicio, fin, porContrato: true);
-        if (!TryPlanificar(fuente, slots, porContrato: true, out var plan, out var ceros, out _))
+        // Plan 56 (§2-D2/D3): la resolución es la IDENTIDAD DE CUADRO (sección A, subsección B,
+        // ocurrencia de B dentro de A) leída de las etiquetas de cierre, con llave C/D(efectivo)/E
+        // dentro del cuadro. Una fuente sin secciones declaradas (fixture sintético sin cierres A/B)
+        // conserva el camino histórico por firma: ningún bloque real cae ahí (las invariantes T0e
+        // Componente/Total y Subs/Cont/Total son cierres de sección).
+        // [P56-JERARQUIA-AB-INICIO] camino de resolución: geometría pura, SIN ids de bloque/ASE,
+        // nombres de empresa, ramas por período ni direcciones de celda congeladas (candado §2-D5).
+        var slots = LeerSlots(hoja, workbookPart, aseId, inicio, fin);
+        var planificado = ContratoSeccionPeriodFreeR1.PlanificarJerarquiaR1(fuente, slots.Select(FilaDesdeSlot).ToList());
+        // [P56-JERARQUIA-AB-FIN]
+        List<(FilaEspejoR1 Fila, SlotR1 Slot)> plan;
+        int ceros;
+        IReadOnlyList<ContratoSeccionPeriodFreeR1.CeroDocumentadoR1> cerosDetalle;
+        if (planificado.AplicaJerarquia)
         {
-            slots = LeerSlots(hoja, workbookPart, aseId, inicio, fin, porContrato: false);
-            if (!TryPlanificar(fuente, slots, porContrato: false, out plan, out ceros, out var fallo))
+            if (planificado.Fallo is { } fallo)
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.SinSlot,
+                    MensajeSinSlotJerarquia(aseId, fuente, fallo, inicio, fin));
+            }
+
+            plan = planificado.Colocaciones.Select(c => (fuente[c.Fuente], slots[c.Slot])).ToList();
+            ceros = planificado.Ceros.Count;
+            cerosDetalle = planificado.Ceros;
+        }
+        else
+        {
+            if (!TryPlanificar(fuente, slots, out plan, out ceros, out var fallo))
             {
                 throw new CalculoInvalidoException(
                     CodigoError.SinSlot,
                     MensajeSinSlot(aseId, fallo.Fila, fallo.Seccion, fallo.Ocurrencia, fallo.CeldaCandidata));
             }
+
+            cerosDetalle = [];
+        }
+
+        // Registro DURABLE del cero documentado (§2-D3 rama 1): no se escribe y NO se aborta, pero
+        // queda huella con cuadro, firma, canal, concepto y valor (nunca descarte silencioso).
+        foreach (var cero in cerosDetalle)
+        {
+            Log.Warning(
+                "{Hoja}: cero documentado (ASE {Ase}) — cuadro ({Seccion}, {Subseccion} #{Ocurrencia}) fuente '{Fuente}' canal '{Canal}' concepto '{Concepto}' valor {Valor}: sin destino en su cuadro y el subtotal del cuadro cierra al centavo sin esa fila (Plan 56 §2-D3).",
+                HojaR1,
+                aseId,
+                cero.Cuadro.Seccion,
+                cero.Cuadro.Subseccion,
+                cero.Cuadro.Ocurrencia,
+                cero.Fuente,
+                cero.Canal,
+                cero.Concepto,
+                cero.Total);
         }
 
         var colocadas = 0;
@@ -165,34 +201,33 @@ internal static class EscritorValoresSlotR1
         }
 
         hoja.Save();
-        return new EscrituraSlotR1Resultado(colocadas, celdasF, celdasL, omitidas, ceros, encabezadosSinDestino.ToList());
+        return new EscrituraSlotR1Resultado(colocadas, celdasF, celdasL, omitidas, ceros, encabezadosSinDestino.ToList())
+        {
+            CerosDetalle = cerosDetalle,
+        };
     }
 
     /// <summary>Punto de fail-fast planificado (alimenta el mensaje <c>ERR-SIN-SLOT</c>).</summary>
     private readonly record struct FalloSinSlot(FilaEspejoR1 Fila, SeccionFronteraArriba? Seccion, int Ocurrencia, string? CeldaCandidata);
 
     /// <summary>
-    /// Planifica (SIN escribir) el pegado del bloque completo: <paramref name="porContrato"/> <c>true</c>
-    /// = sección-contrato PERIOD-FREE + cero documentado (Plan 45); <c>false</c> = comportamiento
-    /// histórico Plan 41 (veto de sección solo en filas-dato de empresa, cursor por firma). Devuelve las
-    /// colocaciones (fila → slot) en orden, el nº de ceros documentados y, si no es colocable, el punto
-    /// de fail-fast. Un intento fallido no escribe nada (la escritura ocurre tras elegir el plan).
+    /// Planifica (SIN escribir) un bloque que NO declara jerarquía A/B (secuencia sintética sin
+    /// cierres de sección/subsección): comportamiento HISTÓRICO del Plan 41 — veto de sección SOLO en
+    /// filas-dato de empresa (frontera ARRIBA) y cursor por firma, con cero documentado de la lista
+    /// <see cref="CerosDocumentadosR1"/>. Ningún bloque real llega aquí (la fuente R1 siempre declara
+    /// <c>Componente/Total</c> y <c>Subs/Cont/Total</c>, que son cierres de sección). Devuelve las
+    /// colocaciones (fila → slot) en orden, el nº de ceros documentados y, si no es colocable, el
+    /// punto de fail-fast. Un intento fallido no escribe nada (la escritura ocurre tras elegir el plan).
     /// </summary>
     private static bool TryPlanificar(
         IReadOnlyList<FilaEspejoR1> fuente,
         IReadOnlyList<SlotR1> slots,
-        bool porContrato,
         out List<(FilaEspejoR1 Fila, SlotR1 Slot)> plan,
         out int cerosDocumentados,
         out FalloSinSlot fallo)
     {
         var grupos = ConstruirGruposSeccion(slots);
-        var secciones = porContrato ? ClasificarSeccionesContrato(fuente, slots) : ClasificarSeccionesBaseline(fuente);
-        // Plan 46 (§2.1): el canal efectivo solo participa del contrato (el baseline reproduce el
-        // comportamiento histórico del Plan 41 sin canal).
-        var canales = porContrato
-            ? Enumerable.Range(0, fuente.Count).Select(i => ContratoSeccionPeriodFreeR1.CanalEfectivo(fuente, i)).ToList()
-            : null;
+        var secciones = ClasificarSeccionesBaseline(fuente);
         plan = [];
         cerosDocumentados = 0;
         fallo = default;
@@ -201,19 +236,18 @@ internal static class EscritorValoresSlotR1
         {
             var fila = fuente[i];
             var seccion = secciones[i];
-            var canal = canales?[i];
-            var grupo = BuscarGrupo(grupos, fila, seccion, canal);
+            var grupo = BuscarGrupo(grupos, fila, seccion, canal: null);
             var slot = grupo?.SiguienteLibre();
 
             if (slot is null)
             {
-                if (porContrato && CerosDocumentadosR1.EsCeroDocumentado(fila, seccion))
+                if (CerosDocumentadosR1.EsCeroDocumentado(fila, seccion))
                 {
                     cerosDocumentados++;
                     continue;
                 }
 
-                fallo = new FalloSinSlot(fila, seccion, ContarOcurrenciaPrevia(fuente, secciones, canales, i) + 1, grupo?.UltimoConsumidoF);
+                fallo = new FalloSinSlot(fila, seccion, ContarOcurrenciaPrevia(fuente, secciones, i) + 1, grupo?.UltimoConsumidoF);
                 return false;
             }
 
@@ -424,16 +458,44 @@ internal static class EscritorValoresSlotR1
             $"Nunca remap/insert ni colocación por posición: revise el contrato T0 (slot por sección) o la fuente.";
     }
 
+    /// <summary>
+    /// Mensaje de <c>ERR-SIN-SLOT</c> del camino JERÁRQUICO (Plan 56 §2-D3 / G-TRAZA): nombra el
+    /// cuadro (sección A + subsección B + ocurrencia), la fuente (C), el canal (D), el concepto (E),
+    /// la hoja y el rango físico del bloque, en vocabulario de la propietaria. Describe el hecho sin
+    /// culpar a la fuente y deja explícito que no se escribe nada del bloque.
+    /// </summary>
+    private static string MensajeSinSlotJerarquia(
+        int aseId,
+        IReadOnlyList<FilaEspejoR1> fuente,
+        ContratoSeccionPeriodFreeR1.FalloJerarquiaR1 fallo,
+        int inicio,
+        int fin)
+    {
+        var fila = fuente[fallo.IndiceFilaFuente];
+        var cuadro = fallo.Seccion is null
+            ? "el gran total del bloque"
+            : fallo.Subseccion is null
+                ? $"la sección '{fallo.Seccion}'"
+                : $"el cuadro (sección '{fallo.Seccion}', subsección '{fallo.Subseccion}', ocurrencia #{fallo.Ocurrencia})";
+        var fuenteRotulo = fallo.Fuente.Length == 0 ? "(sin rótulo)" : fallo.Fuente;
+        var canalRotulo = fallo.Canal.Length == 0 ? "(sin canal propio)" : fallo.Canal;
+        var conceptoRotulo = fallo.Concepto.Length == 0 ? "(sin concepto)" : fallo.Concepto;
+        return $"ERR-SIN-SLOT: ASE {aseId}: la fila A|B|C|D|E='{fila.Firma}' de la fuente R1 (Recaudoporcomponente) " +
+            $"no tiene destino en {cuadro}: fuente (C) '{fuenteRotulo}', canal (D) '{canalRotulo}', " +
+            $"concepto (E) '{conceptoRotulo}'; hoja '{HojaR1}', rango del bloque {inicio}-{fin}. " +
+            $"Detalle: {fallo.Motivo}. No se escribe nada del bloque: la plantilla no declara ese destino, " +
+            $"y no se reacomoda a otro cuadro ni se coloca por posición.";
+    }
+
     private static int ContarOcurrenciaPrevia(
         IReadOnlyList<FilaEspejoR1> fuente,
         IReadOnlyList<SeccionFronteraArriba?> secciones,
-        IReadOnlyList<string?>? canales,
         int indice)
     {
         var conteo = 0;
         for (var k = 0; k < indice; k++)
         {
-            if (EncajaEnSlot(fuente[indice], secciones[indice], canales?[indice], SlotDesdeFila(fuente[k], secciones[k], canales?[k])))
+            if (EncajaEnSlot(fuente[indice], secciones[indice], SlotDesdeFila(fuente[k], secciones[k], canal: null)))
             {
                 conteo++;
             }
@@ -455,30 +517,10 @@ internal static class EscritorValoresSlotR1
     };
 
     /// <summary>
-    /// Sección CRUDA de cada fila (Plan 41/T1 + Plan 46 §2.2): la frontera que la <b>CIERRA</b>
-    /// (inmediatamente DEBAJO) para las filas de datos/componentes; para las filas-frontera
-    /// (<c>Mes/Total</c>, <c>Aplicacion…/Total</c>) la sección que ELLAS cierran; la cola sin frontera
-    /// debajo se queda con la de arriba; AFaseo queda <c>null</c> (se localiza por firma). Es la
-    /// sección NATIVA de la hoja (del oficial para los slots; de la fuente para las filas fuente antes
-    /// de mapear). Delegada en <see cref="ContratoSeccionPeriodFreeR1.SeccionPorCierre"/> (predicado
-    /// puro period-free/company-free, D-H).
-    /// </summary>
-    private static IReadOnlyList<SeccionFronteraArriba?> ClasificarSeccionesRaw(IReadOnlyList<FilaEspejoR1> filas)
-    {
-        var resultado = new SeccionFronteraArriba?[filas.Count];
-        for (var i = 0; i < filas.Count; i++)
-        {
-            resultado[i] = ContratoSeccionPeriodFreeR1.SeccionPorCierre(filas, i);
-        }
-
-        return resultado;
-    }
-
-    /// <summary>
     /// Sección del comportamiento HISTÓRICO (Plan 41): la frontera inmediatamente ARRIBA SOLO en las
     /// filas-dato de empresa (<see cref="R1FirmaInterior.EsDatoEmpresa"/>); <c>null</c> para el resto
     /// (cursor por firma). Es la reproducción byte-fiel del comportamiento previo a la regla sin-C —
-    /// la usa el plan de NEUTRALIDAD Q1 cuando el bloque no es colocable por el contrato.
+    /// solo aplica a secuencias SIN jerarquía declarada (fixtures sintéticos del contrato por firma).
     /// </summary>
     private static IReadOnlyList<SeccionFronteraArriba?> ClasificarSeccionesBaseline(IReadOnlyList<FilaEspejoR1> filas)
     {
@@ -493,56 +535,7 @@ internal static class EscritorValoresSlotR1
         return resultado;
     }
 
-    /// <summary>
-    /// Sección-CONTRATO de cada fila FUENTE (Plan 45 §2.1/§2.2): la sección cruda de la fuente mapeada
-    /// a la sección del OFICIAL por el contrato PERIOD-FREE (<see cref="ContratoSeccionPeriodFreeR1.Alinear"/>,
-    /// alineación monotónica por tipo). Una sección fuente sin contraparte del mismo tipo conserva su
-    /// sección cruda (sus filas fallarán como ERR-SIN-SLOT o caerán a cero documentado — nunca remap por
-    /// posición). Las fronteras/AFaseo quedan en <c>null</c> (se localizan por firma).
-    /// </summary>
-    private static IReadOnlyList<SeccionFronteraArriba?> ClasificarSeccionesContrato(
-        IReadOnlyList<FilaEspejoR1> fuente,
-        IReadOnlyList<SlotR1> slots)
-    {
-        var crudas = ClasificarSeccionesRaw(fuente);
-        var seccionesOficial = DistintasOrdenadas(slots.Select(s => s.Seccion));
-        var mapa = ContratoSeccionPeriodFreeR1.Alinear(DistintasOrdenadas(crudas), seccionesOficial);
-
-        var resultado = new SeccionFronteraArriba?[fuente.Count];
-        for (var i = 0; i < fuente.Count; i++)
-        {
-            resultado[i] = crudas[i] is { } cruda && mapa.TryGetValue(cruda, out var destino)
-                ? destino
-                : crudas[i];
-        }
-
-        return resultado;
-    }
-
-    /// <summary>Secciones distintas en el orden en que aparecen (ignora los <c>null</c>).</summary>
-    private static List<SeccionFronteraArriba> DistintasOrdenadas(IEnumerable<SeccionFronteraArriba?> secciones)
-    {
-        var lista = new List<SeccionFronteraArriba>();
-        SeccionFronteraArriba? previa = null;
-        foreach (var seccion in secciones)
-        {
-            if (seccion is null)
-            {
-                continue;
-            }
-
-            if (previa is null || previa.Value != seccion.Value)
-            {
-                lista.Add(seccion.Value);
-            }
-
-            previa = seccion;
-        }
-
-        return lista;
-    }
-
-    private static List<SlotR1> LeerSlots(Worksheet hoja, WorkbookPart workbookPart, int aseId, int inicio, int fin, bool porContrato)
+    private static List<SlotR1> LeerSlots(Worksheet hoja, WorkbookPart workbookPart, int aseId, int inicio, int fin)
     {
         var filasPorNumero = hoja.Elements<SheetData>().FirstOrDefault()
             ?? throw new CalculoInvalidoException(CodigoError.Plantilla, $"La hoja '{HojaR1}' no tiene SheetData para el escritor de slots R1 (ASE {aseId}).");
@@ -567,18 +560,15 @@ internal static class EscritorValoresSlotR1
             celdas.Add(($"F{numero}", $"L{numero}"));
         }
 
-        var secciones = porContrato ? ClasificarSeccionesRaw(firmas) : ClasificarSeccionesBaseline(firmas);
+        var secciones = ClasificarSeccionesBaseline(firmas);
         var slots = new List<SlotR1>(firmas.Count);
         for (var i = 0; i < firmas.Count; i++)
         {
             var numero = (int)filas[i].RowIndex!.Value;
-            // Plan 46 (§2.1): el canal efectivo del slot se calcula con el MISMO predicado que en las
-            // filas de la fuente, y solo en el contrato (el baseline reproduce el comportamiento viejo).
-            var canal = porContrato ? ContratoSeccionPeriodFreeR1.CanalEfectivo(firmas, i) : null;
             slots.Add(new SlotR1(
                 numero, celdas[i].CeldaF, celdas[i].CeldaL,
                 firmas[i].A, firmas[i].B, firmas[i].C, firmas[i].D, firmas[i].E,
-                secciones[i], canal));
+                secciones[i]));
         }
 
         if (slots.Count != fin - inicio + 1)

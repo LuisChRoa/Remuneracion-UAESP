@@ -240,27 +240,53 @@ public sealed class SeccionEspejoR1Tests
         };
     }
 
-    // ── E1-4: evidencia del hallazgo al quitar el fallback (fuente Q1 de ASE2, rótulo NUEVO ESQUEMA) ─
+    // ── E1-4 (re-anclado por Plan 56 §2-D2/D3): fila sin destino en SU cuadro → cero documentado ──
 
     [Fact]
-    public void T1_Ase2Q1_NuevoEsquemaEnPrimeraSeccion_ErrSinSlotSinFallback()
+    public void T1_Ase2Q1_NuevoEsquemaFueraDeSuCuadro_CeroDocumentadoSinRemap()
     {
-        // Evidencia E1-4 (Plan 41, Enmienda E-1): la fuente Q1 de ASE2 (Lime) trae una fila
-        // 'NUEVO ESQUEMA' en su 1.ª sección; el oficial NO declara un slot NUEVO ESQUEMA (ni
-        // RECIPROCIDAD) en su 1.ª sección (F110:F119 solo ENEL F112 / OCCIDENTE F119) y el catálogo
-        // NO puede crear el slot (solo iguala rótulos) ⇒ ERR-SIN-SLOT accionable. NO se reintroduce
-        // el fallback por cursor (E1-1). La causa se reporta al Ingeniero/UAESP.
+        // Evidencia E1-4 ACTUALIZADA por Plan 56 (H1, §2-D2/D3; Docs/T0-Plan56-Jerarquia-AB.md §7):
+        // la fuente Q1 de ASE2 (Lime) emite en su cuadro (AFaseo, Mes, #1) un grupo C='NUEVO ESQUEMA'
+        // con D=5 (3 filas, F = −16.473,56) que la plantilla SOLO declara en los cuadros
+        // Componente/Subs/Cont. La identidad A/B resuelve el cuadro y sus filas con destino; las 3
+        // filas sin destino en SU cuadro quedan en el CERO DOCUMENTADO (registro durable) porque el
+        // subtotal del cuadro cierra al centavo por sus filas-hoja, y NO se reacomodan a otro cuadro
+        // (F135/F160/F182/F200 viven en Componente/Subs/Cont). Sin remap, sin fallback posicional y
+        // sin abortar un período aritméticamente correcto.
         var bloque = new ExcelDataReaderWorkbookLeafInputReader().LeerEspejoR1(AseFactory.DesdeId(2), FuenteR1JulioQ1(2));
         using var salida = new CopiaTemporal();
 
-        using var documento = SpreadsheetDocument.Open(salida.Ruta, true);
-        var parte = documento.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
-        var ex = Assert.Throws<CalculoInvalidoException>(() => EscritorValoresSlotR1.Escribir(parte, bloque));
+        EscritorValoresSlotR1.EscrituraSlotR1Resultado resultado;
+        using (var documento = SpreadsheetDocument.Open(salida.Ruta, true))
+        {
+            var parte = documento.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
+            resultado = EscritorValoresSlotR1.Escribir(parte, bloque);
+            parte.Workbook?.Save();
+        }
 
-        Assert.Equal(CodigoError.SinSlot, ex.Codigo);
-        Assert.Contains("ASE 2", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("NUEVO ESQUEMA", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("1.ª sección", ex.Message, StringComparison.Ordinal);
+        // Toda fila fuente se coloca o queda en cero documentado: nada se descarta en silencio.
+        Assert.Equal(bloque.TotalFilas, resultado.FilasColocadas + resultado.CerosDocumentados);
+        Assert.Equal(3, resultado.CerosDocumentados);
+        Assert.Equal(3, resultado.CerosDetalle.Count);
+        Assert.All(resultado.CerosDetalle, cero =>
+        {
+            Assert.Equal("AFaseo", cero.Cuadro.Seccion);
+            Assert.Equal("Mes", cero.Cuadro.Subseccion);
+            Assert.Equal(1, cero.Cuadro.Ocurrencia);
+            Assert.Equal(-16473.56m, cero.Total);
+        });
+        Assert.Contains(resultado.CerosDetalle, cero => cero.Canal == "5" && cero.Concepto == "Vlr Servicio");
+        Assert.Contains(resultado.CerosDetalle, cero => cero.Canal == "5" && cero.Concepto == "Total");
+        Assert.Contains(resultado.CerosDetalle, cero => cero.Canal == "Total" && cero.Fuente == "NUEVO ESQUEMA");
+
+        // El dinero del cuadro entra en su subtotal (fuente F14 → F120): no se pierde un peso.
+        Assert.Equal(-1119721.38m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F120"));
+        // El cierre de la sección AFaseo también resuelve por etiqueta (A).
+        Assert.Equal(-1119721.38m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F121"));
+        // Las 3 filas NO se reacomodaron: el NUEVO ESQUEMA de Componente/Mes (que SÍ tiene destino en
+        // su cuadro) recibe su propio valor de la fuente y los cuadros Aplicación quedan en cero.
+        Assert.Equal(18903236.32m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F160"));
+        Assert.Equal(0m, TestHelpers.LeerCeldaNumerica(salida.Ruta, HojaR1, "F135"));
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 ﻿---
 titulo: Plan 56 - Jerarquia seccion-subseccion de la plantilla R1 (identidad de cuadro A/B)
-estado: APROBADO 2026-10-23 (gate §6 ratificado; H0 habilitado, H1 condicionada al T0)
+estado: CERRADO 2026-10-23 (H0 → H1 → H2 → H3 completas; review APROBADO con 3 observaciones no bloqueantes O1/O2/O3)
 fecha: 2026-10-23
 numero: 56
 planes_ocupados: 01..55 ocupados; este es el 56
@@ -152,6 +152,11 @@ Por cada cruce (bloque × período, 15 en total):
 
 - **Ausencia en la fuente → cero del template, sin error.** Subsección, canal o fuente que el cuadro declara y la fuente no trae: la celda destino queda en el **0 del template**, con huella donde el mecanismo ya la emita. Nunca abortar por ausencia; los invariantes de estructura del reporte siguen fail-fast (Plan 50 §0.2).
 - **Combinación presente en la fuente y ausente en todo el bloque de la plantilla → error accionable + alto, sin escribir nada.** No se reacomoda a otra sección, no se inventa celda, no se coloca por posición, no se descarta en silencio. El mensaje nombra **sección A + subsección B + fuente + canal + concepto + hoja + rango**, en vocabulario de la propietaria (componente/fuente/canal/concepto/cuadro), **sin culpar a la fuente**. El `ERR-SIN-SLOT` permanece como esta última puerta (formato de mensaje actualizado a la identidad A/B; la puerta sigue siendo fail-fast antes de cualquier escritura del bloque).
+- **Fila sin destino en SU subsección pero existente en el bloque — criterio de "no perder dato" (resuelto 2026-10-23):** se decide por evidencia aritmética, no por preferencia:
+  1. Si el **subtotal de la subsección cierra al centavo SIN esa fila** (la fila no participa de ningún agregado del cuadro) → **cero documentado + registro durable** (huella con sección/subsección/fuente/canal/concepto y valor); **no se escribe y NO se aborta**. Abortar un período aritméticamente correcto castiga al usuario por una fila que el propio reporte no suma.
+  2. Si el **subtotal NO cierra sin ella** (la fila sí participa del agregado) → **error accionable + alto**, con el mismo formato del punto anterior. Ahí sí se perdería dato real.
+  3. El criterio es **calculado en runtime**, no una lista: `|Σ filas del cuadro − subtotal declarado| ≤ ±0,5` ⇒ rama 1; si no ⇒ rama 2. Prohibido enumerar casos por bloque/ASE/período.
+- **Caso medido que lo ejercita (verificación, no alcance):** 3 filas del bloque 2 en julio-1, subsección `AFaseo/Mes`, `C=NUEVO ESQUEMA D=5`, F=−16.473,56; el subtotal del cuadro cierra sin ellas ⇒ rama 1.
 
 ### D4. Lo que NO se toca (lista cerrada, verificable por grep de cierre)
 
@@ -308,13 +313,17 @@ Sin estas aprobaciones el plan no avanza de PROPUESTO a APROBADO, y sin APROBADO
 
 ## 7. Residuos declarados (fuera de alcance — NO implementar)
 
-**R-JERARQUIA-AB (vivo, objeto de este plan; antes `R-SLOT-Q1-ENERBIT`):** renombrado por mandato del Ingeniero — el nombre viejo embebía fuente y alcance y queda retirado. La corrida 5-bloques aborta en `ERR-SIN-SLOT` del camino espejo-values porque el resolvedor vigente ignora la columna A. **Gate de resolución:** este plan (identidad A/B + reglas §2-D3 + candado §2-D5). Sin remap, sin insert, sin colocación por posición.
+**R-JERARQUIA-AB — RESUELTO 2026-10-23 por este plan (H1 + H2).** Antes `R-SLOT-Q1-ENERBIT` (nombre retirado: embebía fuente y alcance). El defecto era que el resolvedor espejo-values tipaba la «sección» con la frontera de la columna B e ignoraba la columna A, y la corrida 5-bloques abortaba en `ERR-SIN-SLOT` (ASE5/octubre-1, fila `ENERBIT`). **Resolución medida:** identidad A/B + reglas §2-D3 + candado §2-D5; la corrida real de los 3 períodos completa la escritura sin `ERR-SIN-SLOT` ni `ERR-VALIDACION` y con `DetRetri` = R10 exacto en los 5 bloques (evidencia en §8). Sin remap, sin insert, sin colocación por posición. **El residuo queda retirado.**
 
 **R-RECORTE-Q2 (vivo, sin tocar):** `Remuneracion.Core/Services/ProcesadorPeriodo.cs:198-217` mantiene la omisión de la conciliación por empresa en Q2. Deuda `R-MAPA-V2-R2-ASE4` (Plan 50 §8). Gate de reactivación: Plan 55 §D6. No se toca acá (§2-D4).
 
 **R-SIGMA-Q2 (vivo, no se re-litiga):** el gate Sigma no es descomposición válida del visible en Q2 (T0-Plan50 §4.2). No se toca acá.
 
-**R-ANCLA-EXTEMP (vivo, Plan 54 §7 / Plan 55 §7):** `AnclasExtempR1` congela `F682`/`F702` como literales mientras la v2 trae `F682 = <f>F660+F629-L629</f>`. Con su propio T0 y plan. No se toca acá (§2-D4).
+**R-ANCLA-EXTEMP (vivo, Plan 54 §7 / Plan 55 §7) — observación O3 del review (2026-10-23): pre-existente y NO agravado por este plan.** `AnclasExtempR1` congela `F682`/`F702` como literales mientras la v2 trae `F682 = <f>F660+F629-L629</f>`. Es el **ÚNICO** bloqueo para que las corridas reales de los 3 períodos salgan con exit 0 hoy: el `ERR-PLANTILLA` se dispara al leer el oráculo de validaciones cruzadas, **después** de escribir el workbook y de validar `DetRetri` contra el R10. Mensaje exacto: `La celda-ancla 'Reporte Componentes R1!F682' (EXTEMP del ASE 5) trae fórmula y el contrato T0 la congeló como literal. (Plan 49 A1-interior: tercera forma = ERR-PLANTILLA; una v3 exige re-congelar el mapa con su T0.)` **Gate:** plan propio con su T0; no se toca acá (§2-D4).
+
+**O1 — Candado estático parcial (deuda del review 2026-10-23, con gate).** El candado estático de §2-D5 inspecciona las regiones `[P56-JERARQUIA-AB-INICIO]`…`[P56-JERARQUIA-AB-FIN]`. En `ContratoSeccionPeriodFreeR1` cubre todo el camino nuevo; en `EscritorValoresSlotR1` cubre **solo el bloque de planificación**, no el camino histórico `TryPlanificar`/`MensajeSinSlotJerarquia` (que hoy solo alcanza secuencias sintéticas sin cierres A/B). Riesgo contenido por el candado conductual y por los greps de cierre. **Gate:** extender el candado (o retirar el camino histórico cuando no tenga consumidores) en una tarea propia con su prueba de injerto.
+
+**O2 — Registro durable del cero documentado (deuda del review 2026-10-23, con gate).** El «registro durable» de §2-D3 rama 1 es hoy `Log.Warning` estructurado + `CerosDetalle` en memoria del resultado del writer; **no persiste como artefacto de corrida** (no hay archivo/hoja de ceros documentados). Mecanismo mínimo aceptado por el plan. **Gate:** persistencia del registro (artefacto de corrida) en una tarea propia, sin cambiar la regla de decisión.
 
 **R-ETIQUETAS-SIN-DESTINO (marco aplicable, Plan 55 §7):** si el cruce de etiquetas encuentra un exceso real futuro, aplica la regla de destino inexistente §2-D3 (error accionable + alto, sin escribir); prohibido inventar celdas destino.
 
@@ -322,4 +331,45 @@ Sin estas aprobaciones el plan no avanza de PROPUESTO a APROBADO, y sin APROBADO
 
 ## 8. Estado
 
-**APROBADO 2026-10-23** (gate §6 ratificado). H0 habilitado y **bloqueante**: cierra con la matriz 15/15 y se detiene. H1 (escritura) queda condicionada a la ratificación del Ingeniero sobre esa matriz. Padre: Plan 55 (CERRADO). Madre doctrina: `.opencode/project-context.md` §"Jerarquía de DOS NIVELES" + Plans 50 §0.2 / 53 / 54 / 55 + Plan 46 (familia de lectura por etiquetas).
+**CERRADO 2026-10-23** (H0 → H1 → H2 → H3 completas; H3 solo documentación, **cero código de producción**).
+
+### 8.1 Evidencia medida
+
+| Gate | Resultado |
+|---|---|
+| `G-BUILD` | `dotnet build Remuneracion.WinForms/Remuneracion.WinForms.slnx` → **0 warnings / 0 errores** |
+| `G-SUITE` | `p56-H3-suite.trx` = **1514 / 1452 / 62 / 0** (total/pasadas/rojas/omitidas) |
+| Set-diff vs líneas base | `p53` 1289/1222/67/0 · `p54-H3` 1374/1307/67/0 · `p55-H3` 1484/1417/67/0 → **0 rojos nuevos**; **5 rojos pasaron a verde** por el fix |
+| `G-SHA` | v1 `3086AC31…C5214` y v2 `0F192AD2…7F2DAB` **intactos antes/después** |
+| `G-FORMULA` | cero `<f>` nueva, cero `InsertRow`/`DeleteRow`, cero `new CellFormula` (diff solo comentarios con la palabra) |
+| `G-D-H` | candado estático + conductual verdes (con su prueba de injerto) |
+
+**5 rojos que pasaron a verde por el fix** (todos de Q1/julio-1, el período que moría en `ERR-SIN-SLOT`):
+`AjustesSfTTests.WriterQ2_AjustesSfTNull_ComportamientoHu10Intacto` · `IntegridadCalcChainYSelloFechasTests.SalidaJulioQ1_SinCalcChainYFullCalcOnLoad_FechasJulioIntactas` · `MicroFixesHu17Tests.S3_Hu16_Writer_TextoEnLCeldaId_FailFastNombraCelda` · `ProcesadorPeriodoTests.Ejecutar_Periodo2026071_SalidaGeneradaCon5Consolidados` · `RegresionOficialPlan39Tests.T5_RegresionOficial_HealthyOpen_VarianteL_DetRetriVsR10(2026071)`.
+
+**Corridas CLI reales** (`--cinco-ase`, plantilla v2): sin `ERR-SIN-SLOT` ni `ERR-VALIDACION`, workbook generado y `DetRetri` = R10 **exacto** en los 5 bloques:
+
+| Período | ASE1 | ASE2 | ASE3 | ASE4 | ASE5 |
+|---|---|---|---|---|---|
+| 2026071 | 16.758.167.585 | 12.227.292.053 | 10.127.195.599 | 10.553.776.376 | 8.543.663.209 |
+| 2026072 | 17.450.228.673 | 20.516.143.970 | 15.221.896.467 | 7.179.595.396 | 12.073.344.662 |
+| 2026101 | 14.842.425.136 | 11.302.637.605 | 8.823.787.300 | 10.483.172.762 | 7.550.668.665 |
+
+Julio-1 deja 3 **ceros documentados** en log (ASE2, `(AFaseo, Mes #1)`, canal `5` / `NUEVO ESQUEMA`, −16.473,56) y el cuadro cierra al centavo. Las tres corridas terminan en `ERR-PLANTILLA` (`F682`) del residuo **R-ANCLA-EXTEMP** — el único bloqueo para exit 0, posterior a la escritura y a la validación de `DetRetri`.
+
+### 8.2 Desviaciones fechadas (2026-10-23)
+
+- **(a) Re-anclaje de `SeccionEspejoR1Tests.T1_Ase2Q1_NuevoEsquemaEnPrimeraSeccion_ErrSinSlotSinFallback`.** Ese test *pineaba el defecto* (Plan 41 E1-4). Ahora es `T1_Ase2Q1_NuevoEsquemaFueraDeSuCuadro_CeroDocumentadoSinRemap` y aserta la regla D3 correcta: cero documentado, `F120/F121/F160` con los valores de la fuente y `F637` (`ENERBIT`) intacto. Evidencia: `Docs/T0-Plan56-Jerarquia-AB.md` §7.
+- **(b) Re-anclaje de `SalidaSinValidarO4Tests.O4_FalloAntesDeEscribir_NoInventaArchivo`.** Usaba el `ERR-SIN-SLOT` de Q1 como «fallo antes de escribir»; ahora usa una **plantilla ausente** (fallo estructural previo real). La garantía probada —no se inventa nombre definitivo ni archivo «sin validar»— se conserva; la prueba de **cero escritura** del camino jerárquico la aporta `H2_CombinacionAusenteEnTodoElBloque_ErrorAccionableSinEscribir` (foto de celdas idéntica antes/después).
+- **(c) Retiro del camino viejo `SeccionPorCierre` + `Alinear` EN EL CONSUMO** (`ClasificarSeccionesContrato`/`ClasificarSeccionesRaw`/`DistintasOrdenadas` y la rama `porContrato`). Justificado por §2-D2.4 con la demostración por bytes de H0 (15/15 + cierres al peso). Las **APIs públicas se conservan** (`SeccionPorCierre`, `CanalEfectivo`, `Alinear`), con sus tests verdes, y `Alinear`/la familia de lectura por etiquetas siguen consumidas por `ResolvedorConciliacionEmpresa` (Plan 55).
+- **(d) Interpretación de D3.3 — «filas-hoja».** La fuente R1 es **acumulativa** (las filas de total de canal/empresa/cuadro repiten el importe), así que sumar todas las filas del cuadro no da su subtotal (lo triplica en los casos medidos). El criterio runtime se aplica sobre **filas con A/B/C/D vacías** contra el subtotal declarado en el cierre del cuadro. Con esa lectura, el caso medido (julio-1 ASE2) cae en la rama 1 (cero documentado) exactamente como manda §2-D3.
+
+### 8.3 Observaciones del code-review (APROBADO, 3 no bloqueantes)
+
+- **O1** — candado estático parcial (ver §7 O1; gate: ampliarlo o retirar el camino histórico sin consumidores).
+- **O2** — registro durable del cero documentado hoy en log + memoria (ver §7 O2; gate: persistencia como artefacto de corrida).
+- **O3** — `R-ANCLA-EXTEMP` **pre-existente y no agravado** (ver §7 R-ANCLA-EXTEMP; gate: plan propio con su T0).
+
+### 8.4 Cierre
+
+El **Plan 56 queda CERRADO el 2026-10-23**: la jerarquía sección/subsección de la plantilla R1 se resuelve por **identidad A/B** en los 5 bloques y los 3 períodos, sin fallback posicional, sin remap y **sin mover un peso** (`DetRetri` = R10 exacto), con candado anti-quemado de dos capas y con el residuo **`R-JERARQUIA-AB` retirado**. Padre: Plan 55 (CERRADO). Madre doctrina: `.opencode/project-context.md` §"Jerarquía de DOS NIVELES" + Plans 50 §0.2 / 53 / 54 / 55 + Plan 46 (familia de lectura por etiquetas).

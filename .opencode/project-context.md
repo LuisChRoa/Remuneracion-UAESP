@@ -79,7 +79,7 @@ Jerarquía: cada **fuente** tiene sus **canales**; cada canal, sus **conceptos**
 
 **Columnas (verificado en bytes, obs Engram #2124):** la plantilla estándar trae los componentes en **F..Z** (21 columnas; incluye `Exonera-*`, que la fuente NO trae, y `Z = Rec.Intereses`); la fuente trae **F..U** (16). Los componentes se mapean **POR ENCABEZADO**, nunca por posición (ej.: `Rec.Intereses` fuente `U` → estándar `Z`); un componente sin contraparte en la fuente queda en **0**. La plantilla contiene **todas las filas posibles**; el llenado es dinámico desde la fuente.
 
-**Brecha conocida (2026-10-16, obs #2124):** la App interpretaba C/D/E de raíz y escribía solo `F` (Total) y `L` (SERVICIO ESPECIALES), dejando componentes en 0. Los planes 41-49 avanzaron el mapeo por firma/canal/encabezado; la **opcionalidad de la fuente** y la **unificación Q1/Q2** quedan pendientes de plan (ver rojo 2026101 ASE2).
+**Brecha conocida (2026-10-16, obs #2124):** la App interpretaba C/D/E de raíz y escribía solo `F` (Total) y `L` (SERVICIO ESPECIALES), dejando componentes en 0. Los planes 41-49 avanzaron el mapeo por firma/canal/encabezado; la **opcionalidad de la fuente** y la **unificación Q1/Q2** quedan pendientes de plan (el rojo 2026101 ASE2 quedó **resuelto por el Plan 56** — identidad A/B).
 
 **Reglas operativas (ratificadas por el Ingeniero 2026-10-21):**
 1. **La plantilla manda en la estructura**; el mapeo es por **ETIQUETA** (fuente/canal/concepto), nunca por posición ni por ocurrencia.
@@ -89,6 +89,18 @@ Jerarquía: cada **fuente** tiene sus **canales**; cada canal, sus **conceptos**
 5. Los **invariantes de cierre de la fuente** (`A='Componente' B='Total'`, `A='Subs/Cont' B='Total'`, `A='Total'`) siguen siendo fail-fast si faltan (T0e, Plan 21): son estructura del reporte, no una fuente opcional.
 6. **Las fuentes Y los canales pueden venir o no venir** (indicación de la propietaria, ratificada 2026-10-22): una sección o canal ausente **no es estructura rota**; su celda destino queda en **0**. Es normal que una fuente no traiga una sección completa (p. ej. `AFaseo`/primera sección). Prohibido resolver por ocurrencia/índice: una sección ausente **no debe duplicar** el bloque de otra sección (`TotalMenor` = 0, nunca reutilizar `filas[count-1]`).
 7. **La señal de sección es la JERARQUÍA (A → B), no el índice.** `Componente` es **sección (A)**; `Mes` y `Aplicacion nuevos x reversion` son **subsecciones (B)**. El mapeo resuelve por **(firma + sección A + subsección B + canal)**, nunca por posición ni por ocurrencia sola. *(Corregido 2026-10-23: la redacción anterior trataba `Componente` como si fuera una frontera al mismo nivel que `Mes`.)*
+
+**Resolvedor de slots R1 — identidad A/B (Plan 56, vigente 2026-10-23; cierra `R-JERARQUIA-AB`):**
+
+- **Identidad del cuadro** = `(sección A, subsección B, ocurrencia de B dentro de A)`, **leída** de las etiquetas de cierre de la plantilla y de la fuente; no se declara en código ni por lista. **Llave de colocación** = `A + B + ocurrencia + fuente C + canal D efectivo + concepto E`, con componentes por **encabezado**. Implementación: `ContratoSeccionPeriodFreeR1` (regiones `[P56-JERARQUIA-AB-INICIO]`…`[P56-JERARQUIA-AB-FIN]`) + consumo en `EscritorValoresSlotR1` (plan-then-write: **falla antes de escribir**).
+- **Reglas de la fuente**:
+  1. **Ausencia** de sección/subsección/canal/fuente en la fuente ⇒ **cero del template**, sin error.
+  2. **Combinación presente en la fuente y ausente en TODO el bloque** de la plantilla ⇒ **error accionable** (sección + subsección + fuente + canal + concepto + hoja + rango) + alto y **cero escritura**; nunca remap, reacomodo ni colocación por posición.
+  3. **Fila sin destino en SU subsección pero declarada en el bloque** ⇒ se decide **por aritmética del cuadro calculada en runtime** (no por lista): `|Σ filas-hoja − subtotal declarado| ≤ ±0,5` ⇒ **cero documentado** (registro durable, no se escribe y **NO** se aborta); si no cierra ⇒ error accionable. «Filas-hoja» = filas con **A/B/C/D vacías**: la fuente R1 es **acumulativa** (canal/empresa/cuadro repiten el total), así que sumar todas las filas no es el subtotal.
+- **Candado anti-quemado de dos capas** (`JerarquiaABH1Plan56Tests`): **estático** (las regiones de resolución no contienen ids de bloque/ASE, nombres de empresa, quincenas ni direcciones de celda congeladas; incluye prueba de injerto que debe enrojecer) + **conductual** (el mismo fixture produce las mismas reglas en los 5 bloques; reordenar filas dentro de la subsección coloca idéntico).
+- **Limitación declarada (O1, 2026-10-23):** el candado estático inspecciona las regiones `[P56-JERARQUIA-AB-*]`; en `EscritorValoresSlotR1` cubre solo el bloque de planificación, **no** el camino histórico `TryPlanificar`/`MensajeSinSlotJerarquia`. Riesgo contenido por el candado conductual y los greps de cierre; ampliarlo es tarea propia con gate.
+- **Deuda declarada (O2, 2026-10-23):** el «registro durable» del cero documentado es hoy `Log.Warning` + `CerosDetalle` en memoria; **no persiste como artefacto de corrida**. Mecanismo mínimo aceptado; su persistencia es tarea propia con gate.
+- Evidencia: `plans/56 - jerarquia-seccion-subseccion-plantilla-r1.md` (plan **CERRADO 2026-10-23**) + `Docs/T0-Plan56-Jerarquia-AB.md` (matriz 15/15 por bytes) + fixture `Remuneracion.IntegrationTests/JerarquiaABH1Plan56Tests.cs`.
 
 ## Cell Reference Map (CONSOLIDADO)
 | Cells | Cálculo | Fuente |
