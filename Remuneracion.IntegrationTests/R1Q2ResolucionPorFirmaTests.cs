@@ -65,7 +65,9 @@ public sealed class R1Q2ResolucionPorFirmaTests
     [Fact]
     public void S3_CoreMes_Ausente_FailFastNombraAseReporteCelda()
     {
-        var ruta = CrearFuenteR1SinMes2();
+        // Re-anclado Plan 54 H1.6 (enmienda 2): el rol CORE que falta es Mes1 (celda F47); Mes2 pasó a
+        // opcional → 0. El mensaje se conserva byte-idéntico (ASE + reporte + rol + celda).
+        var ruta = CrearFuenteR1SinMes1();
         var reader = new ExcelDataReaderWorkbookLeafInputReader();
 
         var ex = Assert.Throws<CalculoInvalidoException>(() =>
@@ -73,8 +75,8 @@ public sealed class R1Q2ResolucionPorFirmaTests
 
         Assert.Contains("ASE 1", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("R1-Q2", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Mes2", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("F70", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Mes1", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("F47", ex.Message, StringComparison.Ordinal);
     }
 
     // S5 (Plan 25 §3.2, D-D): el reader es compartido; la resolución por firma no depende del
@@ -127,12 +129,13 @@ public sealed class R1Q2ResolucionPorFirmaTests
     }
 
     /// <summary>
-    /// Fuente mínima R1 con SOLO 2 filas <c>Mes/Total</c> (ASE1-Q2 exige 3 → rol Mes2 ausente).
-    /// Estructural: no aporta valores de negocio; solo ejercita la rama del fail-fast de rol core.
+    /// Fuente sintética R1 con UNA sola fila <c>Mes/Total</c>: falta el rol core <c>Mes1</c> (celda
+    /// F47), que es el fail-fast que sobrevive. Plan 54 H1.6: antes omitía la tercera fila (Mes2), hoy
+    /// opcional por la enmienda 2. Estructural: no aporta valores de negocio.
     /// </summary>
-    private static string CrearFuenteR1SinMes2()
+    private static string CrearFuenteR1SinMes1()
     {
-        var ruta = Path.Combine(Path.GetTempPath(), "r1-sin-mes2-" + Guid.NewGuid().ToString("N") + ".xlsx");
+        var ruta = Path.Combine(Path.GetTempPath(), "r1-sin-mes1-" + Guid.NewGuid().ToString("N") + ".xlsx");
         using (var doc = SpreadsheetDocument.Create(ruta, SpreadsheetDocumentType.Workbook))
         {
             var workbookPart = doc.AddWorkbookPart();
@@ -158,8 +161,7 @@ public sealed class R1Q2ResolucionPorFirmaTests
                     new Cell { CellReference = "A4", DataType = CellValues.String, CellValue = new CellValue("Componente") },
                     new Cell { CellReference = "B4", DataType = CellValues.String, CellValue = new CellValue("Total") },
                     new Cell { CellReference = "F4", CellValue = new CellValue("100") }),
-                FilaMes(11),
-                FilaMes(31)));
+                FilaMes(11)));
 
             var sheets = workbookPart.Workbook.AppendChild(new Sheets());
             sheets.AppendChild(new Sheet { Id = workbookPart.GetIdOfPart(sheetPart), SheetId = 1, Name = "Sheet1" });

@@ -101,6 +101,12 @@ internal static class FixtureDivergenciaSintetica
         public IReadOnlyList<ConciliacionEmpresaInputs> LeerConciliacionEmpresas(Ase ase, Periodo periodo, string rutaR1, string rutaR2, string rutaR4) =>
             _inner.LeerConciliacionEmpresas(ase, periodo, rutaR1, rutaR2, rutaR4);
 
+        public string? RutaPlantilla
+        {
+            get => _inner.RutaPlantilla;
+            set => _inner.RutaPlantilla = value;
+        }
+
         public IReadOnlyList<RecaudoEmpresaInputs> LeerRecaudosEmpresa(Periodo periodo, Func<EmpresaFacturacion, string?> rutaConciliacionPorEmpresa)
         {
             var recaudos = _inner.LeerRecaudosEmpresa(periodo, rutaConciliacionPorEmpresa).ToList();

@@ -40,14 +40,10 @@ public sealed class FuentesAusentesPlan50Tests
         var recip = leafs.Single(c => c.Empresa.Id == 1);
         Assert.Equal(new[] { "R1:NUEVO ESQUEMA", "R4:NUEVO ESQUEMA" }, recip.FuentesAusentes.OrderBy(x => x, StringComparer.Ordinal));
 
-        // Operandos R1 del mapa (1,2): F102 TotalMain, F122 SubsMain, F86 Block5Total.
-        Assert.Equal(0m, recip.CeldasR1["F102"]);
-        Assert.Equal(0m, recip.CeldasR1["F122"]);
-        Assert.Equal(0m, recip.CeldasR1["F86"]);
-
-        // Operandos R4 del mapa (1,2): D104 Total, P104 P.
-        Assert.Equal(0m, recip.CeldasR4["D104"]);
-        Assert.Equal(0m, recip.CeldasR4["P104"]);
+        // Plan 55 (H1.1, D4): los destinos se resuelven por CRUCE DE ETIQUETAS contra el cuadro; si la
+        // fuente está ausente, sus operandos quedan en el CERO del template y no hay celda que escribir.
+        Assert.Empty(recip.CeldasR1);
+        Assert.Empty(recip.CeldasR4);
 
         // S2.5: el visible de una fuente ausente es 0 (no rompe el gate Σ).
         Assert.Equal(0m, recip.VisibleR1);
@@ -56,7 +52,7 @@ public sealed class FuentesAusentesPlan50Tests
         // Las fuentes presentes del mismo ASE siguen leyéndose normalmente.
         var enel = leafs.Single(c => c.Empresa.Id == 2);
         Assert.Empty(enel.FuentesAusentes);
-        Assert.Equal(13705253661.25m, enel.CeldasR1["F95"]);
+        Assert.Equal(13705253661.25m, enel.CeldasR1["F150"]);
     }
 
     [Fact]
@@ -92,15 +88,17 @@ public sealed class FuentesAusentesPlan50Tests
             var q1 = LeerConciliacion("Prueba Julio-1", "2026071", ase);
             var q2 = LeerConciliacion("Prueba Julio-2", "2026072", ase);
 
-            Assert.Equal(5, q1.Count);
-            Assert.Equal(5, q2.Count);
+            // Plan 55 (H1.1): el catálogo (5) + las etiquetas que el propio CUADRO declara y la fuente
+            // trae (p. ej. EAB en ASE2 octubre) — nunca una lista por ASE en código.
+            Assert.True(q1.Count >= 5, $"{ase}: Q1 trae {q1.Count} entradas (catálogo = 5).");
+            Assert.True(q2.Count >= 5, $"{ase}: Q2 trae {q2.Count} entradas (catálogo = 5).");
         }
 
         // La causa del recorte (R4-por-empresa Q2 sin NUEVO ESQUEMA en ASE2) ya no aborta: 0 + huella.
         var ase2 = LeerConciliacion("Prueba Julio-2", "2026072", 2);
         var recip = ase2.Single(c => c.Empresa.Id == 1);
         Assert.Equal(new[] { "R4:NUEVO ESQUEMA" }, recip.FuentesAusentes);
-        Assert.Equal(0m, recip.CeldasR4["D104"]);
+        Assert.Empty(recip.CeldasR4);
     }
 
     [Fact]
@@ -131,10 +129,12 @@ public sealed class FuentesAusentesPlan50Tests
         var leafs = LeerConciliacion("Prueba Octubre-1", "2026101", 3);
         var occidente = leafs.Single(c => c.Empresa.Id == 4);
 
-        Assert.Equal(286711907.53m, occidente.CeldasR1["F237"]); // TotalMain (la única sección presente)
-        Assert.Equal(0m, occidente.CeldasR1["F216"]);            // TotalMenor → 0 (sin duplicar el bloque)
-        Assert.Equal(0m, occidente.CeldasR1["F242"]);            // SubsMenor → 0
-        Assert.Equal(0m, occidente.CeldasR1["F222"]);            // TotalMedio → 0 (< 3 secciones)
+        // Plan 55 (H1.1, D4): los destinos se resuelven por el cuadro del template. OCCIDENTE trae una
+        // sola sección Oportuno en el cuadro Componente (F329) y otra en Subs/Cont (F352).
+        Assert.Equal(286711907.53m, occidente.CeldasR1["F329"]);
+        Assert.Equal(145489038.47m, occidente.CeldasR1["F352"]);
+        // Celdas: F329 (Total de la sección), L329 (Especiales) y F352 (Subs/Cont de la sección).
+        Assert.Equal(3, occidente.CeldasR1.Count);
         Assert.Equal(427389334.19m, occidente.VisibleR1);
         Assert.DoesNotContain(occidente.FuentesAusentes, f => f.StartsWith("R1:", StringComparison.OrdinalIgnoreCase));
     }
@@ -156,7 +156,7 @@ public sealed class FuentesAusentesPlan50Tests
             EliminarFilaPorIndice(copia, indice);
 
             var ex = Assert.Throws<CalculoInvalidoException>(() =>
-                new ExcelDataReaderWorkbookLeafInputReader().LeerConciliacionEmpresas(
+                new ExcelDataReaderWorkbookLeafInputReader { RutaPlantilla = Insumos.PlantillaOficial() }.LeerConciliacionEmpresas(
                     Insumos.Ase(1),
                     Periodo.Parse("2026101"),
                     copia,
@@ -173,7 +173,9 @@ public sealed class FuentesAusentesPlan50Tests
 
     private static IReadOnlyList<ConciliacionEmpresaInputs> LeerConciliacion(string periodo, string codigo, int ase)
     {
-        return new ExcelDataReaderWorkbookLeafInputReader().LeerConciliacionEmpresas(
+        // Plan 55 (H1.1/D4): la PLANTILLA es la autoridad de los destinos (resolución por etiquetas).
+        var reader = new ExcelDataReaderWorkbookLeafInputReader { RutaPlantilla = Insumos.PlantillaOficial() };
+        return reader.LeerConciliacionEmpresas(
             Insumos.Ase(ase),
             Periodo.Parse(codigo),
             RutaFuente(periodo, ase, "Recaudoporcomponente"),

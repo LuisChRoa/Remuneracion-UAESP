@@ -179,9 +179,10 @@ public sealed class DetRetriQ2Tests
     [Fact]
     public void R1Q2_SlotAusente_FallaNombrandoAseYReporte()
     {
-        // §5.2 / Riesgo 6: si falta un slot del mapa T0 (rol Mes2 para ASE1), fail-fast nombra
-        // ASE + reporte; nunca 0 silencioso.
-        var ruta = CrearFuenteR1SinMes2();
+        // §5.2 / Riesgo 6 (re-anclado Plan 54 H1.6 — enmienda 2): el fail-fast aplica a los roles
+        // CORE del mapa (Mes0/Mes1); `Mes2` pasó a OPCIONAL → 0. La fuente sintética se queda sin la
+        // SEGUNDA fila Mes (rol Mes1, celda F47) y el lector debe abortar nombrando ASE + reporte.
+        var ruta = CrearFuenteR1SinMes1();
         var reader = new ExcelDataReaderWorkbookLeafInputReader();
 
         var ex = Assert.Throws<CalculoInvalidoException>(() =>
@@ -189,6 +190,7 @@ public sealed class DetRetriQ2Tests
 
         Assert.Contains("ASE 1", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("R1-Q2", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Mes1", ex.Message, StringComparison.Ordinal);
     }
 
     private static decimal SumarGoldenD104()
@@ -203,9 +205,11 @@ public sealed class DetRetriQ2Tests
     }
 
     /// <summary>
-    /// Fuente sintética R1 con SOLO 2 filas Mes/Total (ASE1-Q2 exige 3 → rol Mes2 ausente).
+    /// Fuente sintética R1 con UNA sola fila Mes/Total (rol core <c>Mes1</c> ausente → celda F47 de
+    /// ASE1). Re-anclada en Plan 54 H1.6: la fuente original omitía la TERCERA fila (Mes2), que desde
+    /// la enmienda 2 es opcional → 0 y ya no dispara el fail-fast.
     /// </summary>
-    private static string CrearFuenteR1SinMes2()
+    private static string CrearFuenteR1SinMes1()
     {
         var ruta = Path.Combine(Path.GetTempPath(), "r1-sin-mes2-" + Guid.NewGuid().ToString("N") + ".xlsx");
         using (var doc = SpreadsheetDocument.Create(ruta, SpreadsheetDocumentType.Workbook))
@@ -237,8 +241,7 @@ public sealed class DetRetriQ2Tests
                     new Cell { CellReference = "A4", DataType = CellValues.String, CellValue = new CellValue("Componente") },
                     new Cell { CellReference = "B4", DataType = CellValues.String, CellValue = new CellValue("Total") },
                     new Cell { CellReference = "F4", CellValue = new CellValue("100") }),
-                FilaMes(11),
-                FilaMes(31)));
+                FilaMes(11)));
 
             var sheets = workbookPart.Workbook.AppendChild(new Sheets());
             sheets.AppendChild(new Sheet { Id = workbookPart.GetIdOfPart(sheetPart), SheetId = 1, Name = "Sheet1" });

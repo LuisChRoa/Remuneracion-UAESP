@@ -60,6 +60,14 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         ValidarCadenaFormulaR1R2R4(workbookPart);
     }
 
+    /// <summary>
+    /// LEGACY-only, FUERA DE PARIDAD (Plan 54, H1.2, D2): API histórica de detalle R1 que no expone los
+    /// operandos del template (F25/F41/L25/F30/F10/L10) y por diseño falla honestamente con
+    /// <c>ERR-PAYLOAD</c>. No forma parte del camino de producción (la escritura R1 real la gobiernan
+    /// <see cref="EscritorValoresSlotR1"/> + <c>EscribirCeldasLeafPorAse</c>) ni de la paridad manual.
+    /// Se conserva por compatibilidad de contrato (<see cref="IPlantillaWriter"/>) y para las
+    /// herramientas de diagnóstico. Prohibido añadir lectores nuevos de F30/F10/L10.
+    /// </summary>
     public void EscribirDetalleR1(string rutaPlantilla, Ase ase, RecaudoComponenteR1 datos)
     {
         ArgumentNullException.ThrowIfNull(rutaPlantilla);
@@ -309,7 +317,9 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
 
                 foreach (var leaf in leafInputs.OrderBy(l => l.Ase.Id))
                 {
-                    EscribirCeldasLeafPorAse(workbookPart, leaf, esQuincena2, omitirR1: espejoR1);
+                    // Plan 54 (H1.3, D3): mapa productivo ÚNICO para ambas quincenas (geometría v2);
+                    // la rama Q1 del escritor leaf por ASE quedó colapsada.
+                    EscribirCeldasLeafPorAse(workbookPart, leaf, omitirR1: espejoR1);
                     EscribirCeldasEmpresa(workbookPart, leaf, omitirR1: espejoR1);
                     EscribirCeldasBanco(workbookPart, leaf);
                     EscribirCeldasBalanceSc(workbookPart, leaf);
@@ -756,7 +766,9 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             return;
         }
 
-        foreach (var aseId in WorkbookLeafCellMapPorAse.EditableLeafCellsPorAse.Keys.OrderBy(k => k))
+        // Plan 54 (H1.3, D3): el iterador de ASE usa el mapa PRODUCTIVO único (geometría v2); el mapa
+        // v1 (<see cref="WorkbookLeafCellMapPorAse"/>) queda aislado como LEGACY fuera del path.
+        foreach (var aseId in WorkbookLeafCellMapQ2.R1Q2EditablesPorAse.Keys.OrderBy(k => k))
         {
             var bloque = WorkbookLeafCellMapPorAse.ProtectedFormulasPorAse[aseId];
             foreach (var (hoja, celda, fragmentos) in bloque)
@@ -1007,6 +1019,13 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     private static string ReemplazarSufijo(string texto, string codigoCompleto) =>
         texto.Replace(AnclaSufijoHojasQ1, codigoCompleto, StringComparison.Ordinal);
 
+    /// <summary>
+    /// LEGACY (geometría v1), fuera de paridad (Plan 54, H1.2/H1.3, D2/D3): escribe las celdas
+    /// absolutas del mapa v1 (<see cref="WorkbookLeafCellMapPorAse"/>) — F25/F41/L25/F30/F10/L10 para
+    /// R1 —. El camino de producción NO pasa por aquí: usa <see cref="EscribirCeldasLeafPorAse"/> con
+    /// la geometría v2. Se conserva porque lo consumen fixtures de caracterización
+    /// (<c>GoldenMultiAseTests</c>, <c>ParidadCliTests</c>) y la API histórica de leaf.
+    /// </summary>
     private static void EscribirCeldasLeaf(WorkbookPart workbookPart, WorkbookLeafInputs leafInputs)
     {
         var valores = new Dictionary<(string Hoja, string Celda), decimal>(new LeafCellComparer())
@@ -1044,66 +1063,14 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     }
 
     /// <summary>
-    /// Escribe SOLO las celdas del bloque del ASE (mapa por ASE congelado por T0).
-    /// Los valores provienen de <see cref="WorkbookLeafInputs"/> (CeldasPorAse por hoja).
-    /// HU-12 (2.6 ampliada, D1/G2): en Q2 escribe el mapa hermano <see cref="WorkbookLeafCellMapQ2"/>
-    /// (R1/R2/R4-Q2 por ASE, incluida la variante ASE5 de 2 filas V0.3); Q1 queda intacto.
+    /// Plan 54 (H1.3, D3): escribe SOLO las celdas del bloque del ASE con la geometría v2 del mapa
+    /// productivo (<see cref="WorkbookLeafCellMapQ2"/>), para AMBAS quincenas (la rama Q1 con la
+    /// geometría v1 se retiró: T0.4 probó que la tabla destino era idéntica). Los valores provienen de
+    /// <see cref="WorkbookLeafInputs"/> (<c>CeldasPorAse</c> por hoja). Fail-fast si falta un valor
+    /// (nombra ASE + hoja + celda; nunca 0 silencioso). El guard de
+    /// <see cref="EscribirValorNumerico"/> impide tocar fórmulas.
     /// </summary>
-    private static void EscribirCeldasLeafPorAse(WorkbookPart workbookPart, WorkbookLeafInputs leaf, bool esQuincena2, bool omitirR1)
-    {
-        if (esQuincena2)
-        {
-            EscribirCeldasLeafPorAseQ2(workbookPart, leaf, omitirR1);
-            return;
-        }
-
-        var editables = WorkbookLeafCellMapPorAse.ObtenerEditables(leaf.Ase.Id);
-
-        foreach (var (hoja, celda, nombre) in editables)
-        {
-            if (omitirR1 && string.Equals(hoja, HojaR1, StringComparison.OrdinalIgnoreCase))
-            {
-                continue; // Plan 21 (T4): la hoja R1 la gobierna el espejo, no el mapa absoluto.
-            }
-
-            if (WorkbookLeafCellMapPorAse.ProtectedFormulasPorAse[leaf.Ase.Id].Any(p =>
-                    string.Equals(p.Hoja, hoja, StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(p.Celda, celda, StringComparison.OrdinalIgnoreCase)))
-            {
-                throw new CalculoInvalidoException(
-                    $"El cell-map del ASE {leaf.Ase.Id} intentó escribir '{nombre}' sobre la fórmula protegida {hoja}!{celda}.");
-            }
-
-            var valor = ObtenerValorLeaf(leaf, hoja, celda, nombre);
-            EscribirValorNumerico(workbookPart, hoja, celda, valor, nombre);
-        }
-    }
-
-    private static decimal ObtenerValorLeaf(WorkbookLeafInputs leaf, string hoja, string celda, string nombre)
-    {
-        IReadOnlyDictionary<string, decimal> celdas = hoja switch
-        {
-            _ when string.Equals(hoja, HojaR1, StringComparison.OrdinalIgnoreCase) => leaf.R1.CeldasPorAse,
-            _ when string.Equals(hoja, HojaR2, StringComparison.OrdinalIgnoreCase) => leaf.R2.CeldasPorAse,
-            _ when string.Equals(hoja, HojaR4, StringComparison.OrdinalIgnoreCase) => leaf.R4.CeldasPorAse,
-            _ => throw new CalculoInvalidoException($"Hoja '{hoja}' no tiene valores leaf mapeados para '{nombre}'.")
-        };
-
-        if (!celdas.TryGetValue(celda, out var valor))
-        {
-            throw new CalculoInvalidoException($"No hay valor leaf mapeado para {nombre} ({hoja}!{celda}) del ASE {leaf.Ase.Id}.");
-        }
-
-        return valor;
-    }
-
-    /// <summary>
-    /// HU-12 (2.6 ampliada, T0-0.2/0.3): escribe SOLO las celdas Q2 del bloque del ASE
-    /// (R1/R2/R4 del mapa <see cref="WorkbookLeafCellMapQ2"/>), incluida la variante ASE5 de 2
-    /// filas (V0.3). Fail-fast si falta un valor mapeado (nombra ASE + hoja + celda; nunca 0
-    /// silencioso). El guard de <see cref="EscribirValorNumerico"/> impide tocar fórmulas.
-    /// </summary>
-    private static void EscribirCeldasLeafPorAseQ2(WorkbookPart workbookPart, WorkbookLeafInputs leaf, bool omitirR1)
+    private static void EscribirCeldasLeafPorAse(WorkbookPart workbookPart, WorkbookLeafInputs leaf, bool omitirR1)
     {
         if (!omitirR1)
         {
@@ -1111,10 +1078,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             {
                 if (!leaf.R1.CeldasPorAse.TryGetValue(celda, out var valorR1))
                 {
-                    throw new CalculoInvalidoException($"No hay valor leaf R1-Q2 mapeado para {celda} del ASE {leaf.Ase.Id}.");
+                    throw new CalculoInvalidoException($"No hay valor leaf R1 mapeado para {celda} del ASE {leaf.Ase.Id}.");
                 }
 
-                EscribirValorNumerico(workbookPart, HojaR1, celda, valorR1, $"R1-Q2.ASE{leaf.Ase.Id}.{celda}");
+                EscribirValorNumerico(workbookPart, HojaR1, celda, valorR1, $"R1.ASE{leaf.Ase.Id}.{celda}");
             }
         }
 
@@ -1123,10 +1090,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         {
             if (!leaf.R2.CeldasPorAse.TryGetValue(celda, out var valorR2))
             {
-                throw new CalculoInvalidoException($"No hay valor leaf R2-Q2 mapeado para {celda} del ASE {leaf.Ase.Id}.");
+                throw new CalculoInvalidoException($"No hay valor leaf R2 mapeado para {celda} del ASE {leaf.Ase.Id}.");
             }
 
-            EscribirValorNumerico(workbookPart, HojaR2, celda, valorR2, $"R2-Q2.ASE{leaf.Ase.Id}.{celda}");
+            EscribirValorNumerico(workbookPart, HojaR2, celda, valorR2, $"R2.ASE{leaf.Ase.Id}.{celda}");
         }
 
         var r4 = WorkbookLeafCellMapQ2.ObtenerR4Q2Editables(leaf.Ase.Id);
@@ -1134,10 +1101,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         {
             if (!leaf.R4.CeldasPorAse.TryGetValue(celda, out var valorR4))
             {
-                throw new CalculoInvalidoException($"No hay valor leaf R4-Q2 mapeado para {celda} del ASE {leaf.Ase.Id}.");
+                throw new CalculoInvalidoException($"No hay valor leaf R4 mapeado para {celda} del ASE {leaf.Ase.Id}.");
             }
 
-            EscribirValorNumerico(workbookPart, HojaR4, celda, valorR4, $"R4-Q2.ASE{leaf.Ase.Id}.{celda}");
+            EscribirValorNumerico(workbookPart, HojaR4, celda, valorR4, $"R4.ASE{leaf.Ase.Id}.{celda}");
         }
     }
 
@@ -1280,43 +1247,31 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
 
     private static void EscribirCeldasConciliacion(WorkbookPart workbookPart, int aseId, ConciliacionEmpresaInputs conc, bool omitirR1)
     {
-        if (!omitirR1 && WorkbookLeafCellMapPorEmpresa.EditablesR1PorEmpresa.TryGetValue((conc.Empresa.Id, aseId), out var r1))
+        // Plan 55 (H1.2, D7/CA7): el mapa congelado por (empresa, ASE)
+        // (`WorkbookLeafCellMapPorEmpresa`) quedó RETIRADO del camino productivo (LEGACY). El READER
+        // resuelve cada celda destino por CRUCE DE ETIQUETAS contra la plantilla (autoridad del
+        // cuadro) y la declara en `CeldasR1/R2/R4`; el writer solo pega VALORES en esas celdas y el
+        // guard de `EscribirValorNumerico` impide tocar cualquier fórmula.
+        if (!omitirR1)
         {
-            foreach (var (celda, _, _) in r1)
-            {
-                if (!conc.CeldasR1.TryGetValue(celda, out var valor))
-                {
-                    throw new CalculoInvalidoException($"No hay valor R1 por empresa para {conc.Empresa.Nombre} ({HojaR1}!{celda}) del ASE {aseId}.");
-                }
-
-                EscribirValorNumerico(workbookPart, HojaR1, celda, valor, $"R1.{conc.Empresa.Nombre}.{celda}");
-            }
+            EscribirCeldasResueltas(workbookPart, HojaR1, "R1", conc, aseId, conc.CeldasR1);
         }
 
-        if (WorkbookLeafCellMapPorEmpresa.EditablesR2PorEmpresa.TryGetValue((conc.Empresa.Id, aseId), out var r2))
+        EscribirCeldasResueltas(workbookPart, HojaR2, "R2", conc, aseId, conc.CeldasR2);
+        EscribirCeldasResueltas(workbookPart, HojaR4, "R4", conc, aseId, conc.CeldasR4);
+    }
+
+    private static void EscribirCeldasResueltas(
+        WorkbookPart workbookPart,
+        string hoja,
+        string reporte,
+        ConciliacionEmpresaInputs conc,
+        int aseId,
+        IReadOnlyDictionary<string, decimal> celdas)
+    {
+        foreach (var (celda, valor) in celdas)
         {
-            foreach (var (celda, _) in r2)
-            {
-                if (!conc.CeldasR2.TryGetValue(celda, out var valor))
-                {
-                    throw new CalculoInvalidoException($"No hay valor R2 por empresa para {conc.Empresa.Nombre} ({HojaR2}!{celda}) del ASE {aseId}.");
-                }
-
-                EscribirValorNumerico(workbookPart, HojaR2, celda, valor, $"R2.{conc.Empresa.Nombre}.{celda}");
-            }
-        }
-
-        if (WorkbookLeafCellMapPorEmpresa.EditablesR4PorEmpresa.TryGetValue((conc.Empresa.Id, aseId), out var r4))
-        {
-            foreach (var (celda, _) in r4)
-            {
-                if (!conc.CeldasR4.TryGetValue(celda, out var valor))
-                {
-                    throw new CalculoInvalidoException($"No hay valor R4 por empresa para {conc.Empresa.Nombre} ({HojaR4}!{celda}) del ASE {aseId}.");
-                }
-
-                EscribirValorNumerico(workbookPart, HojaR4, celda, valor, $"R4.{conc.Empresa.Nombre}.{celda}");
-            }
+            EscribirValorNumerico(workbookPart, hoja, celda, valor, $"{reporte}.{conc.Empresa.Nombre}.{celda}.ASE{aseId}");
         }
     }
 

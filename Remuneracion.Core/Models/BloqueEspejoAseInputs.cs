@@ -86,7 +86,7 @@ public sealed class BloqueEspejoAseInputs
 
     // ── Plan 25 (T1, R-F-1/2/3): acceso en orden a los roles R1-Q2 sobre la secuencia espejo ──
     // La firma vive en FilaEspejoR1 (fuente única); aquí solo se exponen las secuencias en orden
-    // y el agregado D-C. MapearR1Q2 consume estas mismas firmas (R-DOBLE-FUENTE).
+    // y el agregado D-C. MapearR1 consume estas mismas firmas (R-DOBLE-FUENTE).
 
     /// <summary>
     /// Plan 25 (T1, R-F-1): filas de firma <c>Mes/Total</c> en orden de aparición

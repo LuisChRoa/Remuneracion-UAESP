@@ -77,6 +77,11 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
     {
         ArgumentNullException.ThrowIfNull(solicitud);
 
+        // Plan 55 (H1.1/D4): la PLANTILLA es la autoridad de los destinos de la conciliación por
+        // empresa (resolución por cruce de etiquetas). Se entrega al reader UNA vez por corrida; el
+        // recorte de la conciliación en Q2 (R-RECORTE-Q2) queda intacto.
+        _leafReader.RutaPlantilla = solicitud.RutaPlantilla;
+
         // HU-14 (3.2, D5): RunId por ejecución correlaciona todos los eventos de ESTE procesador
         // (ambos modos). LogContext es Serilog core; las propiedades Periodo/Quincena/Modo
         // acompañan al RunId para filtrar el log (CA-6).

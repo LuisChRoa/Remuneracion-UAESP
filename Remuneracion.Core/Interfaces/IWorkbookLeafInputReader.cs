@@ -19,16 +19,28 @@ public interface IWorkbookLeafInputReader
     WorkbookLeafInputs LeerLeafInputs(Ase ase, Periodo periodo, string rutaR1, string rutaR2, string rutaR4);
 
     /// <summary>
-    /// HU-08 (2.2): lee la conciliación por empresa del ASE indicado a partir de las fuentes
-    /// R1/R2/R4 (desglose por empresa, T0-0.4). Fail-fast: si falta un label de empresa en la
-    /// fuente, lanza <c>CalculoInvalidoException</c> que nombra ASE y empresa.
+    /// Plan 55 (H1.1/D4): ruta de la PLANTILLA vigente con la que se resuelven los destinos de la
+    /// conciliación por empresa (la plantilla es la autoridad: cruce de etiquetas cuadro/sección ×
+    /// fuente × canal × concepto → celda, componente por encabezado). La fija el orquestador una vez
+    /// por corrida (<c>SolicitudProcesoPeriodo.RutaPlantilla</c>). Sin plantilla no se resuelven
+    /// celdas destino (los valores y visibles se materializan igual).
+    /// </summary>
+    string? RutaPlantilla { get; set; }
+
+    /// <summary>
+    /// HU-08 (2.2) + Plan 55 (H1.1/H1.3, D4): lee la conciliación por empresa del ASE indicado a
+    /// partir de las fuentes R1/R2/R4. Los destinos se resuelven por CRUCE DE ETIQUETAS contra la
+    /// plantilla vigente (autoridad del cuadro); los visibles por empresa se derivan de la FUENTE
+    /// sobre el mismo conjunto de roles del visible de bloque (anti-tautología). Ausencia de fuente →
+    /// cero del template (no es error); exceso → registro auditable; celda destino con fórmula → no
+    /// se escribe y se registra.
     /// </summary>
     /// <param name="ase">ASE asociado.</param>
     /// <param name="periodo">Período de la liquidación.</param>
     /// <param name="rutaR1">Ruta del archivo fuente R1.</param>
     /// <param name="rutaR2">Ruta del archivo fuente R2.</param>
     /// <param name="rutaR4">Ruta del archivo fuente R4.</param>
-    /// <returns>Inputs de conciliación por empresa (5 empresas × operandos R1/R2/R4).</returns>
+    /// <returns>Inputs de conciliación por empresa (catálogo + etiquetas declaradas por el cuadro).</returns>
     IReadOnlyList<ConciliacionEmpresaInputs> LeerConciliacionEmpresas(Ase ase, Periodo periodo, string rutaR1, string rutaR2, string rutaR4);
 
     /// <summary>

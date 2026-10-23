@@ -13,7 +13,9 @@ public sealed class DivergenciaDeclaradaCatalogoTests
     [Fact]
     public void T1_EntradaOccidenteAse5_TieneLos6CamposCitados()
     {
-        var entrada = Assert.Single(DivergenciasDeclaradasCatalogo.Entradas);
+        // Plan 54 (H1.5): el catálogo es abierto y ahora trae además la fila estructural ASE5-F674;
+        // el invariante de este test es sobre la entrada OCCIDENTE-ASE5 (se selecciona por Id).
+        var entrada = DivergenciasDeclaradasCatalogo.Entradas.Single(e => e.Id == "OCCIDENTE-ASE5");
 
         Assert.Equal("OCCIDENTE-ASE5", entrada.Id);
         Assert.True(entrada.Completa, "La entrada OCCIDENTE ASE5 debe traer sus 6 campos citados.");
@@ -31,7 +33,7 @@ public sealed class DivergenciaDeclaradaCatalogoTests
     [Fact]
     public void T1_EntradaOccidenteAse5_RetiradaConFechaMotivoYEvidencia()
     {
-        var entrada = Assert.Single(DivergenciasDeclaradasCatalogo.Entradas);
+        var entrada = DivergenciasDeclaradasCatalogo.Entradas.Single(e => e.Id == "OCCIDENTE-ASE5");
 
         Assert.True(entrada.Retirada, "La entrada OCCIDENTE-ASE5 debe estar retirada (Δ = 0 desde el Plan 46).");
         Assert.True(entrada.RetiroDocumentado, "El retiro exige fecha + motivo + evidencia citados.");

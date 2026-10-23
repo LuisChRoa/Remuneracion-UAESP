@@ -92,6 +92,28 @@ public static class DivergenciasDeclaradasCatalogo
     public static IReadOnlyList<Entrada> Entradas { get; } =
     [
         new(
+            Id: "ASE5-F674-MES2-AUSENTE",
+            Celdas: ["F674", "F680"],
+            // Δ = 0 POR CONSTRUCCIÓN (Plan 54, D6): la divergencia es ESTRUCTURAL, no material. La
+            // fuente de ASE5 trae 2 filas Mes/Total y la geometría v2 declara 3 términos; el slot que
+            // la fuente no llena queda en el cero del template y el visible F680 cierra al peso contra
+            // el R10 oficial. Con Δ = 0 la entrada NO es `Completa`/`Vigente`, así que documenta y NO
+            // matchea: es lo correcto (no hay discrepancia material que reconocer).
+            Delta: 0m,
+            OrigenMonto:
+                "Forma-fuente de 2 filas Mes/Total (ASE5) frente a la geometría v2 de 3 términos: el " +
+                "slot Mes2 (F674) no tiene fila de origen y queda en el 0 del template; F680 = " +
+                "F674 + F648 + F613 - L613 - L648 = 7.544.253.279,94.",
+            Dueno: "UAESP / propietaria del proceso (cita en el T0 del Plan 54)",
+            CitaEvidencia:
+                "Docs/T0-Plan54-Contrato-Unico-Lectura-R1.md §2 (censo octubre-1: ASE5 filas 23/38, " +
+                "cero Aplicacion) y §3 (D9 ASE5 = 7.544.253.279,94; D104 = 7.550.668.664,99 = R10 " +
+                "oficial 2026101). Fixture: Remuneracion.IntegrationTests/ContratoUnicoLecturaR1T0Tests.cs.",
+            Fecha: "2026-10-22",
+            CondicionRetiro:
+                "El mapa declare slot Mes2 para ASE5 o la forma-fuente traiga 3 filas Mes de modo " +
+                "estable; entonces se retira la FILA del catálogo, nunca se adapta el código."),
+        new(
             Id: "OCCIDENTE-ASE5",
             Celdas: ["O25", "D34", "F34"],
             Delta: 417519.62m,

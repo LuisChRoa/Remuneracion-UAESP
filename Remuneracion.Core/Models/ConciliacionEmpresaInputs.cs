@@ -5,9 +5,10 @@ namespace Remuneracion.Core.Models;
 /// R1/R2/R4 + visibles esperados post-Excel por hoja. Los operandos se escriben en la misma
 /// pasada HU-07; los visibles alimentan el gate Σ empresas = visible de bloque (§2.5).
 ///
-/// Las claves de <see cref="CeldasR1"/>/<see cref="CeldasR2"/>/<see cref="CeldasR4"/> son
-/// referencias del template (p. ej. "F33", "E18", "D8"), congeladas por T0 en
-/// <c>WorkbookLeafCellMapPorEmpresa</c>.
+/// Plan 55 (H1.1/H1.3, D4): las claves de <see cref="CeldasR1"/>/<see cref="CeldasR2"/>/
+/// <see cref="CeldasR4"/> son referencias del template RESUELTAS POR CRUCE DE ETIQUETAS contra el
+/// cuadro de la plantilla vigente (la plantilla es la autoridad); el mapa congelado por
+/// (empresa, ASE) quedó LEGACY. Los visibles se derivan de la FUENTE (anti-tautología).
 /// </summary>
 public sealed class ConciliacionEmpresaInputs
 {
@@ -61,6 +62,23 @@ public sealed class ConciliacionEmpresaInputs
     /// aquí la huella; los invariantes de cierre del reporte siguen siendo fail-fast.
     /// </summary>
     public IReadOnlyList<string> FuentesAusentes { get; set; } = [];
+
+    /// <summary>
+    /// Plan 55 (H1.1/D4): REGISTRO AUDITABLE del EXCESO. Operandos que la fuente trae y ningún cuadro
+    /// de la plantilla declara para este ASE/empresa (formato
+    /// <c>{Reporte}:{etiqueta}:{cuadro}:{sección}</c>). Nunca descarte silencioso y nunca celda
+    /// inventada: una entrada aquí significa dinero del reporte sin destino declarado (regla de exceso
+    /// del Plan 55 → divergencia declarada, Plan 44/Plan 42).
+    /// </summary>
+    public IReadOnlyList<string> DestinosSinCelda { get; set; } = [];
+
+    /// <summary>
+    /// Plan 55 (H1.4/S2.4): celdas DESTINO que la plantilla declara para el operando y que son
+    /// FÓRMULA en la v2 vigente (formato <c>{Reporte}:{celda}</c>). El escritor values-only NO las
+    /// toca (guard anti-fórmula): el operando no se escribe y queda registrado — prohibido
+    /// sobrescribir una fórmula.
+    /// </summary>
+    public IReadOnlyList<string> DestinosFormula { get; set; } = [];
 
     /// <summary>
     /// Plan 50 (A3, §2.5 — control mínimo alternativo): evidencia READ-ONLY de etiquetas de fuente

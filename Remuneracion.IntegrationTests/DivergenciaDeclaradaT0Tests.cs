@@ -43,7 +43,9 @@ public sealed class DivergenciaDeclaradaT0Tests
     [Fact]
     public void T0_Catalogo_CitaLaEvidenciaYElDeltaObservado()
     {
-        var entrada = Assert.Single(DivergenciasDeclaradasCatalogo.Entradas);
+        // Plan 54 (H1.5): el catálogo admite filas nuevas (abierto por diseño); este T0 congela los
+        // invariantes de OCCIDENTE-ASE5, que se selecciona por Id.
+        var entrada = DivergenciasDeclaradasCatalogo.Entradas.Single(e => e.Id == "OCCIDENTE-ASE5");
 
         // La entrada CITA la evidencia T0 (R-CAT-1: entrada cita la evidencia o el test falla).
         Assert.Contains("T0-Plan41-MiniT0-OccidenteAse5", entrada.CitaEvidencia, StringComparison.Ordinal);

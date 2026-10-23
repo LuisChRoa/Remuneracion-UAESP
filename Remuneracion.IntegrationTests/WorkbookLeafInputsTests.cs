@@ -22,8 +22,13 @@ public sealed class WorkbookLeafInputsTests
         Assert.True(leaf.R1.F25 != 0m);
         Assert.True(leaf.R2.E15 != 0m);
         Assert.True(leaf.R4.D9 != 0m);
+
+        // Plan 54 (H1.6 — T0.6/Δ-3): el EXTEMP del workbook lo gobierna el AGREGADO de la ruta única
+        // (Σ Aplic − Esp(Aplic[0])); el getter legacy `ExtemporaneoEsperado` (F30+F10−L10) queda en 0
+        // por D2 y ya no es la fuente del visible. Valor SIN cambio: julio-1 ASE1 trae
+        // Aplic 6.331.515,37 + 5.341.504,63 = 11.673.020,00 (evidencia T0.3/T0.6).
         Assert.InRange(leaf.R1.TotalOportunoEsperado - 16704332434.57m, -Tolerancia, Tolerancia);
-        Assert.InRange(leaf.R1.ExtemporaneoEsperado - 11673020m, -Tolerancia, Tolerancia);
+        Assert.InRange(leaf.R1.ExtemporaneoEsperadoPorAse - 11673020m, -Tolerancia, Tolerancia);
         Assert.InRange(leaf.R2.TotalOportunoEsperado - 54216385.68m, -Tolerancia, Tolerancia);
         Assert.InRange(leaf.R4.TotalReversionEsperada - (-12054255.65m), -Tolerancia, Tolerancia);
     }

@@ -8,6 +8,14 @@ namespace Remuneracion.Infrastructure.Excel;
 /// R1 es HETEROGÉNEO por bloque (ASE1: 3 términos; ASE2..5: 5 términos; F178/F521 valor 0 sin
 /// fórmula) — por eso el mapa es explícito por <see cref="Ase.Id"/> y está PROHIBIDA cualquier
 /// aritmética de offsets (plan G2/D1).
+///
+/// <para>
+/// <b>LEGACY (geometría v1) — Plan 54, H1.3/D3:</b> este mapa NO es el productivo desde el Plan 54.
+/// La geometría vigente (plantilla v2) es <see cref="WorkbookLeafCellMapQ2.R1Q2EditablesPorAse"/>, que
+/// rige AMBAS quincenas. Aquí quedan las direcciones congeladas de la v1 (F25/F41/L25/F30/F10/L10 para
+/// R1) para el API histórico de leaf y los fixtures de caracterización. Prohibido re-apuntar producción
+/// a este mapa o añadirle lectores nuevos.
+/// </para>
 /// </summary>
 public static class WorkbookLeafCellMapPorAse
 {

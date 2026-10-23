@@ -65,8 +65,12 @@ public static class WorkbookLeafCellMapQ2
     }
 
     /// <summary>
-    /// Operandos editables R1-Q2 por ASE: celda del template → rol de la fuente (T0-0.2/0.3).
+    /// Celdas editables R1-Q2 por ASE: celda del template → rol de la fuente (T0-0.2/0.3).
     /// Congelado del dump OpenXML: F53=F32+F48+F12-L12-L32, F55=F37+F17-L17, F206=…, F560=…
+    ///
+    /// Plan 54 (H1.3, D3): este mapa es el PRODUCTIVO para AMBAS quincenas (la geometría v1 de
+    /// <see cref="WorkbookLeafCellMapPorAse"/> quedó como LEGACY). El sufijo "Q2" del nombre y del enum
+    /// <see cref="R1Q2Fuente"/> se conservan por compatibilidad (rename = follow-up, D1.3).
     /// </summary>
     public static readonly IReadOnlyDictionary<int, (string Celda, R1Q2Fuente Fuente)[]> R1Q2EditablesPorAse =
         new Dictionary<int, (string, R1Q2Fuente)[]>
@@ -150,7 +154,10 @@ public static class WorkbookLeafCellMapQ2
             ],
             [5] =
             [
-                ("F680", ["F674", "F648", "F613", "L613", "L648"])
+                ("F680", ["F674", "F648", "F613", "L613", "L648"]),
+                // Plan 54 (H1.7, S2.6): el byte declara F682 = F660+F629-L629 y NO estaba protegida.
+                // Se declara aquí para que las 10 <f> TOT_OPT/EXTEMP queden simétricas (5 ASE × 2).
+                ("F682", ["F660", "F629", "L629"])
             ]
         };
 
