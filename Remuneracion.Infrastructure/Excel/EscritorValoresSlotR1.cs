@@ -681,12 +681,9 @@ internal static class EscritorValoresSlotR1
                 CodigoError.Plantilla,
                 $"La celda slot '{HojaR1}!{celda}' (fila {filaSlot} del contrato T0, ASE {aseId}) no existe en la plantilla. Fail-fast, nunca se inventa la celda.");
 
-        if (cell.CellFormula is not null)
-        {
-            throw new CalculoInvalidoException(
-                CodigoError.Plantilla,
-                $"La celda slot '{HojaR1}!{celda}' (fila {filaSlot} del contrato T0, ASE {aseId}) es fórmula en la plantilla. El escritor values-only nunca sobrescribe fórmulas.");
-        }
+        // Plan 58 (H1.1): guard anti-fórmula único del escritor values-only.
+        GuardEscrituraFormula.ExigirSinFormula(
+            cell, HojaR1, celda, $"slot de la fila {filaSlot} del contrato T0, ASE {aseId}");
 
         cell.DataType = CellValues.Number;
         cell.CellValue = new CellValue(valor.ToString(CultureInfo.InvariantCulture));

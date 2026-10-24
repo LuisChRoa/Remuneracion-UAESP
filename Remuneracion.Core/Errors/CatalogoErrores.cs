@@ -37,6 +37,9 @@ public static class CatalogoErrores
             CodigoError.Escritura => (
                 "Error al generar el archivo de salida",
                 $"No se pudo escribir el workbook: {detalle}. No quedó archivo parcial; reintente."),
+            CodigoError.Integridad => (
+                "El archivo generado no pasó el control de integridad",
+                $"El workbook generado tiene un defecto de estructura interna: {detalle}. El archivo NO se entregó (Excel lo repararía borrando fórmulas). Revise el log con el RunId de esta ejecución."),
             CodigoError.CanceladoPorUsuario => (
                 "Proceso cancelado",
                 $"El proceso se canceló por decisión del usuario: {detalle}."),
@@ -54,6 +57,7 @@ public static class CatalogoErrores
         CodigoError.Validacion => CodigosSalida.Validacion,
         CodigoError.FuenteNoEncontrada or CodigoError.Plantilla or CodigoError.FormatoFuente or CodigoError.SinSlot => CodigosSalida.FuenteOPlantilla,
         CodigoError.Escritura => CodigosSalida.Escritura,
+        CodigoError.Integridad => CodigosSalida.Escritura,
         CodigoError.CanceladoPorUsuario => CodigosSalida.CanceladoPorUsuario,
         _ => CodigosSalida.Inesperado
     };

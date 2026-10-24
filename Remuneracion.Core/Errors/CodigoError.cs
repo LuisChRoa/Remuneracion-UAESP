@@ -36,4 +36,12 @@ public static class CodigoError
     /// esperado; nunca remap silencioso, nunca insert, nunca 0 silencioso.
     /// </summary>
     public const string SinSlot = "ERR-SIN-SLOT";
+
+    /// <summary>
+    /// Plan 58 (H1.2): el paquete generado no es integro por bytes (grupo de formula compartida sin
+    /// maestro, formula alterada/creada/perdida, celda duplicada, fila desordenada, indice de
+    /// sharedStrings fuera de rango o referencia a una hoja inexistente). Excel repararia el archivo
+    /// borrando formulas, asi que el archivo NO se entrega. El mensaje nombra concepto + hoja + celda.
+    /// </summary>
+    public const string Integridad = "ERR-INTEGRIDAD";
 }

@@ -154,6 +154,9 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             // abre SOLO lectura), antes de la validación/escritura. La quincena llega por DOMINIO.
             PreparadorBasePipeline.Ejecutar(origen, leafInputs.Periodo, rutaSalida);
 
+            // Plan 58 (H1.2): foto de la base que recibe el escritor (gate de cierre por bytes).
+            var basePreparada = File.ReadAllBytes(rutaSalida);
+
             using (var workbook = SpreadsheetDocument.Open(rutaSalida, true))
             {
                 var workbookPart = workbook.WorkbookPart
@@ -192,6 +195,9 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                     ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook generado no tiene WorkbookPart válido.");
                 ValidarFormulasProtegidas(workbookPart, nameof(GenerarWorkbook));
             }
+
+            // Plan 58 (H1.2): gate de integridad del paquete POST-escritura (por bytes, sin Excel).
+            ValidadorIntegridadPaquete.ValidarEscritura(basePreparada, File.ReadAllBytes(rutaSalida));
         }
         catch (Exception ex)
         {
@@ -286,6 +292,10 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             // escritura de negocio. El procesamiento sigue values-only (cero <f> aguas abajo).
             PreparadorBasePipeline.Ejecutar(origen, periodoReferencia, rutaSalida);
 
+            // Plan 58 (H1.2): foto de la base que recibe el escritor. El gate de cierre exige que la
+            // salida conserve EXACTAMENTE el conjunto de fórmulas (celda → texto + t/ref/si).
+            var basePreparada = File.ReadAllBytes(rutaSalida);
+
             using (var workbook = SpreadsheetDocument.Open(rutaSalida, true))
             {
                 var workbookPart = workbook.WorkbookPart
@@ -368,6 +378,12 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                 // en ambos caminos y sin ramas por período ni por "espejo desplazado".
                 ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook), periodoReferencia);
             }
+
+            // Plan 58 (H1.2): gate de integridad del paquete POST-escritura (por bytes, sin Excel).
+            // Grupos shared, fórmulas preservadas, duplicadas, orden, sharedStrings y hojas. Un
+            // defecto aborta con ERR-INTEGRIDAD y la atomicidad borra el parcial: nunca se entrega un
+            // workbook que Excel tendría que reparar.
+            ValidadorIntegridadPaquete.ValidarEscritura(basePreparada, File.ReadAllBytes(rutaSalida));
         }
         catch (Exception ex)
         {
@@ -441,6 +457,9 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             // abre SOLO lectura), antes de la escritura values-only por slot. La quincena = dominio.
             PreparadorBasePipeline.Ejecutar(origen, periodo, rutaSalida);
 
+            // Plan 58 (H1.2): foto de la base que recibe el escritor (gate de cierre por bytes).
+            var basePreparada = File.ReadAllBytes(rutaSalida);
+
             using (var workbook = SpreadsheetDocument.Open(rutaSalida, true))
             {
                 var workbookPart = workbook.WorkbookPart
@@ -462,6 +481,9 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                 SaneadorCadenaCalculo.Sanear(workbookPart);
                 workbookPart.Workbook?.Save();
             }
+
+            // Plan 58 (H1.2): gate de integridad del paquete POST-escritura (por bytes, sin Excel).
+            ValidadorIntegridadPaquete.ValidarEscritura(basePreparada, File.ReadAllBytes(rutaSalida));
         }
         catch (Exception ex)
         {
@@ -1835,12 +1857,9 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                 CodigoError.Plantilla,
                 $"La celda '{hoja}!{celda}' no existe en la plantilla para sellar '{nombre}'. Fail-fast, nunca se inventa la celda.");
 
-        if (cell.CellFormula is not null)
-        {
-            throw new CalculoInvalidoException(
-                CodigoError.Plantilla,
-                $"La celda sello '{nombre}' ({hoja}!{celda}) es fórmula en la plantilla. Plan 31 no puede sobrescribir fórmulas.");
-        }
+        // Plan 58 (H1.1): el guard anti-fórmula es UNO (GuardEscrituraFormula); la condición se
+        // evalúa sobre el contenido de la celda, nunca sobre su nombre ni su hoja.
+        GuardEscrituraFormula.ExigirSinFormula(cell, hoja, celda, $"sello '{nombre}'");
 
         // Representación de texto (inline string) para preservar el estilo Texto de la celda; se
         // limpia cualquier <v> previo (una celda no puede tener <v> y <is> a la vez).
@@ -1983,14 +2002,9 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         var worksheet = ObtenerHoja(workbookPart, hoja, nameof(GenerarWorkbook));
         var cell = ObtenerOCrearCelda(worksheet, celda);
 
-        if (cell.CellFormula is not null)
-        {
-            // HU-15 (W-2.3, D5): una celda editable del mapa que es fórmula en la plantilla =
-            // plantilla incompatible (nunca sobrescribir fórmulas) → ERR-PLANTILLA.
-            throw new CalculoInvalidoException(
-                CodigoError.Plantilla,
-                $"La celda leaf {nombre} ({hoja}!{celda}) es fórmula en la plantilla. HU-05 no puede sobrescribir fórmulas.");
-        }
+        // Plan 58 (H1.1): guard anti-fórmula ÚNICO. Una celda editable del mapa que es fórmula en la
+        // plantilla = plantilla incompatible (nunca sobrescribir fórmulas) → ERR-PLANTILLA.
+        GuardEscrituraFormula.ExigirSinFormula(cell, hoja, celda, nombre);
 
         cell.DataType = CellValues.Number;
         cell.CellValue = new CellValue(valor.ToString(CultureInfo.InvariantCulture));

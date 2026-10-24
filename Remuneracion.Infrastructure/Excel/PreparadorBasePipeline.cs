@@ -242,7 +242,7 @@ public static class PreparadorBasePipeline
                     partes[entrada.FullName] = LeerBytes(entrada);
                 }
 
-                EscribirZipAtomico(orden, partes, rutaSalida);
+                EscribirBytesAtomico(SerializarZip(orden, partes), rutaSalida);
                 log($"OK: entrada copiada sin transformar en {rutaSalida}");
                 return;
             }
@@ -369,7 +369,14 @@ public static class PreparadorBasePipeline
             log("  " + linea);
         }
 
-        EscribirZipAtomico(orden, partes, rutaSalida);
+        // Plan 58 (H1.1/H1.2): la base preparada se valida POR BYTES contra la plantilla ANTES de
+        // escribirse. Ninguna celda con <f> puede desaparecer ni perder sus atributos shared
+        // (t/ref/si) y no puede aparecer ninguna fórmula nueva. Se serializa en memoria: un defecto
+        // aborta sin producir archivo (nada de "arreglar después").
+        var paquete = SerializarZip(orden, partes);
+        ValidadorIntegridadPaquete.ValidarPreparacion(File.ReadAllBytes(rutaEntrada), paquete);
+
+        EscribirBytesAtomico(paquete, rutaSalida);
         log($"OK: base canónica del período {periodoDestino} escrita en {rutaSalida}");
     }
 
@@ -407,6 +414,52 @@ public static class PreparadorBasePipeline
         }
 
         return xml;
+    }
+
+    // ── Plan 58 (H1.1): cirugía de <f> que NO puede romper el grupo shared ──────────────────────
+
+    /// <summary>
+    /// Plan 58 (H1.1) — sustituye SOLO el nodo de texto de la <c>&lt;f&gt;</c> de una celda.
+    ///
+    /// Regla estructural: los atributos del elemento (<c>t</c>, <c>ref</c>, <c>si</c>) NO se
+    /// reconstruyen; se reutiliza el texto crudo que capturó <see cref="FormulaRegex"/>, así que
+    /// viajan intactos por construcción y no por acuerdo. Lo único que cambia es el texto.
+    ///
+    /// Por qué importa (causa raíz del P0 del Plan 58): <c>INTERVENTORIA!R26</c> es el maestro de un
+    /// grupo <c>shared ref="R26:R31" si="0"</c>. Reescribir el elemento completo
+    /// (<c>&lt;f&gt;N26&lt;/f&gt;</c>) borraba <c>t/ref/si</c> y dejaba <c>R27:R31</c> como
+    /// seguidoras de un grupo sin maestro; Excel detecta el grupo huérfano y repara el libro
+    /// ELIMINANDO las fórmulas.
+    /// </summary>
+    /// <param name="inner">Contenido crudo de la celda (lo que está entre <c>&lt;c ...&gt;</c> y <c>&lt;/c&gt;</c>).</param>
+    /// <param name="prefijo">Prefijo XML del elemento (<c>""</c> o <c>"x:"</c>).</param>
+    /// <param name="texto">Nuevo texto de la fórmula.</param>
+    /// <param name="hoja">Hoja (solo para el mensaje de error).</param>
+    /// <param name="celda">Celda (solo para el mensaje de error).</param>
+    private static string SustituirTextoFormula(string inner, string prefijo, string texto, string hoja, string celda)
+    {
+        var match = FormulaRegex.Match(inner);
+        Exigir(match.Success,
+            $"Plan 58: la celda {hoja}!{celda} no trae una <f> simple cuando la cirugía de la base la requiere.");
+
+        var attrsFormula = match.Groups["attrs"].Value;
+        var sustituta = $"<{prefijo}f{attrsFormula}>{texto}</{prefijo}f>";
+        var resultado = string.Concat(
+            inner.AsSpan(0, match.Index),
+            sustituta,
+            inner.AsSpan(match.Index + match.Length));
+
+        // Invariante verificada (no solo por construcción): la <f> resultante conserva EXACTAMENTE
+        // los mismos atributos que la original. Si un cambio futuro rompe esto, el fail-fast aparece
+        // acá y no en el Excel del Ingeniero.
+        var despues = FormulaRegex.Match(resultado);
+        Exigir(despues.Success
+                && string.Equals(despues.Groups["attrs"].Value, attrsFormula, StringComparison.Ordinal),
+            $"Plan 58: la cirugía de fórmula de {hoja}!{celda} alteraría los atributos de <f> " +
+            $"('{attrsFormula}' -> '{despues.Groups["attrs"].Value}'), lo que rompería el grupo shared. " +
+            "Se aborta sin escribir (un grupo huérfano hace que Excel borre las fórmulas).");
+
+        return resultado;
     }
 
     private static string AsegurarVarianteL(
@@ -448,7 +501,7 @@ public static class PreparadorBasePipeline
             return xml; // no-op byte-preserving (paridad Q2 sobre el oficial).
         }
 
-        var nuevoInner = FormulaRegex.Replace(inner, _ => $"<{prefijo}f>{formulaEsperada}</{prefijo}f>");
+        var nuevoInner = SustituirTextoFormula(inner, prefijo, formulaEsperada, HojaConsolidado, celda);
         nuevoInner = ValorRegex.IsMatch(nuevoInner)
             ? ValorRegex.Replace(nuevoInner, _ => $"<{prefijo}v>{valorEsperado}</{prefijo}v>")
             : nuevoInner + $"<{prefijo}v>{valorEsperado}</{prefijo}v>";
@@ -532,7 +585,7 @@ public static class PreparadorBasePipeline
             return xml;
         }
 
-        var nuevoInner = FormulaRegex.Replace(inner, _ => $"<{prefijo}f>{esperada}</{prefijo}f>");
+        var nuevoInner = SustituirTextoFormula(inner, prefijo, esperada, hoja, celda);
         var nuevaCelda = $"<{prefijo}c r=\"{celda}\"{match.Groups["attrs"].Value}>{nuevoInner}</{prefijo}c>";
         cambiado = true;
         return xml[..match.Index] + nuevaCelda + xml[(match.Index + match.Length)..];
@@ -669,7 +722,7 @@ public static class PreparadorBasePipeline
         }
 
         var nueva = formulaActual.Replace(contraria, objetivo, StringComparison.Ordinal);
-        var nuevoInner = FormulaRegex.Replace(inner, _ => $"<{prefijo}f>{nueva}</{prefijo}f>");
+        var nuevoInner = SustituirTextoFormula(inner, prefijo, nueva, hoja, celda);
         var nuevaCelda = $"<{prefijo}c r=\"{celda}\"{match.Groups["attrs"].Value}>{nuevoInner}</{prefijo}c>";
         cambiado = true;
         return xml[..match.Index] + nuevaCelda + xml[(match.Index + match.Length)..];
@@ -773,7 +826,8 @@ public static class PreparadorBasePipeline
                 $"(se esperaba '{contraria}' o '{esperado}'); fail-fast, nunca se sobrescribe a ciegas.");
         }
 
-        var nuevoInner = FormulaRegex.Replace(inner, _ => $"<{prefijo}f>{esperado}</{prefijo}f>");
+        var nuevoInner = SustituirTextoFormula(
+            inner, prefijo, esperado, WorkbookLeafCellMapAjustesSfT.HojaInterventoria, celda);
         var nuevaCelda = $"<{prefijo}c r=\"{celda}\"{match.Groups["attrs"].Value}>{nuevoInner}</{prefijo}c>";
         cambiado = true;
         return xml[..match.Index] + nuevaCelda + xml[(match.Index + match.Length)..];
@@ -1228,10 +1282,26 @@ public static class PreparadorBasePipeline
 
     // ── Escritura atómica ────────────────────────────────────────────────────────────────────────
 
-    private static void EscribirZipAtomico(
+    private static byte[] SerializarZip(
         IReadOnlyList<string> orden,
-        IReadOnlyDictionary<string, byte[]> partes,
-        string salidaPath)
+        IReadOnlyDictionary<string, byte[]> partes)
+    {
+        using var memoria = new MemoryStream();
+        using (var salidaZip = new ZipArchive(memoria, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            // Se recorre el orden original para preservar [Content_Types].xml como primera entrada.
+            foreach (var nombre in orden)
+            {
+                var nueva = salidaZip.CreateEntry(nombre, CompressionLevel.Optimal);
+                using var stream = nueva.Open();
+                stream.Write(partes[nombre]);
+            }
+        }
+
+        return memoria.ToArray();
+    }
+
+    private static void EscribirBytesAtomico(byte[] contenido, string salidaPath)
     {
         var tmpPath = salidaPath + ".tmp";
         var tmpDir = Path.GetDirectoryName(salidaPath);
@@ -1245,22 +1315,11 @@ public static class PreparadorBasePipeline
             File.Delete(tmpPath);
         }
 
-        using (var fs = new FileStream(tmpPath, FileMode.Create, FileAccess.Write))
-        using (var salidaZip = new ZipArchive(fs, ZipArchiveMode.Create))
-        {
-            // Se recorre el orden original para preservar [Content_Types].xml como primera entrada.
-            foreach (var nombre in orden)
-            {
-                var nueva = salidaZip.CreateEntry(nombre, CompressionLevel.Optimal);
-                using var stream = nueva.Open();
-                stream.Write(partes[nombre]);
-            }
-        }
+        File.WriteAllBytes(tmpPath, contenido);
 
         using (var relectura = ZipFile.OpenRead(tmpPath))
         {
-            Exigir(relectura.Entries.Count == partes.Count,
-                $"El zip producido tiene {relectura.Entries.Count} entradas; se esperaban {partes.Count}.");
+            Exigir(relectura.Entries.Count > 0, "El zip producido no tiene entradas.");
             foreach (var nombre in new[] { PartWorkbook, PartApp, PartShared })
             {
                 Exigir(relectura.GetEntry(nombre) is not null, $"El zip producido no contiene {nombre}.");
