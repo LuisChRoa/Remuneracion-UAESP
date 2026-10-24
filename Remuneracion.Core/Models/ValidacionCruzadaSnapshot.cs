@@ -122,28 +122,43 @@ public sealed class SubBloqueValidacionTotalEvidencia
 }
 
 /// <summary>
-/// Plan 49 (A1-interior, §2.3): evidencia EVALUABLE de UN ancla EXTEMPORANEO del interior de
-/// <c>Reporte Componentes R1</c>. El reader resuelve ambos operandos desde lo escrito (texto-
-/// <c>&lt;f&gt;</c> + literales, nunca caché <c>&lt;v&gt;</c> stale) y el validador de Core juzga
-/// <c>ValorAncla</c> vs <c>ValorSecciones</c> con ±0.5, nombrando hoja + celda. El mapa de anclas
-/// (<see cref="AnclasExtempR1"/>) es DATO citado del T0; el reader no decide.
+/// Plan 49 (A1-interior, §2.3) / Plan 57 (§2-D2/D3): evidencia EVALUABLE de UNA celda-ancla
+/// EXTEMPORANEO del interior del bloque R1. El reader **deriva** la posición (sigue la referencia que
+/// la plantilla declara) y la naturaleza (fórmula → evalúa con los valores del propio workbook;
+/// literal → lo lee): no hay tabla de anclas. El validador de Core juzga
+/// <c>ValorAncla</c> vs <c>ValorSecciones</c> con ±0.5, nombrando hoja + celda.
+///
+/// <para>
+/// <b>Sólo diagnóstico (§2-D4.2).</b> Es consistencia interna del workbook: localiza dónde se perdió
+/// el importe, y NUNCA convierte un rojo del núcleo en verde (ni al revés). En un ancla con
+/// <c>&lt;f&gt;</c> la comparación es consistente por construcción (ambos operandos salen de la misma
+/// fórmula leída); en un ancla literal no hay descomposición declarada, de ahí
+/// <see cref="ValorSecciones"/> = <c>null</c>.
+/// </para>
 /// </summary>
 public sealed class AnclaExtempR1Evidencia
 {
-    /// <summary>Celda ancla del interior R1 (p. ej. <c>F682</c>).</summary>
+    /// <summary>Hoja del ancla derivada (la que declara la referencia publicada).</summary>
+    public string Hoja { get; set; } = string.Empty;
+
+    /// <summary>Celda ancla del interior R1 (p. ej. <c>F682</c>), leída de la referencia declarada.</summary>
     public string Celda { get; set; } = string.Empty;
 
     /// <summary>
-    /// Expresión de la suma de secciones (p. ej. <c>F660+F629-L629</c>), en el mismo texto que
-    /// usa el resolutor.
+    /// Expresión de la suma de secciones, derivada del texto-<c>&lt;f&gt;</c> de la propia celda ancla
+    /// (p. ej. <c>F660+F629-L629</c>), en el mismo texto que usa el resolutor. Vacía = el ancla es un
+    /// literal y la plantilla no declara descomposición.
     /// </summary>
     public string ExpresionSecciones { get; set; } = string.Empty;
 
     /// <summary>Valor resuelto de la celda ancla desde lo escrito.</summary>
     public decimal ValorAncla { get; set; }
 
-    /// <summary>Valor resuelto de la suma de secciones desde lo escrito.</summary>
-    public decimal ValorSecciones { get; set; }
+    /// <summary>
+    /// Valor resuelto de la descomposición declarada por el ancla (fórmula), o <c>null</c> si el ancla
+    /// es un literal y no hay descomposición que evaluar.
+    /// </summary>
+    public decimal? ValorSecciones { get; set; }
 }
 
 /// <summary>
@@ -221,9 +236,11 @@ public sealed class ValidacionCruzadaSnapshot
     public decimal? ExtempResuelto { get; set; }
 
     /// <summary>
-    /// Plan 49 (A1-interior, §2.3): evidencia de las anclas EXTEMP del interior R1 (solo ASE5,
-    /// solo columna F, mapa <see cref="AnclasExtempR1"/>). Vacío = este ASE no tiene anclas
-    /// gateadas en el interior (o el workbook no trae esa geometría).
+    /// Plan 49 (A1-interior, §2.3) / Plan 57 (§2-D3): evidencia de las anclas EXTEMP del interior del
+    /// bloque, DERIVADAS en runtime de la propia plantilla (la celda que declara el <c>&lt;f&gt;</c> de
+    /// la publicación del bloque, más las que declaran las hojas publicadoras en la misma fila), con su
+    /// naturaleza leída (fórmula → evaluada; literal → leída). No hay tabla de anclas por ASE. Vacío =
+    /// el workbook no declara la publicación del bloque (geometría ausente, p. ej. el manual legacy).
     /// </summary>
-    public IReadOnlyList<AnclaExtempR1Evidencia> AnclasExtempR1 { get; set; } = [];
+    public IReadOnlyList<AnclaExtempR1Evidencia> EvidenciaAnclasExtemp { get; set; } = [];
 }

@@ -190,7 +190,7 @@ public sealed class ValidacionOracleReader : IValidacionOracleReader
             SubBloquesValidacionTotal = subBloques,
             SubBloquesValidacionTotalEvidencia = evidencia,
             ExtempResuelto = ResolverExtempConsolidado(resolutor, aseId),
-            AnclasExtempR1 = ResolverAnclasExtempR1(resolutor, aseId)
+            EvidenciaAnclasExtemp = ResolverAnclasExtempR1(resolutor, aseId)
         };
     }
 
@@ -198,94 +198,188 @@ public sealed class ValidacionOracleReader : IValidacionOracleReader
     /// Plan 49 (A1-núcleo, §2.2): EXTEMP del ASE resuelto desde lo escrito en
     /// <c>CONSOLIDADO_TOTAL RECAUDO!D{46+aseId}</c>. El resolutor sigue el texto-<c>&lt;f&gt;</c>
     /// (nunca el caché <c>&lt;v&gt;</c>): en la v2, <c>D51 → 'Reporte Componentes R1'!F682</c> y
-    /// <c>F682</c> es un literal <c>0</c> (defecto de plantilla del T0 §3.4). Celda ausente o
-    /// cadena no resoluble = <c>ERR-PLANTILLA</c> nombrando hoja+celda (nunca 0 silencioso).
-    /// El reader NO juzga: solo expone el valor para que el validador lo compare con el dominio.
+    /// <c>F682 = F660+F629-L629</c>; el valor sale de evaluar la cadena completa desde lo escrito.
+    /// Celda ausente o cadena no resoluble = <c>ERR-PLANTILLA</c> nombrando hoja+celda (nunca 0
+    /// silencioso). El reader NO juzga: solo expone el valor para que el validador lo compare con el
+    /// dominio.
     /// </summary>
     private static decimal ResolverExtempConsolidado(ResolutorValorValidacion resolutor, int aseId)
     {
-        var hoja = AnclasExtempR1.HojaConsolidado;
-        var celda = AnclasExtempR1.CeldaConsolidadoExtemp(aseId);
+        var hoja = PublicacionExtempConsolidado.HojaConsolidado;
+        var celda = PublicacionExtempConsolidado.CeldaConsolidadoExtemp(aseId);
 
         if (!resolutor.ExisteCelda(hoja, celda))
         {
             throw new CalculoInvalidoException(
                 CodigoError.Plantilla,
-                $"La celda '{hoja}!{celda}' (EXTEMP del ASE {aseId}) no existe en el workbook. (Plan 49 A1: el gate absoluto necesita la celda del CONSOLIDADO; sin ella no hay 0 silencioso.)");
+                $"ASE {aseId} · {hoja} · EXTEMPORANEO: la celda '{celda}' del bloque no existe en el workbook. (Plan 49 A1: el gate absoluto necesita la celda del CONSOLIDADO; sin ella no hay 0 silencioso.)");
         }
 
         if (!resolutor.TryEvaluar(hoja, celda, out var valor))
         {
             throw new CalculoInvalidoException(
                 CodigoError.Plantilla,
-                $"La celda '{hoja}!{celda}' (EXTEMP del ASE {aseId}) no es resoluble desde lo escrito. (Plan 49 A1: tercera forma = ERR-PLANTILLA, nunca 0 silencioso.)");
+                $"ASE {aseId} · {hoja} · EXTEMPORANEO: la celda '{celda}' del bloque no es resoluble desde lo escrito. (Plan 49 A1: tercera forma = ERR-PLANTILLA, nunca 0 silencioso.)");
         }
 
         return valor;
     }
 
     /// <summary>
-    /// Plan 49 (A1-interior, §2.3): evidencia de las anclas EXTEMP del interior R1 según el mapa
-    /// <see cref="AnclasExtempR1"/> (ASE5, columna F). El ancla DEBE ser un literal (la v2 perdió la
-    /// fórmula del manual); con <c>&lt;f&gt;</c> inesperado o ausente con secciones presentes =
-    /// <c>ERR-PLANTILLA</c> nombrando hoja+celda. Un workbook que no trae NINGUNA de las celdas de la
-    /// geometría (p. ej. el manual legacy, usado SOLO como fixture de lectura) no es una tercera
-    /// forma de la v2: no hay ancla que verificar y la lista queda vacía.
+    /// Plan 49 (A1-interior, §2.3) + Plan 57 (§2-D2/D3): evidencia de las anclas EXTEMPORANEO del
+    /// interior del bloque, <b>derivada de la plantilla en runtime</b> — sin tabla de anclas, sin
+    /// direcciones congeladas y sin ramas por quincena.
+    ///
+    /// <para><b>Cómo se ubica el ancla (§2-D3.1).</b> La celda de publicación del bloque
+    /// (<c>CONSOLIDADO!D{46+aseId}</c>) declara en su <c>&lt;f&gt;</c> UNA referencia a la hoja de
+    /// componentes; ésa —y no una lista— es la celda-ancla. Se lee del workbook, así que un cambio de
+    /// plantilla (otra celda, otra fila) se absorbe sin tocar código.</para>
+    ///
+    /// <para><b>Familia secundaria (§2-D3.2).</b> Las hojas publicadoras (<c>REMUNERACION_*</c>)
+    /// declaran el EXTEMP del MISMO bloque en la <b>misma fila</b> de publicación; cada una se
+    /// reconoce por la referencia que escribe (no por su nombre), y su destino entra en la evidencia.
+    /// </para>
+    ///
+    /// <para><b>Naturaleza en runtime (§2-D2.1).</b> Si la celda-ancla trae <c>&lt;f&gt;</c> se evalúa
+    /// la fórmula leída con los valores del propio workbook (su descomposición ES la expresión de
+    /// secciones); si es literal se lee. Sin ramas por bloque ni por quincena.</para>
+    ///
+    /// <para><b>Lo que no es (§2-D4.2).</b> Esto es evidencia diagnóstica del interior, no el veredicto:
+    /// el núcleo compara lo visible del workbook contra el esperado del dominio
+    /// (<see cref="WorkbookLeafInputsR1.ExtemporaneoEsperadoPorAse"/>) y no se ve afectado por esta
+    /// evaluación.</para>
+    ///
+    /// <para><b>Irresoluble (§2-D5).</b> Referencia ausente o no única, destino inexistente o fórmula
+    /// que no evalúa desde lo escrito ⇒ <c>ERR-PLANTILLA</c> nombrando ASE + hoja + concepto; el reader
+    /// es read-only y no se escribe nada. Un workbook que no declara la publicación del bloque (p. ej.
+    /// el manual legacy, usado solo como fixture de lectura) no tiene ancla que verificar: la lista
+    /// queda vacía, nunca un 0 silencioso.</para>
     /// </summary>
     private static IReadOnlyList<AnclaExtempR1Evidencia> ResolverAnclasExtempR1(
         ResolutorValorValidacion resolutor,
         int aseId)
     {
-        var anclas = AnclasExtempR1.PorAse(aseId);
-        if (anclas.Count == 0)
+        var hojaConsolidado = PublicacionExtempConsolidado.HojaConsolidado;
+        var celdaPublicacion = PublicacionExtempConsolidado.CeldaConsolidadoExtemp(aseId);
+        var textoPublicacion = resolutor.TextoFormulaEfectiva(hojaConsolidado, celdaPublicacion);
+
+        if (string.IsNullOrWhiteSpace(textoPublicacion))
         {
+            // El workbook no publica el EXTEMP de este bloque por referencia (geometría ausente).
             return [];
         }
 
-        var hoja = AnclasExtempR1.Hoja;
-        var evidencias = new List<AnclaExtempR1Evidencia>(anclas.Count);
-        foreach (var ancla in anclas)
+        if (!resolutor.TryReferenciaUnica(hojaConsolidado, textoPublicacion, out var hojaAncla, out var celdaAncla))
         {
-            var existeAncla = resolutor.ExisteCelda(hoja, ancla.Celda);
-            var seccionesPresentes = ancla.CeldasSeccion.Count(c => resolutor.ExisteCelda(hoja, c));
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"ASE {aseId} · {hojaConsolidado} · EXTEMPORANEO: la celda '{celdaPublicacion}' del bloque no declara una única celda de referencia ('{textoPublicacion}'), así que no se puede ubicar el ancla del bloque.");
+        }
 
-            if (!existeAncla && seccionesPresentes == 0)
-            {
-                continue; // geometría del ancla no presente en este workbook (no es la v2).
-            }
+        if (!resolutor.ExisteCelda(hojaAncla, celdaAncla))
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"ASE {aseId} · {hojaAncla} · EXTEMPORANEO: la celda '{celdaPublicacion}' del bloque declara el ancla '{celdaAncla}', que no existe en la hoja. (Sin ancla no hay evidencia; nunca 0 silencioso.)");
+        }
 
-            if (!existeAncla)
-            {
-                throw new CalculoInvalidoException(
-                    CodigoError.Plantilla,
-                    $"La celda-ancla '{hoja}!{ancla.Celda}' (EXTEMP del ASE {aseId}) no existe aunque sus secciones sí: forma parcial de la plantilla. (Plan 49 A1-interior: tercera forma = ERR-PLANTILLA.)");
-            }
+        var destinos = new List<(string Hoja, string Celda)> { (hojaAncla, celdaAncla) };
+        destinos.AddRange(DestinosPublicadosDelBloque(resolutor, aseId, hojaAncla));
 
-            if (!string.IsNullOrEmpty(resolutor.TextoFormulaEfectiva(hoja, ancla.Celda)))
-            {
-                throw new CalculoInvalidoException(
-                    CodigoError.Plantilla,
-                    $"La celda-ancla '{hoja}!{ancla.Celda}' (EXTEMP del ASE {aseId}) trae fórmula y el contrato T0 la congeló como literal. (Plan 49 A1-interior: tercera forma = ERR-PLANTILLA; una v3 exige re-congelar el mapa con su T0.)");
-            }
-
-            if (!resolutor.TryEvaluar(hoja, ancla.Celda, out var valorAncla)
-                || !resolutor.TryEvaluar(hoja, ancla.ExpresionSecciones, out var valorSecciones))
-            {
-                throw new CalculoInvalidoException(
-                    CodigoError.Plantilla,
-                    $"La celda-ancla '{hoja}!{ancla.Celda}' o sus secciones ({ancla.ExpresionSecciones}) no son resolubles desde lo escrito. (Plan 49 A1-interior: tercera forma = ERR-PLANTILLA.)");
-            }
-
+        var evidencias = new List<AnclaExtempR1Evidencia>(destinos.Count);
+        foreach (var (hoja, celda) in destinos.Distinct())
+        {
             evidencias.Add(new AnclaExtempR1Evidencia
             {
-                Celda = ancla.Celda,
-                ExpresionSecciones = ancla.ExpresionSecciones,
-                ValorAncla = valorAncla,
+                Hoja = hoja,
+                Celda = celda,
+                ValorAncla = ResolverValorDelAncla(resolutor, aseId, hoja, celda, out var expresionSecciones, out var valorSecciones),
+                ExpresionSecciones = expresionSecciones,
                 ValorSecciones = valorSecciones
             });
         }
 
         return evidencias;
+    }
+
+    /// <summary>
+    /// Plan 57 (§2-D3.2): destinos R1 que las hojas PUBLICADORAS declaran para el bloque en su fila de
+    /// publicación. Se reconocen por la referencia que escriben —nunca por el nombre de la hoja— y se
+    /// descarta la propia hoja del ancla (ahí viven las anclas, no sus consumidores).
+    /// </summary>
+    private static IEnumerable<(string Hoja, string Celda)> DestinosPublicadosDelBloque(
+        ResolutorValorValidacion resolutor,
+        int aseId,
+        string hojaAncla)
+    {
+        var celdaPublicacion = $"D{PublicacionExtempConsolidado.FilaConsolidadoExtemp(aseId)}";
+
+        foreach (var nombre in resolutor.NombresHojas())
+        {
+            if (string.Equals(nombre, hojaAncla, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var texto = resolutor.TextoFormulaEfectiva(nombre, celdaPublicacion);
+            if (!resolutor.TryReferenciaUnica(nombre, texto, out var hojaDestino, out var celdaDestino)
+                || !string.Equals(hojaDestino, hojaAncla, StringComparison.OrdinalIgnoreCase)
+                || !resolutor.ExisteCelda(hojaDestino, celdaDestino))
+            {
+                continue;
+            }
+
+            yield return (hojaDestino, celdaDestino);
+        }
+    }
+
+    /// <summary>
+    /// Plan 57 (§2-D2.1): el valor del ancla sale de su NATURALEZA leída en el workbook. Con
+    /// <c>&lt;f&gt;</c> se evalúa la fórmula leída (que es, a la vez, la descomposición declarada y la
+    /// expresión de secciones); literal se lee. Irresoluble ⇒ <c>ERR-PLANTILLA</c> con ASE + hoja +
+    /// concepto (nunca 0 silencioso).
+    /// </summary>
+    private static decimal ResolverValorDelAncla(
+        ResolutorValorValidacion resolutor,
+        int aseId,
+        string hoja,
+        string celda,
+        out string expresionSecciones,
+        out decimal? valorSecciones)
+    {
+        expresionSecciones = string.Empty;
+        valorSecciones = null;
+
+        var textoFormula = resolutor.TextoFormulaEfectiva(hoja, celda);
+        if (string.IsNullOrWhiteSpace(textoFormula))
+        {
+            if (!resolutor.TryEvaluar(hoja, celda, out var literal))
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"ASE {aseId} · {hoja} · EXTEMPORANEO: el ancla '{celda}' del bloque no es resoluble desde lo escrito.");
+            }
+
+            return literal;
+        }
+
+        if (!resolutor.TryEvaluar(hoja, textoFormula, out var secciones))
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"ASE {aseId} · {hoja} · EXTEMPORANEO: la fórmula del ancla '{celda}' ('{textoFormula}') no es resoluble desde lo escrito; no se puede verificar la descomposición del bloque.");
+        }
+
+        if (!resolutor.TryEvaluar(hoja, celda, out var valor))
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"ASE {aseId} · {hoja} · EXTEMPORANEO: el ancla '{celda}' del bloque no es resoluble desde lo escrito.");
+        }
+
+        expresionSecciones = textoFormula;
+        valorSecciones = secciones;
+        return valor;
     }
 
     /// <summary>

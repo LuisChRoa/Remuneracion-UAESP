@@ -624,10 +624,12 @@ public sealed class ValidadorBasico : IValidador
     /// </para>
     ///
     /// <para>
-    /// <b>Interior (acotado, §2.3):</b> para las anclas del mapa <see cref="AnclasExtempR1"/> (ASE5,
-    /// columna F) se compara la celda ancla con la suma resuelta de sus secciones, de modo que el error
-    /// nombra la hoja R1 + celda ancla donde se perdió el importe. El mapa es DATO citado; una forma
-    /// nueva del ancla la reporta el reader como <c>ERR-PLANTILLA</c>. Sin evidencia del reader
+    /// <b>Interior (acotado, §2.3; Plan 57 §2-D2):</b> la evidencia de las anclas la DERIVA el reader de
+    /// la propia plantilla (posición por la referencia publicada, naturaleza leída). Aquí se compara la
+    /// celda ancla con la descomposición que ella misma declara, de modo que el error nombra la hoja y
+    /// la celda ancla donde se perdió el importe. Es diagnóstico: nunca altera el veredicto del núcleo.
+    /// Un ancla literal no declara descomposición (<see cref="AnclaExtempR1Evidencia.ValorSecciones"/>
+    /// = <c>null</c>) y no aporta comparación. Sin evidencia del reader
     /// (<see cref="ValidacionCruzadaSnapshot.ExtempResuelto"/> = <c>null</c> y lista de anclas vacía),
     /// no se agrega nada: snapshots construidos a mano conservan la compatibilidad.
     /// </para>
@@ -653,20 +655,25 @@ public sealed class ValidadorBasico : IValidador
             var diferencia = Math.Abs(resuelto - esperado);
             if (diferencia > Tolerancia)
             {
-                var celda = AnclasExtempR1.CeldaConsolidadoExtemp(snapshot.Ase.Id);
+                var celda = PublicacionExtempConsolidado.CeldaConsolidadoExtemp(snapshot.Ase.Id);
                 AgregarError(errores,
-                    $"ASE {snapshot.Ase.Id} · {AnclasExtempR1.HojaConsolidado} · {celda}: EXTEMP resuelto desde lo escrito ({resuelto}) != Extemp del dominio ({esperado}). Diferencia={diferencia} > ±{Tolerancia}. (Plan 49 A1: gate absoluto anti-cancelacion.)");
+                    $"ASE {snapshot.Ase.Id} · {PublicacionExtempConsolidado.HojaConsolidado} · {celda}: EXTEMP resuelto desde lo escrito ({resuelto}) != Extemp del dominio ({esperado}). Diferencia={diferencia} > ±{Tolerancia}. (Plan 49 A1: gate absoluto anti-cancelacion.)");
             }
         }
 
-        foreach (var ancla in snapshot.AnclasExtempR1)
+        foreach (var ancla in snapshot.EvidenciaAnclasExtemp)
         {
-            var diferencia = Math.Abs(ancla.ValorAncla - ancla.ValorSecciones);
+            if (ancla.ValorSecciones is not { } valorSecciones)
+            {
+                continue; // ancla literal: la plantilla no declara descomposición que contrastar.
+            }
+
+            var diferencia = Math.Abs(ancla.ValorAncla - valorSecciones);
             if (diferencia > Tolerancia)
             {
                 var expresionVisible = ancla.ExpresionSecciones.Replace('-', '−');
                 AgregarError(errores,
-                    $"ASE {snapshot.Ase.Id} · {AnclasExtempR1.Hoja} · {ancla.Celda}: ancla EXTEMP resuelta ({ancla.ValorAncla}) != suma de secciones {expresionVisible} ({ancla.ValorSecciones}). Diferencia={diferencia} > ±{Tolerancia}. (Plan 49 A1-interior.)");
+                    $"ASE {snapshot.Ase.Id} · {ancla.Hoja} · {ancla.Celda}: ancla EXTEMP resuelta ({ancla.ValorAncla}) != suma de secciones {expresionVisible} ({valorSecciones}). Diferencia={diferencia} > ±{Tolerancia}. (Plan 49 A1-interior.)");
             }
         }
     }

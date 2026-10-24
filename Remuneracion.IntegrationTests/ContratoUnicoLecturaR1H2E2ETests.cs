@@ -17,16 +17,14 @@ namespace Remuneracion.IntegrationTests;
 ///
 /// <para>
 /// <b>Alcance del aserto (declarado, no silencioso):</b> el <c>CodigosSalida.Ok</c> de la corrida 5-ASE
-/// NO se aserta porque los tres períodos terminan hoy en deudas PRE-EXISTENTES ajenas a este plan —
-/// rojas ya en la línea base <c>p53-h2-suite.trx</c> (los 3 <c>ParidadCliTests</c>):
-/// (a) <c>ERR-SIN-SLOT</c> en la corrida Q1: ASE2 rótulo <c>NUEVO ESQUEMA</c> sin slot compatible
-/// (contrato de sección, Planes 41/46);
-/// (b) <c>ERR-PLANTILLA</c> ASE5 <c>F682</c>: <see cref="AnclasExtempR1"/> lo congela como literal
-/// (Plan 49 A1-interior) mientras los BYTES de la v2 lo traen como <c>&lt;f&gt;F660+F629-L629</c>. El
-/// gate de anclas es **agnóstico de quincena** (no es un defecto "de Q2": muerde igual la corrida Q1;
-/// p. ej. <c>Paridad_1Ase_Q1_Ase3</c>).
-/// El aserto se ancla por tanto en la ETAPA DE LECTURA (los 5 ASE + coherencia multi-ASE), que es lo
-/// que este plan cambia, y en los SHAs de las plantillas/oráculo.
+/// NO se aserta porque los períodos Q1 terminan hoy en una deuda PRE-EXISTENTE ajena a la lectura y a
+/// este plan: la divergencia de espejo de <c>VALIDACION_TOTAL</c> (<c>O25/D34/F34</c> FALSE, Δ constante
+/// por período) que el catálogo de divergencias declaradas NO reconoce — roja ya en la línea base
+/// <c>p56-H3-suite.trx</c> a través de los <c>ParidadCliTests</c>. El bloqueo del ancla EXTEMP
+/// (<c>ERR-PLANTILLA</c> ASE5 <c>F682</c>, Plan 49 A1-interior) que citaba esta nota quedó RETIRADO por
+/// el Plan 57: el oráculo deriva el ancla de la plantilla y ya no aborta (la corrida <c>2026072</c>
+/// cierra con exit 0). El aserto sigue anclado en la ETAPA DE LECTURA (los 5 ASE + coherencia
+/// multi-ASE), que es lo que este plan cambia, y en los SHAs de las plantillas/oráculo.
 /// </para>
 /// </summary>
 [Collection("Cli")]

@@ -42,6 +42,15 @@ internal sealed class ResolutorValorValidacion
         @"^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$",
         RegexOptions.Compiled);
 
+    /// <summary>
+    /// Plan 57 (§2-D3): UNA sola referencia de celda, opcionalmente calificada con su hoja. Es la
+    /// forma que la plantilla usa para PUBLICAR un valor («<c>'Reporte Componentes R1'!F682</c>»):
+    /// seguirla es cómo el oráculo deriva la posición del ancla sin declararla.
+    /// </summary>
+    private static readonly Regex ReferenciaUnicaRegex = new(
+        @"^(?:(?:'(?<h1>[^']+)'|(?<h2>[A-Za-z0-9_. áéíóúÁÉÍÓÚñÑ()\-]+))!)?\$?(?<col>[A-Z]{1,3})\$?(?<fila>\d+)$",
+        RegexOptions.Compiled);
+
     private readonly WorkbookPart _workbookPart;
     private readonly Dictionary<string, Worksheet?> _hojas = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Dictionary<string, Cell>> _celdas = new(StringComparer.OrdinalIgnoreCase);
@@ -217,6 +226,60 @@ internal sealed class ResolutorValorValidacion
     /// caer en la semántica de Excel (celda ausente = 0) que ocultaría un ancla borrada.
     /// </summary>
     public bool ExisteCelda(string hoja, string celda) => ObtenerCelda(hoja, celda) is not null;
+
+    /// <summary>
+    /// Plan 57 (§2-D3): nombres de las hojas del workbook, en el orden del documento. Permite recorrer
+    /// las hojas PUBLICADORAS sin declarar cuáles son: cada una se reconoce por la referencia que
+    /// escribe, no por su nombre ni por su posición.
+    /// </summary>
+    public IReadOnlyList<string> NombresHojas() =>
+        _workbookPart.Workbook?.Descendants<Sheet>()
+            .Select(s => s.Name?.Value)
+            .Where(nombre => !string.IsNullOrWhiteSpace(nombre))
+            .Select(nombre => nombre!)
+            .ToList()
+        ?? [];
+
+    /// <summary>
+    /// Plan 57 (§2-D3.1/D3.2): interpreta un texto de fórmula como UNA sola referencia de celda
+    /// (<c>'Hoja'!F682</c>, <c>Hoja!F682</c> o <c>F682</c>). Se usa para derivar la posición del ancla
+    /// siguiendo lo que la plantilla declara. <c>false</c> si el texto no es exactamente una
+    /// referencia (operadores, funciones, rangos, literales): el llamador decide el fail-fast, aquí no
+    /// se adivina.
+    /// </summary>
+    public bool TryReferenciaUnica(string hojaActual, string? textoFormula, out string hoja, out string celda)
+    {
+        hoja = hojaActual;
+        celda = string.Empty;
+        if (string.IsNullOrWhiteSpace(textoFormula))
+        {
+            return false;
+        }
+
+        var texto = textoFormula.Trim();
+        if (texto.StartsWith('='))
+        {
+            texto = texto[1..].Trim();
+        }
+
+        var match = ReferenciaUnicaRegex.Match(texto);
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        if (match.Groups["h1"].Success)
+        {
+            hoja = match.Groups["h1"].Value;
+        }
+        else if (match.Groups["h2"].Success)
+        {
+            hoja = match.Groups["h2"].Value;
+        }
+
+        celda = $"{match.Groups["col"].Value}{match.Groups["fila"].Value}";
+        return true;
+    }
 
     /// <summary>
     /// Texto-<c>&lt;f&gt;</c> EFECTIVO de una celda: su propio texto, o el del maestro compartido
