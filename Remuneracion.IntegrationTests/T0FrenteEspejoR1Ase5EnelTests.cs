@@ -107,8 +107,7 @@ public sealed class T0FrenteEspejoR1Ase5EnelTests
     [Fact]
     public void T0_Fuente_Ase5_TieneDosFilasEnel()
     {
-        var ruta = Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Insumos", "5-Área Limpia",
-            "Recaudoporcomponente_to_date16072026ddMMyyyy_to_date31072026ddMMyyyy___20268465657830.xlsx");
+        var ruta = RutaFuenteAse5();
         using var zip = ZipFile.OpenRead(ruta);
         var hoja = Hoja(zip, "Sheet1");
         var compartidas = Compartidas(zip);
@@ -258,6 +257,26 @@ public sealed class T0FrenteEspejoR1Ase5EnelTests
     private static string RutaOficial() =>
 
         Path.Combine(Raiz(), "Docs", "Plantilla estandarizada", "Formato Remuneracion 2026xx-x Total.xlsx");
+
+    /// <summary>
+    /// Fuente R1 de ASE5 de julio‑2 resuelta por PATRÓN (<c>5-*</c> + <c>Recaudoporcomponente*.xlsx</c>):
+    /// el commit <c>88b3acb</c> reemplazó los insumos de julio‑2 por los vigentes y congelar el nombre
+    /// del archivo es la misma clase de defecto que el Plan 59 elimina (cero nombres de archivo exactos).
+    /// </summary>
+    private static string RutaFuenteAse5()
+    {
+        var raizInsumos = Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Insumos");
+        var carpetas = Directory.EnumerateDirectories(raizInsumos, "5-*", SearchOption.TopDirectoryOnly)
+            .OrderBy(f => f, StringComparer.Ordinal)
+            .ToList();
+        Assert.Single(carpetas);
+
+        var archivos = Directory.EnumerateFiles(carpetas[0], "Recaudoporcomponente*.xlsx", SearchOption.TopDirectoryOnly)
+            .OrderBy(f => f, StringComparer.Ordinal)
+            .ToList();
+        Assert.Single(archivos);
+        return archivos[0];
+    }
 
     private static string RutaResultado5() =>
         Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Resultado", "Resultado5", "Remuneración 202607-2 Total.xlsx");

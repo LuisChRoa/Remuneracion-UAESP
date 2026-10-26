@@ -61,33 +61,7 @@ namespace Remuneracion.Infrastructure.Excel;
 /// </summary>
 internal static class EscritorValoresSlotR1
 {
-    public const string HojaR1 = "Reporte Componentes R1";
-
-    /// <summary>
-    /// Columnas del bloque R1 de la plantilla con encabezado (F..Z), en orden físico. El writer
-    /// resuelve el mapeo encabezado→letra una vez por hoja (Plan 44 F1).
-    /// </summary>
-    private static readonly string[] ColumnasComponentes =
-    [
-        "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
-    ];
-
-    /// <summary>
-    /// Plan 36 (T0): rango de filas de DATOS (slots) del bloque R1 por ASE en la plantilla
-    /// estandarizada única, 1-based e inclusivo. Congelado desde los bytes del disco por
-    /// <c>ContratoSlotR1T0Tests</c> (cualquier deriva del template rompe T0 antes que esto):
-    /// ASE1 6-72, ASE2 110-210, ASE3 289-355, ASE4 450-550, ASE5 603-676. Geometría del contrato,
-    /// no literales de período (D-H intacta: ningún período entra ni sale de este path).
-    /// </summary>
-    internal static (int Inicio, int Fin) RangoDatosAse(int aseId) => aseId switch
-    {
-        1 => (6, 72),
-        2 => (110, 210),
-        3 => (289, 355),
-        4 => (450, 550),
-        5 => (603, 676),
-        _ => throw new ArgumentOutOfRangeException(nameof(aseId), $"No existe el ASE {aseId} para el escritor de slots R1 (rango válido 1..5)."),
-    };
+    public const string HojaR1 = DelimitadorBloquesHoja.NombreHojaR1;
 
     /// <summary>
     /// Resultado del pegado values-only: cuántas filas fuente se colocaron, cuántas celdas
@@ -123,10 +97,13 @@ internal static class EscritorValoresSlotR1
         ArgumentNullException.ThrowIfNull(bloque);
 
         var aseId = bloque.Ase.Id;
-        var (inicio, fin) = RangoDatosAse(aseId);
         var hoja = ObtenerHoja(workbookPart, HojaR1);
-        VerificarCabeceraBloque(hoja, workbookPart, bloque, inicio);
-        var mapaColumnas = LeerMapaColumnasDestino(hoja, workbookPart, aseId, inicio);
+        // Plan 59 (H1.2): el bloque se DELIMITA de la propia hoja (cabecera por rótulo del ASE +
+        // gran total declarado) y la identidad se verifica por ese mismo rótulo. Ya no hay ventana
+        // de filas congelada: la plantilla es la que declara la geometría y una plantilla nueva con
+        // la misma gramática se procesa sin cambiar código.
+        var bloqueHoja = VerificarCabeceraBloque(hoja, workbookPart, bloque);
+        var mapaColumnas = LeerMapaColumnasDestino(hoja, workbookPart, aseId, bloqueHoja);
         var fuente = bloque.Filas;
 
         // Plan 56 (§2-D2/D3): la resolución es la IDENTIDAD DE CUADRO (sección A, subsección B,
@@ -136,7 +113,7 @@ internal static class EscritorValoresSlotR1
         // Componente/Total y Subs/Cont/Total son cierres de sección).
         // [P56-JERARQUIA-AB-INICIO] camino de resolución: geometría pura, SIN ids de bloque/ASE,
         // nombres de empresa, ramas por período ni direcciones de celda congeladas (candado §2-D5).
-        var slots = LeerSlots(hoja, workbookPart, aseId, inicio, fin);
+        var slots = LeerSlots(aseId, bloqueHoja);
         var planificado = ContratoSeccionPeriodFreeR1.PlanificarJerarquiaR1(fuente, slots.Select(FilaDesdeSlot).ToList());
         // [P56-JERARQUIA-AB-FIN]
         List<(FilaEspejoR1 Fila, SlotR1 Slot)> plan;
@@ -148,7 +125,7 @@ internal static class EscritorValoresSlotR1
             {
                 throw new CalculoInvalidoException(
                     CodigoError.SinSlot,
-                    MensajeSinSlotJerarquia(aseId, fuente, fallo, inicio, fin));
+                    MensajeSinSlotJerarquia(aseId, fuente, fallo, bloqueHoja));
             }
 
             plan = planificado.Colocaciones.Select(c => (fuente[c.Fuente], slots[c.Slot])).ToList();
@@ -468,8 +445,7 @@ internal static class EscritorValoresSlotR1
         int aseId,
         IReadOnlyList<FilaEspejoR1> fuente,
         ContratoSeccionPeriodFreeR1.FalloJerarquiaR1 fallo,
-        int inicio,
-        int fin)
+        DelimitadorBloquesHoja.BloqueHoja bloque)
     {
         var fila = fuente[fallo.IndiceFilaFuente];
         var cuadro = fallo.Seccion is null
@@ -482,7 +458,8 @@ internal static class EscritorValoresSlotR1
         var conceptoRotulo = fallo.Concepto.Length == 0 ? "(sin concepto)" : fallo.Concepto;
         return $"ERR-SIN-SLOT: ASE {aseId}: la fila A|B|C|D|E='{fila.Firma}' de la fuente R1 (Recaudoporcomponente) " +
             $"no tiene destino en {cuadro}: fuente (C) '{fuenteRotulo}', canal (D) '{canalRotulo}', " +
-            $"concepto (E) '{conceptoRotulo}'; hoja '{HojaR1}', rango del bloque {inicio}-{fin}. " +
+            $"concepto (E) '{conceptoRotulo}'; hoja '{HojaR1}', rango del bloque {bloque.Cabecera}-{bloque.GranTotal} " +
+            $"(delimitado por la cabecera '{bloque.Rotulo}' y su gran total declarado). " +
             $"Detalle: {fallo.Motivo}. No se escribe nada del bloque: la plantilla no declara ese destino, " +
             $"y no se reacomoda a otro cuadro ni se coloca por posición.";
     }
@@ -535,47 +512,32 @@ internal static class EscritorValoresSlotR1
         return resultado;
     }
 
-    private static List<SlotR1> LeerSlots(Worksheet hoja, WorkbookPart workbookPart, int aseId, int inicio, int fin)
+    private static List<SlotR1> LeerSlots(
+        int aseId,
+        DelimitadorBloquesHoja.BloqueHoja bloque)
     {
-        var filasPorNumero = hoja.Elements<SheetData>().FirstOrDefault()
-            ?? throw new CalculoInvalidoException(CodigoError.Plantilla, $"La hoja '{HojaR1}' no tiene SheetData para el escritor de slots R1 (ASE {aseId}).");
-        var filas = filasPorNumero.Elements<Row>()
-            .Where(r => r.RowIndex is not null && r.RowIndex.Value >= inicio && r.RowIndex.Value <= fin)
-            .OrderBy(r => r.RowIndex!.Value)
-            .ToList();
-
-        var firmas = new List<FilaEspejoR1>();
-        var celdas = new List<(string CeldaF, string CeldaL)>();
-        foreach (var fila in filas)
-        {
-            var numero = (int)fila.RowIndex!.Value;
-            firmas.Add(new FilaEspejoR1
-            {
-                A = TextoCelda(workbookPart, fila, $"A{numero}"),
-                B = TextoCelda(workbookPart, fila, $"B{numero}"),
-                C = TextoCelda(workbookPart, fila, $"C{numero}"),
-                D = TextoCelda(workbookPart, fila, $"D{numero}"),
-                E = TextoCelda(workbookPart, fila, $"E{numero}"),
-            });
-            celdas.Add(($"F{numero}", $"L{numero}"));
-        }
-
+        // Plan 59 (H1.2): los slots son las filas DELIMITADAS del bloque (cabecera..gran total)
+        // menos las dos filas que no son datos: la cabecera de bloque (rótulo del ASE) y la fila de
+        // encabezados de columna. La fila que no declara firma de cierre es dato por definición: no
+        // se calcula ninguna "primera fila de datos" por offset.
+        var filas = bloque.FilasSlot;
+        var firmas = filas.Select(f => f.Etiquetas).ToList();
         var secciones = ClasificarSeccionesBaseline(firmas);
         var slots = new List<SlotR1>(firmas.Count);
         for (var i = 0; i < firmas.Count; i++)
         {
-            var numero = (int)filas[i].RowIndex!.Value;
+            var numero = filas[i].Fila;
             slots.Add(new SlotR1(
-                numero, celdas[i].CeldaF, celdas[i].CeldaL,
+                numero, $"F{numero}", $"L{numero}",
                 firmas[i].A, firmas[i].B, firmas[i].C, firmas[i].D, firmas[i].E,
                 secciones[i]));
         }
 
-        if (slots.Count != fin - inicio + 1)
+        if (slots.Count == 0)
         {
             throw new CalculoInvalidoException(
                 CodigoError.Plantilla,
-                $"El bloque R1 del ASE {aseId} trae {slots.Count} filas físicas en [{inicio},{fin}] (se esperaban {fin - inicio + 1} filas contiguas del contrato T0).");
+                $"El bloque R1 del ASE {aseId} ('{bloque.Rotulo}', {bloque.Cabecera}-{bloque.GranTotal}) no declara filas de slot: la delimitación por cabecera + gran total no deja ninguna fila de datos ni de cierre.");
         }
 
         return slots;
@@ -583,22 +545,27 @@ internal static class EscritorValoresSlotR1
 
     /// <summary>
     /// Plan 44 (F1, §2.3): resuelve el mapeo ENCABEZADO→LETRA de las columnas del bloque R1 desde la
-    /// fila de encabezados del template (<c>inicio - 1</c>). Un encabezado repetido conserva la
+    /// fila de encabezados de columna que el DELIMITADOR localizó por estructura (declara rótulos y
+    /// ningún valor; Plan 59 H1.2: ya no es «inicio − 1»). Un encabezado repetido conserva la
     /// PRIMERA ocurrencia (T0 §7: `Intereses Cte Financiac. Aseo` → **T**, no Y). Las columnas
     /// `Exonera-*` quedan en el mapa pero la fuente no las trae → nunca se escriben.
     /// </summary>
-    private static IReadOnlyDictionary<string, string> LeerMapaColumnasDestino(Worksheet hoja, WorkbookPart workbookPart, int aseId, int inicio)
+    private static IReadOnlyDictionary<string, string> LeerMapaColumnasDestino(
+        Worksheet hoja,
+        WorkbookPart workbookPart,
+        int aseId,
+        DelimitadorBloquesHoja.BloqueHoja bloque)
     {
         var filaHeader = hoja.Elements<SheetData>().FirstOrDefault()?
-            .Elements<Row>().FirstOrDefault(r => r.RowIndex?.Value == inicio - 1)
+            .Elements<Row>().FirstOrDefault(r => r.RowIndex?.Value == bloque.EncabezadoColumnas)
             ?? throw new CalculoInvalidoException(
                 CodigoError.Plantilla,
-                $"El bloque R1 del ASE {aseId} no trae la fila de encabezados {inicio - 1} del contrato de columnas por encabezado (Plan 44 F1).");
+                $"El bloque R1 del ASE {aseId} ('{bloque.Rotulo}') no trae la fila de encabezados de columna {bloque.EncabezadoColumnas} que el delimitador localizó (contrato de columnas por encabezado, Plan 44 F1).");
 
         var mapa = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var letra in ColumnasComponentes)
+        foreach (var letra in DelimitadorBloquesHoja.ColumnasComponentes)
         {
-            var texto = TextoCelda(workbookPart, filaHeader, $"{letra}{inicio - 1}").Trim();
+            var texto = LectorTextoHoja.Texto(workbookPart, filaHeader, $"{letra}{bloque.EncabezadoColumnas}").Trim();
             if (texto.Length == 0 || mapa.ContainsKey(texto))
             {
                 continue;
@@ -689,32 +656,22 @@ internal static class EscritorValoresSlotR1
         cell.CellValue = new CellValue(valor.ToString(CultureInfo.InvariantCulture));
     }
 
-    private static void VerificarCabeceraBloque(Worksheet hoja, WorkbookPart workbookPart, BloqueEspejoAseInputs bloque, int inicio)
-    {
-        // La cabecera del bloque vive dos filas arriba del primer slot (R4/R108/R287/R448/R601,
-        // congeladas por T0). Se exige identidad con el catálogo vigente (CarpetasAse vía
-        // AseFactory) usando el matcher de sinonimia del Plan 34 como ÚNICA normalización de
-        // rótulos de empresa (S1 del review de T1: cero duplicado local de la normalización
-        // mayúsculas/sin-diacríticos de SinonimosEmpresaR1): un workbook con el bloque equivocado
-        // hace fail-fast antes de pegar ningún valor.
-        var filaCabecera = hoja.Elements<SheetData>().FirstOrDefault()?
-            .Elements<Row>().FirstOrDefault(r => r.RowIndex?.Value == inicio - 2);
-        if (filaCabecera is null)
-        {
-            throw new CalculoInvalidoException(
-                CodigoError.Plantilla,
-                $"El bloque R1 del ASE {bloque.Ase.Id} no trae la fila de cabecera {inicio - 2} del contrato T0.");
-        }
-
-        var rotulo = TextoCelda(workbookPart, filaCabecera, $"B{inicio - 2}");
-        var esperado = AseFactory.DesdeId(bloque.Ase.Id).NombreCompleto;
-        if (!SinonimosEmpresaR1.SonMismaEmpresa(rotulo, esperado))
-        {
-            throw new CalculoInvalidoException(
-                CodigoError.Plantilla,
-                $"La cabecera del bloque R1 ('{HojaR1}!B{inicio - 2}' = '{rotulo}') no corresponde al ASE {bloque.Ase.Id} ('{esperado}'). Fail-fast antes de escribir.");
-        }
-    }
+    /// <summary>
+    /// Plan 59 (H1.2 / S2.1): verificación de la CABECERA DE BLOQUE por IDENTIDAD DE RÓTULO.
+    ///
+    /// Sustituye la verificación por fila congelada (cabecera deducida por offset de la ventana): el
+    /// bloque se delimita leyendo la hoja (<see cref="DelimitadorBloquesHoja"/>) y su identidad se
+    /// contrasta contra el catálogo de dominio (<see cref="AseFactory"/>) con el catálogo abierto de
+    /// sinonimia (<see cref="SinonimosEmpresaR1.SonMismaEmpresa"/>), la ÚNICA normalización de
+    /// rótulos de empresa del proyecto. Un workbook cuyo bloque no declara el ASE esperado (o declara
+    /// su estructura de cierres incompleta) hace fail-fast antes de pegar ningún valor, nombrando
+    /// hoja + rótulo esperado + bloques hallados. Cero remapeo por posición.
+    /// </summary>
+    private static DelimitadorBloquesHoja.BloqueHoja VerificarCabeceraBloque(
+        Worksheet hoja,
+        WorkbookPart workbookPart,
+        BloqueEspejoAseInputs bloque) =>
+        DelimitadorBloquesHoja.DelimitarBloque(workbookPart, DelimitadorBloquesHoja.R1, bloque.Ase.Id, hoja);
 
     private static Worksheet ObtenerHoja(WorkbookPart workbookPart, string nombreHoja)
     {
@@ -724,31 +681,5 @@ internal static class EscritorValoresSlotR1
         var parte = (WorksheetPart)workbookPart.GetPartById(hoja.Id!);
         return parte.Worksheet
             ?? throw new CalculoInvalidoException(CodigoError.Plantilla, $"La hoja '{nombreHoja}' no tiene WorksheetPart válido.");
-    }
-
-    private static string TextoCelda(WorkbookPart workbookPart, Row fila, string referencia)
-    {
-        var celda = fila.Elements<Cell>().FirstOrDefault(c =>
-            string.Equals(c.CellReference?.Value, referencia, StringComparison.OrdinalIgnoreCase));
-        if (celda is null)
-        {
-            return string.Empty;
-        }
-
-        if (celda.DataType is not null && celda.DataType.Value == CellValues.SharedString
-            && celda.CellValue is not null
-            && int.TryParse(celda.CellValue.Text, out var indice))
-        {
-            var tabla = workbookPart.SharedStringTablePart?.SharedStringTable;
-            var item = tabla?.Elements<SharedStringItem>().ElementAtOrDefault(indice);
-            return item?.InnerText ?? string.Empty;
-        }
-
-        if (celda.DataType is not null && celda.DataType.Value == CellValues.InlineString)
-        {
-            return celda.InlineString?.InnerText ?? string.Empty;
-        }
-
-        return celda.CellValue?.InnerText ?? string.Empty;
     }
 }

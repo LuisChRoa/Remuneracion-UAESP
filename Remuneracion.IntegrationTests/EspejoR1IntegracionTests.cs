@@ -69,29 +69,44 @@ public sealed class EspejoR1IntegracionTests
         var cambios = CambiosDeValor(salida.Ruta, HojaR1);
         Assert.NotEmpty(cambios);
         var columnasContrato = new[] { 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'Z' };
+        var bloquesDelimitados = BloquesDelimitados(salida.Ruta);
         Assert.All(cambios, cambio =>
         {
-            var (inicio, fin) = RangoDeAseQueContiene(cambio.Fila);
+            var bloque = BloqueDelimitado(bloquesDelimitados, cambio.Fila);
             Assert.True(
-                columnasContrato.Contains(cambio.Celda[0]) && cambio.Fila >= inicio && cambio.Fila <= fin,
-                $"El escritor tocó {HojaR1}!{cambio.Celda} fuera de los slots del contrato [{inicio},{fin}] (multicolumna F..T/Z).");
+                columnasContrato.Contains(cambio.Celda[0])
+                && cambio.Fila >= bloque.Cabecera
+                && cambio.Fila <= bloque.GranTotal,
+                $"El escritor tocó {HojaR1}!{cambio.Celda} fuera del bloque delimitado del ASE {bloque.AseId} [{bloque.Cabecera},{bloque.GranTotal}] (multicolumna F..T/Z).");
         });
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────────────
 
-    private static (int Inicio, int Fin) RangoDeAseQueContiene(int fila)
+    /// <summary>
+    /// Bloques de R1 DELIMITADOS por la propia hoja (Plan 59 H1.2): cabecera por rótulo del ASE +
+    /// gran total declarado. Sin ventanas de filas congeladas.
+    /// </summary>
+    private static IReadOnlyList<DelimitadorBloquesHoja.BloqueHoja> BloquesDelimitados(string ruta)
     {
-        for (var aseId = 1; aseId <= 5; aseId++)
+        using var documento = SpreadsheetDocument.Open(ruta, false);
+        var parte = documento.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
+        return DelimitadorBloquesHoja.Delimitar(parte, DelimitadorBloquesHoja.R1);
+    }
+
+    private static DelimitadorBloquesHoja.BloqueHoja BloqueDelimitado(
+        IReadOnlyList<DelimitadorBloquesHoja.BloqueHoja> bloques,
+        int fila)
+    {
+        foreach (var bloque in bloques)
         {
-            var (inicio, fin) = EscritorValoresSlotR1.RangoDatosAse(aseId);
-            if (fila >= inicio && fila <= fin)
+            if (fila >= bloque.Cabecera && fila <= bloque.GranTotal)
             {
-                return (inicio, fin);
+                return bloque;
             }
         }
 
-        throw new InvalidOperationException($"La fila {fila} no pertenece a ningún bloque del contrato T0.");
+        throw new InvalidOperationException($"La fila {fila} no pertenece a ningún bloque delimitado de la hoja {HojaR1}.");
     }
 
     private static string Raiz()

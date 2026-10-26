@@ -366,18 +366,43 @@ public sealed class AjustesSfTTests
     [Fact]
     public void BalanceOptimizado_Q2_ResuelvePorSegundoPrefijo()
     {
-        // Requirement 5 (OBLIGATORIO, V4): ASE5-Q2 solo trae la variante -Optimizado → el
-        // fallback de BuscarBalance pasa de opcional a ejercitado. Sin base ni Optimizado →
-        // fail-fast que nombra el ASE.
+        // Requirement 5 (OBLIGATORIO, V4): el locator resuelve el Balance por PREFIJO documentado
+        // —base `R4-BalanceSubsidioyContribuciones_` y, si falta, la variante `-Optimizado_`—.
+        //
+        // Plan 59 (H1.6): la aserción NO congela el nombre del archivo vigente. El commit `88b3acb`
+        // reemplazó los insumos de julio-2 por los corregidos (ASE5 pasó de la variante
+        // `-Optimizado_` a la base `_to_date…`), y un `StartsWith` sobre el nombre viejo es la misma
+        // clase de defecto (nombre congelado) que este plan elimina. Se asevera la CLASE de archivo.
         var locator = new ArchivoFuenteLocator();
         var ruta = locator.BuscarBalance(Insumos.CarpetasAseQ2[4]);
         Assert.NotNull(ruta);
-        Assert.StartsWith("R4-BalanceSubsidioyContribuciones-Optimizado", Path.GetFileNameWithoutExtension(ruta!), StringComparison.OrdinalIgnoreCase);
+        var nombre = Path.GetFileNameWithoutExtension(ruta!);
+        Assert.True(
+            nombre.StartsWith("R4-BalanceSubsidioyContribuciones_", StringComparison.OrdinalIgnoreCase)
+            || nombre.StartsWith("R4-BalanceSubsidioyContribuciones-Optimizado_", StringComparison.OrdinalIgnoreCase),
+            $"El locator devolvió '{nombre}', que no pertenece a ninguna de las dos familias documentadas del Balance (R4-BalanceSubsidioyContribuciones_ / R4-BalanceSubsidioyContribuciones-Optimizado_).");
+
+        // Fallback de segundo prefijo ejercitado con datos SINTÉTICOS (carpeta temporal): con la base
+        // ausente, el locator resuelve la variante -Optimizado. Así el requisito V4 sigue probado sin
+        // depender de qué variante traen los insumos vigentes.
+        var carpetaOptimizado = Path.Combine(Path.GetTempPath(), "remuneracion-balance-optimizado-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(carpetaOptimizado);
+        try
+        {
+            var sintetico = Path.Combine(carpetaOptimizado, "R4-BalanceSubsidioyContribuciones-Optimizado_sintetico.xlsx");
+            File.WriteAllBytes(sintetico, []);
+            Assert.Equal(sintetico, locator.BuscarBalance(carpetaOptimizado));
+        }
+        finally
+        {
+            Directory.Delete(carpetaOptimizado, recursive: true);
+        }
 
         // Negativa: carpeta sin Balance (base ni Optimizado) → null (el procesador fail-fast nombra ASE).
         var carpetaVacia = Path.Combine(Path.GetTempPath(), "remuneracion-sin-balance-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(carpetaVacia);
         Assert.Null(locator.BuscarBalance(carpetaVacia));
+        Directory.Delete(carpetaVacia, recursive: true);
     }
 
     [Fact]

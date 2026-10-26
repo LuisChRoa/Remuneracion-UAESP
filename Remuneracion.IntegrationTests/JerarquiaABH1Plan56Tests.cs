@@ -103,14 +103,14 @@ public sealed class JerarquiaABH1Plan56Tests
         var carpeta = Periodos.Single(p => p.Periodo == periodo).Carpeta;
         using var salida = new CopiaTemporal();
 
-        var bloques = new List<(BloqueEspejoAseInputs Bloque, IReadOnlyList<FilaEspejoR1> Plantilla)>();
+        var bloques = new List<(BloqueEspejoAseInputs Bloque, BloquePlantilla Plantilla)>();
         using (var documento = SpreadsheetDocument.Open(salida.Ruta, true))
         {
             var parte = documento.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
             for (var ase = 1; ase <= 5; ase++)
             {
                 var bloque = LeerFuente(carpeta, ase);
-                var plantilla = LeerPlantilla(ase).Filas;
+                var plantilla = LeerPlantilla(ase);
                 EscritorValoresSlotR1.Escribir(parte, bloque);
                 bloques.Add((bloque, plantilla));
             }
@@ -120,8 +120,9 @@ public sealed class JerarquiaABH1Plan56Tests
 
         for (var ase = 1; ase <= 5; ase++)
         {
-            var (bloque, plantilla) = bloques[ase - 1];
-            var (inicio, _) = EscritorValoresSlotR1.RangoDatosAse(ase);
+            var (bloque, plantillaCompleta) = bloques[ase - 1];
+            var plantilla = plantillaCompleta.Filas;
+            var inicio = plantillaCompleta.Inicio;
             var jerarquiaFuente = ContratoSeccionPeriodFreeR1.ParticionarJerarquia(bloque.Filas);
             var jerarquiaPlantilla = ContratoSeccionPeriodFreeR1.ParticionarJerarquia(plantilla);
             var declarados = new HashSet<int>();
@@ -223,7 +224,27 @@ public sealed class JerarquiaABH1Plan56Tests
         Assert.Contains("EMPRESA FANTASMA", mensaje, StringComparison.Ordinal);
         Assert.Contains("canal (D) 'Total'", mensaje, StringComparison.Ordinal);
         Assert.Contains(HojaR1, mensaje, StringComparison.Ordinal);
-        Assert.Contains("6-72", mensaje, StringComparison.Ordinal);
+
+        // Plan 59 (H1.2): el rango que viaja en el mensaje es el bloque DELIMITADO de la propia
+        // plantilla (cabecera por rótulo + gran total), no la ventana congelada `6-72` del contrato
+        // viejo. Se contrasta contra el delimitador sobre LA MISMA copia y se exige que la ventana
+        // histórica ya no aparezca.
+        int cabeceraBloque;
+        int granTotalBloque;
+        using (var verificacion = SpreadsheetDocument.Open(salida.Ruta, false))
+        {
+            var parteVerificacion = verificacion.WorkbookPart
+                ?? throw new InvalidOperationException("WorkbookPart null");
+            var bloqueHoja = DelimitadorBloquesHoja.DelimitarBloque(parteVerificacion, DelimitadorBloquesHoja.R1, 1);
+            cabeceraBloque = bloqueHoja.Cabecera;
+            granTotalBloque = bloqueHoja.GranTotal;
+        }
+
+        Assert.Contains(
+            $"rango del bloque {cabeceraBloque}-{granTotalBloque}",
+            mensaje,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("6-72", mensaje, StringComparison.Ordinal);
 
         Assert.Equal(antes, FotoCeldas(salida.Ruta));
     }
@@ -414,26 +435,32 @@ public sealed class JerarquiaABH1Plan56Tests
     private static BloqueEspejoAseInputs LeerFuente(string carpeta, int ase) =>
         new ExcelDataReaderWorkbookLeafInputReader().LeerEspejoR1(AseFactory.DesdeId(ase), FuenteR1(carpeta, ase));
 
+    /// <summary>
+    /// Bloque de la plantilla leído desde su geometría DECLARADA (Plan 59 H1.2): el rango sale del
+    /// delimitador por cabecera de bloque + gran total, no de una ventana congelada. El índice 0 de
+    /// <see cref="Filas"/> es la primera fila de slot del bloque (<see cref="Inicio"/>).
+    /// </summary>
     private static BloquePlantilla LeerPlantilla(int ase)
     {
-        var (inicio, fin) = EscritorValoresSlotR1.RangoDatosAse(ase);
         using var documento = SpreadsheetDocument.Open(PlantillaV2(), false);
         var parte = documento.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
         var hoja = parte.Workbook!.Descendants<Sheet>()
             .First(s => string.Equals(s.Name?.Value, HojaR1, StringComparison.OrdinalIgnoreCase));
         var worksheet = ((WorksheetPart)parte.GetPartById(hoja.Id!)).Worksheet!;
+        var bloque = DelimitadorBloquesHoja.DelimitarBloque(parte, DelimitadorBloquesHoja.R1, ase, worksheet);
         var filas = new List<FilaEspejoR1>();
-        for (var numero = inicio; numero <= fin; numero++)
+        foreach (var filaBloque in bloque.FilasSlot)
         {
+            var numero = filaBloque.Fila;
             var row = worksheet.Descendants<Row>().FirstOrDefault(r => r.RowIndex?.Value == numero);
             Assert.True(row is not null, $"La plantilla no trae la fila {numero} del bloque ASE {ase}.");
             filas.Add(new FilaEspejoR1
             {
-                A = Texto(parte, row!, $"A{numero}"),
-                B = Texto(parte, row!, $"B{numero}"),
-                C = Texto(parte, row!, $"C{numero}"),
-                D = Texto(parte, row!, $"D{numero}"),
-                E = Texto(parte, row!, $"E{numero}"),
+                A = filaBloque.Etiquetas.A,
+                B = filaBloque.Etiquetas.B,
+                C = filaBloque.Etiquetas.C,
+                D = filaBloque.Etiquetas.D,
+                E = filaBloque.Etiquetas.E,
                 ValoresPorColumna = new Dictionary<string, decimal?>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["Total"] = Numero(parte, row!, $"F{numero}"),
@@ -441,7 +468,8 @@ public sealed class JerarquiaABH1Plan56Tests
             });
         }
 
-        return new BloquePlantilla(filas, inicio, fin);
+        Assert.NotEmpty(filas);
+        return new BloquePlantilla(filas, bloque.FilasSlot[0].Fila, bloque.GranTotal);
     }
 
     private static string Texto(WorkbookPart parte, Row row, string referencia)

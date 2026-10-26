@@ -597,7 +597,7 @@ public sealed class RevisionPestanasLenteR1T0Plan47Tests
         Assert.Equal("NUMERO REG. 2°Q", oficial.Texto("G", 2));
         Assert.Equal(["1", "2", "3", "4", "5"], Enumerable.Range(3, 5).Select(n => oficial.Texto("C", n)).ToArray());
 
-        var resumen = Leer(RutaConciliacion("Conjunta ENEL-072026.xlsx"), "RESUMEN MES");
+        var resumen = Leer(RutaConciliacion("Conjunta ENEL"), "RESUMEN MES");
         Assert.Equal("OPORTUNO", resumen.Texto("B", 2));
         Assert.Equal(["1", "2", "3", "4", "5"], Enumerable.Range(3, 5).Select(n => resumen.Texto("C", n)).ToArray());
         Assert.Equal(16467129562m, resumen.Numero("F3"));
@@ -610,7 +610,7 @@ public sealed class RevisionPestanasLenteR1T0Plan47Tests
             resumen.Numero("F9"),
             resumen.Numero("F3") + resumen.Numero("F4") + resumen.Numero("F5") + resumen.Numero("F6") + resumen.Numero("F7"));
 
-        var otros = Leer(RutaConciliacion("Conjunta Otros -072026.xlsx"), "RESUMEN MES");
+        var otros = Leer(RutaConciliacion("Conjunta Otros"), "RESUMEN MES");
         Assert.All(Enumerable.Range(3, 5), n => Assert.Equal(0m, otros.Numero("F" + n.ToString(CultureInfo.InvariantCulture))));
         Assert.Equal(0m, otros.Numero("F9"));
     }
@@ -1161,8 +1161,21 @@ public sealed class RevisionPestanasLenteR1T0Plan47Tests
     private static string RutaRetribucionNegativa(int ase) =>
         Archivo(CarpetaInsumos(ase, "Prueba Julio-2"), "Retribuci");
 
-    private static string RutaConciliacion(string archivo) =>
-        Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Insumos", "Conciliaciones", archivo);
+    /// <summary>
+    /// Conciliación de julio‑2 resuelta por PREFIJO (no por nombre exacto): el commit <c>88b3acb</c>
+    /// reemplazó los insumos y añadió el sufijo de versión (<c>…072026vf.xlsx</c>); congelar el nombre
+    /// es la misma clase de defecto que el Plan 59 elimina.
+    /// </summary>
+    private static string RutaConciliacion(string prefijo)
+    {
+        var carpeta = Path.Combine(Raiz(), "Docs", "Prueba Julio-2", "Insumos", "Conciliaciones");
+        Assert.True(Directory.Exists(carpeta), $"Falta la carpeta explícita: {carpeta}");
+        var archivo = Directory.EnumerateFiles(carpeta, "*.xlsx", SearchOption.TopDirectoryOnly)
+            .OrderBy(f => f, StringComparer.Ordinal)
+            .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).StartsWith(prefijo, StringComparison.OrdinalIgnoreCase));
+        Assert.True(archivo is not null, $"Falta la conciliación '{prefijo}*' en {carpeta}");
+        return archivo!;
+    }
 
     private static string Raiz()
     {

@@ -1,0 +1,53 @@
+Plan 59 - H0/T0 - set-diff de suite (G-SUITE / S1.5)
+Generado: 2026-10-26
+
+TRX comparados
+  A = p58-final.trx            (base cerrada 2026-10-23 21:10; 1558/1523/35/0)
+  B = p59-h0-baseline-hoy.trx  (mismo arbol HOY, --filter FullyQualifiedName!~GeometriaDerivadaV3T0Plan59; 1558/1518/40/0)
+  C = p59-h0-final.trx         (suite completa CON el fixture del T0; 1581/1541/40/0)
+
+==============================================================================
+1) B vs C  ->  efecto ATRIBUIBLE A H0 (mismo codigo de produccion, mismos insumos)
+==============================================================================
+  23 altas (solo tests Plan 59) - 0 bajas - 0 cambios de resultado.
+  Los 23 tests del fixture T0 pasan a verde; ningun resultado preexistente cambia.
+  => H0 NO cambia ningun resultado. Delta efectivo VACIO.
+
+==============================================================================
+2) A vs B  ->  deriva del ARBOL/INSUMOS respecto de la base de la puerta
+==============================================================================
+  Causa unica: commit 88b3acb "Actualizacion de insumos Julio-2" (2026-10-26 07:46:50)
+  POSTERIOR al trx base A (2026-10-23 21:10). Reemplazo archivos TRACKEADOS de
+  Docs/Prueba Julio-2/Insumos/ (46 archivos en git ls-files), p.ej.:
+    Recaudoporcomponente_..._20268465657830.xlsx -> ..._2026831522272.xlsx
+    Conjunta ENEL-072026.xlsx                    -> Conjunta ENEL-072026vf.xlsx
+    R4-BalanceSubsidioyContribuciones-Optimiz... -> R4-BalanceSubsidioyContribuciones_to_date...
+
+  VERDE -> ROJO (6)  [no atribuibles a H0: fallan igual en aislamiento, sin correr el fixture]
+   1. AjustesSfTTests.BalanceOptimizado_Q2_ResuelvePorSegundoPrefijo
+      Assert.StartsWith: 'R4-BalanceSubsidioyContribuciones_to_date...' vs esperado '...-Optimiz...'
+   2. BalanceScPermutaTests.JulioAse5Bce_ManualDivergeDeLaFuente_ConstanteDocumentada
+      Delta 2.477.195.172,11 (InRange -0,5..0,5)
+   3. BalanceScPermutaTests.JulioQ2_PermutaBce_SubsidioAD_ContribucionAE_VsFuente_E2E
+      Delta 1.210.425.628,31 (InRange -0,5..0,5)
+   4. DetRetriDesgloseTrazableTests.JulioQ2_DesgloseTrazable_DetRetri_JyL_Y_DetVali_IyO
+      ASE5: escrito -82.959.024 (se esperaba divergencia del manual, T0a)
+   5. RevisionPestanasLenteR1T0Plan47Tests.T0P47_Recaudo_EsPegadoReal_DesdeResumenMes_PosicionalHoyAlineado
+      FileNotFoundException: 'Docs/Prueba Julio-2/Insumos/Conciliaciones/Conjunta ENEL-072026.xlsx'
+   6. T0FrenteEspejoR1Ase5EnelTests.T0_Fuente_Ase5_TieneDosFilasEnel
+      FileNotFoundException: '.../5-Area Limpia/Recaudoporcomponente_..._20268465657830.xlsx'
+
+  ROJO -> VERDE (1)
+   7. RevisionPestanasLenteR1T0Plan47Tests.T0P47_P6_R2_MatrizFilasYEmparejamiento_Congelada(ase: 4)
+
+  Neutralidad: los otros 34 rojos de A siguen rojos en B (mismo conjunto, mismos nombres).
+
+==============================================================================
+3) Veredicto
+==============================================================================
+  - Contra el arbol actual (B vs C): set-diff efectivo VACIO -> 0 rojos nuevos por H0.
+  - Contra la base de la puerta (A, 2026-10-23): 6 rojos nuevos + 1 baja, TODOS con causa
+    citada en el commit 88b3acb (insumos Julio-2), anterior a este H0 y ajeno a sus archivos.
+  - Escalado al Ingeniero: la base de la puerta esta STALE. Antes de abrir H1 debe (a) aceptarse
+    este delta con su causa citada, o (b) re-baselinar la suite sobre 88b3acb (run B de este
+    informe ya es esa linea base: 1558/1518/40/0).
