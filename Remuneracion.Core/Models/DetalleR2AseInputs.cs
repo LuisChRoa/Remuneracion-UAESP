@@ -29,6 +29,15 @@ public sealed class DetalleR2AseInputs
     public IReadOnlyList<string> Componentes { get; set; } = [];
 
     /// <summary>
+    /// Plan 60 (H1.4, D6/§4.5): ruta del insumo R2 del ASE del que se construyó este detalle. Es la
+    /// dimensión <c>Fuente</c> de la coordenada de auditoría de la reclasificación <c>Deb/Cred</c> →
+    /// <c>Deb/Cred-otros</c> (no es una columna de la hoja: en R2 la columna <c>C</c> porta el CANAL).
+    /// La fija el reader al construir el modelo (<c>Fuente = rutaR2</c>), de modo que el modelo sigue
+    /// siendo observación fiel de la fuente; sin ella la regla falla con <c>ERR-RECLASIFICACION</c>.
+    /// </summary>
+    public string Fuente { get; set; } = string.Empty;
+
+    /// <summary>
     /// Verdad si la fuente trae la columna <c>Especiales</c> (agosto, posición K). En su ausencia
     /// (julio) cada fila expone <c>Especiales = 0</c> de forma EXPLÍCITA (invariante: nunca se
     /// inventa otro valor; el <c>K</c>-destino queda en 0). Réplica del patrón

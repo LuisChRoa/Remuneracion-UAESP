@@ -44,4 +44,13 @@ public static class CodigoError
     /// borrando formulas, asi que el archivo NO se entrega. El mensaje nombra concepto + hoja + celda.
     /// </summary>
     public const string Integridad = "ERR-INTEGRIDAD";
+
+    /// <summary>
+    /// Plan 60 (H1.3, D2/D6): la reclasificacion <c>Deb/Cred</c> -> <c>Deb/Cred-otros</c> por canal de
+    /// <c>Rem. Anticipos R2</c> no puede ejecutarse sin coordenada completa (hoja - fuente - ASE -
+    /// seccion - subseccion/empresa - canal - concepto) o un cierre estructural no reconcilia con
+    /// ningun tramo de cierres de canal. Fail-fast que nombra los siete datos + fila + importe: nunca
+    /// se mueve "lo que se pueda" ni se deja el agregado inconsistente en silencio.
+    /// </summary>
+    public const string Reclasificacion = "ERR-RECLASIFICACION";
 }

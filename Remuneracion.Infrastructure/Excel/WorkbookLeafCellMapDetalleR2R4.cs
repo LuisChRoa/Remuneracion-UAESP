@@ -105,8 +105,16 @@ public static class WorkbookLeafCellMapDetalleR2R4
     /// <summary>
     /// Columnas destino del detalle R2 en orden: (encabezado-fuente, columna-destino). El
     /// encabezado <c>null</c> marca una columna destino SIN contraparte en la fuente (se escribe 0
-    /// explícito; invariante <c>Deb/Cred-otros R</c>). <c>Especiales K</c> tiene contraparte solo
-    /// en agosto; en julio la fuente no trae la columna y el modelo emite 0 explícito (invariante).
+    /// explícito). <c>Especiales K</c> tiene contraparte solo en agosto; en julio la fuente no trae
+    /// la columna y el modelo emite 0 explícito (invariante).
+    ///
+    /// <para><b>Plan 60 (H2.2):</b> las dos últimas columnas son los puertos del par
+    /// <c>Deb/Cred</c> / <c>Deb/Cred-otros</c> y su reparto NO es invariante. La fuente R2 solo trae
+    /// <c>Deb/Cred</c>; <c>Deb/Cred-otros</c> arranca en 0 y pasa a ser DESTINO de la reclasificación
+    /// por canal: la regla <see cref="ReclasificadorDebCredR2"/> mueve a <c>R</c> el bloque completo
+    /// del canal cuyo cierre supera el umbral y re-propaga los agregados literales, de modo que ambos
+    /// valores se escriben POR VALOR MOVIDO (el par <c>Q + R</c> se conserva). Antes de esta regla el
+    /// doc declaraba <c>R</c> como «invariante en 0»; ya no lo es.</para>
     /// </summary>
     public static readonly IReadOnlyList<(string? Encabezado, string Columna)> ColumnasR2 =
     [

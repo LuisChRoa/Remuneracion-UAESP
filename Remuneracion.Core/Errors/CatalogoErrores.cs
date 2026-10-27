@@ -31,6 +31,9 @@ public static class CatalogoErrores
             CodigoError.SinSlot => (
                 "Fila fuente sin slot en la plantilla",
                 $"La fuente trae una empresa o fila sin slot asignado en la plantilla: {detalle}. No se colocó ningún valor fuera de slot; revise el contrato T0 y la fuente."),
+            CodigoError.Reclasificacion => (
+                "No se pudo clasificar un importe entre Deb/Cred y Deb/Cred-otros",
+                $"La reclasificación por canal de la hoja 'Rem. Anticipos R2' se detuvo: {detalle}. No se movió ningún valor sin su coordenada completa; revise la fuente del ASE y la plantilla del período."),
             CodigoError.Validacion => (
                 "La validación no cierra",
                 $"La validación no cierra dentro de la tolerancia ±0.5: {detalle}."),
@@ -55,7 +58,8 @@ public static class CatalogoErrores
     public static int CodigoSalidaPara(string codigo) => codigo switch
     {
         CodigoError.Validacion => CodigosSalida.Validacion,
-        CodigoError.FuenteNoEncontrada or CodigoError.Plantilla or CodigoError.FormatoFuente or CodigoError.SinSlot => CodigosSalida.FuenteOPlantilla,
+        CodigoError.FuenteNoEncontrada or CodigoError.Plantilla or CodigoError.FormatoFuente or CodigoError.SinSlot
+            or CodigoError.Reclasificacion => CodigosSalida.FuenteOPlantilla,
         CodigoError.Escritura => CodigosSalida.Escritura,
         CodigoError.Integridad => CodigosSalida.Escritura,
         CodigoError.CanceladoPorUsuario => CodigosSalida.CanceladoPorUsuario,

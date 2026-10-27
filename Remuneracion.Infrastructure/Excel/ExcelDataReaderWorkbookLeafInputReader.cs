@@ -1505,6 +1505,7 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             Ase = ase,
             Componentes = componentes,
             TieneColumnaEspeciales = tieneEspeciales,
+            Fuente = rutaR2,
             Filas = filasDetalle
         };
     }

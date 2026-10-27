@@ -9,6 +9,7 @@ using Remuneracion.Core.Exceptions;
 using Remuneracion.Core.Interfaces;
 using Remuneracion.Core.Models;
 using Remuneracion.Core.Rules;
+using Serilog;
 
 namespace Remuneracion.Infrastructure.Excel;
 
@@ -2037,12 +2038,85 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     {
         if (leaf.DetalleR2 is not null)
         {
-            EscribirDetalleR2(workbookPart, leaf.DetalleR2);
+            // Plan 60 (H2.1 — §3.1): PUNTO ÚNICO de la reclasificación Deb/Cred -> Deb/Cred-otros por
+            // canal. Se aplica ANTES de EmparejarBloque (la regla decide QUÉ VALOR porta cada fila;
+            // el emparejamiento decide DÓNDE va, y no cambia: los rótulos no se tocan). Todas las
+            // rutas que escriben el detalle pasan por aquí (ProcesadorPeriodo y ProcesadorRemuneracion
+            // vía GenerarWorkbook), así que ninguna se salta la regla y no puede aplicarse dos veces.
+            var clasificacion = ReclasificadorDebCredR2.Aplicar(leaf.DetalleR2);
+
+            // El modelo del reader NO se muta (la regla devuelve instancias nuevas); el leaf es el
+            // modelo de trabajo de la corrida y pasa a portar los valores clasificados, que son los
+            // que se escriben y los que el gate VerificarDetalleR2R4 contrasta contra la hoja. Una
+            // segunda ejecución del writer re-aplica la regla sobre su propia salida: es no-op (D4).
+            leaf.DetalleR2 = clasificacion.Clasificado;
+
+            RegistrarTrazaReclasificacion(leaf.Ase.Id, clasificacion.Movimientos);
+            EscribirDetalleR2(workbookPart, clasificacion.Clasificado);
         }
 
         if (leaf.DetalleR4 is not null)
         {
             EscribirDetalleR4(workbookPart, leaf.DetalleR4);
+        }
+    }
+
+    /// <summary>
+    /// Plan 60 (H2.1, punto 5 de la regla de la administradora): escribe al log la TRAZA de auditoría
+    /// de la reclasificación — una línea de resumen por ASE y una por movimiento con su coordenada
+    /// completa (hoja · fuente · ASE · sección · subsección/empresa · canal · concepto · fila ·
+    /// importe · motivo). El <c>RunId</c> viaja en el <c>LogContext</c> de la corrida (convención
+    /// existente, sin formato nuevo). Sin movimientos no se emite nada: ausencia = no hubo disparo.
+    /// </summary>
+    private static void RegistrarTrazaReclasificacion(int aseId, IReadOnlyList<MovimientoReclasificacion> movimientos)
+    {
+        if (movimientos.Count == 0)
+        {
+            return;
+        }
+
+        var deConcepto = movimientos
+            .Where(m => m.Motivo.StartsWith(ReclasificadorDebCredR2.MotivoCierreCanal, StringComparison.Ordinal))
+            .ToList();
+        var deAgregado = movimientos
+            .Where(m => m.Motivo.StartsWith(ReclasificadorDebCredR2.MotivoAgregado, StringComparison.Ordinal))
+            .ToList();
+
+        Log.ForContext("AseId", aseId)
+            .ForContext("Movimientos", movimientos.Count)
+            .ForContext("ImporteMovido", deConcepto.Sum(m => m.MovidoQ))
+            .Information(
+                "ASE {AseId}: reclasificación Deb/Cred -> Deb/Cred-otros por canal en '{Hoja}': {Conceptos} concepto(s) movidos por {ImporteMovido} y {Agregados} agregado(s) reconciliados.",
+                aseId,
+                ReclasificadorDebCredR2.HojaRemAnticiposR2,
+                deConcepto.Count,
+                deConcepto.Sum(m => m.MovidoQ),
+                deAgregado.Count);
+
+        foreach (var movimiento in movimientos)
+        {
+            var coordenada = movimiento.Coordenada;
+            Log.ForContext("AseId", aseId)
+                .ForContext("Hoja", coordenada.Hoja)
+                .ForContext("Fuente", coordenada.Fuente)
+                .ForContext("Seccion", coordenada.Seccion)
+                .ForContext("Subseccion", coordenada.Subseccion)
+                .ForContext("Canal", coordenada.Canal)
+                .ForContext("Concepto", coordenada.Concepto)
+                .ForContext("ImporteMovido", movimiento.MovidoQ)
+                .Debug(
+                    "ASE {AseId}: {Motivo} · hoja '{Hoja}' · fuente '{Fuente}' · coordenada (sección '{Seccion}' · subsección '{Subseccion}' · canal '{Canal}' · concepto '{Concepto}') · fila #{Fila} de la secuencia del detalle (firma '{Firma}') · importe {ImporteMovido}.",
+                    aseId,
+                    movimiento.Motivo,
+                    coordenada.Hoja,
+                    coordenada.Fuente,
+                    coordenada.Seccion,
+                    coordenada.Subseccion,
+                    coordenada.Canal,
+                    coordenada.Concepto,
+                    movimiento.IndiceFila + 1,
+                    movimiento.Firma,
+                    movimiento.MovidoQ);
         }
     }
 
