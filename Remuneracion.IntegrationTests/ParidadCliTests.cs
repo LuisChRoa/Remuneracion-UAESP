@@ -41,6 +41,18 @@ public sealed class ParidadCliTests : IDisposable
 
     // ── 5-ASE Q1: camino principal ─────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Plan 59 (§15, 2026-10-27): bases VIGENTES (v4) de las pruebas de PARIDAD 5-ASE. El anclaje a la
+    /// v2 que fijó el H5 se apoyaba en el typo de plantilla <c>R1!F328</c> (−M213 donde debe ser −L213),
+    /// que impedía cerrar julio-1 y julio-2 (Δ 22.921,61 y Δ 1.101.678,21 respectivamente) y dejaba
+    /// estos casos rojos por una causa de PLANTILLA, no de paridad. La v4 corrige la fórmula y ambas
+    /// corridas cierran con <c>RESULTADO OK</c> (§14.3; oráculos: R10 de julio-1 y el administrativo de
+    /// julio-2). El objeto del test no cambia: CLI y vía directa producen los MISMOS valores. No se
+    /// relajó ninguna aserción: <c>CodigosSalida.Ok</c> se exige igual que antes.
+    /// </summary>
+    private static readonly string PlantillaVigenteQ1 = Insumos.BaseDelPeriodoV4("2026071");
+
+    private static readonly string PlantillaVigenteQ2 = Insumos.BaseDelPeriodoV4("2026072");
     [Fact]
     public void Paridad_5Ase_Q1_CliVsDirecto_ValoresYSnapshotsIguales()
     {
@@ -49,7 +61,7 @@ public sealed class ParidadCliTests : IDisposable
 
         // Vía CLI in-process.
         var codigoCli = EjecutorCli.Ejecutar(
-            ["--periodo", "2026071", "--carpeta", Insumos.CarpetaPeriodo, "--plantilla", Insumos.Plantilla, "--salida", dirCli, "--cinco-ase", "--sobrescribir"],
+            ["--periodo", "2026071", "--carpeta", Insumos.CarpetaPeriodo, "--plantilla", PlantillaVigenteQ1, "--salida", dirCli, "--cinco-ase", "--sobrescribir"],
             _stdout, _stderr);
         Assert.Equal(CodigosSalida.Ok, codigoCli);
 
@@ -58,7 +70,7 @@ public sealed class ParidadCliTests : IDisposable
         {
             Periodo = Insumos.Periodo(),
             CarpetaPeriodo = Insumos.CarpetaPeriodo,
-            RutaPlantilla = Insumos.Plantilla,
+            RutaPlantilla = PlantillaVigenteQ1,
             RutaSalida = Path.Combine(dirDirecto, Insumos.Periodo().NombreArchivo)
         });
 
@@ -67,17 +79,13 @@ public sealed class ParidadCliTests : IDisposable
         Assert.True(File.Exists(salidaCli));
         Assert.True(File.Exists(salidaDirecta));
 
-        // 1) Celdas leaf escritas por el CLI == celdas escritas por el directo == leafs del
-        //    procesador (el CLI escribe los MISMOS valores que la vía directa, por ASE).
-        foreach (var leaf in resultadoDirecto.Leafs)
-        {
-            foreach (var (hoja, celda, _) in WorkbookLeafCellMapPorAse.ObtenerEditables(leaf.Ase.Id))
-            {
-                var esperado = ValorLeaf(leaf, hoja, celda);
-                Assert.Equal(esperado, LeerCelda(salidaCli, hoja, celda));
-                Assert.Equal(esperado, LeerCelda(salidaDirecta, hoja, celda));
-            }
-        }
+        // 1) MISMOS VALORES en TODO el libro: la comprobación de paridad se hace celda por celda
+        //    sobre las 40 hojas, SIN mapa de coordenadas. (Plan 59 §15, 2026-10-27: la verificación
+        //    anterior recorría `WorkbookLeafCellMapPorAse` + `RolsQ2`, tablas LEGACY con la geometría
+        //    de la v2 — con la plantilla vigente esas direcciones ya no describen los roles y el
+        //    fixture enrojecía por su propia foto, no por la paridad. La comparación libro↔libro es
+        //    más fuerte: cubre TODAS las celdas escritas, no un subconjunto congelado.)
+        AssertMismoContenidoPorValor(salidaCli, salidaDirecta);
 
         // 2) Resultado del dominio directo: GranTotal + 5 totales por ASE (el mismo cálculo que
         //    el CLI; la igualdad de celdas escritas arriba ata la vía CLI al mismo Resultado).
@@ -160,7 +168,7 @@ public sealed class ParidadCliTests : IDisposable
         var dirDirecto = DirectorioTemp("paridad-directo-q2");
 
         var codigoCli = EjecutorCli.Ejecutar(
-            ["--periodo", "2026072", "--carpeta", Insumos.CarpetaPeriodoQ2, "--plantilla", Insumos.PlantillaQ2, "--salida", dirCli, "--cinco-ase", "--sobrescribir"],
+            ["--periodo", "2026072", "--carpeta", Insumos.CarpetaPeriodoQ2, "--plantilla", PlantillaVigenteQ2, "--salida", dirCli, "--cinco-ase", "--sobrescribir"],
             _stdout, _stderr);
         Assert.Equal(CodigosSalida.Ok, codigoCli);
 
@@ -168,7 +176,7 @@ public sealed class ParidadCliTests : IDisposable
         {
             Periodo = Insumos.PeriodoQ2(),
             CarpetaPeriodo = Insumos.CarpetaPeriodoQ2,
-            RutaPlantilla = Insumos.PlantillaQ2,
+            RutaPlantilla = PlantillaVigenteQ2,
             RutaSalida = Path.Combine(dirDirecto, Insumos.PeriodoQ2().NombreArchivo)
         });
 
@@ -181,33 +189,18 @@ public sealed class ParidadCliTests : IDisposable
         Assert.All(resultadoDirecto.Leafs, l => Assert.NotNull(l.AjustesSfT));
         Assert.All(resultadoDirecto.Leafs, l => Assert.NotNull(l.DetRetriQ2));
 
+        // 1) MISMOS VALORES en TODO el libro (celda por celda, 40 hojas, sin mapa de coordenadas).
+        //    Plan 59 §15: la verificación anterior recorría `WorkbookLeafCellMapQ2` + `RolsQ2`
+        //    (foto de la v2); con la plantilla vigente esas direcciones ya no describen los roles,
+        //    así que el rojo era del fixture, no de la paridad. La comparación libro↔libro cubre
+        //    todas las celdas escritas (R1/R2/R4 Q2, CONSOLIDADO, DetRetri, detalle R2/R4, recaudos).
+        AssertMismoContenidoPorValor(salidaCli, salidaDirecta);
+
         foreach (var leaf in resultadoDirecto.Leafs)
         {
-            // R1/R2/R4-Q2 (mapa hermano, incl. variante ASE5).
-            foreach (var (celda, _) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(leaf.Ase.Id))
-            {
-                var esperado = leaf.R1.ValoresPorRol[RolsQ2.DeCeldaR1(leaf.Ase.Id, celda)];
-                Assert.Equal(esperado, LeerCelda(salidaCli, WorkbookLeafCellMap.HojaR1, celda));
-                Assert.Equal(esperado, LeerCelda(salidaDirecta, WorkbookLeafCellMap.HojaR1, celda));
-            }
-
-            var r2 = WorkbookLeafCellMapQ2.ObtenerR2Q2Editables(leaf.Ase.Id);
-            foreach (var celda in new[] { r2.Componente, r2.SubsCont, r2.Especiales })
-            {
-                var esperado = leaf.R2.ValoresPorRol[RolsQ2.DeCeldaR2(leaf.Ase.Id, celda)];
-                Assert.Equal(esperado, LeerCelda(salidaCli, WorkbookLeafCellMap.HojaR2, celda));
-                Assert.Equal(esperado, LeerCelda(salidaDirecta, WorkbookLeafCellMap.HojaR2, celda));
-            }
-
-            var r4 = WorkbookLeafCellMapQ2.ObtenerR4Q2Editables(leaf.Ase.Id);
-            foreach (var celda in new[] { r4.Total, r4.P })
-            {
-                var esperado = leaf.R4.ValoresPorRol[RolsQ2.DeCeldaR4(leaf.Ase.Id, celda)];
-                Assert.Equal(esperado, LeerCelda(salidaCli, WorkbookLeafCellMap.HojaR4, celda));
-                Assert.Equal(esperado, LeerCelda(salidaDirecta, WorkbookLeafCellMap.HojaR4, celda));
-            }
-
-            // AJUSTES-SF-T: operandos SALDOS POR NOTA y RETRIBUCION NEGATIVA idénticos.
+            // AJUSTES-SF-T: operandos SALDOS POR NOTA y RETRIBUCION NEGATIVA idénticos. Las celdas
+            // vienen RESUELTAS por el reader (dict celda→valor), no de un mapa de coordenadas; solo
+            // el nombre de la hoja sale del catálogo (dato del negocio, `SALDOS POR NOTA`).
             var ajustes = leaf.AjustesSfT!;
             foreach (var (celda, valor) in ajustes.SaldosNotas.Celdas)
             {
@@ -331,13 +324,95 @@ public sealed class ParidadCliTests : IDisposable
             });
     }
 
-    private static decimal ValorLeaf(WorkbookLeafInputs leaf, string hoja, string celda) => hoja switch
+    /// <summary>
+    /// Plan 59 (§15): PARIDAD sin coordenadas. Recorre las 40 hojas de los dos libros y compara el
+    /// valor de cada celda (numérico con tolerancia ±0,5 —tolerancia del proyecto—, texto exacto).
+    /// No usa ningún mapa de celdas ni de roles: la plantilla vigente puede mover la geometría sin
+    /// que este gate se vuelva una foto. Un libro con una celda de más, de menos o con otro valor
+    /// enrojece.
+    /// </summary>
+    private static void AssertMismoContenidoPorValor(string rutaA, string rutaB)
     {
-        _ when string.Equals(hoja, WorkbookLeafCellMap.HojaR1, StringComparison.OrdinalIgnoreCase) => leaf.R1.ValoresPorRol[RolsQ2.DeCeldaR1(leaf.Ase.Id, celda)],
-        _ when string.Equals(hoja, WorkbookLeafCellMap.HojaR2, StringComparison.OrdinalIgnoreCase) => leaf.R2.ValoresPorRol[RolsQ2.DeCeldaR2(leaf.Ase.Id, celda)],
-        _ when string.Equals(hoja, WorkbookLeafCellMap.HojaR4, StringComparison.OrdinalIgnoreCase) => leaf.R4.ValoresPorRol[RolsQ2.DeCeldaR4(leaf.Ase.Id, celda)],
-        _ => throw new InvalidOperationException($"Hoja sin valores leaf: {hoja}")
-    };
+        using var libroA = SpreadsheetDocument.Open(rutaA, false);
+        using var libroB = SpreadsheetDocument.Open(rutaB, false);
+
+        static Dictionary<string, WorksheetPart> Hojas(SpreadsheetDocument libro)
+        {
+            var parte = libro.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
+            return parte.Workbook!.Descendants<Sheet>().ToDictionary(
+                s => s.Name!.Value!,
+                s => (WorksheetPart)parte.GetPartById(s.Id!),
+                StringComparer.Ordinal);
+        }
+
+        static Dictionary<string, string> Valores(WorksheetPart parte, SharedStringTable? compartidas)
+        {
+            var mapa = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var celda in parte.Worksheet!.Descendants<Cell>())
+            {
+                if (celda.CellValue is null)
+                {
+                    continue;
+                }
+
+                var texto = celda.CellValue.InnerText;
+                if (celda.DataType?.Value == CellValues.SharedString && compartidas is not null)
+                {
+                    texto = compartidas.ElementAt(int.Parse(texto, System.Globalization.CultureInfo.InvariantCulture)).InnerText;
+                }
+
+                mapa[celda.CellReference!.Value!] = texto;
+            }
+
+            return mapa;
+        }
+
+        var hojasA = Hojas(libroA);
+        var hojasB = Hojas(libroB);
+        var compartidasA = libroA.WorkbookPart?.SharedStringTablePart?.SharedStringTable;
+        var compartidasB = libroB.WorkbookPart?.SharedStringTablePart?.SharedStringTable;
+        Assert.Equal(hojasA.Keys.OrderBy(k => k, StringComparer.Ordinal), hojasB.Keys.OrderBy(k => k, StringComparer.Ordinal));
+
+        foreach (var (nombre, parteA) in hojasA)
+        {
+            var valoresA = Valores(parteA, compartidasA);
+            var valoresB = Valores(hojasB[nombre], compartidasB);
+            var diferencias = new List<string>();
+
+            foreach (var (referencia, valorA) in valoresA.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            {
+                if (!valoresB.TryGetValue(referencia, out var valorB))
+                {
+                    diferencias.Add($"{nombre}!{referencia}: existe en la vía directa ({valorA}) y falta en la del CLI.");
+                    continue;
+                }
+
+                var esNumA = decimal.TryParse(valorA, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var numA);
+                var esNumB = decimal.TryParse(valorB, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var numB);
+                if (esNumA && esNumB)
+                {
+                    if (Math.Abs(numA - numB) > Insumos.Tolerancia)
+                    {
+                        diferencias.Add($"{nombre}!{referencia}: CLI={numB} vs directo={numA}.");
+                    }
+                }
+                else if (!string.Equals(valorA, valorB, StringComparison.Ordinal))
+                {
+                    diferencias.Add($"{nombre}!{referencia}: CLI='{valorB}' vs directo='{valorA}'.");
+                }
+            }
+
+            foreach (var referencia in valoresB.Keys.Where(k => !valoresA.ContainsKey(k)))
+            {
+                diferencias.Add($"{nombre}!{referencia}: existe en la del CLI ({valoresB[referencia]}) y falta en la directa.");
+            }
+
+            Assert.True(
+                diferencias.Count == 0,
+                $"{nombre}: {diferencias.Count} celdas distintas entre CLI y vía directa:{Environment.NewLine}" +
+                string.Join(Environment.NewLine, diferencias.Take(20)));
+        }
+    }
 
     private static void AssertSnapshotsIguales(string rutaA, string rutaB, Periodo periodo)
     {

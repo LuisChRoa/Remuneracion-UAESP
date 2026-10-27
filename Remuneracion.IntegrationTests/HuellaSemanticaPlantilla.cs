@@ -23,7 +23,15 @@ namespace Remuneracion.IntegrationTests;
 /// </summary>
 internal static class HuellaSemanticaPlantilla
 {
-    /// <summary>Huella semántica de la plantilla v3 (vigente).</summary>
+    /// <summary>
+    /// Huella semántica de la plantilla <b>v4</b> — VIGENTE desde 2026-10-27 y GATE de entrada.
+    /// La v4 es la v3 con exactamente dos celdas de fórmula corregidas en <c>Reporte Componentes R1</c>
+    /// (<c>F328</c>: <c>F269+F213+F141-L141-M213</c> → <c>F269+F213+F141-L141-L213</c>; <c>F333</c>:
+    /// <c>F254+F191+F126--L126-L191</c> → <c>F254+F191+F126-L126-L191</c>).
+    /// </summary>
+    internal const string V4 = "a7476ee2e80dfa13c9e39430d1ea4d77f0c52e3ca0a3d11a526d5140b8608c55";
+
+    /// <summary>Huella semántica de la plantilla v3 (HISTÓRICA desde 2026-10-27: no se consume).</summary>
     internal const string V3 = "92935014f3611055c15f12db92c71020f741d009634e8ec59f1e4448235d72ff";
 
     /// <summary>Huella semántica de la plantilla v2 (histórica, no se consume).</summary>

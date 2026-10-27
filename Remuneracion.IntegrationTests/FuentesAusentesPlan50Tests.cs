@@ -13,11 +13,15 @@ namespace Remuneracion.IntegrationTests;
 /// Trazabilidad: S2.1 (ausencia total → 0 + huella), S2.3 (repro del rojo 2026101 sin throw en ASE2),
 /// S2.5 (visibles coherentes con el 0) y la neutralidad de período del reader (A1 es period-free).
 ///
-/// **A2 (levantamiento del recorte Q2) NO se habilita**: la escritura de la conciliación en Q2 aborta en
+/// **A2 (conciliación por empresa en Q2) — ESTADO Plan 59 §15 (2026-10-27): el recorte se RETIRÓ** y la
+/// conciliación por empresa corre en ambas quincenas. El bloqueo que lo impedía era de PLANTILLA
+/// (`Rem. Anticipos R2!E285` era fórmula en la v2, residuo `R-MAPA-V2-R2-ASE4`) y no existe en la
+/// plantilla vigente v4: esa celda es un slot de valor y el 2.º cuadro de R2 declara el grupo
+/// `canal A / empresa EAB` en los 5 ASE. El párrafo siguiente se conserva como historia del Plan 50.
+///
+/// [Histórico del Plan 50] A2 NO se habilitó entonces: la escritura de la conciliación en Q2 abortaba en
 /// `Rem. Anticipos R2!E285` porque en la v2 esa celda destino es fórmula → residuo declarado
-/// `R-MAPA-V2-R2-ASE4` (`Docs/T0-Plan50-FuentesRecaudoOpcionales.md` §4.3). El recorte del procesador se
-/// mantiene y su test (`ProcesadorPeriodoTests.Ejecutar_Periodo2026072_SalidaCertificada5De5_ConDetRetri`)
-/// lo re-congela con esa evidencia.
+/// `R-MAPA-V2-R2-ASE4` (`Docs/T0-Plan50-FuentesRecaudoOpcionales.md` §4.3).
 ///
 /// La política ratificada (§7.1/§7.3) es:
 /// - label ausente (CERO filas) → 0 explícito por celda del mapa + huella <c>{Reporte}:{label}</c>;
@@ -156,7 +160,7 @@ public sealed class FuentesAusentesPlan50Tests
             EliminarFilaPorIndice(copia, indice);
 
             var ex = Assert.Throws<CalculoInvalidoException>(() =>
-                new ExcelDataReaderWorkbookLeafInputReader { RutaPlantilla = Insumos.PlantillaOficial() }.LeerConciliacionEmpresas(
+                new ExcelDataReaderWorkbookLeafInputReader { RutaPlantilla = Insumos.PlantillaHistoricaV2() }.LeerConciliacionEmpresas(
                     Insumos.Ase(1),
                     Periodo.Parse("2026101"),
                     copia,
@@ -174,7 +178,7 @@ public sealed class FuentesAusentesPlan50Tests
     private static IReadOnlyList<ConciliacionEmpresaInputs> LeerConciliacion(string periodo, string codigo, int ase)
     {
         // Plan 55 (H1.1/D4): la PLANTILLA es la autoridad de los destinos (resolución por etiquetas).
-        var reader = new ExcelDataReaderWorkbookLeafInputReader { RutaPlantilla = Insumos.PlantillaOficial() };
+        var reader = new ExcelDataReaderWorkbookLeafInputReader { RutaPlantilla = Insumos.PlantillaHistoricaV2() };
         return reader.LeerConciliacionEmpresas(
             Insumos.Ase(ase),
             Periodo.Parse(codigo),

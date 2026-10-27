@@ -563,16 +563,25 @@ public sealed class ConciliacionEmpresaCierreBloqueT0Tests
     }
 
     // ════════════════════════════════════════════════════════════════════════════════════════════
-    // T0.5 (S1.5 / D6) — veredicto R-RECORTE-Q2: NO se levanta
+    // T0.5 (S1.5 / D6) — caracterización de la v2: el destino (RECIP, ASE4) de R2 es fórmula
     // ════════════════════════════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// T4 (D6): el recorte Q2 (<c>ProcesadorPeriodo.cs:198-217</c>) sigue vigente porque el destino
-    /// <c>(RECIP, ASE4)</c> de R2 es FÓRMULA en la v2 (<c>E285=E192+E203-K192</c> y <c>K285</c>
-    /// compartida): escribirlo aborta con <c>ERR-PLANTILLA</c>. El T0 NO respalda el levantamiento.
+    /// T0.5 (D6): caracteriza un hecho de la plantilla <b>v2</b> (histórica): el destino
+    /// <c>(RECIP, ASE4)</c> de R2 es FÓRMULA (<c>E285=E192+E203-K192</c> y <c>K285</c> compartida), de
+    /// donde nació el recorte de la conciliación por empresa en Q2.
+    ///
+    /// <para>
+    /// Plan 59 (H3, 2026-10-27): el <b>recorte ya NO existe</b> —la conciliación por empresa corre en
+    /// ambas quincenas— porque la plantilla VIGENTE (v4) no reproduce este hecho: <c>R2!E285</c> es un
+    /// slot de valor (sin <c>&lt;f&gt;</c>) y el 2.º cuadro de R2 declara el grupo
+    /// <c>canal A / empresa EAB</c> en los 5 ASE. Este aserto se conserva porque su objeto son los
+    /// BYTES de la v2 (evidencia del T0 del Plan 55), no el comportamiento del procesador; el nombre
+    /// anterior (<c>…_RecorteQ2_NoSeLevanta_…</c>) afirmaba lo contrario y se corrigió para no mentir.
+    /// </para>
     /// </summary>
     [Fact]
-    public void T0_5_RecorteQ2_NoSeLevanta_DestinoE285EsFormula()
+    public void T0_5_PlantillaV2_DestinoE285EsFormula_ClaseRMapaV2R2Ase4()
     {
         var e285 = CeldaCrudaDe(PlantillaV2, HojaR2, "E285");
         var k285 = CeldaCrudaDe(PlantillaV2, HojaR2, "K285");

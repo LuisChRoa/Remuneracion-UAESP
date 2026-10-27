@@ -12,7 +12,8 @@ namespace Remuneracion.IntegrationTests;
 
 /// <summary>
 /// Plan 59 (H1/F1 — H1.1/H1.3, S2.1/S2.2): evidencia de la <b>geometría DERIVADA</b> de los bloques
-/// de ASE sobre la plantilla v3 vigente (<c>SHA256 8199F864…2B1295</c>).
+/// de ASE sobre la plantilla VIGENTE (v4 desde 2026-10-27; los números se midieron en H0 sobre la v3,
+/// cuyo contenido es el de la v4 salvo las dos fórmulas corregidas, así que la geometría es la misma).
 ///
 /// <para>
 /// El fixture prueba tres cosas y ninguna más:
@@ -31,12 +32,12 @@ namespace Remuneracion.IntegrationTests;
 ///
 /// <para>
 /// Los números medidos viven AQUÍ (aserción de test = evidencia, nunca constante de producción) y
-/// llevan su derivación: hoja + fila del workbook v3 del disco.
+/// llevan su derivación: hoja + fila del workbook del disco.
 /// </para>
 /// </summary>
 public sealed class DelimitadorBloquesHojaH1Plan59Tests
 {
-    // ── Geometría medida en H0 (§0.4-b, §2 del T0) sobre la v3 ────────────────────────────────
+    // ── Geometría medida en H0 (§0.4-b, §2 del T0) sobre la v3; idéntica en la v4 ────────────────
     // (Ase, fila de la cabecera de bloque = B con el rótulo del ASE, fila del gran total A='Total').
     private static readonly (int Ase, int Cabecera, int GranTotal)[] BloquesR1 =
         [(1, 4, 86), (2, 122, 279), (3, 356, 424), (4, 517, 674), (5, 725, 807)];
@@ -62,7 +63,7 @@ public sealed class DelimitadorBloquesHojaH1Plan59Tests
     private static readonly (int Ase, int InicioRegion, int FinRegion)[] RegionesR4 =
         [(1, 1, 96), (2, 97, 197), (3, 198, 234), (4, 235, 349), (5, 350, 394)];
 
-    // ── Cierres declarados por bloque en la v3 (T0 §2.1/§2.2/§2.3) ────────────────────────────
+    // ── Cierres declarados por bloque en la plantilla vigente (T0 §2.1/§2.2/§2.3) ────────────────
     private static readonly int[] CanalesR1 = [24, 55, 20, 55, 24];
     private static readonly int[] CanalesR2 = [12, 24, 10, 24, 12];
     private static readonly int[] EmpresasR1 = [14, 15, 10, 15, 14];
@@ -226,20 +227,20 @@ public sealed class DelimitadorBloquesHojaH1Plan59Tests
     }
 
     /// <summary>
-    /// H1.2/H1.4 (CA-B1, parcial H1): el escritor de slots R1 procesa los 5 bloques de la v3 con las
+    /// H1.2/H1.4 (CA-B1, parcial H1): el escritor de slots R1 procesa los 5 bloques de la plantilla vigente con las
     /// fuentes reales de julio‑2 SIN <c>ERR-SIN-SLOT</c> por ventana, y el cierre de sección
     /// <c>Subs/Cont</c> —el que en la v2 vivía dentro de la ventana congelada y en la v3 quedó fuera—
     /// recibe el subtotal que la fuente declara. Es el defecto de §0.4-f reproducido y cerrado.
     /// </summary>
     [Fact]
-    public void H1_2_R1_EscribeLosCincoBloquesSobreLaV3_SinErrSinSlotPorVentana()
+    public void H1_2_R1_EscribeLosCincoBloquesSobreLaPlantillaVigente_SinErrSinSlotPorVentana()
     {
         var fuentes = Enumerable.Range(1, 5)
             .Select(ase => new ExcelDataReaderWorkbookLeafInputReader()
                 .LeerEspejoR1(AseFactory.DesdeId(ase), FuenteR1Julio2(ase)))
             .ToList();
 
-        using var copia = new CopiaDePlantillaV3();
+        using var copia = new CopiaDePlantillaVigente();
         using (var documento = SpreadsheetDocument.Open(copia.Ruta, true))
         {
             var parte = documento.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
@@ -275,7 +276,7 @@ public sealed class DelimitadorBloquesHojaH1Plan59Tests
 
     private static IReadOnlyList<DelimitadorBloquesHoja.BloqueHoja> Delimitar(DelimitadorBloquesHoja.HojaDelimitable hoja)
     {
-        using var documento = SpreadsheetDocument.Open(PlantillaV3, false);
+        using var documento = SpreadsheetDocument.Open(PlantillaVigente, false);
         var parte = documento.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
         return DelimitadorBloquesHoja.Delimitar(parte, hoja);
     }
@@ -320,7 +321,7 @@ public sealed class DelimitadorBloquesHojaH1Plan59Tests
     /// </summary>
     private static void AssertResumenFuera(DelimitadorBloquesHoja.HojaDelimitable hoja)
     {
-        using var documento = SpreadsheetDocument.Open(PlantillaV3, false);
+        using var documento = SpreadsheetDocument.Open(PlantillaVigente, false);
         var parte = documento.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
         var bloques = DelimitadorBloquesHoja.Delimitar(parte, hoja);
         var worksheet = WorksheetDe(parte, hoja.Nombre);
@@ -392,8 +393,7 @@ public sealed class DelimitadorBloquesHojaH1Plan59Tests
         throw new DirectoryNotFoundException("No se encontró la raíz del repositorio (AGENTS.md).");
     }
 
-    private static string PlantillaV3 => Path.Combine(
-        RaizRepo(), "Docs", "Plantilla estandarizada", "v3", "Formato Remuneracion 2026xx-x Total v3.xlsx");
+    private static string PlantillaVigente => Insumos.PlantillaOficialV4();
 
     /// <summary>
     /// Fuente R1 de julio‑2 resuelta por PATRÓN, tanto la carpeta del ASE (<c>N-*</c>) como el archivo
@@ -416,17 +416,17 @@ public sealed class DelimitadorBloquesHojaH1Plan59Tests
         return archivos[0];
     }
 
-    /// <summary>Copia temporal de la plantilla v3 (el original nunca se abre en edición).</summary>
-    private sealed class CopiaDePlantillaV3 : IDisposable
+    /// <summary>Copia temporal de la plantilla vigente (el original nunca se abre en edición).</summary>
+    private sealed class CopiaDePlantillaVigente : IDisposable
     {
         private readonly string _directorio;
 
-        public CopiaDePlantillaV3()
+        public CopiaDePlantillaVigente()
         {
             _directorio = Path.Combine(Path.GetTempPath(), "p59-h1-tpl-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_directorio);
             Ruta = Path.Combine(_directorio, "salida.xlsx");
-            File.Copy(PlantillaV3, Ruta, overwrite: false);
+            File.Copy(PlantillaVigente, Ruta, overwrite: false);
         }
 
         public string Ruta { get; }

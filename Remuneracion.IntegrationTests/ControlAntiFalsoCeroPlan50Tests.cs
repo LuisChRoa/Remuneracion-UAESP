@@ -88,7 +88,7 @@ public sealed class ControlAntiFalsoCeroPlan50Tests
         // Evidencia del reader sobre la fuente real: `EAB` (R2) es la única etiqueta no reconocida y
         // convive con ausencias de OTROS reportes (R1/R4) → el control no dispara en la corrida sana.
         // Plan 55 (H1.1/D4): la plantilla es la autoridad de los destinos (resolución por etiquetas).
-        var conciliacion = new ExcelDataReaderWorkbookLeafInputReader { RutaPlantilla = Insumos.PlantillaOficial() }.LeerConciliacionEmpresas(
+        var conciliacion = new ExcelDataReaderWorkbookLeafInputReader { RutaPlantilla = Insumos.PlantillaHistoricaV2() }.LeerConciliacionEmpresas(
             Insumos.Ase(2),
             Periodo.Parse("2026101"),
             RutaFuente("Prueba Octubre-1", 2, "Recaudoporcomponente"),

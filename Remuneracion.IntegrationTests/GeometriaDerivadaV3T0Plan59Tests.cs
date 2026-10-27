@@ -35,6 +35,16 @@ namespace Remuneracion.IntegrationTests;
 /// </para>
 ///
 /// <para>
+/// <b>Estatus de la v3 (2026-10-27).</b> La v3 quedó <b>HISTÓRICA</b> cuando la v4 pasó a ser la
+/// plantilla vigente; este fixture se conserva como <b>evidencia congelada del H0</b> y por eso sigue
+/// abriendo el archivo v3 (motivo declarado: re-medir §0.4 sobre el artefacto que se midió y probar que
+/// su huella no deriva). Es el ÚNICO consumidor de la v3 que queda en la suite; ningún camino de
+/// producción ni fixture de procesamiento la usa. La plantilla vigente (v4) y su huella-gate viven en
+/// <see cref="HuellaPlantillaVigenteV4Plan59Tests"/>, que además prueba que la v4 es la v3 más
+/// exactamente las dos fórmulas corregidas.
+/// </para>
+///
+/// <para>
 /// <b>Sin acoplamiento a los mapas productivos.</b> Este T0 NO referencia
 /// <c>WorkbookLeafCellMapQ2</c> ni <c>WorkbookLeafCellMapPorEmpresa</c>: las celdas literales que
 /// esos mapas declaran se congelan aquí como dato citado (archivo:línea) y se contrastan contra la

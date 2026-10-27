@@ -38,13 +38,6 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     private const string HojaBce = WorkbookLeafCellMapBalanceSc.HojaBce;
     private const string HojaSaldosNotas = WorkbookLeafCellMapAjustesSfT.HojaSaldosNotas;
     private const string HojaRetribucionNegativa = WorkbookLeafCellMapAjustesSfT.HojaRetribucionNegativa;
-    /// <summary>
-    /// Ancla-Q1 del naming (Plan 30, D-A): el mapa BCE (<see cref="WorkbookLeafCellMapBalanceSc.Protegidas"/>)
-    /// está declarado con los nombres del canónico Q1; el writer sustituye esta ancla por
-    /// <c>periodo.CodigoCompleto</c> para resolver el nombre REAL del período (para 2026071 la
-    /// sustitución es identidad; cero literales de período en el runtime).
-    /// </summary>
-    private const string AnclaSufijoHojasQ1 = "2026071";
 
     public void EscribirConsolidado(string rutaPlantilla, ResultadoRemuneracion resultado)
     {
@@ -160,7 +153,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             {
                 var workbookPart = workbook.WorkbookPart
                     ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene WorkbookPart válido.");
-                ValidarFormulasProtegidas(workbookPart, nameof(GenerarWorkbook));
+                ValidarFormulasProtegidas(workbookPart, nameof(GenerarWorkbook), leafInputs.Periodo);
                 EscribirCeldasLeaf(workbookPart, leafInputs);
 
                 // Plan 29 (T3, Unidad R): desglose-detalle R2/R4 en la MISMA pasada atómica.
@@ -192,7 +185,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             {
                 var workbookPart = workbook.WorkbookPart
                     ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook generado no tiene WorkbookPart válido.");
-                ValidarFormulasProtegidas(workbookPart, nameof(GenerarWorkbook));
+                ValidarFormulasProtegidas(workbookPart, nameof(GenerarWorkbook), leafInputs.Periodo);
             }
 
             // Plan 58 (H1.2): gate de integridad del paquete POST-escritura (por bytes, sin Excel).
@@ -390,6 +383,13 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                 // guardado — lo escrito contra el esperado del dominio. Es el contrapeso del gate
                 // de forma: la forma puede cerrar (0 − 0) con el asiento vacío, los valores no.
                 VerificarAsientoDetRetri(workbookPart, leafInputs);
+
+                // Plan 59 (§11-bis): mismo contrapeso para el desglose-detalle de R2/R4. El bloque se
+                // escribe ahora en AMBAS quincenas; este gate relee lo guardado y exige la cadena de
+                // agregación del bloque (detalle → totales → cierre de sección → gran total) y que el
+                // gran total coincida con lo que la fuente declara por componente. Un bloque vacío en
+                // Q1 dejaba CONSOLIDADO!D28:D32 en cero y la corrida certificaba OK.
+                VerificarDetalleR2R4(workbookPart, leafInputs);
             }
 
             // Plan 58 (H1.2): gate de integridad del paquete POST-escritura (por bytes, sin Excel).
@@ -754,14 +754,16 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         return value;
     }
 
-    private static void ValidarFormulasProtegidas(WorkbookPart workbookPart, string operacion)
-    {
-        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMap.ProtectedFormulas)
-        {
-            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
-            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
-        }
-    }
+    /// <summary>
+    /// Plan 59 (H5): protecciones del camino SINGLE-ASE. Antes era una foto v1
+    /// (<see cref="WorkbookLeafCellMap.ProtectedFormulas"/>: F75/F77/E47/D73 y las filas del
+    /// CONSOLIDADO) que con la v3 ya no describe la plantilla — F75 es valor, no fórmula —. Ahora usa el
+    /// MISMO verificador derivado que el camino multi-ASE: las protecciones se exigen por ROL + FORMA
+    /// sobre la geometría que la plantilla declara, y la hoja de detalle del período se resuelve
+    /// leyéndola del workbook (<see cref="HojasPeriodo"/>). Cero literales de fila/celda/período.
+    /// </summary>
+    private static void ValidarFormulasProtegidas(WorkbookPart workbookPart, string operacion, Periodo periodo) =>
+        ValidarFormulasProtegidasMultiAse(workbookPart, operacion, periodo);
 
     /// <summary>
     /// Valida el mapa ampliado: visibles de cada bloque ASE (R1/R2/R4) + filas CONSOLIDADO
@@ -808,15 +810,14 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
         }
 
-        // HU-10 (2.4, D6): mapa de fórmulas protegidas 2.4 (BCE F/I/H + filas 9/10/11/12/13 +
-        // bloque 18–24 + CONSOLIDADO J/K/M + refs DetRetri/DetValiRetri). Jamás se escriben.
-        // Plan 30 (D-A): el mapa HU-10 (anclado a Q1) se resuelve al período vía
-        // ProtegidasBceParaPeriodo(periodo) (para 2026071 la sustitución es identidad).
-        foreach (var (hoja, celda, fragmentos) in ProtegidasBceParaPeriodo(periodo))
-        {
-            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
-            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
-        }
+        // HU-10 (2.4, D6): protecciones de la hoja de balance de subsidio/contribución (totales por
+        // ASE, diferencias, sumas, cuadre y bloque de validación) y sus dos vínculos externos: el
+        // balance del ASE en la hoja de detalle REAL del período y la tabla del CONSOLIDADO.
+        // Plan 59 (H5): la foto congelada `WorkbookLeafCellMapBalanceSc.Protegidas` (celdas de la v1 y
+        // nombre de hoja de un período concreto) salió del camino productivo: el verificador deriva
+        // bandas, columnas y filas de lo que la hoja declara y resuelve la hoja del período leyendo el
+        // workbook (cero literales de período).
+        VerificadorBalanceScDerivado.Validar(workbookPart, periodo);
 
         // HU-11 (2.5, Requirement 7): cadena AJUSTES-SF-T protegida (visibles SALDOS/RETRIBUCION,
         // AJUSTES D9:D13/D28:D32/D47:D51, CONSOLIDADO D85:D89, INTERVENTORIA, ANT EXT-REV).
@@ -877,13 +878,9 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
         }
 
-        // HU-10 (2.4) + Plan 30 (D-A): BCE resuelto al período (M1: matchea hojas/celdas reales,
-        // incl. DetRetri{periodo}/DetValiRetri{periodo}).
-        foreach (var (hoja, celda, fragmentos) in ProtegidasBceParaPeriodo(periodo))
-        {
-            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
-            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
-        }
+        // HU-10 (2.4) + Plan 59 (H5): mismas protecciones derivadas del balance por identidad/forma
+        // (hoja y celdas del período resueltas del workbook; cero literales de período).
+        VerificadorBalanceScDerivado.Validar(workbookPart, periodo);
 
         // HU-11 (2.5): cadena AJUSTES-SF-T (Q2).
         foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapAjustesSfT.Protegidas)
@@ -986,26 +983,6 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
 
         return valor;
     }
-
-    /// <summary>
-    /// HU-11 (2.5) + Plan 30 (D-A): devuelve el mapa protegido BCE con el nombre de hoja
-    /// DetRetri/DetValiRetri del período, sustituyendo el ancla-Q1 (<see cref="AnclaSufijoHojasQ1"/>)
-    /// por <c>periodo.CodigoCompleto</c>. Para 2026071 la sustitución es identidad; para 2026072/…
-    /// resuelve el nombre real. El mapa HU-10 NO se toca (regla del plan): solo se parametriza su
-    /// interpretación por período.
-    /// </summary>
-    private static IEnumerable<(string Hoja, string Celda, string[] Fragmentos)> ProtegidasBceParaPeriodo(Periodo periodo)
-    {
-        var codigoCompleto = periodo.CodigoCompleto;
-        return WorkbookLeafCellMapBalanceSc.Protegidas
-            .Select(p => (
-                ReemplazarSufijo(p.Hoja, codigoCompleto),
-                p.Celda,
-                p.Fragmentos.Select(f => ReemplazarSufijo(f, codigoCompleto)).ToArray()));
-    }
-
-    private static string ReemplazarSufijo(string texto, string codigoCompleto) =>
-        texto.Replace(AnclaSufijoHojasQ1, codigoCompleto, StringComparison.Ordinal);
 
     /// <summary>
     /// LEGACY (geometría v1), fuera de paridad (Plan 54, H1.2/H1.3, D2/D3): escribe las celdas
@@ -1240,6 +1217,371 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         }
 
         VerificarDesgloseTrazableDetRetri(workbookPart, conDetalle);
+    }
+
+    /// <summary>
+    /// Tolerancia del gate del desglose-detalle: la doctrina del proyecto (±0,5) cubre el redondeo
+    /// con que las fuentes publican sus propios cierres. No se amplía nunca para «hacer pasar» una
+    /// identidad: si el bloque quedó vacío la diferencia es el monto completo, no un céntimo.
+    /// </summary>
+    private const decimal ToleranciaDetalle = 0.5m;
+
+    /// <summary>Una fila del detalle tal como el DOMINIO la declara: firma A–D leída de la fuente + valores por componente.</summary>
+    private sealed record FilaDetalleDelDominio(FilaEspejoR1 Etiquetas, IReadOnlyDictionary<string, decimal?> ValoresPorComponente)
+    {
+        /// <summary>Firma A–D de la fila, solo como contexto de los mensajes (no decide el nivel).</summary>
+        internal string Firma => string.Join(
+            "|",
+            new[] { Etiquetas.A, Etiquetas.B, Etiquetas.C, Etiquetas.D }.Select(t => t.Trim()));
+    }
+
+    /// <summary>
+    /// Plan 59 (§11-bis): gate de VALORES del DESGLOSE-DETALLE de <c>Rem. Anticipos R2</c> y
+    /// <c>Reversion Pagos R4</c>, sobre los bytes YA GUARDADOS.
+    ///
+    /// <para><b>El defecto que cierra.</b> Hasta aquí el detalle por componente se construía solo en
+    /// la 2.ª quincena: el entregable de la 1.ª salía con los tres niveles del bloque —detalle
+    /// (<c>Vlr Servicio</c>/<c>Vlr Intereses</c> por canal y concepto), totales por canal y cierre de
+    /// sección— en los literales <c>0</c> de la plantilla. Su cierre de cuadro
+    /// (<c>=E25+E42-K25</c>) daba 0, la línea de anticipos de <c>CONSOLIDADO!D28:D32</c> se caía y el
+    /// archivo se contradecía a sí mismo: el <c>DetRetri</c> se escribía desde el dominio y el bloque
+    /// del que depende quedaba vacío. Ningún gate de forma lo veía, porque la forma siempre estuvo
+    /// bien (literales, sin <c>&lt;f&gt;</c>).</para>
+    ///
+    /// <para><b>Qué exige, por ASE, por NIVEL del bloque y por componente (encabezado leído de la
+    /// hoja):</b> que cada nivel escrito lleve exactamente lo que la FUENTE declara para ese nivel —
+    /// detalle, totales por canal, totales por empresa, cierre de sección y gran total. Los niveles se
+    /// clasifican con la MISMA gramática de cierres de la hoja, aplicada a la fuente y a la hoja.
+    /// Un nivel en cero donde la fuente declara monto aborta con el monto completo, no con un céntimo.</para>
+    ///
+    /// <para><b>Por qué nivel a nivel y no por «la cadena debe cerrar»:</b> medido en agosto-2 · ASE4, la
+    /// propia fuente publica su cierre de sección sin que sea la suma de sus cierres por empresa (hay
+    /// filas de detalle fuera de todo grupo en el cuadro <c>Subs/Cont</c>). El entregable copia la
+    /// fuente: exigir una identidad que la fuente no cumple sería inventar una regla de negocio y
+    /// enrojecería un entregable correcto.</para>
+    ///
+    /// <para><b>Cero coordenadas y cero ramas.</b> El bloque se delimita por su cabecera de ASE y su
+    /// gran total declarados (<see cref="DelimitadorBloquesHoja"/>), los niveles salen de la gramática
+    /// de cierres de la hoja y las columnas de la fila de encabezados de la propia hoja. La fila
+    /// hallada solo se nombra como contexto, igual que en <see cref="VerificarAsientoDetRetri"/>.</para>
+    ///
+    /// <para><b>Qué NO juzga:</b> los niveles/componentes que la fuente no declara (capacidad de
+    /// plantilla), los componentes que el dominio declara en cero y la plantilla no declara (cero
+    /// documentado: no hay nada que perder) y las columnas del bloque que traen <c>&lt;f&gt;</c> (la app
+    /// nunca escribe fórmulas; esas no son celdas de valor).</para>
+    ///
+    /// <c>internal</c> como costura de prueba: el fixture de inyección vacía el bloque en una copia y
+    /// demuestra que este gate enrojece.
+    /// </summary>
+    internal static void VerificarDetalleR2R4(WorkbookPart workbookPart, IReadOnlyList<WorkbookLeafInputs> leafInputs)
+    {
+        ArgumentNullException.ThrowIfNull(workbookPart);
+        ArgumentNullException.ThrowIfNull(leafInputs);
+
+        foreach (var leaf in leafInputs.OrderBy(l => l.Ase.Id))
+        {
+            if (leaf.DetalleR2 is { } detalleR2)
+            {
+                VerificarBloqueDetalle(
+                    workbookPart,
+                    DelimitadorBloquesHoja.R2,
+                    leaf.Ase.Id,
+                    detalleR2.Filas
+                        .Select(f => new FilaDetalleDelDominio(
+                            new FilaEspejoR1 { A = f.A, B = f.B, C = f.C, D = f.D },
+                            f.ValoresPorComponente))
+                        .ToList());
+            }
+
+            if (leaf.DetalleR4 is { } detalleR4)
+            {
+                VerificarBloqueDetalle(
+                    workbookPart,
+                    DelimitadorBloquesHoja.R4,
+                    leaf.Ase.Id,
+                    detalleR4.Filas
+                        .Select(f => new FilaDetalleDelDominio(
+                            new FilaEspejoR1 { A = f.A, B = f.B, C = f.C },
+                            f.ValoresPorComponente))
+                        .ToList());
+            }
+        }
+    }
+
+    private static void VerificarBloqueDetalle(
+        WorkbookPart workbookPart,
+        DelimitadorBloquesHoja.HojaDelimitable hoja,
+        int aseId,
+        IReadOnlyList<FilaDetalleDelDominio> dominio)
+    {
+        var identidad = $"hoja '{hoja.Nombre}' · ASE {aseId}";
+        var bloque = DelimitadorBloquesHoja.DelimitarBloque(workbookPart, hoja, aseId);
+        var worksheet = ObtenerHoja(workbookPart, hoja.Nombre, nameof(VerificarDetalleR2R4));
+        var tabla = worksheet.Elements<SheetData>().FirstOrDefault()
+            ?? throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"La {identidad} no tiene SheetData: no se puede verificar el desglose-detalle que la app acaba de escribir.");
+
+        var porNumero = tabla.Elements<Row>()
+            .Where(f => f.RowIndex is not null)
+            .GroupBy(f => (int)f.RowIndex!.Value)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var columnas = ColumnasDeValor(workbookPart, porNumero, bloque);
+        var esperadoDelDominio = SumaDelDominio(hoja, dominio);
+
+        foreach (var (etiqueta, columna) in columnas)
+        {
+            var niveles = new (DelimitadorBloquesHoja.TipoFilaBloqueHoja Nivel, string Nombre)[]
+            {
+                (DelimitadorBloquesHoja.TipoFilaBloqueHoja.Dato, "las filas de detalle"),
+                (DelimitadorBloquesHoja.TipoFilaBloqueHoja.CierreCanal, "los totales por canal"),
+                (DelimitadorBloquesHoja.TipoFilaBloqueHoja.CierreEmpresa, "los totales por empresa"),
+                (DelimitadorBloquesHoja.TipoFilaBloqueHoja.CierreSeccion, "los cierres de sección"),
+            };
+
+            foreach (var (nivel, nombre) in niveles)
+            {
+                var escrito = SumarNivel(porNumero, bloque, nivel, columna);
+                if (escrito.TieneFormula)
+                {
+                    // La app nunca escribe fórmulas: una columna con <f> no es zona de valor y no se juzga.
+                    continue;
+                }
+
+                if (!esperadoDelDominio.TryGetValue((nivel, etiqueta), out var esperado))
+                {
+                    continue; // el nivel no existe en la fuente para ese componente (capacidad de plantilla).
+                }
+
+                if (Math.Abs(escrito.Suma - esperado) <= ToleranciaDetalle)
+                {
+                    continue;
+                }
+
+                throw new CalculoInvalidoException(
+                    CodigoError.Escritura,
+                    $"ERR-ESCRITURA: el desglose-detalle no quedó escrito en la {identidad} · componente '{etiqueta}' · {nombre}: " +
+                    $"la hoja declara {escrito.Suma} y la fuente del ASE declara {esperado} (Δ {escrito.Suma - esperado}). " +
+                    "El bloque se escribe en sus tres niveles —detalle por canal/concepto, totales por canal/empresa y cierre de " +
+                    "sección— y un nivel en cero (o desalineado) deja la línea de anticipos en cero en CONSOLIDADO!D28:D32. " +
+                    $"El workbook NO se entrega. Filas halladas {bloque.Cabecera}-{bloque.GranTotal}.");
+            }
+
+            var granTotal = ValorDeFila(porNumero, bloque.GranTotal, columna);
+            if (granTotal.TieneFormula
+                || !esperadoDelDominio.TryGetValue((DelimitadorBloquesHoja.TipoFilaBloqueHoja.GranTotal, etiqueta), out var cierreEsperado))
+            {
+                continue;
+            }
+
+            if (Math.Abs(granTotal.Suma - cierreEsperado) > ToleranciaDetalle)
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Escritura,
+                    $"ERR-ESCRITURA: el gran total del bloque no quedó escrito en la {identidad} · componente '{etiqueta}': " +
+                    $"la hoja declara {granTotal.Suma} y la fuente del ASE declara {cierreEsperado} (Δ {granTotal.Suma - cierreEsperado}). " +
+                    $"El workbook NO se entrega. Fila hallada {bloque.GranTotal}.");
+            }
+        }
+
+        // Un componente con monto en la fuente y sin columna en la plantilla es un destino ausente:
+        // se nombra el componente (nunca se remapea a otra columna ni se descarta en silencio).
+        var columnasPorEtiqueta = columnas.ToDictionary(c => c.Etiqueta, c => c.Columna, StringComparer.OrdinalIgnoreCase);
+        foreach (var ((nivel, etiqueta), esperado) in esperadoDelDominio)
+        {
+            if (nivel == DelimitadorBloquesHoja.TipoFilaBloqueHoja.GranTotal
+                || Math.Abs(esperado) <= ToleranciaDetalle
+                || columnasPorEtiqueta.ContainsKey(etiqueta))
+            {
+                continue;
+            }
+
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"ERR-PLANTILLA: la fuente del ASE {aseId} declara {esperado} en el componente '{etiqueta}' y la {identidad} " +
+                $"no declara esa columna en la fila de encabezados de su bloque ({bloque.EncabezadoColumnas}). " +
+                "La plantilla no tiene destino para ese monto: fail-fast accionable, nunca remapeo por posición.");
+        }
+    }
+
+    /// <summary>
+    /// Encabezados de las columnas de valor del bloque, leídos de la PROPIA fila de encabezados: la
+    /// etiqueta es el texto que la celda declara y la columna sale de su referencia. Cero letras de
+    /// columna escritas en el código (la firma A–E ya está consumida por el delimitador).
+    /// </summary>
+    private static IReadOnlyList<(string Etiqueta, string Columna)> ColumnasDeValor(
+        WorkbookPart workbookPart,
+        IReadOnlyDictionary<int, Row> porNumero,
+        DelimitadorBloquesHoja.BloqueHoja bloque)
+    {
+        if (!porNumero.TryGetValue(bloque.EncabezadoColumnas, out var encabezado))
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"La hoja '{bloque.Hoja}' no trae la fila de encabezados ({bloque.EncabezadoColumnas}) del bloque del ASE {bloque.AseId}: no se pueden resolver las columnas del desglose-detalle.");
+        }
+
+        var columnas = new List<(string, string)>();
+        foreach (var celda in encabezado.Elements<Cell>())
+        {
+            var etiqueta = LectorTextoHoja.Texto(workbookPart, celda).Trim();
+            if (etiqueta.Length == 0)
+            {
+                continue;
+            }
+
+            var columna = ColumnaDeReferencia(celda.CellReference?.Value);
+            if (columna.Length > 0)
+            {
+                columnas.Add((etiqueta, columna));
+            }
+        }
+
+        if (columnas.Count == 0)
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"La fila de encabezados ({bloque.EncabezadoColumnas}) del bloque del ASE {bloque.AseId} de la hoja '{bloque.Hoja}' no declara rótulos de columna: no se puede verificar el desglose-detalle por componente.");
+        }
+
+        return columnas;
+    }
+
+    /// <summary>
+    /// Σ de lo que el DOMINIO declara, por NIVEL del bloque y encabezado de componente. Los niveles se
+    /// obtienen clasificando cada fila de la fuente con la MISMA gramática de cierres de la hoja
+    /// (<see cref="DelimitadorBloquesHoja.NivelDe"/>): la fuente y la plantilla comparten el vocabulario,
+    /// así que el detalle, los totales por canal/empresa, el cierre de sección y el gran total son
+    /// comparables uno a uno.
+    ///
+    /// <para><b>Por qué nivel a nivel y no por identidad de suma:</b> medido en agosto-2 (ASE4), la
+    /// propia fuente publica un cierre de sección que NO es la suma de sus cierres por empresa
+    /// (<c>A='Componente'</c> = 126.782.453,43 frente a Σ empresas = 126.782.453,43 · pero el cuadro
+    /// <c>Subs/Cont</c> trae filas de detalle fuera de todo grupo). El entregable copia la fuente; exigir
+    /// una identidad que la fuente no cumple sería inventar una regla de negocio. Lo que sí se exige es
+    /// que CADA nivel escrito lleve exactamente lo que la fuente declara para ese nivel.</para>
+    /// </summary>
+    private static Dictionary<(DelimitadorBloquesHoja.TipoFilaBloqueHoja Nivel, string Etiqueta), decimal> SumaDelDominio(
+        DelimitadorBloquesHoja.HojaDelimitable hoja,
+        IReadOnlyList<FilaDetalleDelDominio> dominio)
+    {
+        var suma = new Dictionary<(DelimitadorBloquesHoja.TipoFilaBloqueHoja, string), decimal>(NivelEtiquetaComparer.Instancia);
+        foreach (var fila in dominio)
+        {
+            var nivel = NivelDelDominio(hoja, fila);
+            foreach (var (etiqueta, valor) in fila.ValoresPorComponente)
+            {
+                var clave = (nivel, etiqueta);
+                suma[clave] = suma.GetValueOrDefault(clave) + (valor ?? 0m);
+            }
+        }
+
+        return suma;
+    }
+
+    private static DelimitadorBloquesHoja.TipoFilaBloqueHoja NivelDelDominio(
+        DelimitadorBloquesHoja.HojaDelimitable hoja,
+        FilaDetalleDelDominio fila) =>
+        DelimitadorBloquesHoja.Clasificar(hoja, fila.Etiquetas, $"fila fuente '{fila.Firma}'") switch
+        {
+            DelimitadorBloquesHoja.NivelCierreHoja.GranTotal => DelimitadorBloquesHoja.TipoFilaBloqueHoja.GranTotal,
+            DelimitadorBloquesHoja.NivelCierreHoja.Seccion => DelimitadorBloquesHoja.TipoFilaBloqueHoja.CierreSeccion,
+            DelimitadorBloquesHoja.NivelCierreHoja.Subseccion => DelimitadorBloquesHoja.TipoFilaBloqueHoja.CierreSubseccion,
+            DelimitadorBloquesHoja.NivelCierreHoja.EmpresaBloque => DelimitadorBloquesHoja.TipoFilaBloqueHoja.CierreEmpresa,
+            DelimitadorBloquesHoja.NivelCierreHoja.Canal => DelimitadorBloquesHoja.TipoFilaBloqueHoja.CierreCanal,
+            _ => DelimitadorBloquesHoja.TipoFilaBloqueHoja.Dato,
+        };
+
+    /// <summary>
+    /// Comparador de la clave (nivel, etiqueta): el nivel es el enum de la gramática y la etiqueta se
+    /// compara como la lee la hoja (sin distinguir mayúsculas ni espacios sobrantes).
+    /// </summary>
+    private sealed class NivelEtiquetaComparer : IEqualityComparer<(DelimitadorBloquesHoja.TipoFilaBloqueHoja Nivel, string Etiqueta)>
+    {
+        internal static readonly NivelEtiquetaComparer Instancia = new();
+
+        public bool Equals(
+            (DelimitadorBloquesHoja.TipoFilaBloqueHoja Nivel, string Etiqueta) x,
+            (DelimitadorBloquesHoja.TipoFilaBloqueHoja Nivel, string Etiqueta) y) =>
+            x.Nivel == y.Nivel && string.Equals(x.Etiqueta.Trim(), y.Etiqueta.Trim(), StringComparison.OrdinalIgnoreCase);
+
+        public int GetHashCode((DelimitadorBloquesHoja.TipoFilaBloqueHoja Nivel, string Etiqueta) obj) =>
+            HashCode.Combine(obj.Nivel, StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Etiqueta.Trim()));
+    }
+
+    private static (decimal Suma, bool TieneFormula) SumarNivel(
+        IReadOnlyDictionary<int, Row> porNumero,
+        DelimitadorBloquesHoja.BloqueHoja bloque,
+        DelimitadorBloquesHoja.TipoFilaBloqueHoja nivel,
+        string columna)
+    {
+        var suma = 0m;
+        var formula = false;
+        foreach (var fila in bloque.Filas.Where(f => f.Tipo == nivel))
+        {
+            var valor = ValorDeFila(porNumero, fila.Fila, columna);
+            suma += valor.Suma;
+            formula |= valor.TieneFormula;
+        }
+
+        return (suma, formula);
+    }
+
+    /// <summary>
+    /// Valor numérico de la celda (columna, fila) tal como quedó guardado. Celda ausente o vacía = 0
+    /// (el literal 0 de la plantilla); una celda con <c>&lt;f&gt;</c> no es valor escrito por la app y
+    /// se informa para que el llamador no la juzgue desde el caché.
+    /// </summary>
+    private static (decimal Suma, bool TieneFormula) ValorDeFila(
+        IReadOnlyDictionary<int, Row> porNumero,
+        int numeroFila,
+        string columna)
+    {
+        if (!porNumero.TryGetValue(numeroFila, out var fila))
+        {
+            return (0m, false);
+        }
+
+        var referencia = columna + numeroFila.ToString(CultureInfo.InvariantCulture);
+        var celda = fila.Elements<Cell>().FirstOrDefault(c =>
+            string.Equals(c.CellReference?.Value, referencia, StringComparison.OrdinalIgnoreCase));
+        if (celda is null)
+        {
+            return (0m, false);
+        }
+
+        if (celda.CellFormula is not null)
+        {
+            return (0m, true);
+        }
+
+        var texto = celda.CellValue?.InnerText;
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            return (0m, false);
+        }
+
+        return decimal.TryParse(texto, NumberStyles.Any, CultureInfo.InvariantCulture, out var valor)
+            ? (valor, false)
+            : (0m, false);
+    }
+
+    /// <summary>Letras de columna de una referencia A1 (sin dígitos ni <c>$</c>).</summary>
+    private static string ColumnaDeReferencia(string? referencia)
+    {
+        if (string.IsNullOrEmpty(referencia))
+        {
+            return string.Empty;
+        }
+
+        var fin = 0;
+        while (fin < referencia.Length && (char.IsLetter(referencia[fin]) || referencia[fin] == '$'))
+        {
+            fin++;
+        }
+
+        return referencia[..fin].Replace("$", string.Empty, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -1673,9 +2015,13 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     /// <summary>
     /// Plan 29 (T3, Unidad R — escritura) / Plan 47 (H1, S2.1): escribe el desglose-detalle por
     /// componente de las hojas <c>Rem. Anticipos R2</c> y <c>Reversion Pagos R4</c> en la MISMA pasada
-    /// atómica de los agregados (V2: <c>E43</c>/<c>D73</c> intactos) y el espejo R1. Solo en Q2: el
-    /// reader puebla <c>DetalleR2</c>/<c>DetalleR4</c> únicamente en Q2, por lo que en Q1 el método es
-    /// no-op.
+    /// atómica de los agregados (V2: <c>E43</c>/<c>D73</c> intactos) y el espejo R1.
+    ///
+    /// <para><b>Se escribe en AMBAS quincenas.</b> Antes el método era no-op en Q1 porque el reader
+    /// solo poblaba <c>DetalleR2</c>/<c>DetalleR4</c> en Q2; el entregable de la primera quincena
+    /// salía con el bloque entero en los literales 0 de la plantilla (detalle, totales por canal y
+    /// cierre de sección), su cierre <c>E57</c> daba 0 y la línea de anticipos de
+    /// <c>CONSOLIDADO!D28:D32</c> se caía. El detalle es del PERÍODO, no de la quincena.</para>
     ///
     /// La fila destino se resuelve por la clave <c>(firma + canal efectivo)</c> — <b>nunca por orden
     /// físico</b> (Plan 41 E1-1): el canal efectivo es el de la fila <c>Total</c> que CIERRA el grupo

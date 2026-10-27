@@ -49,14 +49,12 @@ public sealed class FNew1Q1BlockerT0Tests
         "<(?:[A-Za-z_][A-Za-z0-9_]*:)?f(?<attrs>[^>]*?)>(?<texto>[^<]*)</(?:[A-Za-z_][A-Za-z0-9_]*:)?f>",
         RegexOptions.Singleline | RegexOptions.Compiled);
 
-    private static string PlantillaOficial() => Insumos.PlantillaOficial();
-
     // ── T0: congelamiento del texto-<f> EXACTO del oficial (base 2026092) ─────────────────────────
 
     [Fact]
     public void T3_T0_CongelaTextosOficial()
     {
-        using var zip = ZipFile.OpenRead(PlantillaOficial());
+        using var zip = ZipFile.OpenRead(Insumos.PlantillaHistoricaV2());
 
         // (a) VALIDACION_TOTAL!C3:C8 = Σ 'Recaudo *'!{col}{21..26} (5 refs por celda).
         var hojaTotal = LeerHoja(zip, "VALIDACION_TOTAL");
@@ -120,7 +118,7 @@ public sealed class FNew1Q1BlockerT0Tests
         var salida = Path.Combine(dir, periodo.NombreArchivo);
         try
         {
-            PreparadorBasePipeline.Ejecutar(PlantillaOficial(), periodo, salida);
+            PreparadorBasePipeline.Ejecutar(Insumos.PlantillaHistoricaV2(), periodo, salida);
 
             using var zip = ZipFile.OpenRead(salida);
 
@@ -190,9 +188,9 @@ public sealed class FNew1Q1BlockerT0Tests
         var salida = Path.Combine(dir, periodo.NombreArchivo);
         try
         {
-            PreparadorBasePipeline.Ejecutar(PlantillaOficial(), periodo, salida);
+            PreparadorBasePipeline.Ejecutar(Insumos.PlantillaHistoricaV2(), periodo, salida);
 
-            var oficial = MapaFormulas(PlantillaOficial());
+            var oficial = MapaFormulas(Insumos.PlantillaHistoricaV2());
             var producido = MapaFormulas(salida);
             Assert.Equal(oficial.Count, producido.Count);
 

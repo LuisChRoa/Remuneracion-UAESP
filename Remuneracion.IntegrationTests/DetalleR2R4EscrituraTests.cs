@@ -39,6 +39,15 @@ public sealed class DetalleR2R4EscrituraTests
     private const string HojaR2 = WorkbookLeafCellMapDetalleR2R4.HojaR2;
     private const string HojaR4 = WorkbookLeafCellMapDetalleR2R4.HojaR4;
 
+    /// <summary>
+    /// Plan 59 (H5): base v2 del julio-Q2. Los casos de julio de este fixture citan FILAS de la
+    /// geometría v2 (E3/E4/E7/E9, E78..E80, E408..E425 y el bloque 67..124) tomadas de la evidencia
+    /// T0b del Plan 29; sobre la v3 esas filas ya no son los mismos slots (los bloques de R2 pasan a
+    /// 1/75/196/317/441, §0.4-b) y las cifras citadas seguirían siendo ciertas, pero en otras filas.
+    /// La cobertura equivalente sobre la v3 (localización por identidad firma+canal, ambas quincenas,
+    /// 5 ASE, contra fuente y oráculo) está en `DetalleR2R4EscritoPlan59Tests`.
+    /// </summary>
+    private static readonly string PlantillaV2JulioQ2 = Insumos.BaseV2DelPeriodo("2026072");
     private static readonly string ManualJulio = Insumos.ManualJulioQ2;
 
     private static readonly string ManualAgosto = Insumos.ManualAgosto2026082;
@@ -52,7 +61,7 @@ public sealed class DetalleR2R4EscrituraTests
     public void JulioAse1_CeldasCitadas_IgualanFuenteYManual()
     {
         using var salida = NuevaSalida();
-        EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida.Ruta);
+        EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, PlantillaV2JulioQ2, salida.Ruta);
 
         // Plan 47 (H1.1, caso testigo autorizado — malla OFICIAL con grupo A/EAB + E/ENEL):
         // el `Vlr Servicio`/`Vlr Intereses` de la fuente (canal E, cerrado por `R7 C=E` de la fuente y
@@ -107,7 +116,7 @@ public sealed class DetalleR2R4EscrituraTests
     public void JulioQ2_DetalleR2_PrimeraVlrServicio_IgualaFuente(int aseId)
     {
         using var salida = NuevaSalida();
-        EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida.Ruta);
+        EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, PlantillaV2JulioQ2, salida.Ruta);
 
         var reader = new ExcelDataReaderWorkbookLeafInputReader();
         var fuente = reader.LeerDetalleR2(Insumos.Ase(aseId), Insumos.R2JulioQ2(aseId));
@@ -123,7 +132,7 @@ public sealed class DetalleR2R4EscrituraTests
     public void JulioQ2_DetalleR4_PrimeraVlrServicio_IgualaFuente(int aseId)
     {
         using var salida = NuevaSalida();
-        EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida.Ruta);
+        EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, PlantillaV2JulioQ2, salida.Ruta);
 
         var reader = new ExcelDataReaderWorkbookLeafInputReader();
         var fuente = reader.LeerDetalleR4(Insumos.Ase(aseId), Insumos.R4JulioQ2(aseId));
@@ -192,7 +201,7 @@ public sealed class DetalleR2R4EscrituraTests
     {
         using var temp = new DirectorioTemporal("remuneracion-detalle-formula-");
         var plantillaMutada = Path.Combine(temp.Ruta, "plantilla-mutada.xlsx");
-        File.Copy(Insumos.PlantillaQ2, plantillaMutada);
+        File.Copy(PlantillaV2JulioQ2, plantillaMutada);
 
         // E7 = primera celda de captura del detalle R2 del ASE1 que el writer SÍ escribe (Plan 47 H1.1:
         // el `Vlr Servicio` de la fuente, canal E cerrado por `R9 C=E D=Total`, cae en la fila 7): se
@@ -226,7 +235,7 @@ public sealed class DetalleR2R4EscrituraTests
 
         var salida = Path.Combine(temp.Ruta, "salida.xlsx");
         var ex = Assert.Throws<CalculoInvalidoException>(() =>
-            EjecutarFlujo(insumos, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida));
+            EjecutarFlujo(insumos, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, PlantillaV2JulioQ2, salida));
 
         Assert.Equal(CodigoError.SinSlot, ex.Codigo);
         Assert.Contains("ERR-SIN-SLOT", ex.Message, StringComparison.Ordinal);
@@ -249,7 +258,7 @@ public sealed class DetalleR2R4EscrituraTests
     public void DetalleR2_FalsoHuecoCerrado_ViCanal2_SeEscribeEnSuSlot()
     {
         using var salida = NuevaSalida();
-        EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida.Ruta);
+        EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, PlantillaV2JulioQ2, salida.Ruta);
 
         Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E78") - 1616173.63m, -Tol, Tol); // `Vlr Servicio` canal 2/NS
         Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaR2, "E79") - 406.42m, -Tol, Tol);     // `Vlr Intereses` canal 2/NS (antes omitido)
@@ -272,7 +281,7 @@ public sealed class DetalleR2R4EscrituraTests
         InvertirContenidoGruposCanalE(fuente);
 
         var salida = Path.Combine(temp.Ruta, "salida-orden.xlsx");
-        EjecutarFlujo(insumos, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida);
+        EjecutarFlujo(insumos, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, PlantillaV2JulioQ2, salida);
 
         // Plan 48 (H1.1 — T0 §1.3): la geometría v2 desplaza ASE5 +22; los grupos `E/ENEL` (408..410)
         // y `E/ENERBIT` (412..414) conservan el reparto por canal compuesto aunque la fuente los traiga
@@ -420,7 +429,7 @@ public sealed class DetalleR2R4EscrituraTests
         var canal = CanalEfectivoDetalleR2R4.CanalEfectivo(
             rotulosFuente, 0, WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR2, WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaGrupoR2);
 
-        var bloque = WorkbookLeafCellMapDetalleR2R4.BloquesR2[aseId];
+        var bloque = BloqueDelDetalle(salida, HojaR2, DelimitadorBloquesHoja.R2, aseId);
         var destino = LocalizarSlot(
             salida, HojaR2, bloque, "|||Vlr Servicio", canal,
             WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR2,
@@ -455,7 +464,7 @@ public sealed class DetalleR2R4EscrituraTests
         var canal = CanalEfectivoDetalleR2R4.CanalEfectivo(
             rotulosFuente, 0, WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR4, WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaGrupoR4);
 
-        var bloque = WorkbookLeafCellMapDetalleR2R4.BloquesR4[aseId];
+        var bloque = BloqueDelDetalle(salida, HojaR4, DelimitadorBloquesHoja.R4, aseId);
         var destino = LocalizarSlot(
             salida, HojaR4, bloque, "||Vlr Servicio", canal,
             WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR4,
@@ -478,6 +487,23 @@ public sealed class DetalleR2R4EscrituraTests
             Assert.InRange(
                 LeerCeldaNumerica(salida, HojaR4, "D" + bloque.FilaInicio.ToString(CultureInfo.InvariantCulture)), -Tol, Tol);
         }
+    }
+
+    /// <summary>
+    /// Bloque de detalle del ASE en la hoja, DELIMITADO por su cabecera y su gran total declarados
+    /// (Plan 59 §11-bis). Antes se tomaba del mapa congelado de la v2 (<c>BloquesR2/R4</c>): con la
+    /// plantilla v3 ese rango ya no es el del bloque y el slot se buscaba fuera de él.
+    /// </summary>
+    private static (int FilaInicio, int FilaFin) BloqueDelDetalle(
+        string salida,
+        string hoja,
+        DelimitadorBloquesHoja.HojaDelimitable hojaDelimitable,
+        int aseId)
+    {
+        using var workbook = SpreadsheetDocument.Open(salida, false);
+        var workbookPart = workbook.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
+        var bloque = DelimitadorBloquesHoja.DelimitarBloque(workbookPart, hojaDelimitable, aseId);
+        return (bloque.EncabezadoColumnas + 1, bloque.GranTotal);
     }
 
     /// <summary>Rótulos A–D del bloque tal como quedaron en el workbook generado (resolviendo las

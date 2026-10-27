@@ -139,7 +139,7 @@ internal static class VerificadorDestinoProtegido
         ArgumentNullException.ThrowIfNull(parte);
         ArgumentNullException.ThrowIfNull(periodo);
 
-        var hoja = NombresHojaPeriodo.DetRetri(periodo);
+        var hoja = HojasPeriodo.DetRetri(parte, periodo);
         var worksheet = HojaFisica(parte, hoja);
 
         foreach (var aseId in IdsDelCatalogo())
@@ -468,7 +468,7 @@ internal static class VerificadorDestinoProtegido
 
     // ── Verificación de FORMA ───────────────────────────────────────────────────────────────────
 
-    private static void ExigirForma(
+    internal static void ExigirForma(
         WorkbookPart parte,
         Worksheet worksheet,
         string hoja,
@@ -559,7 +559,7 @@ internal static class VerificadorDestinoProtegido
     /// Devuelve <c>null</c> cuando la fórmula no es de esa familia (paréntesis, funciones, literales):
     /// el verificador no adivina formas.
     /// </summary>
-    private static List<(int Signo, string Referencia)>? Terminos(string? formula, string hojaPorDefecto)
+    internal static List<(int Signo, string Referencia)>? Terminos(string? formula, string hojaPorDefecto)
     {
         if (string.IsNullOrWhiteSpace(formula))
         {
@@ -629,7 +629,7 @@ internal static class VerificadorDestinoProtegido
         return terminos;
     }
 
-    private static string NormalizarReferencia(string termino, string hojaPorDefecto)
+    internal static string NormalizarReferencia(string termino, string hojaPorDefecto)
     {
         var separador = termino.LastIndexOf('!');
         if (separador < 0)
@@ -650,12 +650,50 @@ internal static class VerificadorDestinoProtegido
     /// Excel puede usar <c>U+2212</c> para el mismo nombre de hoja que la plantilla declara con
     /// <c>-</c>; unificar el carácter es normalización de texto, no una concesión de coordenada.
     /// </summary>
-    private static string NormalizarFormula(string valor) =>
+    internal static string NormalizarFormula(string valor) =>
         valor.Replace(" ", string.Empty, StringComparison.Ordinal)
             .Replace("−", "-", StringComparison.Ordinal)
             .Replace("–", "-", StringComparison.Ordinal)
             .Replace("—", "-", StringComparison.Ordinal)
             .ToUpperInvariant();
+
+    /// <summary>
+    /// Plan 59 (H5): compara dos conjuntos de términos por FORMA (multiconjunto <c>(signo, referencia)</c>)
+    /// normalizando el lado esperado con la misma regla que la fórmula hallada. Lo usan los
+    /// verificadores derivados que necesitan PREGUNTAR si una celda tiene la forma de un rol antes de
+    /// exigírsela (rol «diferencia» de la hoja BCE, que la plantilla no rotula).
+    /// </summary>
+    internal static bool MismaForma(
+        IReadOnlyList<(int Signo, string Referencia)> obtenidos,
+        IReadOnlyList<(int Signo, string Referencia)> esperados,
+        string hoja)
+    {
+        ArgumentNullException.ThrowIfNull(obtenidos);
+        ArgumentNullException.ThrowIfNull(esperados);
+
+        var esperado = esperados
+            .Select(t => (t.Signo, Referencia: NormalizarReferencia(t.Referencia, hoja)))
+            .OrderBy(t => t.Referencia, StringComparer.Ordinal)
+            .ThenBy(t => t.Signo)
+            .ToList();
+        var obtenido = obtenidos
+            .OrderBy(t => t.Referencia, StringComparer.Ordinal)
+            .ThenBy(t => t.Signo)
+            .ToList();
+
+        return esperado.SequenceEqual(obtenido);
+    }
+
+    /// <summary>
+    /// Plan 59 (H5): compara una referencia hallada contra la referencia que un rol exige, ambas
+    /// normalizadas (sin espacios, sin comillas de hoja, con el guion unificado). La referencia
+    /// esperada se DERIVA de la geometría resuelta por identidad; no es una coordenada congelada.
+    /// </summary>
+    internal static bool MismaReferencia(string? hallada, string esperada, string hojaPorDefecto) =>
+        string.Equals(
+            NormalizarReferencia(hallada ?? string.Empty, hojaPorDefecto),
+            NormalizarReferencia(esperada, hojaPorDefecto),
+            StringComparison.Ordinal);
 
     private static string DescribirTerminos(IReadOnlyList<(int Signo, string Referencia)> terminos) =>
         terminos.Count == 0

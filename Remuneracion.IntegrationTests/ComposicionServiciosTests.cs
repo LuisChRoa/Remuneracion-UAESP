@@ -34,7 +34,7 @@ public sealed class ComposicionServiciosTests
             {
                 Periodo = Insumos.PeriodoQ2(),
                 CarpetaPeriodo = Insumos.CarpetaPeriodoQ2,
-                RutaPlantilla = Insumos.PlantillaOficial(),
+                RutaPlantilla = Insumos.PlantillaHistoricaV2(),
                 RutaSalida = salida
             }));
 
@@ -65,7 +65,7 @@ public sealed class ComposicionServiciosTests
             {
                 Periodo = Insumos.PeriodoQ2(),
                 CarpetaPeriodo = Insumos.CarpetaPeriodoQ2,
-                RutaPlantilla = Insumos.PlantillaOficial(),
+                RutaPlantilla = Insumos.PlantillaHistoricaV2(),
                 RutaSalida = salida,
                 DivergenciasDeclaradasAceptadas = [FixtureDivergenciaSintetica.EntradaId]
             });

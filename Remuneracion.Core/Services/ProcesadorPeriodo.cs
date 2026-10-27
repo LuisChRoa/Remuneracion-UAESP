@@ -78,8 +78,9 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         ArgumentNullException.ThrowIfNull(solicitud);
 
         // Plan 55 (H1.1/D4): la PLANTILLA es la autoridad de los destinos de la conciliación por
-        // empresa (resolución por cruce de etiquetas). Se entrega al reader UNA vez por corrida; el
-        // recorte de la conciliación en Q2 (R-RECORTE-Q2) queda intacto.
+        // empresa (resolución por cruce de etiquetas). Se entrega al reader UNA vez por corrida.
+        // Plan 59 (H3): la lectura de la conciliación por empresa corre en ambas quincenas; no hay
+        // recorte por quincena que preservar.
         _leafReader.RutaPlantilla = solicitud.RutaPlantilla;
 
         // HU-14 (3.2, D5): RunId por ejecución correlaciona todos los eventos de ESTE procesador
@@ -201,25 +202,17 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
                 .Information("ASE {AseId}: INTERVENTORIA = insumo externo declarado — hoja intacta (bloque anual estático K26:K30/N26:N30; no se escribe; veredicto D2b T0).", idAse);
 
             // HU-08 (2.2): conciliación por empresa de facturación de este ASE (fail-fast ASE+empresa).
-            // HU-20-T0b/G2-D1 (recorte Q2) — MANTENIDO: el Plan 50 (A2, §2.4) autorizó levantar el
-            // recorte, pero el T0 de bytes de H0/H1 demostró un BLOQUEO DE PLANTILLA en v2: la celda
-            // de destino del mapa por empresa (1,4) `Rem. Anticipos R2!E285` (y su `K285`) es FÓRMULA
-            // en la v2 (`E285 = E192+E203-K192`; en la v1 era literal 0) → any Q2 write aborta con
-            // `ERR-PLANTILLA` ("no puede sobrescribir fórmulas"). Reactivar A2 exige re-congelar ese
-            // mapa por T0 (clase Plan 48: v3/propietaria), NUNCA editar el mapa ni relajar el guard:
-            // ver `Docs/T0-Plan50-FuentesRecaudoOpcionales.md` §4.3 (residuo R-MAPA-V2-R2-ASE4).
-            // leaf.Conciliacion vacío en Q2 = comportamiento HU-07 puro para validador/writer.
-            if (!esQuincena2)
-            {
-                progreso?.Report($"ASE {idAse}: leyendo conciliación por empresa (R1/R2/R4)...");
-                Log.Information("ASE {AseId}: leyendo conciliación por empresa (R1/R2/R4)...", idAse);
-                leaf.Conciliacion = _leafReader.LeerConciliacionEmpresas(ase, solicitud.Periodo, rutaR1, rutaR2, rutaR4);
-            }
-            else
-            {
-                progreso?.Report($"ASE {idAse}: conciliación por empresa omitida en Q2 (residuo R-MAPA-V2-R2-ASE4: la celda destino R2!E285 es fórmula en la plantilla v2; ver Plan 50 §2.4).");
-                Log.Warning("ASE {AseId}: conciliación por empresa omitida en Q2 (residuo R-MAPA-V2-R2-ASE4: R2!E285 es fórmula en la v2; ver Plan 50 §2.4).", idAse);
-            }
+            // Plan 59 (H3): SIN recorte por quincena. El recorte heredado de HU-20-T0b/G2-D1 se
+            // apoyaba en un bloqueo de PLANTILLA que ya no existe: la celda destino del grupo
+            // (1,4) `Rem. Anticipos R2!E285` era FÓRMULA en la v2 y en la plantilla vigente es un
+            // slot de valor, y el SEGUNDO cuadro de R2 declara el grupo `canal A / empresa EAB` en
+            // los 5 ASE. El destino y la protección NO se congelan aquí: los resuelve el reader por
+            // cruce de etiquetas contra la plantilla que se está procesando, y el guard
+            // anti-fórmula (`EscribirValorNumerico`) sigue abortando si la plantilla futura
+            // convierte un destino en fórmula. La lectura corre igual en ambas quincenas.
+            progreso?.Report($"ASE {idAse}: leyendo conciliación por empresa (R1/R2/R4)...");
+            Log.Information("ASE {AseId}: leyendo conciliación por empresa (R1/R2/R4)...", idAse);
+            leaf.Conciliacion = _leafReader.LeerConciliacionEmpresas(ase, solicitud.Periodo, rutaR1, rutaR2, rutaR4);
 
             // HU-09 (2.3): reporte de recaudo por banco de este ASE (fail-fast ASE+empresa-columna).
             var rutaBanco = _localizador.BuscarReporteBanco(carpetaAse)

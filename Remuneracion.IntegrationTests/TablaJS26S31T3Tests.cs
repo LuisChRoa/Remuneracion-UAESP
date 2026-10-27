@@ -26,7 +26,7 @@ public sealed class TablaJS26S31T3Tests
         "<(?:[A-Za-z_][A-Za-z0-9_]*:)?f(?<attrs>[^>]*?)>(?<texto>[^<]*)</(?:[A-Za-z_][A-Za-z0-9_]*:)?f>",
         RegexOptions.Singleline | RegexOptions.Compiled);
 
-    private static string PlantillaOficial() =>
+    private static string PlantillaHistoricaV1() =>
         Path.Combine(Raiz(), "Docs", "Plantilla estandarizada", "Formato Remuneracion 2026xx-x Total.xlsx");
 
     [Theory]
@@ -39,7 +39,7 @@ public sealed class TablaJS26S31T3Tests
         var salida = Path.Combine(dir, periodo.NombreArchivo);
         try
         {
-            PreparadorBasePipeline.Ejecutar(PlantillaOficial(), periodo, salida);
+            PreparadorBasePipeline.Ejecutar(PlantillaHistoricaV1(), periodo, salida);
 
             using var zip = ZipFile.OpenRead(salida);
             var interv = LeerHoja(zip, "INTERVENTORIA");
@@ -67,7 +67,7 @@ public sealed class TablaJS26S31T3Tests
         var salida = Path.Combine(dir, periodo.NombreArchivo);
         try
         {
-            PreparadorBasePipeline.Ejecutar(PlantillaOficial(), periodo, salida);
+            PreparadorBasePipeline.Ejecutar(PlantillaHistoricaV1(), periodo, salida);
             FijarFormula(salida, "INTERVENTORIA", "R26", "J15");
 
             using var documento = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(salida, false);
@@ -95,7 +95,7 @@ public sealed class TablaJS26S31T3Tests
         var salida = Path.Combine(dir, periodo.NombreArchivo);
         try
         {
-            PreparadorBasePipeline.Ejecutar(PlantillaOficial(), periodo, salida);
+            PreparadorBasePipeline.Ejecutar(PlantillaHistoricaV1(), periodo, salida);
 
             using var zip = ZipFile.OpenRead(salida);
 

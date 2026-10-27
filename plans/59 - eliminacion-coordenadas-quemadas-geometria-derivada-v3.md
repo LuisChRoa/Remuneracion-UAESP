@@ -8,7 +8,8 @@ padre: plans/58 - integridad-paquete-y-conciliacion-r2-por-empresa.md
 madre_doctrina: .opencode/project-context.md (plantilla autoridad; values-only; guard anti-formula; tolerancia ±0,5; prohibido <v> stale como oraculo) + plans/55 (conciliacion por empresa, anti-tautologia, candado) + plans/56 (identidad A/B, cero documentado, candado de dos capas) + plans/57 (anclas derivadas, precedente de eliminacion) + plans/40 (W-1 evalua+sella) + plans/31 (gate workbook-vs-dominio)
 caso_rojo: corrida real 2026072 --cinco-ase contra la v3 — ERROR [ERR-SIN-SLOT]: ASE 1: la fila A|B|C|D|E='Subs/Cont|Total|||' de la fuente R1 no tiene destino en la seccion 'Subs/Cont' (hoja 'Reporte Componentes R1', rango del bloque 6-72); cascada ASE2..ASE5 en VerificarCabeceraBloque (B108/B287/B446/B599 vacias en v3). Una sola causa, no cinco.
 gate_entrada:
-  plantilla_v3: Docs/Plantilla estandarizada/v3/Formato Remuneracion 2026xx-x Total v3.xlsx — SHA256 8199F8647A7ACA84812AD3A61F6607956B2270E0B5C1C999C7690B62032B1295 (705.934 bytes; verificar intacto antes/despues de cada H)
+  plantilla_v4: Docs/Plantilla estandarizada/v4/Formato Remuneracion 2026xx-x Total v4.xlsx — VIGENTE desde 2026-10-27. Huella semantica (GATE, helper canonico `HuellaSemanticaPlantilla`) a7476ee2e80dfa13c9e39430d1ea4d77f0c52e3ca0a3d11a526d5140b8608c55; SHA256 de archivo 5FEDFD316980276945DF2AF29784EFFC5FE178C5CF1AA16F3C5D5F6F0A4E38E5 (705.805 bytes, dato INFORMATIVO). Es la v3 + exactamente 2 celdas de formula corregidas en `Reporte Componentes R1`: F328 `F269+F213+F141-L141-M213` -> `...-L213` y F333 `F254+F191+F126--L126-L191` -> `...-L126...`. Con la v4, 2026071, 2026072 y 2026101 dan RESULTADO OK
+  plantilla_v3: HISTORICA desde 2026-10-27 (no se consume: ningun camino de produccion ni fixture de procesamiento la abre; solo la evidencia congelada `GeometriaDerivadaV3T0Plan59Tests`). Huella semantica 92935014f3611055c15f12db92c71020f741d009634e8ec59f1e4448235d72ff; SHA256 de archivo 8D0B3299C42BE16065CEB56E65A9EC329877109A3B6A30D35F6D83552B423538 (709.040 bytes). Motivo del retiro: typo de formula en R1!F328/F333 que impedia cerrar julio-1 y julio-2 (ajeno a la app)
   plantilla_v2: historica desde 2026-10-26 (SHA 0F192AD2721C77986B6A8CB85D1A92F782DCD2F69989F362E066FA17027F2DAB intacto, no se consume)
   plantilla_v1: historica (SHA 3086AC31...C5214 intacto, no se consume)
   suite_base: ratificada 2026-10-26 = corrida del arbol VIGENTE sin el fixture de H0 (1558 total / 1518 verdes / 40 rojos / 0 skip), trx `Remuneracion.IntegrationTests/TestResults/p59-h0-baseline-hoy.trx`. Los 6 verdes->rojo y 1 rojo->verde frente a `p58-final.trx` tienen causa externa citada: commit `88b3acb` "Actualizacion de insumos Julio-2" (2026-10-26 07:46) reemplazo 46 archivos de `Docs/Prueba Julio-2/Insumos` por versiones corregidas (los insumos anteriores "no eran del todo correctos"); el Ingeniero confirma que los VIGENTES son los de prueba. Rojo nuevo fuera de esta lista = STOP
@@ -41,9 +42,28 @@ gate_entrada:
 4. Un template que no declare el destino exigido ⇒ **fail-fast accionable** (`ERR-SIN-SLOT` / `ERR-PLANTILLA`) nombrando bloque+firma+sección; nunca reacomodo por posición ni remapeo silencioso.
 5. Calidad senior: la solución debe **eliminar la clase de defecto** (coordenadas quemadas), no re-congelar una foto nueva de la v3.
 
-### 0.3 La v3 es la ÚNICA plantilla vigente desde 2026-10-26
+### 0.3 Plantilla vigente: v4 desde 2026-10-27 (v3 histórica)
 
-Archivo: `Docs/Plantilla estandarizada/v3/Formato Remuneracion 2026xx-x Total v3.xlsx` — SHA256 `8199F8647A7ACA84812AD3A61F6607956B2270E0B5C1C999C7690B62032B1295` (705.934 bytes). v2 queda histórica (SHA `0F192AD2721C77986B6A8CB85D1A92F782DCD2F69989F362E066FA17027F2DAB`), v1 histórica (`3086AC31...C5214`). La SHA de la v3 se re-verifica intacta en el T0 y antes/después de cada H.
+**Decisión del Ingeniero (textual, 2026-10-27):**
+
+> "La v4 pasa a ser la vigente. La v3 será histórica, no se usará más para el procesamiento."
+
+Archivo vigente: `Docs/Plantilla estandarizada/v4/Formato Remuneracion 2026xx-x Total v4.xlsx` — SHA256 de archivo `5FEDFD316980276945DF2AF29784EFFC5FE178C5CF1AA16F3C5D5F6F0A4E38E5` (705.805 bytes, **dato informativo**) y **huella semántica de contenido `a7476ee2e80dfa13c9e39430d1ea4d77f0c52e3ca0a3d11a526d5140b8608c55`** (§0.6). La huella es el **gate**; el SHA de archivo solo informa.
+
+`v3` = `Docs/Plantilla estandarizada/v3/Formato Remuneracion 2026xx-x Total v3.xlsx` — queda en disco como **histórica** (huella `92935014…72ff`, SHA de archivo `8D0B3299…3538`, 709.040 bytes). Motivo: sus `R1!F328`/`R1!F333` traían el typo de fórmula que impedía cerrar julio-1 y julio-2. Ningún camino de producción ni fixture de procesamiento la abre; su única lectura es la evidencia congelada del T0 (`GeometriaDerivadaV3T0Plan59Tests`, motivo declarado en el propio fixture).
+
+`v4` = `v3` + **exactamente dos celdas de fórmula** en `Reporte Componentes R1`:
+
+| Celda | v3 | v4 |
+|---|---|---|
+| `F328` | `F269+F213+F141-L141-M213` | `F269+F213+F141-L141-L213` |
+| `F333` | `F254+F191+F126--L126-L191` | `F254+F191+F126-L126-L191` |
+
+Todo lo demás es idéntico: 40 hojas con el mismo nombre y orden, mismas `dimension`, mismo número de celdas (42.134), mismos valores. **Prueba medida** (no declarativa): `HuellaPlantillaVigenteV4Plan59Tests.V4_4` compara entrada por entrada las dos plantillas con el helper canónico y la diferencia es exactamente `{R1!F328, R1!F333}`.
+
+v2 queda histórica (SHA `0F192AD2721C77986B6A8CB85D1A92F782DCD2F69989F362E066FA17027F2DAB`), v1 histórica (`3086AC31...C5214`). Las huellas —no los SHA— se re-verifican intactas antes/después de cada H.
+
+**El mismo código procesa v3 y v4.** No hubo un solo cambio funcional para adoptar la v4: la app consume la plantilla como INPUT y deriva toda la geometría (H1) y todo destino/protección (H2/H3/H5) del contenido. Al re-basear los fixtures de la v3 a la v4, **todos** los asertos de geometría, delimitación y resolución por etiqueta pasaron sin editar un número ni una tolerancia. Esa es, precisamente, la prueba de que la geometría quedó derivada y no es una foto de la v3.
 
 ### 0.4 Evidencia medida por bytes (verificada por el orquestador con dump OpenXML propio; el plan la cita como "medida" y el T0 la re-verifica)
 
@@ -89,21 +109,26 @@ Causa raíz medida: la fila de cierre `A=Subs/Cont / B=Total` del bloque ASE1 es
 
 Ya está resuelto y **sirve de precedente de diseño** (no reabrir): `AnclasExtempR1` (Plan 49) fue eliminado por el Plan 57 mediante derivación de anclas desde la plantilla; `AnclasExtempR1.cs` ya no existe. El camino label‑driven que **sí** es tolerante y debe reutilizarse: `ContratoSeccionPeriodFreeR1` (`PlanificarJerarquiaR1`, `SeccionPorCierre`, `FirmaCuadroR1`, `CanalEfectivo`, `Alinear`), `SinonimosEmpresaR1`, `ResolvedorConciliacionEmpresa` (Plan 55), `EscritorValoresSlotR1` (identidad A/B/C/D/E del Plan 56), `ResolvedorOperandosEmpresaR1` (Plan 53).
 
-### 0.6 G-HUELLA — re-baseline 2026-10-26 (prevalece sobre cualquier SHA literal de este documento)
+### 0.6 G-HUELLA — re-baseline 2026-10-27 (prevalece sobre cualquier SHA literal de este documento)
 
 **Hecho medido:** los archivos `v2/...vf.xlsx` y `v3/...v3.xlsx` fueron **re-guardados en Excel** (y commiteados en `2002b3f`). El empaquetado cambió, el **contenido no**:
 
 | Archivo | SHA de archivo al aprobar | SHA de archivo vigente | **Huella semántica (contenido)** |
 |---|---|---|---|
-| v3 | `8199F864…2B1295` (705.934 B) | `5ACE6F5AFAB068F2C947FF5CF8E6A80973A9A6195419C1758A96D28D5FBF71F1` (709.070 B) | **`c371a5fb7d5668c8cff62a11c6d8a533a6aff5e5895655c85b02b3c19709c2e0`** (idéntica antes/después) |
-| v2 | `0F192AD2…7F2DAB` (693.400 B) | `86E48E47EF9E8FDEC2849448C2C7947CFE51310F2F85A9AAB7D1F3C1CC9D3D14` (693.983 B) | **`dd7f5891665f653a183d0d9976d70ed8f5b2d91ae5a1cbc934d8c62749242329`** (idéntica antes/después) |
-| v1 | `3086AC31…C5214` (692.598 B) | igual | — (histórica, no se consume) |
+| **v4 (VIGENTE)** | — | `5FEDFD31…E38E5` (705.805 B) | **`a7476ee2e80dfa13c9e39430d1ea4d77f0c52e3ca0a3d11a526d5140b8608c55`** |
+| v3 (histórica) | `8199F864…2B1295` (705.934 B) | `8D0B3299…423538` (709.040 B) | **`92935014f3611055c15f12db92c71020f741d009634e8ec59f1e4448235d72ff`** |
+| v2 (histórica) | `0F192AD2…7F2DAB` (693.400 B) | `86E48E47EF9E8FDEC2849448C2C7947CFE51310F2F85A9AAB7D1F3C1CC9D3D14` (693.983 B) | **`a4ea462b57be95938d0a25a9369bfd1e19d2d1229b75de7d89fbf71fb5991879`** |
+| v1 (histórica) | `3086AC31…C5214` (692.598 B) | igual | **`cf9aa03604ed72b2252876df83abd573eb5609b14a97026ef7c1b23774490d17`** |
 
-Prueba de identidad: comparación entrada por entrada de hojas, `dimension`, `<f>`, `<v>` y fórmulas compartidas — **v3: 42.214 entradas, 0 diferencias; v2: 38.407 entradas, 0 diferencias**.
+Las huellas de la tabla son las del **helper canónico** (`Remuneracion.IntegrationTests/HuellaSemanticaPlantilla.cs`: hojas + `dimension` + `f`/`v`/`si`/`ref` por celda, orden ordinal, SHA-256). Las cifras `c371a5fb…`/`dd7f5891…` que este documento citó en su primera versión provenían de una normalización no documentada y quedan **retiradas**: el gate es esta tabla. Nota: la v3 cambió de SHA de archivo otra vez al re-guardarse (§11 la midió `5ACE6F5A…FBF71F1`); su **huella no se movió** — exactamente el falso rojo que la doctrina evita.
 
-**Doctrina corregida (aplica a este plan y a los gates):** el **SHA de archivo no es un gate válido** para una plantilla que un humano abre en Excel — cada "Guardar" reescribe el paquete y produce un falso rojo (los 6 rojos de SHA de la suite son exactamente eso). El gate es la **huella semántica** (hash del contenido normalizado y ordenado); el SHA de archivo queda como dato informativo.
-- Gate: **huella de la v3 `c371a5fb…c2e0`** y de la v2 `dd7f5891…2329` antes y después de cada H. Huella distinta ⇒ **STOP** (cambió el contenido: hojas, dimensiones, fórmulas o valores).
-- Los fixtures que hoy asertan el SHA de archivo deben pasar a asertar **la huella** (o a comparar el contenido normalizado). Ese es el arreglo de los 6 rojos de `G-SHA`, no un re-baseline de números.
+Prueba de identidad v2/v3: comparación entrada por entrada de hojas, `dimension`, `<f>`, `<v>` y fórmulas compartidas — **0 diferencias de contenido** en cada re-guardado.
+
+**Doctrina (aplica a este plan y a los gates):** el **SHA de archivo no es un gate válido** para una plantilla que un humano abre en Excel — cada "Guardar" reescribe el paquete y produce un falso rojo. El gate es la **huella semántica** (hash del contenido normalizado y ordenado); el SHA de archivo queda como dato informativo.
+- Gate de entrada: **huella de la v4 `a7476ee2…8c55`**. Huella distinta ⇒ **STOP** (cambió el contenido: hojas, dimensiones, fórmulas o valores).
+- Prueba de inyección del gate (`HuellaPlantillaVigenteV4Plan59Tests.V4_5`): revertir `R1!F328` a `…-M213` (el typo de la v3) sobre una copia **enrojece** — la huella de la copia no es la del gate. Un gate que no enrojece ante un cambio de contenido no es un gate.
+- **Gate de la v4 = v3 + 2 fórmulas** (`V4_4`): el conjunto de diferencias medido por el helper es exactamente `{Reporte Componentes R1!F328, Reporte Componentes R1!F333}`; mismas hojas, mismas dimensiones, mismo número de celdas. Si alguien toca una tercera celda, enrojece.
+- Los fixtures asertan **huella**, no SHA de archivo. Ese fue el arreglo de los 6 rojos de `G-SHA` (§10), no un re-baseline de números.
 
 ### 0.5 Hallazgo que cambia alcance (la v3 resuelve el pendiente P1 del Plan 58)
 
@@ -474,7 +499,7 @@ Puertas vigentes: sin H0 verde no hay H1; sin candado ni review no hay H4. Padre
 
 **Gate nuevo (VerificarAsientoDetRetri):** relee el .xlsx guardado y compara lo escrito contra el dominio; **0 escrito donde el dominio declara monto ⇒ `ERR-ESCRITURA` y no se entrega**. Prueba de inyección forzando ceros: enrojece.
 
-**Evidencia:** 2026101 D9:D14 = 14.842.425.136 / 11.302.637.605 / 8.823.787.300 / 10.483.172.762 / 7.550.668.665 / 53.002.691.468 (6/6 idénticos al oráculo administrativo). 2026071 6/6 contra el R10 oficial. 2026072 6/6 en el (sin validar); su único rojo restante es el typo de plantilla `R1!F328` (-M213 en vez de -L213), que es de la propietaria.
+**Evidencia:** 2026101 D9:D14 = 14.842.425.136 / 11.302.637.605 / 8.823.787.300 / 10.483.172.762 / 7.550.668.665 / 53.002.691.468 (6/6 idénticos al oráculo administrativo). 2026071 6/6 contra el R10 oficial. 2026072 6/6 en el (sin validar). ~~su único rojo restante es el typo de plantilla `R1!F328` (-M213 en vez de -L213), que es de la propietaria~~ — **el typo quedó cerrado por la v4 el 2026-10-27** (`R1!F328` = `…-L213`; §14): 2026072 cierra con `RESULTADO OK` y sus 6 celdas son 17.450.228.673 / 20.516.143.970 / 15.221.896.467 / 7.179.595.396 / 12.073.344.662 / 72.441.209.168.
 
 **Pendientes declarados (decisión del Ingeniero):**
 1. `DetValiRetri!D9:D14` (tarifas TCS/TLU/TBL/TRT) queda en 0: el oráculo los llena, pero su fuente (tarifas del CONSOLIDADO U..AG) no está en el dominio del período.
@@ -482,3 +507,407 @@ Puertas vigentes: sin H0 verde no hay H1; sin candado ni review no hay H4. Padre
 3. Modo 1-ASE nunca escribe DetRetri (no puebla DetRetriQ2): hueco preexistente.
 
 **Nota de gate:** la plantilla se re-guardó en Excel otra vez (SHA de archivo `8D0B3299…`); contenido idéntico (0 diferencias sobre el dump normalizado). El gate válido sigue siendo la **huella semántica**, no el SHA de archivo.
+
+---
+
+## 12. Hueco del bloque R2/R4 en Q1 — cerrado (2026-10-26)
+
+**Causa raíz medida:** `ExcelDataReaderWorkbookLeafInputReader` construía `DetalleR2`/`DetalleR4` solo bajo `if (esQuincena2)`. En la primera quincena el bloque `Rem. Anticipos R2` / `Reversion Pagos R4` quedaba entero en los literales `0` de la plantilla en sus tres niveles —detalle por canal/concepto, totales por canal/empresa y cierre de sección—: el cierre de cuadro (`E57 = E25+E42-K25`) daba 0, `CONSOLIDADO!D28:D32` se caía y el archivo se contradecía a sí mismo (el `DetRetri`, escrito desde el dominio, declaraba monto). Ningún gate de forma lo veía: la forma siempre fue correcta (literales, sin `<f>`).
+
+**Corrección (producción):**
+1. La rama se **elimina**: el detalle de R2/R4 es del PERÍODO y se construye en ambas quincenas. La única dependencia legítima de quincena en ese reader (`LeerRecaudosEmpresa`: par `D/E` en Q1 vs `F/G` en Q2 del `RESUMEN MES`) se conserva — es selección de columnas de la fuente, no del algoritmo.
+2. **Gate nuevo** `OpenXmlPlantillaWriter.VerificarDetalleR2R4` (corre junto a `VerificarAsientoDetRetri`, sobre el `.xlsx` ya guardado): por ASE, por **nivel** del bloque y por **componente** (encabezado leído de la hoja) exige que lo escrito sea lo que la FUENTE declara para ese nivel; un nivel en cero o desalineado aborta con `ERR-ESCRITURA` y el parcial se borra. Los niveles se clasifican con la MISMA gramática de cierres de la hoja (`DelimitadorBloquesHoja.Clasificar`, nuevo accesor), aplicada a la fuente y a la hoja. Cero literales de fila/celda y cero ramas por ASE/empresa/período (el bloque se delimita por cabecera de ASE + gran total declarados; las columnas salen de la fila de encabezados).
+   - **Medido y decidido:** no se exige «la cadena de agregación debe cerrar». En agosto-2 · ASE4 la propia fuente publica su cierre de sección sin que sea la suma de sus cierres por empresa (filas de detalle fuera de todo grupo en el cuadro `Subs/Cont`). Exigir esa identidad sería inventar una regla de negocio y enrojecería un entregable correcto.
+3. **Prueba de inyección** (`DetalleR2R4EscritoPlan59Tests.INYECCION_...`): vaciar solo el nivel de detalle de ASE2 en R2 y, en otra pasada, el bloque entero de ASE2 en R4 ⇒ `ERR-ESCRITURA` en ambos casos.
+4. **Contraste contra el oráculo administrativo** (`Q1_2026101_...`): los 5 ASE × R2/R4 coinciden componente por componente con `Docs/Prueba Octubre-1/Resultados/Resultado administrativo/Remuneracion 202610-1 Total.xlsx`. La única diferencia es la partición entre `Deb/Cred` y `Deb/Cred-otros`: el administrativo mueve a «otros» un subconjunto que la fuente trae en `Deb/Cred` (ASE2 · `Vlr Intereses` de OCCIDENTE, 6.759.294,81). Esa clasificación no está en la fuente; se verifica el TOTAL del par (coincide al centavo) y queda declarada como pendiente de negocio, misma familia que Plan 58-P2.
+
+**Bases de fixture migradas a la v3 (la v2 no declara el grupo `canal A / empresa EAB` del SEGUNDO cuadro de R2 que la v3 agregó en los 5 ASE):**
+
+| Fixture (archivo) | Base antes | Base después | Por qué la expectativa se conserva |
+|---|---|---|---|
+| `Insumos.cs` · `PlantillaAgosto2026082` (consumida por `DetalleR2R4EscrituraTests`, `ValidaControlRecaudoF10Tests`, `IntegridadCalcChainYSelloFechasTests`, `R1Q2ResolucionPorFirmaTests`, `ValidadorTotalesR1GateTests`, `BalanceScPermutaTests`, `DetRetriDesgloseTrazableTests`) | base `2026082` preparada desde la v2 | base `2026082` desde la **v3** (`BaseDelPeriodoV3`) | Fuente agosto-2 · ASE4: el 2.º cuadro trae la fila `Subsidio(-)/Contribucion(+)` del grupo `A/EAB` (−12.462,26) y sus cierres. Con la v2 esa fila no tenía slot y el detalle escrito sumaba 111.226.162,61 frente a los 111.213.700,35 de la fuente: **el bloque salía incompleto**. Con la v3 los tres niveles cuadran con la fuente (el gate lo exige) |
+| `AnclasDerivadasH2Plan57Tests.cs` · `PlantillaOficial()` | v2 | **v3** | La corrida de 2026101 sobre v2 muere con `ERR-SIN-SLOT` (ASE2, canal `A/EAB`, −18.613,87 del 2.º cuadro): la v2 no declara ese grupo. Con la v3 la corrida cierra (exit 0) y las anclas siguen derivándose por etiqueta — los 23 casos del fixture quedan verdes |
+| `AnclasDerivadasH2Plan57Tests.H2_1_ConductualFormulaInjertada...` | corrida sobre `2026072` | corrida sobre `2026101` | El conductor (injerto de un término falso ⇒ el núcleo dispara con el Δ exacto) necesita una corrida cuyo resultado exista. `2026072` no cierra con la v3 por el defecto de la plantilla `R1!F328` (`M213` donde debe ser `L213`), ajeno a la app y ya declarado; `2026101` cierra con exit 0 y el aserto no depende del período |
+| `DetalleR2R4EscrituraTests.cs` · localización del slot | `WorkbookLeafCellMapDetalleR2R4.BloquesR2/R4` (ventana v2) | `DelimitadorBloquesHoja.DelimitarBloque` (cabecera + gran total) | Con la v3 la ventana congelada de la v2 ya no es el bloque; el slot se busca dentro del bloque REAL. El aserto es el mismo (primer `Vlr Servicio` == fuente) |
+| `DetalleR2R4Tests.LeerLeafInputs_Q1_NoPueblaDetalle` | aserto de la rama (Q1 sin detalle) | `LeerLeafInputs_Q1_PueblaDetalleIgualQueQ2_SinAlterarAgregados` | El aserto anterior **codificaba el defecto**. Lo respalda el oráculo: 2026101 y el R10 de 2026071 (ambas primera quincena) traen el detalle lleno |
+| `LecturaR1SinRamaQuincenaTests` (allow-list + capa conductual) | cupo 2 de `var esQuincena2 = ...`; `Assert.Null(q1.DetalleR2)` | cupo 1 (solo `LeerRecaudosEmpresa`); Q1 == Q2 fila por fila | El candado se **aprieta** (una ocurrencia menos que declarar) y la identidad Q1≡Q2 se vuelve más fuerte: antes solo comparaba R1, ahora también la secuencia completa del detalle |
+
+**Evidencia:**
+- Build solución: **0 warnings / 0 errores**.
+- Suite: base 1605/1571/34 → **1608/1574/34** (+3 tests nuevos). **0 rojos nuevos, 0 cerrados, 0 rojos desaparecidos**; el único nombre que sale del listado es el rename citado en la tabla (aserto del defecto → aserto del comportamiento correcto). trx `TestResults/p59-frente3-final.trx`.
+- Corridas reales con la v3: `2026101` → **exit 0** (`Remuneración 202610-1 Total.xlsx`, 618.867 B); `2026071` → exit 1 `ERR-VALIDACION` (Δ 1.361.600,46 = el defecto `R1!F328` de la plantilla); `2026072` → exit 1 `ERR-VALIDACION` (Δ 1.101.678,21, **idéntico** al medido en §10). Los tres veredictos se compararon **con la rama restaurada** (estado pre-fix) sobre la misma base v3: `58208733220.04 != 58210094820.50` y `72440107489.50 != 72441209167.71` en ambos estados ⇒ la corrección cambia el CONTENIDO del entregable, no el veredicto de validación (que arrastra el typo de la plantilla). Cero `ERR-SIN-SLOT`, `ERR-PLANTILLA`, `ERR-ESCRITURA`, `ERR-INTEGRIDAD` en las tres.
+- Bloque R2 · ASE1 · 2026101, oráculo vs generado (misma semántica, distinta geometría de filas): E(canal E) 28.281.218,77 = 28.281.218,77; E(H) 604.175,43 = 604.175,43; E(O) 448.577,54 = 448.577,54; E(T) 1.942.770,68 = 1.942.770,68; cierre `Componente` 31.276.742,42 = 31.276.742,42; cierre `Subs/Cont` −688.671,40 = −688.671,40; gran total 30.588.071,02 = 30.588.071,02. Filas de detalle con valor: 12 = 12 (ASE1); 77 = 77 en los 5 ASE.
+- Plantillas intactas: `git status` sin cambios en `Docs/**/*.xlsx`; SHA de archivo v3 `8D0B3299…`, v2 `86E48E47…` (los mismos de §11/§0.6).
+
+**Residuos declarados (no tocados):**
+1. El cierre de cuadro `R2!E57` (=`E25+E42-K25`) queda con caché 0 en el archivo guardado (la app no sella esa cadena): Excel lo recalcula al abrir porque el writer deja `fullCalcOnLoad`. Los operandos ya están escritos — es cosmético y previo.
+2. La partición `Deb/Cred` vs `Deb/Cred-otros` del administrativo (ver arriba) sigue sin regla derivable: pendiente de negocio.
+3. ~~`Insumos.Plantilla` (2026071) y `Insumos.PlantillaQ2` (2026072) siguen apoyadas en la v2~~ — **CERRADO**: §13.4 (H5) las migró a la plantilla vigente y, desde el rebase del 2026-10-27 (§14), se preparan desde la **v4** (`Insumos.BaseDelPeriodoV4`). Hoy no queda ninguna base de fixture de procesamiento sobre v3.
+
+---
+
+## 13. H5 — erradicación de literales de período (2026-10-26) — cerrado
+
+**Mandato del Ingeniero (textual):**
+
+> "¿La app tiene reglas o cosas quemadas por período? Si es período tal haga algo… Eso es inadmisible, eso no lo permitimos. Sería pésimo si lo llegáramos a tener y no puede quedar en función de un período."
+
+**Doctrina aplicada:** el período es un DATO del dominio (`Periodo.CodigoCompleto`). El nombre de las hojas que lo llevan se LEE del workbook que se está procesando (`HojasPeriodo`). Un literal de período en código —aunque hoy "coincida"— es una regla por período esperando a romper: es la misma clase de defecto que `RangoDatosAse`, no un caso menor.
+
+### 13.1 Auditoría medida (inventario ANTES, código de producción)
+
+Se escanearon `Remuneracion.Core`, `Remuneracion.Infrastructure`, `Remuneracion.WinForms` y `Remuneracion.Cli`, juzgando **código** (los comentarios y la documentación XML se descartan: citar un período como evidencia no es quemarlo).
+
+| Archivo:línea | Contenido | Veredicto |
+|---|---|---|
+| `Remuneracion.Infrastructure/Excel/OpenXmlPlantillaWriter.cs:47` | `private const string AnclaSufijoHojasQ1 = "2026071";` | **Quemado.** Ancla de naming escrita a mano; `ReemplazarSufijo` la sustituía por `periodo.CodigoCompleto`. Con la v3 el sufijo real de la plantilla es otro: el ancla era una foto. |
+| `Remuneracion.Infrastructure/Excel/WorkbookLeafCellMapBalanceSc.cs:80-84, 96, 146-173` | `("DetRetri2026071", "J32", […])`, `(HojaBce, "H3", ["DetRetri2026071", "J9"])`, `("DetValiRetri2026071", …)` | **Quemado.** La foto de protecciones de la v1 codificaba el nombre de hoja de UN período concreto en sus fragmentos. |
+| `Remuneracion.Core/Models/DivergenciasDeclaradasCatalogo.cs:111, 141` | `"… oficial 2026101…"`, `"… (2026072 desde el oficial) …"` | **Prosa de evidencia con literal.** Se sustituyó por el nombre del período (`octubre-1`, `julio-2`); ninguna aserción dependía del literal (los fixtures del catálogo solo exigen no-vacío, `"2 filas"`, `"Plan 46"` y rutas de documentos). |
+| `Remuneracion.Cli/OpcionesCli.cs:219` | `--periodo AAAAMM[Q]  Período (p. ej. 2026071)…` | **Legítimo, declarado exento.** Texto de ayuda del CLI: documenta el FORMATO del argumento; no decide hoja, celda, rama ni valor. |
+
+Resto de coincidencias (`20\d{4,6}` en 30+ archivos): **todas en comentarios/documentación XML** (`ExcelDataReaderWorkbookLeafInputReader.cs:58`, `WorkbookLeafCellMapQ2.cs:8-24`, `OpenXmlPlantillaWriter.cs:24-1622`, `WorkbookLeafModel*`, `Periodo.cs`, `NombresHojaPeriodo.cs`, `Form1.cs:797`, …). No se tocan: son evidencia fechada, no comportamiento.
+
+### 13.2 Punto 1 — el sufijo de hoja se DERIVA de la plantilla
+
+Nuevo `Remuneracion.Infrastructure/Excel/HojasPeriodo.cs`:
+
+- `DetRetri(parte, periodo)` / `DetValiRetri(parte, periodo)` enumeran las hojas del workbook abierto, identifican la raíz por **estructura** (`DetRetri`/`DetValiRetri` + 7 dígitos) y **extraen el sufijo que la plantilla declara**.
+- El nombre resuelto se compone **sustituyendo ese sufijo** por `periodo.CodigoCompleto`. En una base preparada (Phase 0 renombra las tres hojas del período) la sustitución es identidad; en la plantilla cruda (v3 declara su propio sufijo) resuelve el nombre real.
+- Si el workbook no declara exactamente una hoja de esa raíz, o el período pedido no está presente, **fail-fast `ERR-PLANTILLA`** nombrando sufijo declarado, período en proceso y hoja esperada. La app no escribe en la hoja de otro período.
+- `AnclaSufijoHojasQ1` + `ReemplazarSufijo` + `ProtegidasBceParaPeriodo` **eliminados**. `VerificadorDestinoProtegido.ValidarDetRetriEditable` y `DetallePeriodoDerivado.Validar` consumen la hoja REAL del período (antes componían el nombre desde el dominio: mismo resultado, pero sin verificar que la base sea la del período).
+
+### 13.3 Punto 2 — la foto de protecciones BCE sale del camino productivo
+
+- `WorkbookLeafCellMapBalanceSc.Protegidas` (78 celdas + fragmentos con nombre de hoja de período) **se retira de producción**. Se conserva como evidencia histórica del T0 en `Remuneracion.IntegrationTests/BalanceScGoldenV1.cs` (patrón LEGACY de los demás mapas: solo lo consumen fixtures de catalogación).
+- Nuevo `VerificadorBalanceScDerivado` (producción), que corre en el tronco común de ambos caminos de escritura (multi-ASE y single-ASE, Q1 y Q2) y deriva TODO de lo que la hoja declara:
+  1. **Bandas por rótulo**: `ASE · SUBSIDIO · CONTRIBUCION · TOTAL BSC · SISTEMA` y `ASE · REMUN TOTAL · VALIDA 1 · VALIDA 2 · DIFERENCIA VALIDA 2`; las filas, por el **id de ASE** que la propia hoja numera (5 del catálogo, sin duplicados).
+  2. **Vínculo con el detalle del período**: `SISTEMA` de cada ASE = balance del ASE en la hoja `DetRetri` **real** (columna y celda resueltas por el rótulo `BALANCE DE SUBSIDIO O CONTRIBUCIONES` + id de ASE), y el agregado contrastado contra la **fila de cierre** de esa tabla.
+  3. **Vínculo con el CONSOLIDADO**: `REMUN TOTAL` = celda que la tabla `REPORTE CONSOLIDADO TOTAL DE RECAUDO` declara para ese ASE (por encabezado).
+  4. **Sumas y cuadres**: Σ de cada columna de valor sobre su tramo de ASE, Σ cruzada `SUBSIDIO+CONTRIBUCION`, diferencia por ASE y por agregado, cuadre `ROUND` entre ambas sumas, y las comparaciones `VALIDA 1/2` de ASE y de cierre.
+  5. El rol **diferencia** no tiene rótulo en la plantilla: se deriva por **forma** (`TOTAL BSC − SISTEMA`) y debe ser una sola columna en toda la banda.
+- Cero literales de fila/celda/período. Mensajes `ERR-PLANTILLA` por identidad (banda · rol · ASE · rótulo).
+- **El camino single-ASE deja de usar su foto v1** (`WorkbookLeafCellMap.ProtectedFormulas`: F75/F77/E47/D73, que con la v3 ya no son fórmulas) y pasa por el mismo verificador derivado: una sola definición de "protegido" para los dos caminos.
+- **El gate sigue vivo (inyección, `BalanceScDerivadoH5Plan59Tests`, 4/4 verde):** base intacta ⇒ pasa; `SISTEMA` convertido en valor ⇒ `ERR-PLANTILLA` nombrando `SISTEMA`/`DetRetri`/celda; Σ de tramo convertida en valor ⇒ `ERR-PLANTILLA` nombrando la suma de `TOTAL BSC`; `TOTAL BSC` con un término de más ⇒ `ERR-PLANTILLA` nombrando el rol.
+
+### 13.4 Punto 3 — fixtures y bases
+
+`Insumos.Plantilla` (`2026071`) y `Insumos.PlantillaQ2` (`2026072`) pasan a la **v3 vigente** (`BaseDelPeriodoV3`). Por qué la expectativa se conserva: la v3 es **superconjunto estricto** de la v2 en etiquetas (§0.4-a: 0 faltantes en las tres hojas), conserva las 40 hojas y las columnas, y **no mueve la geometría de escritura del CONSOLIDADO** (§0.4-c: D9:D13, D28:D32, D47:D51, D66:D70, D85:D89, D104:D109, 1.993 fórmulas re-apuntadas con la misma forma). Lo que cambia es la FILA de los cierres de bloque — exactamente la clase de defecto que H1/H2 eliminaron.
+
+Fixtures que quedan **explícitamente** sobre la v2 (`Insumos.BaseV2DelPeriodo`, motor declarado en el propio helper). No se relaja ni se borra una sola aserción; lo que cambia es la base contra la que se ejerce, y el motivo es siempre uno de estos dos:
+
+**(a) su OBJETO es la geometría v2** (caracterización de una foto LEGACY):
+
+| Fixture | Base antes | Base después | Motivo |
+|---|---|---|---|
+| `MapaQ2T0Tests` (7 casos rojos evitados) | `Insumos.PlantillaQ2` (v2) | `Insumos.BaseV2DelPeriodo("2026072")` | Su sujeto ES el mapa congelado `WorkbookLeafCellMapQ2` (F75/E47/D32/F330…), LEGACY. Ese mapa describe la v2; con la v3 sus celdas se movieron (§0.4-b) y "actualizar la lista" es la re-foto que §0.2.5 prohíbe. La cobertura vigente la dan `DetalleR2R4EscritoPlan59Tests` / `DestinoValorDerivadoH2Plan59Tests` (v3, por identidad). |
+| `DetalleR2R4EscrituraTests` (casos de julio) | `Insumos.PlantillaQ2` (v2) | `Insumos.BaseV2DelPeriodo("2026072")` | Los valores citados son los de las FILAS de la evidencia T0b del Plan 29 (R2 `E3/E4/E7/E9`, `E78..E80`, `E408..E425`, bloque `67..124`). Con la v3 los bloques de R2 son `1/75/196/317/441` y esas cifras viven en otras filas. La cobertura v3 equivalente (localización por firma+canal, 5 ASE, ambas quincenas) está en `DetalleR2R4EscritoPlan59Tests` y `DetalleR2R4EscritoPlan59Tests.INYECCION_*`. |
+| `GoldenDetRetriQ2Tests` | `Insumos.PlantillaQ2` (v2) | `Insumos.BaseV2DelPeriodo("2026072")` | Es la caracterización del **caché golden** de julio-2 (manual del administrativo, geometría v2) y usa `WorkbookLeafCellMapQ2.ObtenerDetRetriDestino` (LEGACY). Sobre la v3 el golden celda-a-celda deja de ser oráculo: su geometría se movió. |
+
+**(b) motivos v3→v2 que la v4 dejó sin efecto (histórico del H5).** En H5 estas corridas se anclaron a la v2 porque sobre la **v3** no podían cerrar: `R1!F328` escribía `-M213` donde debe ser `-L213` (y `R1!F333` traía `--L126`). **La v4 corrigió ambas celdas el 2026-10-27** (§14) y el motivo desapareció; los fixtures se dejan sobre la v2 tal como los fijó H5 (moverlos otra vez solo cambiaría la base sin cambiar su objeto) y su migración a la v4 es decisión del Ingeniero — ver §14.5.
+
+| Fixture | Base antes | Base después | Motivo |
+|---|---|---|---|
+| `ProcesadorPeriodoTests.Ejecutar_Periodo2026072_ConLectorOracle…` | `Insumos.PlantillaQ2` (v2) | `Insumos.BaseV2DelPeriodo("2026072")` | Su objeto es el lector-oráculo sobre una plantilla con caché 0; julio-2 sobre la v3 no cierra (Δ 1.101.678,21 = `R1!F328`) y no se puede exigir `exit 0` donde el plan exige `ERR-VALIDACION`. |
+| `SelladoCacheFormulaT2Tests` (flujo Q2) | `Insumos.PlantillaQ2` (v2) | `Insumos.BaseV2DelPeriodo("2026072")` | El sellado por read-back exige el valor EVALUADO (`1`); con el typo de `R1!F328` los sub-bloques de julio-2 evalúan `FALSE` y el sellado devuelve `0`. Un `0` sellado en una plantilla defectuosa sería mentir en el archivo. |
+| `ParidadCliTests.Paridad_5Ase_Q1`, `…_Q2`, `CodigosSalidaCliTests.Ejecucion_5Ase_Q1` | `Insumos.Plantilla` / `PlantillaQ2` | `Insumos.BaseV2DelPeriodo(…)` | **Ya estaban rojos en la base** (`p59-frente3-final.trx`): julio-1 arrastra un Δ de 22.921,61 en `VALIDACION_TOTAL` y la paridad Q2 un desvío de 13.084.233.937,44 en una celda del mapa v2. Re-anclarlos a la v2 restaura **el mismo fallo, con los mismos nombres** (verificado: misma aserción, mismo Δ). No se relajan: se les devuelve su base histórica para que el rojo no cambie de causa. |
+
+Resultado: **set-diff exacto** contra la base — ver §13.6.
+
+### 13.5 Punto 4 — candado nuevo (`CandadoPeriodoQuemadoPlan59Tests`, 6/6 verde)
+
+Extiende el patrón de `ConciliacionEmpresaCandadoAntiQuemadoTests` a la clase de defecto "período quemado":
+
+- **Estático**: falla si en los cuatro proyectos de producción aparece (1) un **código de período** (`20` + 4..6 dígitos, delimitado) o (2) un **nombre de hoja con sufijo de período** (`DetRetri…`, `DetValiRetri…`, `Informe AFaseo Recaudo 20…`). Juzga el texto sin comentarios **línea a línea**, no solo lo entrecomillado: así ve también los literales crudos multilínea (donde vive el texto de ayuda del CLI).
+- **Lista exenta CERRADA con motivo**: única entrada = `Remuneracion.Cli/OpcionesCli.cs` · `p. ej. 2026071` · "texto de AYUDA que documenta el FORMATO del argumento; no decide comportamiento ni selecciona hoja, celda ni rama". La prueba `H5_LaExcepcionDeclarada_CubreSoloElTextoDeAyuda` verifica que la misma frase en otro archivo **sí** enrojece.
+- **Injertos que deben enrojecer** (verde en el candado = el candado no es decorativo): `"DetRetri" + "2026071"`, `if (periodo.CodigoCompleto == "2026101")`, `var ancla = "2026072"`, `"DetRetri2026071"`, `"DetValiRetri2026101"`, `"Informe AFaseo Recaudo 202607-2"`.
+- **Anti-regresión del LEGACY**: falla si el nombre `BalanceScGoldenV1` reaparece en producción (que la foto no vuelva a ser fuente de coordenadas).
+- **No enrojece con lo legítimo**: comentarios/documentación XML que citan períodos reales, `periodo.CodigoCompleto`, `HojasPeriodo.DetRetri(...)`, `<AAAAMM|AAAAMMQ>`.
+
+### 13.6 Evidencia
+
+- **Build**: `dotnet build Remuneracion.WinForms/Remuneracion.WinForms.slnx` → **0 warnings / 0 errores**.
+- **Suite completa**: `1618/1584/34` (10 tests nuevos: 6 candado + 4 BCE) contra la base `1608/1574/34`. **Set-diff exacto: 34 = 34, cero rojos nuevos, cero rojos cerrados, cero tests borrados, cero tolerancias ampliadas.** trx: `Remuneracion.IntegrationTests/TestResults/p59-h5-cierre.trx`.
+- **Corridas reales (v3, `--cinco-ase`)**:
+  - `2026101` → **exit 0** `RESULTADO OK` (`Remuneración 202610-1 Total.xlsx`, **618.867 B**, idéntico al de §12 ⇒ el entregable no cambió).
+  - `2026071` → exit 1 `ERR-VALIDACION`, Δ **1.361.600,46** (`R1!F328`, propietaria) — el mismo de §12.
+  - `2026072` → exit 1 `ERR-VALIDACION`, Δ **1.101.678,21** (`R1!F328`) — el mismo de §12.
+  - Las tres: **0 `ERR-SIN-SLOT`, 0 `ERR-PLANTILLA`, 0 `ERR-ESCRITURA`, 0 `ERR-INTEGRIDAD`**.
+- **Asiento y desglose intactos**: `2026101` sigue con `DetRetri!D9:D14` 6/6 contra el oráculo administrativo (14.842.425.136 / 11.302.637.605 / 8.823.787.300 / 10.483.172.762 / 7.550.668.665 / 53.002.691.468) y `VALIDACION_TOTAL` de octubre `O9=0 / P9=TRUE`; el desglose J/L/I/O y el detalle R2/R4 de ambas quincenas no se tocaron en H5 (los gates de §11/§12 son los mismos y siguen verdes en la suite).
+- **Plantillas intactas**: SHA de archivo v3 `8D0B3299C42BE16065CEB56E65A9EC329877109A3B6A30D35F6D83552B423538` (el de §12), v2 `86E48E47…9D3D14`, v1 `3086AC31…A49C5214`; `git status` **sin cambios en `Docs/**/*.xlsx`**.
+- **Greps de cierre**: inventario DESPUÉS en producción = **0 códigos de período** y **0 nombres de hoja con sufijo**, fuera de la exención declarada. `HojasPeriodo` es la única fuente del sufijo; `WorkbookLeafCellMapBalanceSc` ya no contiene celdas ni nombres de período.
+- **No tocado en H5 (mandato)**: el typo `R1!F328` —**cerrado por la v4 el 2026-10-27**, ver §14— y la clasificación `Deb/Cred` vs `Deb/Cred-otros` (regla pendiente de la administradora, §12).
+
+### 13.7 Decisiones que quedan al Ingeniero
+
+1. ~~**`R1!F328` de la v3**: julio-1 y julio-2 no cierran por ese typo (Δ 1.361.600,46 / 1.101.678,21). Mientras no se corrija en la plantilla, todo fixture que exija "cierre de julio sobre la v3" es irrealizable por diseño.~~ **CERRADO 2026-10-27**: la v4 corrige `R1!F328` (`…-L213`) y `R1!F333` (`…-L126…`); julio-1 y julio-2 cierran con `RESULTADO OK` (§14.3). La afirmación histórica sobre la v3 sigue siendo cierta —por eso la v3 pasa a histórica— y ningún fixture vigente depende ya de ese defecto.
+2. **Reducción declarada de cobertura en las columnas derivadas del detalle** (`DetRetri!J/K/M`, `DetValiRetri!M/O`): la foto vieja exigía la PRESENCIA del fragmento `BCESCPORFACT.!F3` en esas fórmulas; el verificador derivado hoy cubre el detalle del período por su primera columna de valor (`DetallePeriodoDerivado`, §10) y el vínculo inverso BCE→detalle por identidad. Extender la derivación a las columnas de composición heterogénea (BCE/INTERVENTORIA/sumas anidadas) es trabajo del siguiente frente, no una re-foto.
+3. **`WorkbookLeafCellMapBalanceSc.EditablesPorAse`** (D/E por ASE: `E3/D3`…), último mapa de coordenadas vivo en esa clase y objetivo de escritura del balance. Es el resto del "barrido D" de §10: derivable por (id de ASE + encabezado) con la misma maquinaria que ya usa `VerificadorBalanceScDerivado`; queda declarado, no silenciado.
+4. **`Docs/T0` de H5**: no se generó documento T0 porque la medición de este frente se hizo sobre código y plantilla ya medidas en §0.4/§0.6; toda la evidencia vive en este §13 y en los fixtures citados.
+---
+
+## 14. Rebase de baseline a la plantilla v4 (2026-10-27) — cerrado
+
+### 14.1 Decisión y alcance
+
+**Decisión del Ingeniero (textual):**
+
+> "La v4 pasa a ser la vigente. La v3 será histórica, no se usará más para el procesamiento."
+
+Alcance ejecutado: **re-apuntar el baseline**, no rediseñar nada. Cambió la plantilla de origen (v3 → v4) y la huella-gate; **no** cambió una sola regla de negocio, gate, criterio ni tolerancia. La v3 permanece en disco como histórica y ningún camino de producción ni fixture de procesamiento la abre.
+
+### 14.2 Qué se re-apuntó
+
+| Artefacto | Antes | Después |
+|---|---|---|
+| `Insumos.PlantillaOficialV3()` | ruta `v3/…v3.xlsx` | **`Insumos.PlantillaOficialV4()`** → `v4/…v4.xlsx` (sin alias: el nombre viejo no existe) |
+| `Insumos.BaseDelPeriodoV3(periodo)` | Phase 0 desde la v3 | **`Insumos.BaseDelPeriodoV4(periodo)`** (mismo flujo, plantilla de origen v4) |
+| `Insumos.Plantilla`, `Insumos.PlantillaQ2`, `Insumos.PlantillaAgosto2026082` | `BaseDelPeriodoV3` | `BaseDelPeriodoV4` |
+| `AnclasDerivadasH2Plan57Tests` | `Insumos.PlantillaOficialV3()` | `Insumos.PlantillaOficialV4()` |
+| `BalanceScDerivadoH5Plan59Tests` | `BaseDelPeriodoV3("2026101")` | `BaseDelPeriodoV4("2026101")` |
+| `DetalleR2R4EscritoPlan59Tests` | ruta literal `v3/…` | `Insumos.PlantillaOficialV4()` (propiedad `PlantillaVigente`) |
+| `DetalleDerivadoH2bisPlan59Tests` | ruta literal `v3/…` | `Insumos.PlantillaOficialV4()` |
+| `DelimitadorBloquesHojaH1Plan59Tests` | ruta literal `v3/…` | `Insumos.PlantillaOficialV4()` (propiedad `PlantillaVigente`) |
+| `DestinoValorDerivadoH2Plan59Tests` | ruta literal `v3/…` | `Insumos.PlantillaOficialV4()` (clase `PlantillaVigente`) |
+| `HuellaSemanticaPlantilla` | solo `V3` | **`V4` (gate)** + `V3` conservada como histórica |
+
+Renombres de test con la versión en el nombre (los demás conservan su nombre; su cuerpo ya no depende de la versión, que es el punto):
+`Bases2026072_ConLaV3_…` → `Bases2026072_ConLaPlantillaVigente_…`,
+`H1_2_R1_EscribeLosCincoBloquesSobreLaV3_…` → `…SobreLaPlantillaVigente_…`,
+`H2_2_…NoTieneFormulaEnLaV3` → `H2_2_…NoTieneFormula`.
+
+**Única lectura de la v3 que queda en la suite:** `GeometriaDerivadaV3T0Plan59Tests` (evidencia congelada del H0, motivo declarado en la cabecera del fixture) y `HuellaPlantillaVigenteV4Plan59Tests` (necesita el archivo histórico para probar que `v4 = v3 + 2 fórmulas`). Cero código de producción menciona la v3: la app recibe la plantilla por `--plantilla` y deriva todo de su contenido.
+
+### 14.3 Corridas reales con la v4 (`--cinco-ase`, plantilla = ruta de la v4)
+
+| Período | Exit | Veredicto | `DetRetri!D9:D14` (ASE1..ASE5 / total) |
+|---|---|---|---|
+| `2026071` | **0** | `RESULTADO OK` | 16.758.167.585 / 12.227.292.053 / 10.127.195.599 / 10.553.776.376 / 8.543.663.209 / **58.210.094.822** |
+| `2026072` | **0** | `RESULTADO OK` | 17.450.228.673 / 20.516.143.970 / 15.221.896.467 / 7.179.595.396 / 12.073.344.662 / **72.441.209.168** |
+| `2026101` | **0** | `RESULTADO OK` | 14.842.425.136 / 11.302.637.605 / 8.823.787.300 / 10.483.172.762 / 7.550.668.665 / **53.002.691.468** |
+
+- `2026101` reproduce **al peso** el asiento de §11 y el total de su oráculo administrativo: la v4 no cambió nada de lo que ya cerraba.
+- `2026071` cierra contra el R10 oficial (58.210.094.822) — el Δ 1.361.600,46 de §12/§13 **desapareció**: era `R1!F328`.
+- `2026072` cierra con 72.441.209.168 — el Δ 1.101.678,21 de §10/§12/§13 **desapareció**: era el mismo `R1!F328`.
+- Las tres: **0 `ERR-SIN-SLOT`, 0 `ERR-PLANTILLA`, 0 `ERR-ESCRITURA`, 0 `ERR-INTEGRIDAD`**; `VALIDACION_TOTAL O9 = 0; P9 = TRUE` en los 5 ASE de los 3 períodos.
+- Salidas escritas en ruta temp FRESCA (`%TEMP%\p59-v4-run\<período>`), nunca sobre una salida existente y nunca sobre la plantilla.
+
+### 14.4 Huella semántica de la v4 y prueba de inyección
+
+| Dato | Valor |
+|---|---|
+| **Huella semántica v4 (GATE de entrada)** | **`a7476ee2e80dfa13c9e39430d1ea4d77f0c52e3ca0a3d11a526d5140b8608c55`** |
+| SHA-256 de archivo v4 (informativo) | `5FEDFD316980276945DF2AF29784EFFC5FE178C5CF1AA16F3C5D5F6F0A4E38E5` (705.805 bytes) |
+| Huella semántica v3 (histórica) | `92935014f3611055c15f12db92c71020f741d009634e8ec59f1e4448235d72ff` |
+| SHA-256 de archivo v3 (informativo) | `8D0B3299C42BE16065CEB56E65A9EC329877109A3B6A30D35F6D83552B423538` (709.040 bytes) |
+
+Calculada con el helper canónico (`HuellaSemanticaPlantilla.Calcular`, §0.6), **no a mano**: se contrastó con una reimplementación independiente (BCL ZIP+XML en PowerShell) que reproduce exactamente la huella conocida de la v3 `92935014…72ff` y da `a7476ee2…8c55` para la v4.
+
+Fixture de identidad y gate: `Remuneracion.IntegrationTests/HuellaPlantillaVigenteV4Plan59Tests.cs` (5/5 verde).
+
+| Test | Qué prueba |
+|---|---|
+| `V4_1` | El archivo vigente tiene el SHA informativo y el tamaño declarados (coincide con la medición del orquestador: 705.805 B). |
+| `V4_2` | `Calcular(v4) == V4` — la huella-gate. |
+| `V4_3` | La v3 sigue en disco y su huella es `92935014…72ff`; las dos huellas son distintas. |
+| `V4_4` | **`v4 = v3 + exactamente 2 celdas`**: mismo conjunto/orden de hojas, mismas `dimension`, mismo número de celdas, y el conjunto de diferencias medido es `{Reporte Componentes R1!F328, Reporte Componentes R1!F333}` con las fórmulas `…-L213` y `…+F126-L126-L191`. |
+| `V4_5` | **Inyección**: sobre una COPIA temporal se revierte `F328` a `…-M213` y la huella deja de ser `V4` ⇒ **el gate enrojece**. |
+
+**Lectura del resultado:** el gate no es un número decorativo. Si mañana alguien "arregla" una tercera celda, si revierte el typo, o si el archivo pierde o gana una hoja, `V4_2`/`V4_4` fallan y la suite no deja pasar el baseline. Y como el gate es de **contenido** (§0.6), un simple "Guardar" en Excel sobre la v4 no lo rompe.
+
+**Nota sobre `<f>`:** la única escritura de una fórmula en todo este frente ocurre dentro de `V4_5`, sobre una **copia temporal**, para probar el gate. La producción no escribe `<f>` (guard anti-fórmula intacto), no inserta ni elimina filas y ninguna plantilla fue modificada: v3 y v4 conservan byte a byte sus SHA (`8D0B3299…` y `5FEDFD31…`).
+
+
+---
+
+### 14.5 Suite completa y set-diff
+
+Corrida: `dotnet test Remuneracion.IntegrationTests` (trx fuera del repo, `%TEMP%\p59-v4-suite3\p59-v4-suite.trx`).
+
+| | Total | Verdes | Rojos | Skip |
+|---|---|---|---|---|
+| Base `TestResults/p59-h5-suite.trx` | 1617 | 1583 | 34 | 0 |
+| **Con la v4** | **1622** | **1595** | **27** | 0 |
+
+> Nota de conteo: §13.6 transcribió `1618/1584/34`; el trx en disco mide **1617/1583/34**. El set-diff se hace contra el trx (la evidencia), no contra el texto.
+
+**Set-diff: 0 rojos nuevos · 7 rojos cerrados · 5 tests nuevos · 4 renombres.** Ninguna tolerancia ampliada, ningún gate retirado, ningún test borrado.
+
+Rojos cerrados (los 7 comparten UNA sola causa, medida):
+
+| Test | Causa del rojo en la base | Por qué cierra |
+|---|---|---|
+| `ProcesadorPeriodoTests.Ejecutar_Periodo2026071_ConLectorOracle_VeredictosValidacionesNoVacios` | la corrida Q1 sobre la v3 abortaba con `ERR-VALIDACION` (`ASE n · VALIDACION_TOTAL · D34/F34/O25`: `58208733220.04 != 58210094820.50`, `58341252840.17 != 58342614440.63`, `58688155764.47 != 58689517364.93`) | la v4 corrige `R1!F328`; la corrida cierra con `O9=0 / P9=TRUE` |
+| `MicroFixesHu17Tests.L1_Hu12_BloqueVacio_NoSeLimpia_OutputIgualTemplate` | mismo `ERR-VALIDACION` (el test necesita la corrida Q1 completa) | ídem |
+| `MicroFixesHu17Tests.S4_Hu16_InterventoriaLecturaPorAse_Debug_HitoInformation` | ídem | ídem |
+| `MicroFixesHu17Tests.W22_Hu14_Validaciones_CulturaEsCo_LineaYEventoCoherentes` | ídem (el rojo era el mismo, con `,` decimal) | ídem |
+| `ObservabilidadTests.BloqueValidaciones_PropiedadValidacion_NombreReal_ConAseId` | ídem | ídem |
+| `ObservabilidadTests.EjecucionPeriodo_RunIdCorrelacionaInicioAFin_YAseId` | ídem | ídem |
+| `ObservabilidadTests.Niveles_HitosInformation_DetalleDebug` | ídem | ídem |
+
+**Causa raíz medida (no inferida).** En la salida de julio-1 con la v4: `Reporte Componentes R1!L213 = 0` y `M213 = 1.361.600,46`. La fórmula de la v3 restaba `M213`; la de la v4 resta `L213`. Diferencia exacta entre las dos plantillas: **1.361.600,46**, el mismo Δ que §12/§13 atribuyeron a `R1!F328`. Es decir: los 7 rojos no eran defectos de la app — eran la plantilla v3.
+
+Tests nuevos (5): `HuellaPlantillaVigenteV4Plan59Tests.V4_1…V4_5` (§14.4), todos verdes.
+
+Renombres (4 pares, mismo cuerpo, mismo veredicto):
+`Bases2026072_ConLaV3_…` → `…ConLaPlantillaVigente_…`;
+`H1_2_R1_EscribeLosCincoBloquesSobreLaV3_…` → `…SobreLaPlantillaVigente_…`;
+`H2_2_…NoTieneFormulaEnLaV3` → `H2_2_…NoTieneFormula`;
+`CapaA_Q1_EvaluacionHonesta_RecaudoCierra_EspejoNo` → `CapaA_Q1_EvaluacionHonesta_RecaudoYEspejoCierran`.
+
+**Único aserto que cambió de valor (declarado, no silenciado).** `GoldenValidacionesCruzadasTests.CapaA_Q1…` caracterizaba el defecto E1-2 ("el espejo de remuneración NO cierra": `O25/D34/F34` = FALSE) y con la v4 esos tres sub-bloques evalúan TRUE. No se relajó el gate: el `ValidacionOracleReader` evalúa siempre desde lo escrito y el test sigue exigiendo el resultado verdadero; lo que cambió es la verdad (la plantilla cerró). Se midió el Δ exacto antes de tocar el aserto (§ arriba) y se dejó el motivo escrito en el propio test.
+
+Los 27 rojos restantes son los mismos de la base (mapas LEGACY, fixtures anclados a la v2 por su objeto, paridad CLI histórica): **ni uno cambió de causa**.
+
+### 14.6 Greps y estado del árbol
+
+- **Ruta de la v3 en código productivo:** `0`. La app no conoce plantilla por ruta: la recibe por `--plantilla` / `SolicitudProcesoPeriodo`.
+- **Ruta de la v3 en fixtures de procesamiento:** `0`. Solo la abren `GeometriaDerivadaV3T0Plan59Tests` (evidencia congelada del H0, motivo en la cabecera) y `HuellaPlantillaVigenteV4Plan59Tests` (necesita el archivo histórico para probar `v4 = v3 + 2 fórmulas`).
+- **Literales de período en producción:** `0` fuera de comentarios/XML-doc y de la exención declarada del texto de ayuda del CLI (§13.1/§13.5).
+- **Plantillas byte-intactas:** v4 `5FEDFD31…E38E5` (705.805 B) y v3 `8D0B3299…423538` (709.040 B), idénticas antes y después de todas las corridas.
+- **`git status` acotado:** sin cambios en `Docs/**/*.xlsx` (la carpeta `v4/` sigue como archivo nuevo sin trackear, tal como llegó) y sin artefactos `TestResults/` nuevos (los trx de esta tanda se escribieron en `%TEMP%`).
+
+### 14.7 Decisiones que quedan al Ingeniero
+
+1. **Naming del acceso histórico v2 en `Insumos`**: hoy `Insumos.PlantillaOficial()` devuelve la **v2** (histórica) y la vigente es `Insumos.PlantillaOficialV4()`. El nombre del primero quedó engañoso; renombrarlo a `PlantillaHistoricaV2()` toca ~17 fixtures y no cambia comportamiento. No se tocó para no ampliar el diff sin su OK.
+2. **Fixtures que quedaron anclados a la v2 por el typo de la plantilla** (§13.4-b: `ProcesadorPeriodoTests` 2026072, `SelladoCacheFormulaT2Tests`, `ParidadCliTests`, `CodigosSalidaCliTests`): el motivo desapareció con la v4. Migrarlos es tentador, pero mueve bases y asertos históricos; se dejan como están y se decide con usted.
+3. **`RegresionEvaluaSellaPlan40Tests`** sigue corriendo contra la v2 (`Insumos.PlantillaOficial()`): sus asertos del "defecto espejo declarado" son ciertos **para la v2** y ya no describen la plantilla vigente. Pertenece al mismo paquete de decisión que el punto 2.
+4. **Mensaje de producción desactualizado**: la corrida Q2 sigue emitiendo `ASE n: conciliación por empresa omitida en Q2 (residuo R-MAPA-V2-R2-ASE4: la celda destino R2!E285 es fórmula en la plantilla v2; ver Plan 50 §2.4)`. Con la v4 esa celda ya no es fórmula, así que el texto miente aunque el comportamiento sea el vigente. No se tocó (es código productivo y el recorte no es de este frente): requiere decisión sobre si se retira el recorte (Plan 59 §7 lo declaraba habilitado) o solo se corrige el mensaje.
+
+---
+
+## 15. Cierre de los dos últimos frentes (2026-10-27) — conciliación por empresa en Q2 + limpieza de fixtures v2
+
+Ejecutado sobre la **v4 vigente** (`a7476ee2…8c55`), sin commits, sin `checkout`/`reset`, sin escribir en plantillas y sin habilitar `R-SIGMA-Q2` en Q2.
+
+### 15.1 Frente 1 (H3) — retiro del recorte de la conciliación por empresa en Q2
+
+**Premisa verificada por bytes, no heredada.** Con el helper BCL (ZIP+XML) sobre la v4 y la v2:
+
+| Hoja · celda | v2 | v4 |
+|---|---|---|
+| `Rem. Anticipos R2!E285` | `<f>E192+E203-K192</f>` (fórmula) | **sin `<f>` y sin `<v>`** ⇒ slot de valor puro |
+| `Rem. Anticipos R2!K285` | `<f>` compartida | **sin `<f>`** |
+
+El bloqueo `R-MAPA-V2-R2-ASE4` que sostenía el recorte **no existe** en la plantilla vigente, y el 2.º cuadro de R2 declara el grupo `canal A / empresa EAB` en los 5 ASE (§0.4-c/§0.5). Por tanto el recorte era ya solo deuda.
+
+**Diff (2 archivos de producción, 1 de doc):**
+
+| Archivo | Cambio | Traza |
+|---|---|---|
+| `Remuneracion.Core/Services/ProcesadorPeriodo.cs` | desaparece `if (!esQuincena2) { … } else { mensaje }`: `leaf.Conciliacion = _leafReader.LeerConciliacionEmpresas(...)` corre **igual en ambas quincenas**; comentario de cabecera del método actualizado | §1.2-H3, §2-D-3, S4.1, CA-B3, §0.2.2 |
+| `Remuneracion.Core/Services/ValidadorBasico.cs` | **solo comentario**: `R-SIGMA-Q2` sigue cortando en `NumeroQuincena != 1` (código intacto); el texto ya no afirma que el recorte "se mantiene" | §1.3 (R-SIGMA-Q2 **no** se habilita en Q2), §0.2.2 |
+| `Remuneracion.Infrastructure/Excel/WorkbookLeafCoherence.cs` | **solo comentario**: mismo gate Σ, misma condición `!= 1`; se documenta que la lista ahora llega poblada en Q2 y que la rama es justamente la que impide reactivarlo allí | ídem |
+| `.opencode/project-context.md` | §"Alcance Q2 acotado" → "Conciliación por empresa en Q2 — SIN recorte"; §A2 reescrito; `R-RECORTE-Q2` sale de la lista de residuos vivos | doctrina del proyecto |
+
+**Mensaje retirado:** la cadena `conciliación por empresa omitida en Q2 (residuo R-MAPA-V2-R2-ASE4… )` ya **no existe en producción** (0 ocurrencias en `Core`/`Infrastructure`/`WinForms`/`Cli` fuera de comentarios históricos de planes y docs de evidencia).
+
+**Tests que caracterizaban el defecto (cambiados a exigir lo correcto, con motivo escrito en el cuerpo):**
+
+| Test | Antes | Ahora |
+|---|---|---|
+| `ProcesadorPeriodoTests.Ejecutar_Periodo2026072_SalidaCertificada5De5_ConDetRetri` | `Assert.Empty(l.Conciliacion)` | exige las **5 empresas del catálogo** por ASE y destinos resueltos en R2. No se fija un conteo exacto: el resolvedor por etiquetas (Plan 55) añade un acumulado sintético por etiqueta real ajena al catálogo — medido: julio-2 ASE3 trae `EAB` (73.523,10) en su R2 ⇒ 6 entradas **para ese ASE** |
+| `ConciliacionEmpresaCierreBloqueT0Tests.T0_5_RecorteQ2_NoSeLevanta_DestinoE285EsFormula` | el nombre afirmaba que el recorte "no se levanta" | renombrado `T0_5_PlantillaV2_DestinoE285EsFormula_ClaseRMapaV2R2Ase4`: su objeto son los **bytes de la v2** (evidencia T0.5), no el comportamiento del procesador. Asertos intactos |
+| `FuentesAusentesPlan50Tests` (cabecera) | "A2 NO se habilita" | se declara el estado vigente y el párrafo anterior queda marcado como histórico del Plan 50 |
+
+### 15.2 Frente 1 — evidencia de que la conciliación por empresa CORRE en Q2
+
+**a) Log de la corrida real `2026072 --cinco-ase` con la v4** (build FINAL de la tanda; `remuneracion_log_20261027.txt`, runId `12a340ec-737f-46e1-92d5-cdcf46fbdfeb`, 10:56):
+
+```
+10:56:25.291 [INF] (RunId=12a340ec… Periodo=2026072 AseId=1) ASE 1: leyendo conciliación por empresa (R1/R2/R4)...
+10:56:25.900 [INF] (RunId=12a340ec… Periodo=2026072 AseId=2) ASE 2: leyendo conciliación por empresa (R1/R2/R4)...
+10:56:25.958 [INF] (RunId=12a340ec… Periodo=2026072 AseId=3) ASE 3: leyendo conciliación por empresa (R1/R2/R4)...
+10:56:26.045 [INF] (RunId=12a340ec… Periodo=2026072 AseId=4) ASE 4: leyendo conciliación por empresa (R1/R2/R4)...
+10:56:26.104 [INF] (RunId=12a340ec… Periodo=2026072 AseId=5) ASE 5: leyendo conciliación por empresa (R1/R2/R4)...
+```
+
+`5/5` líneas. Las 10 ocurrencias de `omitida en Q2` que quedan en ese log son de las corridas **anteriores** al cambio (08:07 y 08:34, binarios previos); después del cambio hay **0**.
+
+**b) Celdas/hojas (2026072 vs oráculo administrativo `Remuneracion 202607-2 Total Administrativo.xlsx`), comparación celda a celda con tolerancia ±0,5:**
+
+| Hoja | Celdas numéricas comparadas | Diferencias |
+|---|---|---|
+| `CONSOLIDADO_TOTAL RECAUDO` | 536 | **0** |
+| `VALIDACION_TOTAL` | 52 | **0** |
+| `Recaudo EAAB Reciprocidad` | 26 | **0** |
+| `Recaudo ENEL` | 26 | **0** |
+| `Recaudo ENERBIT` | 26 | **0** |
+| `Recaudo EAAB + Ciud Limp` | 26 | **0** |
+| `Recaudo Directa Occidente` | 26 | **0** |
+| `DetRetri2026072` | 91 | 2 — y **no son valores**: `D6`/`D7` son fecha/hora; la app las **sella desde el R10** (Plan 28) y el manual las deja en `0` |
+
+**c) El cruce por empresa en R2 (el bloqueo histórico del `EAB`)**: el grupo `canal A / empresa EAB` queda con valores en el 2.º cuadro de R2 de los 5 ASE. Caso con valor no nulo en julio-2 — ASE3: `R2!E200 = 73.523,10` (cierre del grupo `canal A`) y `R2!E201 = 73.523,10` (`B=EAB / C=Total`), **idéntico al oráculo** (`R2!E161 = 73.523,10`). Es exactamente el monto que el Plan 50 §4 medía como "etiqueta real sin destino en el mapa".
+
+**d) Estabilidad del entregable (la prueba de que el retiro no cambia nada de más):** comparación valor a valor de las **40 hojas** entre la corrida previa al retiro y la posterior, para los tres períodos:
+
+| Período | Hojas con diferencias |
+|---|---|
+| `2026071` | **0** |
+| `2026072` | **0** |
+| `2026101` | **0** |
+
+Lectura: el recorte solo impedía **leer** `leaf.Conciliacion`; la escritura del detalle por empresa y de las hojas `Recaudo *` ya estaba cubierta por el detalle derivado R2/R4 (§12) y por A1. Al habilitar la lectura, el cruce por empresa entra además a las validaciones de la fase de cálculo (donde `R-SIGMA-Q2` sigue sin habilitarse en Q2) **sin mover un solo valor del entregable**. No apareció ningún rojo de otra familia: la condición de STOP de §1.4 (R-Q2-RECORTE) no se activó.
+
+### 15.3 Frente 2 (a) — `PlantillaOficial()` pasa a `PlantillaHistoricaV2()`
+
+`Insumos.PlantillaOficial()` devolvía la **v2** mientras la vigente es la v4: nombre engañoso. Renombrado **sin alias** (el nombre viejo ya no existe). **Cero cambio de comportamiento** (misma ruta, mismo archivo).
+
+- Consumidores actualizados: **16 fixtures** (29 usos) + `Insumos.cs`: `ComposicionServiciosTests`, `ConciliacionEmpresaSigmaPlan55Tests`, `ContratoSeccionPorOperandoR1Tests`, `ControlAntiFalsoCeroPlan50Tests`, `DivergenciaDeclaradaCierreT4Tests`, `DivergenciaDeclaradaCliTests`, `DivergenciaDeclaradaReejecucionUiTests`, `DivergenciaDeclaradaT0Tests`, `FNew1Q1BlockerT0Tests`, `FuentesAusentesPlan50Tests`, `HuellaAceptacionO3Tests`, `IntegridadPaquetePlan58Tests`, `RegresionOficialPlan39Tests`, `ReporteBancoFuentesOpcionalesPlan51Tests`, `SalidaSinValidarO4Tests`, `SeccionPorOperandoR1T0Tests`.
+- Helpers locales que también mentían: `FNew1Q1BlockerT0Tests` pasa a llamar `Insumos.PlantillaHistoricaV2()` directo (se elimina el wrapper); `TablaJS26S31T3Tests` apuntaba a la **v1** ⇒ `PlantillaHistoricaV1()`; `AnclasDerivadasH2Plan57Tests` apuntaba a la **v4** ⇒ `PlantillaVigente()`.
+- `Insumos.BaseDelPeriodo` (base v2 vía Phase 0) conserva su nombre y su firma —lo usan `BaseV2DelPeriodo` y las caracterizaciones de geometría v2— con la documentación corregida para no llamarla "oficial".
+
+### 15.4 Frente 2 (b) — fixtures migrados de v2 a v4 (motivo del anclaje: el typo `F328`)
+
+Cada expectativa se conserva porque **la causa del anclaje era de plantilla, no de la app**: la v4 es la v3 con `R1!F328` (`-M213` → `-L213`) y `R1!F333` (`--L126` → `-L126`) corregidas (§14.4), misma geometría, mismas etiquetas, mismos valores. Los tres períodos cierran con la v4 (§14.3 y §15.5 de este cierre).
+
+| Fixture | Antes (base) | Después (base) | Por qué la expectativa se conserva / qué cambió |
+|---|---|---|---|
+| `ProcesadorPeriodoTests.Ejecutar_Periodo2026072_ConLectorOracle_VeredictosValidacionesNoVacios` | `BaseV2DelPeriodo("2026072")` | `BaseDelPeriodoV4("2026072")` | Exige `5` bloques `VALIDACIONES:` (sin afirmar `TRUE`): con la v4 la corrida **cierra** y los 5 veredictos siguen presentes. Respaldo: oráculo administrativo de julio-2 + corrida real exit 0 |
+| `SelladoCacheFormulaT2Tests` (flujo Q2 sano y sintético) | `BaseV2DelPeriodo("2026072")` | `BaseDelPeriodoV4("2026072")` | Exige `C15/D25/O25/D34/F34 = "1"` en el flujo sano y `C15="0"` en el sintético (Δ=1 inyectado), con `sellado == evaluación`. Con la v2 el typo de `F328` habría sellado `0`: con la v4 sella el valor verdadero. Respaldo: oráculo de julio-2 |
+| `ParidadCliTests.Paridad_5Ase_Q1` y `…_Q2` | `BaseV2DelPeriodo("2026071"/"2026072")` | `BaseDelPeriodoV4(…)` | Exige `CodigosSalida.Ok` en CLI y vía directa. **Además se sustituyó el mecanismo de comparación**: recorría `WorkbookLeafCellMapPorAse`/`WorkbookLeafCellMapQ2` + `RolsQ2` (foto de la v2), y con la v4 esas direcciones ya no describen los roles ⇒ el rojo era del fixture. Ahora compara **libro contra libro, celda por celda, en las 40 hojas** (`AssertMismoContenidoPorValor`): más fuerte que la lista congelada, cero coordenadas. Respaldo: R10 de julio-1 y administrativo de julio-2 |
+| `CodigosSalidaCliTests.Ejecucion_5Ase_Q1_Devuelve0_ConArchivoYResultadoOk` | `BaseV2DelPeriodo("2026071")` | `BaseDelPeriodoV4("2026071")` | Exige exit 0 + `RESULTADO OK codigo=0` + archivo + `runId=`; nada se relajó. Era el rojo por el Δ 22.921,61 de la v2. Respaldo: R10 de julio-1 |
+| `RegresionEvaluaSellaPlan40Tests` | `PlantillaHistoricaV2()`, con ramas Q1 (`ERR-SIN-SLOT` + espejo en FALSE) y Q2 (divergencia sintética) | `PlantillaOficialV4()`; **renombrado** `T4_EndToEnd_PlantillaVigente_EvaluaSella` | El "defecto espejo declarado" (E1-2) ya **no existe**: el caso Q1 se reescribió para exigir el comportamiento correcto (corrida que cierra, nombre definitivo y los 5 sub-bloques en `1`, con `sellado == evaluación` leído con `ValidacionOracleReader`). El caso Q2 conserva su objeto: el gate se detiene ante la divergencia **sintética** (`SINTETICA-C15`, Δ = 1) y el sellado se prueba en ambos sentidos. Respaldo: R10 de julio-1 + administrativo de julio-2 |
+
+**Ningún test se borró, se relajó ni se marcó `Skip`.** La única baja de la lista de rojos es un cierre real (`CodigosSalidaCli…`, y los dos `ParidadCli*`).
+
+### 15.5 Verificación exigida
+
+- **Build**: `dotnet build Remuneracion.WinForms/Remuneracion.WinForms.slnx` → **0 warnings / 0 errores**.
+- **Corridas reales con la v4** (`--cinco-ase`, salida en ruta temp FRESCA `%TEMP%\p59-f1-run2\<período>`; la tanda previa de la misma evidencia quedó en `%TEMP%\p59-f1-run\<período>`):
+
+| Período | Exit | Veredicto | `DetRetri!D9:D14` |
+|---|---|---|---|
+| `2026071` | **0** | `RESULTADO OK` | 16.758.167.585 / 12.227.292.053 / 10.127.195.599 / 10.553.776.376 / 8.543.663.209 / **58.210.094.822** |
+| `2026072` | **0** | `RESULTADO OK` | 17.450.228.673 / 20.516.143.970 / 15.221.896.467 / 7.179.595.396 / 12.073.344.662 / **72.441.209.168** |
+| `2026101` | **0** | `RESULTADO OK` | 14.842.425.136 / 11.302.637.605 / 8.823.787.300 / 10.483.172.762 / 7.550.668.665 / **53.002.691.468** |
+
+  Los tres: `VALIDACION_TOTAL O9 = 0; P9 = TRUE` en los 5 ASE, 0 `ERR-SIN-SLOT`, 0 `ERR-PLANTILLA`, 0 `ERR-ESCRITURA`, 0 `ERR-INTEGRIDAD`. Idénticos a §14.3 ⇒ **el retiro del recorte no movió un peso del entregable**.
+
+- **Suite completa y set-diff** (trx `%TEMP%\p59-f1-final2\p59-f1.trx`; base de la tanda, medida en el mismo árbol ANTES de los cambios: `%TEMP%\p59-f1-base\p59-base.trx`):
+
+| | Total | Verdes | Rojos | Skip |
+|---|---|---|---|---|
+| Base medida de esta tanda | 1623 | 1596 | 27 | 0 |
+| **Con los dos frentes cerrados** | **1623** | **1599** | **24** | 0 |
+
+  **Set-diff: 0 rojos nuevos · 3 rojos cerrados · 0 tests nuevos · 2 renombres.**
+
+  Cerrados (una sola causa, medida): `CodigosSalidaCliTests.Ejecucion_5Ase_Q1_Devuelve0_ConArchivoYResultadoOk` (el Δ 22.921,61 de la v2 en `VALIDACION_TOTAL`), `ParidadCliTests.Paridad_5Ase_Q1_CliVsDirecto_ValoresYSnapshotsIguales` y `ParidadCliTests.Paridad_5Ase_Q2_CliVsDirecto_IncluyeAjustesYDetRetri` (rojo del mecanismo de comparación congelado + base v2). Los **24 restantes son los mismos de la base y con la misma causa** (mapas LEGACY, caracterizaciones cuya base es la v2 a propósito, fixtures de agosto/permuta BCE): ninguna tolerancia ampliada, ningún gate retirado, ningún test borrado, ningún `Skip`.
+
+  Renombres (mismo cuerpo y mismo veredicto, nombre honesto): `T4_EndToEnd_Oficial_EvaluaSella_DefectoEspejoDeclarado` → `T4_EndToEnd_PlantillaVigente_EvaluaSella`; `T0_5_RecorteQ2_NoSeLevanta_DestinoE285EsFormula` → `T0_5_PlantillaV2_DestinoE285EsFormula_ClaseRMapaV2R2Ase4`.
+
+- **Greps de cierre**:
+  - `0` ramas por quincena en el bloque tocado (`ProcesadorPeriodo`): no queda ningún `if (esQuincena2)` alrededor de la conciliación; los `esQuincena2` restantes son de **dominio de negocio** (AJUSTES-SF-T solo en 2.ª quincena, `CalcularConsolidado`, ajustes por ASE) y estaban fuera de alcance.
+  - `0` referencias en producción al mensaje retirado y `0` menciones al recorte como vigente (solo quedan comentarios de `R-SIGMA-Q2`, que **no** se toca).
+  - `0` literales de período en producción fuera de la exención declarada del texto de ayuda del CLI (`OpcionesCli.cs:219`), verificado con el escaneo del candado (`CandadoPeriodoQuemadoPlan59Tests`, verde en la suite).
+  - `0` ocurrencias de `Insumos.PlantillaOficial(` (el nombre viejo no existe).
+  - **Plantillas byte-intactas**: v4 `5FEDFD31…0A4E38E5` (705.805 B), v3 `8D0B3299…2B423538` (709.040 B), v2 `86E48E47…CC9D3D14` (693.983 B), v1 `3086AC31…A49C5214` (692.598 B).
+  - `git status`: sin cambios en `Docs/**/*.xlsx` (la carpeta `v4/` sigue como archivo nuevo sin trackear, tal como llegó) y sin trx nuevos en `TestResults/` — los tres `.trx` sin trackear que se ven allí (`p59-frente3-final.trx`, `p59-h5-cierre.trx`, `p59-h5-suite.trx`) son de la tanda **anterior** (26-oct 21:09 y 27-oct 08:06/08:16); los de esta tanda se escribieron en `%TEMP%` (`p59-f1-base`, `p59-f1-final`, `p59-f1-final2`).
+- **CRLF y codificación**: los archivos tocados quedan con CRLF uniforme y **0 caracteres `U+FFFD`** (verificado leyendo cada archivo como UTF-8 y contando el reemplazo). Se normalizaron a CRLF cinco archivos que la tanda anterior había dejado mixtos o en LF (`Docs/T0-Plan59-H2bis-Detalle-Derivado.md`, `DetallePeriodoDerivado.cs`, `WorkbookLeafCellMapBalanceSc.cs`, `DetalleR2R4EscrituraTests.cs`, `GoldenDetRetriQ2Tests.cs`) **sin cambiar su contenido** (mismo texto, solo fin de línea).
+
+### 15.6 Puntos que quedan al Ingeniero
+
+1. **`R-SIGMA-Q2` sigue vivo y sin habilitar en Q2** (§1.3). Ahora que la lista de conciliación llega **poblada** en Q2, el gate es *tentador*: medido, la descomposición sigue sin ser válida allí (R4 no declara todas las empresas, R2 trae etiquetas reales sin destino en el catálogo). Reactivarlo exige contrato nuevo + T0 propio.
+2. **`LeerRecaudoEmpresa` elige el par de columnas del `RESUMEN MES` por quincena** (D/E vs F/G, `ExcelDataReaderWorkbookLeafInputReader.cs:1110-1123`). No se tocó: es el **layout de la fuente** (dos pares de columnas rotulados `VALOR 1°Q`/`VALOR 2°Q`), no una regla de negocio, y no participa del retiro del recorte. Queda anotado por si el Ingeniero quiere que también eso se derive por rótulo de encabezado en un frente propio.
+3. **`WorkbookLeafCellMapQ2` / `RolsQ2` / `WorkbookLeafCellMapPorAse` ya solo los consumen fixtures LEGACY.** `ParidadCliTests` dejó de usarlos en este cierre; quedan `MapaQ2T0Tests`, `DetalleR2R4EscrituraTests` y `GoldenDetRetriQ2Tests`, cuya base es la v2 **a propósito** (su objeto ES la foto). Recomiendo que el siguiente frente los marque `[Obsolete]` con motivo o los retire cuando su evidencia histórica deje de citarse.
+4. **`RegresionEvaluaSellaPlan40Tests` cambió de nombre y de veredicto**: pasó de "declara el defecto espejo" a exigir el cierre. Si algún documento de trazabilidad (matriz de requisitos del Plan 40) cita el nombre viejo `T4_EndToEnd_Oficial_EvaluaSella_DefectoEspejoDeclarado`, hay que actualizarlo: el defecto E1-2 quedó cerrado por la plantilla, no por el código.

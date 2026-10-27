@@ -39,7 +39,7 @@ public sealed class RegresionOficialPlan39Tests
     [InlineData("2026072", "Docs/Prueba Julio-2/Insumos", "M")]
     public void T5_RegresionOficial_HealthyOpen_VarianteL_DetRetriVsR10(string codigo, string carpetaRel, string columna)
     {
-        var oficial = Insumos.PlantillaOficial();
+        var oficial = Insumos.PlantillaHistoricaV2();
         Assert.True(File.Exists(oficial), $"Falta la plantilla oficial: {oficial}");
         var hashAntes = Sha256(oficial);
 

@@ -134,13 +134,30 @@ public sealed class DetalleR2R4Tests
         Assert.Equal(leaf.R4.D9 - leaf.R4.P9, leaf.R4.TotalReversionEsperada);
     }
 
+    /// <summary>
+    /// Plan 59 (§11-bis): el detalle de R2/R4 es del PERÍODO, no de la quincena. Se construye también
+    /// en la PRIMERA quincena — antes se omitía y el entregable de Q1 salía con el bloque de anticipos
+    /// entero en el literal 0 de la plantilla (su cierre de cuadro daba 0 y la línea de anticipos de
+    /// <c>CONSOLIDADO!D28:D32</c> se caía, mientras el <c>DetRetri</c> —escrito desde el dominio—
+    /// declaraba un monto). La expectativa la respalda el oráculo administrativo de 2026101 y el R10 de
+    /// 2026071, ambos de primera quincena, que traen el detalle lleno; la cobertura de valores vive en
+    /// <see cref="DetalleR2R4EscritoPlan59Tests"/>.
+    /// </summary>
     [Fact]
-    public void LeerLeafInputs_Q1_NoPueblaDetalle()
+    public void LeerLeafInputs_Q1_PueblaDetalleIgualQueQ2_SinAlterarAgregados()
     {
         var leaf = Reader().LeerLeafInputs(
             Insumos.Ase(1), Insumos.Periodo(), Insumos.R1(1), Insumos.R2(1), Insumos.R4(1));
 
-        Assert.Null(leaf.DetalleR2);
-        Assert.Null(leaf.DetalleR4);
+        Assert.NotNull(leaf.DetalleR2);
+        Assert.NotNull(leaf.DetalleR4);
+        Assert.Contains(leaf.DetalleR2.Filas, f => f.D == "Vlr Servicio");
+        Assert.Contains(leaf.DetalleR2.Filas, f => f.A == "Total");
+        Assert.Contains(leaf.DetalleR4.Filas, f => f.C == "Vlr Servicio");
+        Assert.Contains(leaf.DetalleR4.Filas, f => f.A == "Total");
+
+        // Los agregados existentes no cambian de regla por poblar el detalle.
+        Assert.Equal(leaf.R2.E15 + leaf.R2.E26 - leaf.R2.K15, leaf.R2.TotalOportunoEsperado);
+        Assert.Equal(leaf.R4.D9 - leaf.R4.P9, leaf.R4.TotalReversionEsperada);
     }
 }

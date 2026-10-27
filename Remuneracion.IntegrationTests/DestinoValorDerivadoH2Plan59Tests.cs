@@ -19,11 +19,11 @@ namespace Remuneracion.IntegrationTests;
 /// CONSOLIDADO/DetRetri, se resuelven por etiqueta; la resolución coincide con el destino que el
 /// propio template declara (la referencia de la fórmula consumidora), sin que el código conozca
 /// ninguna fila.</item>
-/// <item><b>H2.2</b>: el caso testigo §2-D2.3-bis (<c>F75</c> en la v2 vs <c>F89</c> en la v3) se
-/// aprueba por ROL + FORMA: la celda que hoy corresponde al cierre tiene la forma derivada y la celda
-/// congelada de la v2 NO tiene fórmula en la v3 (no se espera que la tenga).</item>
+/// <item><b>H2.2</b>: el caso testigo §2-D2.3-bis (<c>F75</c> en la v2 vs <c>F89</c> en la plantilla
+/// vigente) se aprueba por ROL + FORMA: la celda que hoy corresponde al cierre tiene la forma derivada
+/// y la celda congelada de la v2 NO tiene fórmula en la plantilla vigente (no se espera que la tenga).</item>
 /// <item><b>Geometría desplazada</b>: un libro sintético con filas extra resuelve los mismos destinos
-/// sin cambiar código (prueba de que no hay foto de la v3).</item>
+/// sin cambiar código (prueba de que no hay foto de la plantilla).</item>
 /// <item><b>Injerto en rojo</b>: el detector del candado enrojece si aparece un literal de celda o una
 /// rama por ASE en los caminos de resolución (el candado formal de dos capas es H3).</item>
 /// </list>
@@ -62,7 +62,7 @@ public sealed class DestinoValorDerivadoH2Plan59Tests
     [Fact]
     public void H2_1_ElTotalOportunoDeCadaBloqueSeResuelvePorIdentidadYCoincideConLaReferenciaDelConsolidado()
     {
-        using var plantilla = PlantillaV3.Abrir();
+        using var plantilla = PlantillaVigente.Abrir();
         var parte = plantilla.Parte;
 
         var r1 = DelimitadorBloquesHoja.Delimitar(parte, DelimitadorBloquesHoja.R1);
@@ -94,7 +94,7 @@ public sealed class DestinoValorDerivadoH2Plan59Tests
     [Fact]
     public void H2_1_Las36CeldasDelConsolidadoYDetRetriSeResuelvenPorTablaYRotulo()
     {
-        using var plantilla = PlantillaV3.Abrir();
+        using var plantilla = PlantillaVigente.Abrir();
         var parte = plantilla.Parte;
 
         var consolidado = Hoja(parte, DelimitadorBloquesHoja.NombreConsolidado);
@@ -148,7 +148,7 @@ public sealed class DestinoValorDerivadoH2Plan59Tests
     [Fact]
     public void H2_3_ElDestinoDetRetriEsSlotDeValorYSeResuelvePorEtiqueta()
     {
-        using var plantilla = PlantillaV3.Abrir();
+        using var plantilla = PlantillaVigente.Abrir();
         var parte = plantilla.Parte;
 
         VerificadorDestinoProtegido.ValidarDetRetriEditable(parte, Periodo.Parse("2026092"));
@@ -169,15 +169,15 @@ public sealed class DestinoValorDerivadoH2Plan59Tests
     // ── H2.2 — caso testigo F75/F89 y verificación por forma ───────────────────────────────────
 
     /// <summary>
-    /// Caso testigo §2-D2.3-bis: en la v3 el cierre oportuno del bloque ASE1 vive donde la geometría
+    /// Caso testigo §2-D2.3-bis: en la plantilla vigente el cierre oportuno del bloque ASE1 vive donde la geometría
     /// lo declara (el cuadro de totales, rótulo <c>C='TOTAL'/D='OPORTUNO'</c>) y su fórmula SUMA los
     /// cierres <c>Mes</c> del bloque y RESTA sus especiales menos el último. La celda congelada de la
-    /// v2 (<c>F75</c>) NO tiene fórmula en la v3 y NO se espera que la tenga.
+    /// v2 (<c>F75</c>) NO tiene fórmula y NO se espera que la tenga.
     /// </summary>
     [Fact]
-    public void H2_2_ElCierreOportunoSeApruebaPorFormaYLaCeldaCongeladaDeLaV2NoTieneFormulaEnLaV3()
+    public void H2_2_ElCierreOportunoSeApruebaPorFormaYLaCeldaCongeladaDeLaV2NoTieneFormula()
     {
-        using var plantilla = PlantillaV3.Abrir();
+        using var plantilla = PlantillaVigente.Abrir();
         var parte = plantilla.Parte;
 
         // 1) La protección completa del template se verifica por ROL + FORMA (si algo no cuadra, este
@@ -214,12 +214,12 @@ public sealed class DestinoValorDerivadoH2Plan59Tests
         Assert.Equal(mes.Count - 1, formula!.Count(c => c == '+'));
         Assert.Equal(mes.Count - 1, formula.Count(c => c == '-'));
 
-        // 3) La celda congelada de la v2 (`F75` en R1Q2ProtectedPorAse[1]) ya no es fórmula en la v3:
-        //    el mensaje "debería seguir siendo fórmula" era falso respecto de la plantilla.
+        // 3) La celda congelada de la v2 (`F75` en R1Q2ProtectedPorAse[1]) ya no es fórmula en la
+        //    plantilla vigente: el mensaje "debería seguir siendo fórmula" era falso respecto de ella.
         var celdaV2 = WorkbookLeafCellMapQ2.ObtenerR1Q2Protegidos(1)[0].Celda;
-        var enV3 = ResolvedorDestinoValor.BuscarCelda(hojaR1, celdaV2);
-        Assert.NotNull(enV3);
-        Assert.Null(enV3!.CellFormula);
+        var enVigente = ResolvedorDestinoValor.BuscarCelda(hojaR1, celdaV2);
+        Assert.NotNull(enVigente);
+        Assert.Null(enVigente!.CellFormula);
 
         // Y el cierre de verdad es OTRA celda, no la congelada.
         Assert.NotEqual(celdaV2, celdaCierre);
@@ -233,7 +233,7 @@ public sealed class DestinoValorDerivadoH2Plan59Tests
     [Fact]
     public void H2_2_SiElCierreDejaDeSerFormula_FallaNombrandoLaIdentidad()
     {
-        using var plantilla = PlantillaV3.Abrir(enEscritura: true);
+        using var plantilla = PlantillaVigente.Abrir(enEscritura: true);
         var parte = plantilla.Parte;
 
         var hojaR1 = Hoja(parte, DelimitadorBloquesHoja.NombreHojaR1);
@@ -457,14 +457,14 @@ public sealed class DestinoValorDerivadoH2Plan59Tests
     }
 
     /// <summary>
-    /// Plantilla v3 abierta en solo-lectura (o en escritura sobre una COPIA, para los tests que
+    /// Plantilla v4 VIGENTE abierta en solo-lectura (o en escritura sobre una COPIA, para los tests que
     /// simulan una plantilla rota sin tocar el original).
     /// </summary>
-    private sealed class PlantillaV3 : IDisposable
+    private sealed class PlantillaVigente : IDisposable
     {
         private readonly string? _copia;
 
-        private PlantillaV3(SpreadsheetDocument documento, string? copia)
+        private PlantillaVigente(SpreadsheetDocument documento, string? copia)
         {
             Documento = documento;
             _copia = copia;
@@ -474,20 +474,18 @@ public sealed class DestinoValorDerivadoH2Plan59Tests
 
         internal WorkbookPart Parte => Documento.WorkbookPart!;
 
-        internal static PlantillaV3 Abrir(bool enEscritura = false)
+        internal static PlantillaVigente Abrir(bool enEscritura = false)
         {
-            var origen = Path.Combine(
-                RaizRepo(), "Docs", "Plantilla estandarizada", "v3",
-                "Formato Remuneracion 2026xx-x Total v3.xlsx");
+            var origen = Insumos.PlantillaOficialV4();
 
             if (!enEscritura)
             {
-                return new PlantillaV3(SpreadsheetDocument.Open(origen, false), copia: null);
+                return new PlantillaVigente(SpreadsheetDocument.Open(origen, false), copia: null);
             }
 
             var copia = Path.Combine(Path.GetTempPath(), "p59-h2-" + Guid.NewGuid().ToString("N") + ".xlsx");
             File.Copy(origen, copia, overwrite: true);
-            return new PlantillaV3(SpreadsheetDocument.Open(copia, true), copia);
+            return new PlantillaVigente(SpreadsheetDocument.Open(copia, true), copia);
         }
 
         public void Dispose()
@@ -512,7 +510,7 @@ public sealed class DestinoValorDerivadoH2Plan59Tests
     /// <summary>
     /// Libro sintético con la gramática de R1 (cabecera por rótulo del ASE, cierres por firma,
     /// gran total y cuadro de totales con el rótulo del cierre). Permite probar la resolución con una
-    /// geometría QUE NO ES la de la v3: si el código tuviera una fila congelada, este test enrojece.
+    /// geometría QUE NO ES la de la plantilla vigente: si el código tuviera una fila congelada, este test enrojece.
     /// </summary>
     private sealed class LibroSintetico : IDisposable
     {

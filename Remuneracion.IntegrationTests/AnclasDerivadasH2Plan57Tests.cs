@@ -210,11 +210,16 @@ public sealed class AnclasDerivadasH2Plan57Tests
     [Fact]
     public void H2_1_ConductualFormulaInjertada_DisparaNucleoConDeltaExacto()
     {
-        var corrida = Correr("2026072");
+        // Plan 59 (§11-bis): se corre sobre 2026101. El conductor (injerto de un término falso → el
+        // núcleo dispara con el Δ exacto) necesita una corrida cuyo resultado exista y no depende del
+        // período; se conserva el período con el que se publicó la evidencia. (El motivo original era
+        // que 2026072 no cerraba por el typo de plantilla R1!F328 —corregido en la v4—; mover la corrida
+        // otra vez solo cambiaría la evidencia, no la cobertura.)
+        var corrida = Correr("2026101");
         Assert.NotNull(corrida.Resultado);
         Assert.NotNull(corrida.Leafs);
 
-        var periodo = Periodo.Parse("2026072");
+        var periodo = Periodo.Parse("2026101");
         using var copia = new CopiaTemporal(corrida.Ruta);
         var (hoja, celda) = ReferenciaPublicada(copia.Ruta, 5);
 
@@ -440,7 +445,7 @@ public sealed class AnclasDerivadasH2Plan57Tests
                 {
                     Periodo = periodo,
                     CarpetaPeriodo = CarpetaPeriodo(codigoPeriodo),
-                    RutaPlantilla = PlantillaOficial(),
+                    RutaPlantilla = PlantillaVigente(),
                     RutaSalida = salida
                 });
                 resultado = proceso.Resultado;
@@ -633,8 +638,12 @@ public sealed class AnclasDerivadasH2Plan57Tests
 
     private static string Ruta(string relativo) => Path.Combine(RaizRepo(), relativo);
 
-    private static string PlantillaOficial() => Path.Combine(
-        RaizRepo(), "Docs", "Plantilla estandarizada", "v2", "Formato Remuneracion 2026xx-x Total vf.xlsx");
+    /// <summary>
+    /// Plantilla de origen de la corrida publicada: la VIGENTE (v4 desde 2026-10-27). La v2 queda
+    /// histórica porque no declara el grupo <c>canal A / empresa EAB</c> del segundo cuadro de R2 que la
+    /// fuente de octubre-1 trae en ASE2 (<c>ERR-SIN-SLOT</c> al escribir el detalle).
+    /// </summary>
+    private static string PlantillaVigente() => Insumos.PlantillaOficialV4();
 
     private static string CarpetaPeriodo(string codigoPeriodo) => Path.Combine(
         RaizRepo(),

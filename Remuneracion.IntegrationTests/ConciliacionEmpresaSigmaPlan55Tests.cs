@@ -326,7 +326,7 @@ public sealed class ConciliacionEmpresaSigmaPlan55Tests
         var periodo = Periodo.Parse(codigo);
 
         // Plan 55 (H1.1/D4): la PLANTILLA es la autoridad de los destinos (resolución por etiquetas).
-        var reader = new ExcelDataReaderWorkbookLeafInputReader { RutaPlantilla = Insumos.PlantillaOficial() };
+        var reader = new ExcelDataReaderWorkbookLeafInputReader { RutaPlantilla = Insumos.PlantillaHistoricaV2() };
         var ase = AseFactory.DesdeId(aseId);
         var leaf = reader.LeerLeafInputs(ase, periodo, r1, r2, r4);
         var conciliacion = reader.LeerConciliacionEmpresas(ase, periodo, r1, r2, r4);

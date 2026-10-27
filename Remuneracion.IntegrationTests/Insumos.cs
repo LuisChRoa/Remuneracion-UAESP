@@ -31,25 +31,46 @@ internal static class Insumos
     }
 
     /// <summary>
-    /// Plan 48 (H1): plantilla OFICIAL única = base <b>v2</b>
-    /// (<c>Docs/Plantilla estandarizada/v2/Formato Remuneracion 2026xx-x Total vf.xlsx</c>) — INPUT
-    /// DIRECTO de la App para todos los períodos y oráculo geométrico. La v1
-    /// (<c>Docs/Plantilla estandarizada/Formato Remuneracion 2026xx-x Total.xlsx</c>) queda como
-    /// histórica intacta (SHA256 propio) y NO la usa el pipeline. Ruta EXPLÍCITA (nunca la raíz
-    /// <c>Docs/Insumos</c> como fuente de plantilla).
+    /// HISTÓRICA — base <b>v2</b> (<c>Docs/Plantilla estandarizada/v2/Formato Remuneracion 2026xx-x Total vf.xlsx</c>).
+    ///
+    /// <para>
+    /// Plan 59 (§15, 2026-10-27): el nombre anterior (<c>PlantillaOficial</c>) mentía — devolvía la v2
+    /// mientras la plantilla VIGENTE es la <b>v4</b> (<see cref="PlantillaOficialV4"/>). Se renombró sin
+    /// alias: si algo pide "la oficial" debe pedir la v4. La v2 solo la consumen las caracterizaciones
+    /// cuyo OBJETO es la geometría v2 (mapas LEGACY) y la evidencia congelada que cita sus celdas; la v1
+    /// (<c>Docs/Plantilla estandarizada/Formato Remuneracion 2026xx-x Total.xlsx</c>) también queda
+    /// histórica intacta y NO la usa el pipeline. Ruta EXPLÍCITA (nunca la raíz <c>Docs/Insumos</c>
+    /// como fuente de plantilla).
+    /// </para>
     /// </summary>
-    public static string PlantillaOficial() =>
+    public static string PlantillaHistoricaV2() =>
         Path.Combine(Raiz(), "Docs", "Plantilla estandarizada", "v2", "Formato Remuneracion 2026xx-x Total vf.xlsx");
+
+    /// <summary>
+    /// Plantilla <b>v4</b> VIGENTE desde 2026-10-27
+    /// (<c>Docs/Plantilla estandarizada/v4/Formato Remuneracion 2026xx-x Total v4.xlsx</c>).
+    /// Es la v3 más exactamente dos celdas de fórmula corregidas en <c>Reporte Componentes R1</c>
+    /// (<c>F328</c> y <c>F333</c>: <c>-M213</c>/<c>--L126</c> → <c>-L213</c>/<c>-L126</c>); el resto del
+    /// contenido es idéntico (mismas 40 hojas, mismo orden, mismas dimensiones, mismas 42.134 celdas).
+    /// Con la v4 julio-1, julio-2 y octubre-1 cierran. Declara, como la v3, el grupo
+    /// <c>canal A / empresa EAB</c> del SEGUNDO cuadro de <c>Rem. Anticipos R2</c> en los 5 ASE.
+    /// La v3 queda en disco como <b>histórica</b> y ningún camino de producción ni fixture de
+    /// procesamiento la consume.
+    /// </summary>
+    public static string PlantillaOficialV4() =>
+        Path.Combine(Raiz(), "Docs", "Plantilla estandarizada", "v4", "Formato Remuneracion 2026xx-x Total v4.xlsx");
 
     private static readonly object CandadoBases = new();
     private static readonly Dictionary<string, string> BasesPorPeriodo = new();
 
     /// <summary>
     /// Plan 39 (T4): base del período producida por Phase 0 (<see cref="PreparadorBasePipeline"/>)
-    /// desde la plantilla OFICIAL hacia una ruta temp FRESCA (una sola vez por proceso; los fixtures
-    /// comparan hashes entre llamadas). Sustituye a la carpeta de bases preparadas offline (retirada):
-    /// el fixture ya no apunta a una carpeta versionada y el flujo es el de producción (oficial →
-    /// Phase 0 → copia de trabajo).
+    /// desde la plantilla <b>histórica v2</b> (<see cref="PlantillaHistoricaV2"/>) hacia una ruta temp
+    /// FRESCA (una sola vez por proceso; los fixtures comparan hashes entre llamadas). Solo la usan
+    /// las caracterizaciones ancladas a la geometría v2 (vía <see cref="BaseV2DelPeriodo"/>); la base
+    /// vigente es <see cref="BaseDelPeriodoV4"/>. Sustituye a la carpeta de bases preparadas offline
+    /// (retirada): el fixture ya no apunta a una carpeta versionada y el flujo es el de producción
+    /// (plantilla → Phase 0 → copia de trabajo).
     /// </summary>
     public static string BaseDelPeriodo(string periodo)
     {
@@ -60,7 +81,7 @@ internal static class Insumos
                 return existente;
             }
 
-            var oficial = PlantillaOficial();
+            var oficial = PlantillaHistoricaV2();
             Assert.True(File.Exists(oficial), $"Falta la plantilla oficial: {oficial}");
 
             var dir = Path.Combine(
@@ -73,9 +94,53 @@ internal static class Insumos
         }
     }
 
-    /// <summary>Base canónica Q1 (período <c>2026071</c>) preparada por Phase 0 desde el oficial.</summary>
-    public static string Plantilla => BaseDelPeriodo("2026071");
+    /// <summary>
+    /// Base canónica Q1 (período <c>2026071</c>) preparada por Phase 0.
+    ///
+    /// Plan 59 (H5, rebaseado 2026-10-27): se prepara desde la plantilla <b>v4</b> — única base
+    /// vigente. La expectativa de los fixtures que la consumen se conserva porque la v4 es la v3 con
+    /// dos fórmulas corregidas (misma geometría, mismas etiquetas) y la v3 era superconjunto semántico
+    /// de la v2 (§0.4-a: 0 faltantes de etiqueta en las tres hojas).
+    /// </summary>
+    public static string Plantilla => BaseDelPeriodoV4("2026071");
 
+    private static readonly object CandadoBasesV4 = new();
+    private static readonly Dictionary<string, string> BasesV4PorPeriodo = new();
+
+    /// <summary>
+    /// Plan 59 (H5, rebaseado 2026-10-27): base del período producida por Phase 0 desde la plantilla
+    /// <b>v4</b> hacia una ruta temp FRESCA (una sola vez por proceso). Mismo flujo que
+    /// <see cref="BaseDelPeriodo"/>; la diferencia es la plantilla de origen vigente.
+    /// </summary>
+    public static string BaseDelPeriodoV4(string periodo)
+    {
+        lock (CandadoBasesV4)
+        {
+            if (BasesV4PorPeriodo.TryGetValue(periodo, out var existente))
+            {
+                return existente;
+            }
+
+            var oficial = PlantillaOficialV4();
+            Assert.True(File.Exists(oficial), $"Falta la plantilla v4 vigente: {oficial}");
+
+            var dir = Path.Combine(
+                Path.GetTempPath(), $"p59-fixtures-v4-{Environment.ProcessId}-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(dir);
+            var salida = Path.Combine(dir, $"Plantilla_Remuneracion_v4_{periodo}.xlsx");
+            PreparadorBasePipeline.Ejecutar(oficial, Remuneracion.Core.Models.Periodo.Parse(periodo), salida);
+            BasesV4PorPeriodo[periodo] = salida;
+            return salida;
+        }
+    }
+
+
+    /// <summary>
+    /// Plan 59 (H5): base del período desde la plantilla <b>v2</b> (histórica). Existe SOLO para las
+    /// caracterizaciones cuyo OBJETO es la geometría v2 —la foto del mapa Q2 y las filas que cita la
+    /// evidencia T0b—. NO es la base de producción: la app consume la v4 (`PlantillaOficialV4`).
+    /// </summary>
+    public static string BaseV2DelPeriodo(string periodo) => BaseDelPeriodo(periodo);
 
     public static string CarpetaPeriodo => Path.Combine(Raiz(), "Docs", "Prueba Julio-1", "Insumos");
 
@@ -153,11 +218,14 @@ internal static class Insumos
     /// <c>Docs/Prueba Julio-2/Plantilla_Remuneracion.xlsx</c>.
     /// </summary>
     /// <summary>
-    /// Plan 36 (T4): base canónica Q2 del período <c>2026072</c>, preparada desde la plantilla
-    /// estandarizada única (antes: la plantilla legacy <c>Docs/Prueba Julio-2/Plantilla_Remuneracion.xlsx</c>,
-    /// que ya no es base válida del path de slots).
+    /// Plan 36 (T4): base canónica Q2 del período <c>2026072</c>, preparada por Phase 0.
+    ///
+    /// Plan 59 (H5, rebaseado 2026-10-27): se prepara desde la plantilla <b>v4</b> (única base
+    /// vigente). La expectativa se conserva: el período Q2 es el mismo, la fuente es la misma y la v4
+    /// declara todo lo que la v2 declaraba más los grupos de canal que faltaban (§0.4-a/c) y las dos
+    /// fórmulas que la v3 traía con typo. La base deja de ser la foto de la v2.
     /// </summary>
-    public static string PlantillaQ2 => BaseDelPeriodo("2026072");
+    public static string PlantillaQ2 => BaseDelPeriodoV4("2026072");
 
 
     /// <summary>
@@ -323,8 +391,14 @@ internal static class Insumos
     /// offline por <c>Herramientas/PreparadorBasePeriodo</c> (rename de hojas + reescritura del
     /// token de período + metadatos/Q1 del manual). Su consistencia la fija
     /// <see cref="BaseConsistente2026082Tests"/>.
+    ///
+    /// Plan 59 (§11-bis, rebaseado 2026-10-27): se prepara desde la plantilla <b>v4</b>
+    /// (§<see cref="BaseDelPeriodoV4"/>) porque la fuente de agosto trae, en el SEGUNDO cuadro de
+    /// <c>Rem. Anticipos R2</c>, filas del grupo <c>canal A / empresa EAB</c> (ASE4: −12.462,26) que la
+    /// v2 no declara: escribirlas sobre la v2 dejaba el bloque incompleto (el detalle sumaba 12.462,26
+    /// de más frente a la fuente).
     /// </summary>
-    public static string PlantillaAgosto2026082 => BaseDelPeriodo("2026082");
+    public static string PlantillaAgosto2026082 => BaseDelPeriodoV4("2026082");
 
     /// <summary>
     /// Plan 30 (T3, D-E): manual del administrativo de agosto (<c>202608-2</c>), fuente de los

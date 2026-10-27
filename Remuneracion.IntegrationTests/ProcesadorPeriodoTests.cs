@@ -451,11 +451,25 @@ public sealed class ProcesadorPeriodoTests
         Assert.Equal(5, resultado.Leafs.Count);
         Assert.All(resultado.Leafs, l => Assert.NotNull(l.DetRetriQ2));
         Assert.All(resultado.Leafs, l => Assert.NotNull(l.AjustesSfT));
-        // Plan 50 (A2): el levantamiento del recorte Q2 quedó BLOQUEADO por el residuo
-        // `R-MAPA-V2-R2-ASE4` (la celda destino R2!E285 es fórmula en la v2; `ERR-PLANTILLA` al
-        // escribir). El recorte se MANTIENE: en Q2 la conciliación por empresa sigue vacía
-        // (`Docs/T0-Plan50-FuentesRecaudoOpcionales.md` §4.3). Re-congelado con esa evidencia.
-        Assert.All(resultado.Leafs, l => Assert.Empty(l.Conciliacion));
+        // Plan 59 (H3, 2026-10-27): la conciliación por empresa corre en Q2. El recorte de
+        // HU-20-T0b/G2-D1 se retiró porque su bloqueo era de PLANTILLA y ya no existe: la celda
+        // destino del grupo (1,4) `Rem. Anticipos R2!E285` era fórmula en la v2 y en la plantilla
+        // vigente (v4) es un slot de valor, y el 2.º cuadro de R2 declara el grupo `canal A /
+        // empresa EAB` en los 5 ASE (§0.4-c/§0.5 del Plan 59). El aserto anterior exigía
+        // `Assert.Empty(l.Conciliacion)` — caracterizaba el defecto, no el comportamiento correcto.
+        // Se exige la presencia de las 5 empresas del CATÁLOGO (no un conteo fijo): el resolvedor por
+        // etiquetas (Plan 55) añade un acumulado sintético por etiqueta real ajena al catálogo, y en
+        // julio-2 el ASE3 trae `EAB` (73.523,10) en su R2 ⇒ 6 entradas para ese ASE.
+        foreach (var leaf in resultado.Leafs)
+        {
+            for (var idEmpresa = 1; idEmpresa <= 5; idEmpresa++)
+            {
+                Assert.Contains(leaf.Conciliacion, c => c.Empresa.Id == idEmpresa);
+            }
+
+            // El cruce por empresa tiene destinos RESUELTOS por etiqueta en R2 (no un mapa congelado).
+            Assert.Contains(leaf.Conciliacion, c => c.CeldasR2.Count > 0);
+        }
     }
 
     [Fact]
@@ -561,7 +575,14 @@ public sealed class ProcesadorPeriodoTests
         {
             Periodo = Insumos.PeriodoQ2(),
             CarpetaPeriodo = Insumos.CarpetaPeriodoQ2,
-            RutaPlantilla = Insumos.PlantillaQ2,
+            // Plan 59 (H3, 2026-10-27): base VIGENTE (v4). El anclaje a la v2 que fijó el H5 se
+            // apoyaba en el typo de plantilla `R1!F328` (−M213 donde debe ser −L213), ajeno a la app;
+            // la v4 lo corrige y julio-2 cierra con `RESULTADO OK` (§14.3 del Plan 59). El objeto del
+            // test —el lector-oráculo sobre una plantilla con caché 0— no cambia: los veredictos se
+            // evalúan siempre desde lo escrito. Evidencia del cierre: corrida real 2026072 con la v4
+            // (exit 0) y el oráculo administrativo `Docs/Prueba Julio-2/Resultado/
+            // Remuneracion 202607-2 Total Administrativo.xlsx`.
+            RutaPlantilla = Insumos.BaseDelPeriodoV4("2026072"),
             RutaSalida = salida
         });
 

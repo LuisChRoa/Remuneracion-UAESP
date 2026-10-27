@@ -88,10 +88,15 @@ public sealed class SelladoCacheFormulaT2Tests
         {
             Periodo = Insumos.PeriodoQ2(),
             CarpetaPeriodo = Insumos.CarpetaInsumosJulioQ2,
-            RutaPlantilla = Insumos.PlantillaQ2,
+            // Plan 59 (§15, 2026-10-27): base VIGENTE (v4). El anclaje a la v2 que fijó el H5 se
+            // apoyaba en el typo de plantilla `R1!F328`, que hacía evaluar FALSE los sub-bloques del
+            // espejo de julio-2 y sellaba "0" sobre un archivo defectuoso. La v4 corrige la fórmula y
+            // los 5 sub-bloques evalúan TRUE (corrida real 2026072 exit 0; oráculo administrativo de
+            // julio-2). La aserción no se relajó: sigue exigiendo sellado == evaluación.
+            RutaPlantilla = Insumos.BaseDelPeriodoV4("2026072"),
             RutaSalida = salida
         });
-        return (salida, Insumos.PlantillaQ2);
+        return (salida, Insumos.BaseDelPeriodoV4("2026072"));
     }
 
     /// <summary>
@@ -107,7 +112,7 @@ public sealed class SelladoCacheFormulaT2Tests
         {
             Periodo = Insumos.PeriodoQ2(),
             CarpetaPeriodo = Insumos.CarpetaInsumosJulioQ2,
-            RutaPlantilla = Insumos.PlantillaQ2,
+            RutaPlantilla = Insumos.BaseDelPeriodoV4("2026072"),
             RutaSalida = salida
         });
         return salida;

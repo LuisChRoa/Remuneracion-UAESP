@@ -850,7 +850,7 @@ public sealed class ValidadorBasico : IValidador
             return;
         }
 
-        // Plan 50 (A2, §2.4 — RESIDUO Q2 DECLARADO CON SU PROPIO T0 + residuo R-MAPA-V2-R2-ASE4):
+        // Plan 50 (A2, §2.4 — RESIDUO Q2 DECLARADO `R-SIGMA-Q2`):
         // este gate (Σ visibles-empresa == visible de bloque) se definió sobre los mapas Q1 de HU-08 y
         // NO es una descomposición válida del visible de bloque en Q2. Evidencia medida en bytes
         // (`Docs/T0-Plan50-FuentesRecaudoOpcionales.md` §4):
@@ -859,9 +859,10 @@ public sealed class ValidadorBasico : IValidador
         //   - R2 incluye etiquetas reales sin destino en el mapa (EAB, ENERBIT) → Δ = 73.523,10 /
         //     6.242.402,48 / 6.055.022,95;
         //   - el visible R1-Q2 se deriva por firma (espejo: roles Mes/Aplic), no de estos operandos.
-        // El recorte de la conciliación Q2 se MANTIENE (residuo R-MAPA-V2-R2-ASE4: R2!E285 es fórmula
-        // en la v2), así que hoy esta rama es defensiva; si un plan futuro levanta el recorte, el gate
-        // NO debe reactivarse en Q2 sin el contrato nuevo (T0 propio).
+        // Plan 59 (§15, 2026-10-27): el recorte de la conciliación por empresa en Q2 se RETIRÓ (la v4
+        // ya no tiene fórmula en R2!E285), así que la lista llega POBLADA en Q2 y esta rama es la que
+        // impide evaluar el gate allí. El gate NO debe reactivarse en Q2 sin el contrato nuevo (T0
+        // propio, residuo `R-SIGMA-Q2`).
         if (leaf.Periodo.NumeroQuincena != 1)
         {
             return;

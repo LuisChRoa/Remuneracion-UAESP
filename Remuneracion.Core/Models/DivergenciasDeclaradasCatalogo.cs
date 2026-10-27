@@ -108,7 +108,7 @@ public static class DivergenciasDeclaradasCatalogo
             CitaEvidencia:
                 "Docs/T0-Plan54-Contrato-Unico-Lectura-R1.md §2 (censo octubre-1: ASE5 filas 23/38, " +
                 "cero Aplicacion) y §3 (D9 ASE5 = 7.544.253.279,94; D104 = 7.550.668.664,99 = R10 " +
-                "oficial 2026101). Fixture: Remuneracion.IntegrationTests/ContratoUnicoLecturaR1T0Tests.cs.",
+                "oficial de octubre-1). Fixture: Remuneracion.IntegrationTests/ContratoUnicoLecturaR1T0Tests.cs.",
             Fecha: "2026-10-22",
             CondicionRetiro:
                 "El mapa declare slot Mes2 para ASE5 o la forma-fuente traiga 3 filas Mes de modo " +
@@ -138,7 +138,7 @@ public static class DivergenciasDeclaradasCatalogo
                 "pasa de 305.407.140,43 a 304.989.620,81 (igual a la medición del administrativo) y " +
                 "VALIDACION_TOTAL O25/D34/F34 sellan TRUE (Δ 0).",
             EvidenciaRetiro:
-                "Plan 46 H2 (plans/46): corrida 9 por CLI (2026072 desde el oficial) = RESULTADO OK " +
+                "Plan 46 H2 (plans/46): corrida 9 por CLI (julio-2 desde el oficial) = RESULTADO OK " +
                 "codigo=0 sin reporte de divergencia; Docs/T0-Plan45-Contrato-Seccion-PeriodFree.md §12 " +
                 "(errata); fixture read-only ContratoSeccionPeriodFreeT0Plan46Tests; " +
                 "SeccionEspejoR1Tests.T1_OccidenteAse5_SeccionPorCierre_CoincideConManual.")

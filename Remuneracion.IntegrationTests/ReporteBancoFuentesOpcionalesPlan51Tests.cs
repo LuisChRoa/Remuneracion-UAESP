@@ -208,7 +208,7 @@ public sealed class ReporteBancoFuentesOpcionalesPlan51Tests
         var dir = Path.Combine(Path.GetTempPath(), "p51-writer-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         var salida = Path.Combine(dir, "salida.xlsx");
-        var plantilla = Insumos.PlantillaOficial();
+        var plantilla = Insumos.PlantillaHistoricaV2();
 
         // Valor de la celda destino de la fuente ausente ANTES de escribir (0 de plantilla).
         var occidenteAntes = LeerCelda(plantilla, "REPORTE RECAUDO x BANCO", "H13");

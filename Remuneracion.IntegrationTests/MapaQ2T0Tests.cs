@@ -31,7 +31,7 @@ public sealed class MapaQ2T0Tests
         {
             foreach (var (celda, _) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(aseId))
             {
-                Assert.False(CeldaEsFormula(Insumos.PlantillaQ2, WorkbookLeafCellMapQ2.HojaR1, celda),
+                Assert.False(CeldaEsFormula(Insumos.BaseV2DelPeriodo("2026072"), WorkbookLeafCellMapQ2.HojaR1, celda),
                     $"{WorkbookLeafCellMapQ2.HojaR1}!{celda} (ASE{aseId}) debió ser VALOR editable en el canónico Q2.");
             }
         }
@@ -46,14 +46,14 @@ public sealed class MapaQ2T0Tests
             var r2 = WorkbookLeafCellMapQ2.ObtenerR2Q2Editables(aseId);
             foreach (var celda in new[] { r2.Componente, r2.SubsCont, r2.Especiales })
             {
-                Assert.False(CeldaEsFormula(Insumos.PlantillaQ2, WorkbookLeafCellMapQ2.HojaR2, celda),
+                Assert.False(CeldaEsFormula(Insumos.BaseV2DelPeriodo("2026072"), WorkbookLeafCellMapQ2.HojaR2, celda),
                     $"{WorkbookLeafCellMapQ2.HojaR2}!{celda} (ASE{aseId}) debió ser VALOR editable en el canónico Q2.");
             }
 
             var r4 = WorkbookLeafCellMapQ2.ObtenerR4Q2Editables(aseId);
             foreach (var celda in new[] { r4.Total, r4.P })
             {
-                Assert.False(CeldaEsFormula(Insumos.PlantillaQ2, WorkbookLeafCellMapQ2.HojaR4, celda),
+                Assert.False(CeldaEsFormula(Insumos.BaseV2DelPeriodo("2026072"), WorkbookLeafCellMapQ2.HojaR4, celda),
                     $"{WorkbookLeafCellMapQ2.HojaR4}!{celda} (ASE{aseId}) debió ser VALOR editable en el canónico Q2.");
             }
         }
@@ -67,7 +67,7 @@ public sealed class MapaQ2T0Tests
         {
             foreach (var (celda, fragmentos) in WorkbookLeafCellMapQ2.ObtenerR1Q2Protegidos(aseId))
             {
-                Assert.True(CeldaTieneFormulaConFragmentos(Insumos.PlantillaQ2, WorkbookLeafCellMapQ2.HojaR1, celda, fragmentos),
+                Assert.True(CeldaTieneFormulaConFragmentos(Insumos.BaseV2DelPeriodo("2026072"), WorkbookLeafCellMapQ2.HojaR1, celda, fragmentos),
                     $"{WorkbookLeafCellMapQ2.HojaR1}!{celda} (ASE{aseId}) debió ser fórmula con fragmentos [{string.Join(",", fragmentos)}] en el canónico Q2.");
             }
         }
@@ -80,13 +80,13 @@ public sealed class MapaQ2T0Tests
         {
             foreach (var (celda, fragmentos) in WorkbookLeafCellMapQ2.ObtenerR2Q2Protegidos(aseId))
             {
-                Assert.True(CeldaTieneFormulaConFragmentos(Insumos.PlantillaQ2, WorkbookLeafCellMapQ2.HojaR2, celda, fragmentos),
+                Assert.True(CeldaTieneFormulaConFragmentos(Insumos.BaseV2DelPeriodo("2026072"), WorkbookLeafCellMapQ2.HojaR2, celda, fragmentos),
                     $"{WorkbookLeafCellMapQ2.HojaR2}!{celda} (ASE{aseId}) debió ser fórmula con fragmentos [{string.Join(",", fragmentos)}].");
             }
 
             foreach (var (celda, fragmentos) in WorkbookLeafCellMapQ2.ObtenerR4Q2Protegidos(aseId))
             {
-                Assert.True(CeldaTieneFormulaConFragmentos(Insumos.PlantillaQ2, WorkbookLeafCellMapQ2.HojaR4, celda, fragmentos),
+                Assert.True(CeldaTieneFormulaConFragmentos(Insumos.BaseV2DelPeriodo("2026072"), WorkbookLeafCellMapQ2.HojaR4, celda, fragmentos),
                     $"{WorkbookLeafCellMapQ2.HojaR4}!{celda} (ASE{aseId}) debió ser fórmula con fragmentos [{string.Join(",", fragmentos)}].");
             }
         }
@@ -99,7 +99,7 @@ public sealed class MapaQ2T0Tests
         // D66:D70 → R4!D73/…, D85:D89 → AJUSTES-SF-T, D104:D108 sumas, D109 SUM).
         foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapQ2.ConsolidadoProtected)
         {
-            Assert.True(CeldaTieneFormulaConFragmentos(Insumos.PlantillaQ2, hoja, celda, fragmentos),
+            Assert.True(CeldaTieneFormulaConFragmentos(Insumos.BaseV2DelPeriodo("2026072"), hoja, celda, fragmentos),
                 $"{hoja}!{celda} debió ser fórmula con fragmentos [{string.Join(",", fragmentos)}] en el canónico Q2.");
         }
     }
@@ -112,20 +112,20 @@ public sealed class MapaQ2T0Tests
         var hojaDetValiRetri = WorkbookLeafCellMapQ2.HojaDetValiRetri(Insumos.PeriodoQ2());
         for (var fila = 9; fila <= 14; fila++)
         {
-            Assert.False(CeldaEsFormula(Insumos.PlantillaQ2, hojaDetRetri, $"D{fila}"),
+            Assert.False(CeldaEsFormula(Insumos.BaseV2DelPeriodo("2026072"), hojaDetRetri, $"D{fila}"),
                 $"{hojaDetRetri}!D{fila} debió ser VALOR editable en el canónico Q2.");
         }
 
         foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapQ2.DetRetriProtected(Insumos.PeriodoQ2()))
         {
-            Assert.True(CeldaTieneFormulaConFragmentos(Insumos.PlantillaQ2, hoja, celda, fragmentos),
+            Assert.True(CeldaTieneFormulaConFragmentos(Insumos.BaseV2DelPeriodo("2026072"), hoja, celda, fragmentos),
                 $"{hoja}!{celda} debió ser fórmula con fragmentos [{string.Join(",", fragmentos)}] en el canónico Q2.");
         }
 
         // DetValiRetri2026072 D9:D14 también VALORES (no escritas; 2.7 protegida por Requirement 5).
         for (var fila = 9; fila <= 14; fila++)
         {
-            Assert.False(CeldaEsFormula(Insumos.PlantillaQ2, hojaDetValiRetri, $"D{fila}"),
+            Assert.False(CeldaEsFormula(Insumos.BaseV2DelPeriodo("2026072"), hojaDetValiRetri, $"D{fila}"),
                 $"{hojaDetValiRetri}!D{fila} debió ser VALOR (no fórmula) en el canónico Q2.");
         }
     }
@@ -161,19 +161,19 @@ public sealed class MapaQ2T0Tests
         var bceQ2 = BalanceScProtegidasParaPeriodo(Insumos.PeriodoQ2());
         foreach (var (hoja, celda, fragmentos) in bceQ2)
         {
-            Assert.True(CeldaTieneFormulaConFragmentos(Insumos.PlantillaQ2, hoja, celda, fragmentos),
+            Assert.True(CeldaTieneFormulaConFragmentos(Insumos.BaseV2DelPeriodo("2026072"), hoja, celda, fragmentos),
                 $"{hoja}!{celda} (BCE Q2) debió ser fórmula con fragmentos [{string.Join(",", fragmentos)}] en el canónico Q2.");
         }
 
         foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapQ2.ProtegidasAdicionalesQ2)
         {
-            Assert.True(CeldaTieneFormulaConFragmentos(Insumos.PlantillaQ2, hoja, celda, fragmentos),
+            Assert.True(CeldaTieneFormulaConFragmentos(Insumos.BaseV2DelPeriodo("2026072"), hoja, celda, fragmentos),
                 $"{hoja}!{celda} debió ser fórmula con fragmentos [{string.Join(",", fragmentos)}] en el canónico Q2.");
         }
 
         foreach (var (hoja, celda, _) in WorkbookLeafCellMapAjustesSfT.Protegidas)
         {
-            Assert.True(CeldaEsFormula(Insumos.PlantillaQ2, hoja, celda),
+            Assert.True(CeldaEsFormula(Insumos.BaseV2DelPeriodo("2026072"), hoja, celda),
                 $"{hoja}!{celda} (cadena AJUSTES-SF-T) debió ser fórmula en el canónico Q2.");
         }
     }
@@ -184,12 +184,12 @@ public sealed class MapaQ2T0Tests
         // T0-0.5 / D5 (banco parametrizado): el template Q2 termina en la fila 79 — C81/D81 del
         // mapa Q1 NO existen (fail-fast honesto). El resto del mapa banco (consolidado 1–7,
         // totales de bloque, verificación I/J, validación 59–79) es FÓRMULA en el canónico Q2.
-        Assert.False(CeldaExiste(Insumos.PlantillaQ2, "REPORTE RECAUDO x BANCO", "C81"), "C81 (TOTAL RECAUDO) no existe en el template Q2.");
-        Assert.False(CeldaExiste(Insumos.PlantillaQ2, "REPORTE RECAUDO x BANCO", "D81"), "D81 no existe en el template Q2.");
+        Assert.False(CeldaExiste(Insumos.BaseV2DelPeriodo("2026072"), "REPORTE RECAUDO x BANCO", "C81"), "C81 (TOTAL RECAUDO) no existe en el template Q2.");
+        Assert.False(CeldaExiste(Insumos.BaseV2DelPeriodo("2026072"), "REPORTE RECAUDO x BANCO", "D81"), "D81 no existe en el template Q2.");
 
         foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapQ2.BancoProtegidasQ2)
         {
-            Assert.True(CeldaTieneFormulaConFragmentos(Insumos.PlantillaQ2, hoja, celda, fragmentos),
+            Assert.True(CeldaTieneFormulaConFragmentos(Insumos.BaseV2DelPeriodo("2026072"), hoja, celda, fragmentos),
                 $"{hoja}!{celda} (banco Q2) debió ser fórmula con fragmentos [{string.Join(",", fragmentos)}] en el canónico Q2.");
         }
     }
@@ -198,7 +198,7 @@ public sealed class MapaQ2T0Tests
     public void T0_HashCanonico_IntactoTrasLecturas()
     {
         // A4 extendido al mapa Q2: la lectura de evidencia no muta el canónico.
-        var hashAntes = Sha256(Insumos.PlantillaQ2);
+        var hashAntes = Sha256(Insumos.BaseV2DelPeriodo("2026072"));
 
         for (var aseId = 1; aseId <= 5; aseId++)
         {
@@ -207,7 +207,7 @@ public sealed class MapaQ2T0Tests
             _ = WorkbookLeafCellMapQ2.ObtenerR4Q2Editables(aseId);
         }
 
-        Assert.Equal(hashAntes, Sha256(Insumos.PlantillaQ2));
+        Assert.Equal(hashAntes, Sha256(Insumos.BaseV2DelPeriodo("2026072")));
     }
 
     private static string Sha256(string ruta)
@@ -304,7 +304,7 @@ public sealed class MapaQ2T0Tests
     private static IEnumerable<(string Hoja, string Celda, string[] Fragmentos)> BalanceScProtegidasParaPeriodo(Periodo periodo)
     {
         var codigoCompleto = periodo.CodigoCompleto;
-        return WorkbookLeafCellMapBalanceSc.Protegidas
+        return BalanceScGoldenV1.Protegidas
             .Select(p => (
                 p.Hoja.Replace("2026071", codigoCompleto, StringComparison.Ordinal),
                 p.Celda,

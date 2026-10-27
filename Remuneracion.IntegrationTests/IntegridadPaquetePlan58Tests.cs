@@ -157,7 +157,7 @@ public sealed class IntegridadPaquetePlan58Tests
     [Fact]
     public void Gate_PreparacionDetectaFormulaQuePierdeAtributosShared_ClaseQueHabriaAtrapadoElP0()
     {
-        var plantilla = File.ReadAllBytes(Insumos.PlantillaOficial());
+        var plantilla = File.ReadAllBytes(Insumos.PlantillaHistoricaV2());
         var baseQ1 = File.ReadAllBytes(BaseDelPeriodo("2026101"));
 
         // Reproduce el P0 en la BASE (no en la salida): el maestro se queda sin t/ref/si.
@@ -315,7 +315,7 @@ public sealed class IntegridadPaquetePlan58Tests
         var dir = Path.Combine(Path.GetTempPath(), $"p58-base-{periodo}-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         var salida = Path.Combine(dir, $"base-{periodo}.xlsx");
-        PreparadorBasePipeline.Ejecutar(Insumos.PlantillaOficial(), Periodo.Parse(periodo), salida);
+        PreparadorBasePipeline.Ejecutar(Insumos.PlantillaHistoricaV2(), Periodo.Parse(periodo), salida);
         return salida;
     }
 

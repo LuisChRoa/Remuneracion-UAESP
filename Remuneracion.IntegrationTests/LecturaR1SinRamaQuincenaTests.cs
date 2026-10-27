@@ -25,15 +25,17 @@ public sealed class LecturaR1SinRamaQuincenaTests
 
     /// <summary>
     /// Allow-list CERRADA (D7). Cada entrada cita el uso legítimo que la justifica:
-    /// - <c>var esQuincena2 = ...</c> ×2: (a) gate de <c>DetalleR2/DetalleR4</c> solo-Q2 (Plan 29,
-    ///   fuera del alcance del Plan 54) y (b) <c>LeerRecaudosEmpresa</c>: par de columnas D/E (Q1) vs
-    ///   F/G (Q2) del RESUMEN MES — declaración de visibles, no de algoritmo.
+    /// - <c>var esQuincena2 = ...</c> ×1: <c>LeerRecaudosEmpresa</c> — par de columnas D/E (Q1) vs
+    ///   F/G (Q2) del RESUMEN MES de la conciliación por empresa: declaración de visibles, no de
+    ///   algoritmo. (Plan 59 §11-bis: la segunda ocurrencia —el gate de <c>DetalleR2/DetalleR4</c>
+    ///   solo-Q2— quedó RETIRADA; el detalle es del período, no de la quincena, y su ausencia en Q1
+    ///   dejaba el bloque de anticipos en cero.)
     /// - <c>Quincena = periodo.NumeroQuincena,</c> ×1: dato de PROCEDENCIA en <c>ReporteBancoInputs</c>
     ///   (no ramifica ni resuelve).
     /// </summary>
     private static readonly IReadOnlyDictionary<string, int> AllowList = new Dictionary<string, int>(StringComparer.Ordinal)
     {
-        ["var esQuincena2 = periodo.NumeroQuincena == 2;"] = 2,
+        ["var esQuincena2 = periodo.NumeroQuincena == 2;"] = 1,
         ["Quincena = periodo.NumeroQuincena,"] = 1
     };
 
@@ -49,7 +51,7 @@ public sealed class LecturaR1SinRamaQuincenaTests
             "El lector leaf volvió a usar Periodo.NumeroQuincena fuera de la allow-list (D5/D7): " +
             string.Join(" | ", violaciones));
 
-        Assert.Equal(3, Lineas(fuente).Select(l => l.Trim())
+        Assert.Equal(2, Lineas(fuente).Select(l => l.Trim())
             .Count(l => !EsComentario(l) && l.Contains("NumeroQuincena", StringComparison.Ordinal)));
     }
 
@@ -105,10 +107,27 @@ public sealed class LecturaR1SinRamaQuincenaTests
             Assert.Equal(valor, q1.R1.ValoresPorRol[rol]);
         }
 
-        // La ÚNICA diferencia legítima entre quincenas es la declaración de visibles (DetalleR2/R4):
-        // Q2 lo construye, Q1 no. El mapeo R1 en sí es idéntico.
-        Assert.NotNull(q2.DetalleR2);
-        Assert.Null(q1.DetalleR2);
+        // La quincena NO decide si hay detalle: el desglose-detalle de R2/R4 es del PERÍODO y se
+        // construye en AMBAS quincenas (Plan 59 §11-bis). Antes Q1 lo omitía y el entregable de la
+        // primera quincena salía con el bloque de anticipos en el literal 0 de la plantilla.
+        Assert.NotNull(q1.DetalleR2);
+        Assert.NotNull(q1.DetalleR4);
+
+        // Sobre la MISMA fuente, la quincena no cambia ni una fila del detalle: se compara la
+        // secuencia completa (firma + columna 'Total'), no solo su existencia.
+        Assert.Equal(q2.DetalleR2!.Filas.Count, q1.DetalleR2!.Filas.Count);
+        for (var i = 0; i < q2.DetalleR2.Filas.Count; i++)
+        {
+            Assert.Equal(q2.DetalleR2.Filas[i].Firma, q1.DetalleR2.Filas[i].Firma);
+            Assert.Equal(q2.DetalleR2.Filas[i].Valor("Total"), q1.DetalleR2.Filas[i].Valor("Total"));
+        }
+
+        Assert.Equal(q2.DetalleR4!.Filas.Count, q1.DetalleR4!.Filas.Count);
+        for (var i = 0; i < q2.DetalleR4.Filas.Count; i++)
+        {
+            Assert.Equal(q2.DetalleR4.Filas[i].Firma, q1.DetalleR4.Filas[i].Firma);
+            Assert.Equal(q2.DetalleR4.Filas[i].Valor("Total"), q1.DetalleR4.Filas[i].Valor("Total"));
+        }
     }
 
     // ── Infraestructura del candado ─────────────────────────────────────────────────────────

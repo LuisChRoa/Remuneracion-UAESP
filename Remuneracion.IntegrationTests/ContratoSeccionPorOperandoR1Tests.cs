@@ -168,7 +168,7 @@ public sealed class ContratoSeccionPorOperandoR1Tests
     private static IReadOnlyList<ConciliacionEmpresaInputs> LeerConciliacion(string periodo, string codigo, int ase)
     {
         // Plan 55 (H1.1/D4): la PLANTILLA es la autoridad de los destinos (resolución por etiquetas).
-        var reader = new ExcelDataReaderWorkbookLeafInputReader { RutaPlantilla = Insumos.PlantillaOficial() };
+        var reader = new ExcelDataReaderWorkbookLeafInputReader { RutaPlantilla = Insumos.PlantillaHistoricaV2() };
         return reader.LeerConciliacionEmpresas(
             Insumos.Ase(ase),
             Periodo.Parse(codigo),

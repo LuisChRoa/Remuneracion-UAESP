@@ -30,7 +30,7 @@ public sealed class DivergenciaDeclaradaT0Tests
     public void T0_Oficial_Sha256Intacto()
     {
         // Plan 48 (H1b): AMBAS plantillas intocables. v2 = base oficial vigente; v1 = histórica.
-        var oficialV2 = Insumos.PlantillaOficial();
+        var oficialV2 = Insumos.PlantillaHistoricaV2();
         Assert.True(File.Exists(oficialV2), $"Falta la plantilla oficial v2: {oficialV2}");
         // Plan 59 §0.6 (G-HUELLA): gate por contenido; el SHA del archivo es informativo.
         Assert.Equal(HuellaSemanticaPlantilla.V2, HuellaSemanticaPlantilla.Calcular(oficialV2));
@@ -69,7 +69,7 @@ public sealed class DivergenciaDeclaradaT0Tests
         // RESUELTA (F612→0; O25/D34/F34 TRUE), así que la entrada se retiró del catálogo. La corrida
         // viva end-to-end se conserva con el FIXTURE SINTÉTICO (SINTETICA-C15, Δ = 1) para congelar
         // bloqueo→reconocimiento→cierre con la MISMA maquinaria real (clasificación, reporte, naming).
-        var oficial = Insumos.PlantillaOficial();
+        var oficial = Insumos.PlantillaHistoricaV2();
         var periodo = Insumos.PeriodoQ2();
         var dir = Path.Combine(Path.GetTempPath(), "p42-t0-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);

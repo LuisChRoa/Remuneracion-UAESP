@@ -241,7 +241,7 @@ public sealed class SeccionPorOperandoR1T0Tests
     [Fact]
     public void S1_2_EvidenciaV2_CeldasInertesYSusConsumidores()
     {
-        var plantilla = Insumos.PlantillaOficial();
+        var plantilla = Insumos.PlantillaHistoricaV2();
         var celdas = CeldasCrudas(plantilla, "Reporte Componentes R1");
 
         // Consumidores presentes en los bytes de la v2 (leg de corroboración D2.2, solo donde existe <f>).

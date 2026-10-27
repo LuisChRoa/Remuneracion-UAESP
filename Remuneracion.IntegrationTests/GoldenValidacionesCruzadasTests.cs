@@ -23,20 +23,26 @@ public sealed class GoldenValidacionesCruzadasTests
     private const decimal Tolerancia = Insumos.Tolerancia;
 
     [Fact]
-    public void CapaA_Q1_EvaluacionHonesta_RecaudoCierra_EspejoNo()
+    public void CapaA_Q1_EvaluacionHonesta_RecaudoYEspejoCierran()
     {
         var (resultado, leafs, salida) = EjecutarQ1();
         var hashQ1 = Sha256(Insumos.Plantilla);
 
         // A2-Q1 (Plan 40, E-1): el gate EVALÚA desde lo escrito. En Q1 el recaudo cierra
-        // (C15/D25 TRUE: la <f> C3:C8 se reescribe a la columna D — E1-4); el espejo de
-        // remuneración NO (O25/D34/F34 FALSE) — defecto real E1-2, no verde heredado.
+        // (C15/D25 TRUE: la <f> C3:C8 se reescribe a la columna D — E1-4).
+        //
+        // Rebase 2026-10-27 (Plan 59 §14): con la plantilla v3 el espejo de remuneración NO cerraba
+        // (O25/D34/F34 FALSE) y este fixture lo declaraba como defecto real E1-2. La causa medida era
+        // de la PLANTILLA: `R1!F328` restaba `M213` (= 1.361.600,46 en julio-1) donde debe restar
+        // `L213` (= 0), es decir el Δ 1.361.600,46 de §12/§13. La v4 corrige esa celda, así que el
+        // aserto del defecto pasa a ser el aserto del comportamiento correcto: los cinco sub-bloques
+        // cierran. No se relaja nada: sigue exigiéndose el resultado verdadero, no su ausencia.
         var snapshots = new ValidacionOracleReader().LeerSnapshots(salida, Insumos.Periodo());
         Assert.All(snapshots, s => Assert.True(s.SubBloquesValidacionTotal["C15"]));
         Assert.All(snapshots, s => Assert.True(s.SubBloquesValidacionTotal["D25"]));
-        Assert.All(snapshots, s => Assert.False(s.SubBloquesValidacionTotal["O25"]));
-        Assert.All(snapshots, s => Assert.False(s.SubBloquesValidacionTotal["D34"]));
-        Assert.All(snapshots, s => Assert.False(s.SubBloquesValidacionTotal["F34"]));
+        Assert.All(snapshots, s => Assert.True(s.SubBloquesValidacionTotal["O25"]));
+        Assert.All(snapshots, s => Assert.True(s.SubBloquesValidacionTotal["D34"]));
+        Assert.All(snapshots, s => Assert.True(s.SubBloquesValidacionTotal["F34"]));
 
         // A3-Q1: las hojas de validación siguen siendo fórmula en la salida (mapa 2.7).
         foreach (var (hoja, celda, _) in WorkbookLeafCellMapValidaciones.ProtegidasValidacionesParaPeriodo(Insumos.Periodo()))

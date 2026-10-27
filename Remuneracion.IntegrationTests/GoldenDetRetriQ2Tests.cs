@@ -27,6 +27,15 @@ namespace Remuneracion.IntegrationTests;
 /// </summary>
 public sealed class GoldenDetRetriQ2Tests
 {
+    /// <summary>
+    /// Plan 59 (H5): base v2 del período Q2. Este fixture es la caracterización del CACHÉ GOLDEN de
+    /// julio-2 (manual del administrativo, geometría v2) y usa el mapa DetRetri-Q2 de la v2
+    /// (`WorkbookLeafCellMapQ2.ObtenerDetRetriDestino`), LEGACY. Sobre la v3 esas celdas ya no son las
+    /// del mapa y el golden celda-a-celda deja de ser oráculo (su geometría se movió, §0.4-b).
+    /// La cobertura vigente del detalle del período vive en los fixtures `*Plan59*` (v3, por identidad).
+    /// </summary>
+    private static readonly string PlantillaV2Q2 = Insumos.BaseV2DelPeriodo("2026072");
+
     private const decimal Tolerancia = Insumos.Tolerancia;
 
     [Fact]
@@ -94,7 +103,7 @@ public sealed class GoldenDetRetriQ2Tests
         // writer YA lo validó (ValidarFormulasProtegidasMultiAseQ2); se re-asegura explícito.
         foreach (var (hoja, celda, _) in ProtegidasBceParaPeriodo(Insumos.PeriodoQ2()))
         {
-            Assert.True(CeldaEsFormula(Insumos.PlantillaQ2, hoja, celda), $"{hoja}!{celda} (BCE Q2) debió ser fórmula en el canónico.");
+            Assert.True(CeldaEsFormula(PlantillaV2Q2, hoja, celda), $"{hoja}!{celda} (BCE Q2) debió ser fórmula en el canónico.");
         }
     }
 
@@ -135,9 +144,9 @@ public sealed class GoldenDetRetriQ2Tests
     public void CapaA_Q2_A4CanonicoNoMutadoY_A6TotalAseGranTotalVsGoldenCache()
     {
         // A4: el canónico no muta por el proceso (hash antes/después).
-        var hashAntes = Sha256(Insumos.PlantillaQ2);
+        var hashAntes = Sha256(PlantillaV2Q2);
         var (_, leafs, _) = EjecutarWriterQ2();
-        Assert.Equal(hashAntes, Sha256(Insumos.PlantillaQ2));
+        Assert.Equal(hashAntes, Sha256(PlantillaV2Q2));
 
         // A6 (cierra el pendiente HU-11): TotalAse de DOMINIO por ASE (Σ visibles leaf Q2 +
         // AJUSTES-SF-T — la composición exacta de D104:D108) == caché golden D104:D108 ±0.5, y
@@ -237,7 +246,7 @@ public sealed class GoldenDetRetriQ2Tests
         Directory.CreateDirectory(salidaDir);
         var salida = Path.Combine(salidaDir, Insumos.PeriodoQ2().NombreArchivo);
 
-        new OpenXmlPlantillaWriter().GenerarWorkbook(Insumos.PlantillaQ2, salida, resultado, leafs);
+        new OpenXmlPlantillaWriter().GenerarWorkbook(PlantillaV2Q2, salida, resultado, leafs);
 
         return (resultado, leafs, salida);
     }
@@ -294,7 +303,7 @@ public sealed class GoldenDetRetriQ2Tests
     private static IEnumerable<(string Hoja, string Celda, string[] Fragmentos)> ProtegidasBceParaPeriodo(Periodo periodo)
     {
         var codigoCompleto = periodo.CodigoCompleto;
-        return WorkbookLeafCellMapBalanceSc.Protegidas
+        return BalanceScGoldenV1.Protegidas
             .Select(p => (
                 p.Hoja.Replace("2026071", codigoCompleto, StringComparison.Ordinal),
                 p.Celda,

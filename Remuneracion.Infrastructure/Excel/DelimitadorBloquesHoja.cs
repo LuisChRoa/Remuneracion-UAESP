@@ -465,7 +465,7 @@ internal static class DelimitadorBloquesHoja
     /// nada (fila de dato o de encabezado). Una fila que encaja en DOS niveles es una plantilla
     /// ambigua ⇒ fail-fast (nunca se elige uno por orden).
     /// </summary>
-    private static NivelCierreHoja? NivelDe(HojaDelimitable hoja, FilaEspejoR1 fila, int numeroFila)
+    private static NivelCierreHoja? NivelDe(HojaDelimitable hoja, FilaEspejoR1 fila, int numeroFila, string? contexto = null)
     {
         NivelCierreHoja? encontrado = null;
         foreach (var firma in hoja.Cierres)
@@ -477,15 +477,32 @@ internal static class DelimitadorBloquesHoja
 
             if (encontrado is { } previo)
             {
+                var ubicacion = contexto ?? $"fila {numeroFila}";
                 throw new CalculoInvalidoException(
                     CodigoError.Plantilla,
-                    $"La hoja '{hoja.Nombre}' fila {numeroFila} declara una firma ambigua A|B|C|D|E='{fila.Firma}': encaja a la vez en el cierre '{previo}' y en el cierre '{firma.Nivel}'. La gramática de cierres de la hoja no permite desambiguar por etiqueta.");
+                    $"La hoja '{hoja.Nombre}' {ubicacion} declara una firma ambigua A|B|C|D|E='{fila.Firma}': encaja a la vez en el cierre '{previo}' y en el cierre '{firma.Nivel}'. La gramática de cierres de la hoja no permite desambiguar por etiqueta.");
             }
 
             encontrado = firma.Nivel;
         }
 
         return encontrado;
+    }
+
+    /// <summary>
+    /// Plan 59 (§11-bis): clasifica una fila de DATOS (fuente o dominio ya leído) con la MISMA
+    /// gramática de cierres que la hoja declara. Es lo que permite comparar nivel a nivel lo escrito
+    /// contra lo que la fuente declara sin reimplementar el vocabulario: la fuente y la plantilla
+    /// comparten las firmas de cierre (A/B/C/D/E).
+    /// </summary>
+    /// <param name="hoja">Hoja cuyo vocabulario de cierres gobierna la clasificación.</param>
+    /// <param name="fila">Firma A–E de la fila de datos.</param>
+    /// <param name="contexto">Texto que identifica la fila en los mensajes (p. ej. «fila fuente #30»).</param>
+    internal static NivelCierreHoja? Clasificar(HojaDelimitable hoja, FilaEspejoR1 fila, string contexto)
+    {
+        ArgumentNullException.ThrowIfNull(hoja);
+        ArgumentNullException.ThrowIfNull(fila);
+        return NivelDe(hoja, fila, -1, contexto);
     }
 
     private static bool Encaja(FirmaCierreHoja firma, FilaEspejoR1 fila)

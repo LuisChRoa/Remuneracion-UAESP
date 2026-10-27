@@ -106,9 +106,16 @@ ordinalmente y unidas con salto de línea; SHA-256 en hexadecimal minúscula. Va
 
 | Plantilla | Huella semántica (gate) | SHA de archivo (informativo) |
 |---|---|---|
-| v3 | `92935014f3611055c15f12db92c71020f741d009634e8ec59f1e4448235d72ff` | `5ACE6F5A…FBF71F1` (709.070 B) |
-| v2 | `a4ea462b57be95938d0a25a9369bfd1e19d2d1229b75de7d89fbf71fb5991879` | `86E48E47…9D3D14` (693.983 B) |
-| v1 | `cf9aa03604ed72b2252876df83abd573eb5609b14a97026ef7c1b23774490d17` | `3086AC31…A49C5214` (692.598 B, sin cambios) |
+| **v4 (VIGENTE desde 2026-10-27)** | **`a7476ee2e80dfa13c9e39430d1ea4d77f0c52e3ca0a3d11a526d5140b8608c55`** | `5FEDFD31…E38E5` (705.805 B) |
+| v3 (histórica) | `92935014f3611055c15f12db92c71020f741d009634e8ec59f1e4448235d72ff` | `8D0B3299…423538` (709.040 B) |
+| v2 (histórica) | `a4ea462b57be95938d0a25a9369bfd1e19d2d1229b75de7d89fbf71fb5991879` | `86E48E47…9D3D14` (693.983 B) |
+| v1 (histórica) | `cf9aa03604ed72b2252876df83abd573eb5609b14a97026ef7c1b23774490d17` | `3086AC31…A49C5214` (692.598 B, sin cambios) |
+
+**Rebase 2026-10-27 (Plan 59 §14).** La v4 es la v3 con exactamente dos fórmulas corregidas en
+`Reporte Componentes R1` (`F328`: `…-L213`; `F333`: `…-L126-L191`); mismas 40 hojas, mismas
+`dimension`, mismo número de celdas. La fila nueva de la tabla es el ancla de `G-HUELLA`; el gate se
+prueba en `HuellaPlantillaVigenteV4Plan59Tests` (identidad de la v4, `v4 = v3 + 2 fórmulas` e
+inyección que enrojece al revertir `F328`).
 
 **Decisión requerida (§0.6).** Las huellas publicadas en el plan (`c371a5fb…c2e0` y
 `dd7f5891…2329`) provienen de una normalización no documentada; con el algoritmo canónico de este

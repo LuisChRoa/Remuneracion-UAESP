@@ -82,9 +82,11 @@ internal static class WorkbookLeafCoherence
     /// HU-08 (2.2): gate Σ empresas = visible de bloque por ASE y hoja (R1/R2/R4), tolerancia
     /// ±0.5, ceros legítimos (EAAB-CL todo 0 en Q1 es válido). Lista vacía = HU-07 puro.
     ///
-    /// Plan 50 (A2, §2.4 — RESIDUO Q2 DECLARADO `R-SIGMA-Q2`): el gate se evaluaba sólo en Q1
-    /// porque en Q2 la lista de conciliación llegaba vacía (y sigue vacía: el recorte se mantiene por
-    /// `R-MAPA-V2-R2-ASE4`). Si un plan futuro levanta ese recorte, el gate NO debe reactivarse en Q2:
+    /// Plan 50 (A2, §2.4 — RESIDUO Q2 DECLARADO `R-SIGMA-Q2`): el gate se evalúa sólo en Q1 porque no
+    /// es una descomposición válida del visible de bloque en Q2. (Plan 59 §15, 2026-10-27: el recorte
+    /// de la conciliación por empresa en Q2 se RETIRÓ, así que desde entonces la lista llega POBLADA
+    /// en Q2; esta condición es justamente la que impide reactivar el gate allí.) El gate NO debe
+    /// reactivarse en Q2:
     /// no es una descomposición válida del visible de bloque allí (medido en bytes:
     /// `Docs/T0-Plan50-FuentesRecaudoOpcionales.md` §4.2: R4 sólo declara empresas con celda destino,
     /// R2 omite etiquetas reales sin destino —`EAB`/`ENERBIT`— y el visible R1-Q2 se deriva por firma).

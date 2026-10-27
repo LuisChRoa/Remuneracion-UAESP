@@ -52,7 +52,12 @@ public sealed class CodigosSalidaCliTests : IDisposable
         var codigo = Ejecutar(
             "--periodo", "2026071",
             "--carpeta", Insumos.CarpetaPeriodo,
-            "--plantilla", Insumos.Plantilla,
+            // Plan 59 (§15, 2026-10-27): base VIGENTE (v4). El anclaje a la v2 que fijó el H5 se
+            // apoyaba en el typo de plantilla `R1!F328`, que dejaba julio-1 con un Δ de 22.921,61 en
+            // VALIDACION_TOTAL y rompía el exit 0 que este test exige. La v4 corrige la fórmula y la
+            // corrida cierra con `RESULTADO OK` (exit 0; oráculo R10_Remuneracion_2026071). El objeto
+            // del test —matriz de códigos de salida— no cambia.
+            "--plantilla", Insumos.BaseDelPeriodoV4("2026071"),
             "--salida", salidaDir,
             "--cinco-ase",
             "--sobrescribir");

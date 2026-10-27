@@ -76,7 +76,7 @@ public sealed class DivergenciaDeclaradaCliTests : IDisposable
         // Plan 46 (H2): la divergencia real OCCIDENTE-ASE5 quedó resuelta; el mecanismo se ejercita
         // con el FIXTURE SINTÉTICO (SINTETICA-C15, Δ = 1) inyectado por la costura interna del CLI.
         var codigo = EjecutorCli.Ejecutar(
-            ["--periodo", "2026072", "--carpeta", Insumos.CarpetaPeriodoQ2, "--plantilla", Insumos.PlantillaOficial(),
+            ["--periodo", "2026072", "--carpeta", Insumos.CarpetaPeriodoQ2, "--plantilla", Insumos.PlantillaHistoricaV2(),
              "--salida", salidaDir, "--cinco-ase", "--sobrescribir",
              "--aceptar-divergencia-declarada", FixtureDivergenciaSintetica.EntradaId],
             _stdout, _stderr,
@@ -108,7 +108,7 @@ public sealed class DivergenciaDeclaradaCliTests : IDisposable
         var salidaDir = DirectorioTemp("p42-cli-sinflag");
 
         var codigo = EjecutorCli.Ejecutar(
-            ["--periodo", "2026072", "--carpeta", Insumos.CarpetaPeriodoQ2, "--plantilla", Insumos.PlantillaOficial(),
+            ["--periodo", "2026072", "--carpeta", Insumos.CarpetaPeriodoQ2, "--plantilla", Insumos.PlantillaHistoricaV2(),
              "--salida", salidaDir, "--cinco-ase", "--sobrescribir"],
             _stdout, _stderr,
             FixtureDivergenciaSintetica.CrearValidador(),

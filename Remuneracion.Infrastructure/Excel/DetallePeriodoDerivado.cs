@@ -89,8 +89,8 @@ internal static class DetallePeriodoDerivado
         ArgumentNullException.ThrowIfNull(parte);
         ArgumentNullException.ThrowIfNull(periodo);
 
-        ValidarHoja(parte, NombresHojaPeriodo.DetRetri(periodo));
-        ValidarHoja(parte, NombresHojaPeriodo.DetValiRetri(periodo));
+        ValidarHoja(parte, HojasPeriodo.DetRetri(parte, periodo));
+        ValidarHoja(parte, HojasPeriodo.DetValiRetri(parte, periodo));
     }
 
     // ── Verificación por hoja ───────────────────────────────────────────────────────────────────

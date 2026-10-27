@@ -103,7 +103,7 @@ public sealed class HuellaAceptacionO3Tests : IDisposable
             {
                 Periodo = Insumos.PeriodoQ2(),
                 CarpetaPeriodo = Insumos.CarpetaPeriodoQ2,
-                RutaPlantilla = Insumos.PlantillaOficial(),
+                RutaPlantilla = Insumos.PlantillaHistoricaV2(),
                 RutaSalida = salida,
                 DivergenciasDeclaradasAceptadas = [FixtureDivergenciaSintetica.EntradaId],
                 Canal = HuellaAceptacion.CanalCli,

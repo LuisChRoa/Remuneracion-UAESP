@@ -141,7 +141,7 @@ public sealed class GoldenBalanceScTests
         Assert.InRange(sumaF - LeerCeldaNumerica(insumos, HojaBce, "F11"), -Tolerancia, Tolerancia);
 
         // ---- A3: fórmulas protegidas 2.4 siguen siendo fórmula en la salida ----
-        foreach (var (hoja, celda, _) in WorkbookLeafCellMapBalanceSc.Protegidas)
+        foreach (var (hoja, celda, _) in BalanceScGoldenV1.Protegidas)
         {
             Assert.True(CeldaEsFormula(salida, hoja, celda), $"{hoja}!{celda} debió seguir siendo fórmula.");
         }

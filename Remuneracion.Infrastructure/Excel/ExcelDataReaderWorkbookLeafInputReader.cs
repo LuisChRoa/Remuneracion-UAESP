@@ -41,8 +41,6 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         // Plan 54 (H1.1/H1.4, D1/D4): resolución ÚNICA para ambas quincenas. La quincena ya NO
         // parametriza el mapeo de R1/R2/R4 — solo gobierna fuentes y declaración de visibles (D7).
         // El mapa productivo es la geometría v2 (<see cref="WorkbookLeafCellMapQ2"/>).
-        var esQuincena2 = periodo.NumeroQuincena == 2;
-
         var leaf = new WorkbookLeafInputs
         {
             Ase = ase,
@@ -53,28 +51,19 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         };
 
         // Plan 29 (T2, Unidad R — SOLO LECTURA): el desglose-detalle por componente de R2/R4 se
-        // construye desde la MISMA observación ya cargada (no re-lee el archivo; R-DOBLE-FUENTE) y
-        // solo en Q2. Viaja dentro del leaf para que la ESCRITURA de T3 lo consuma; aquí NO se escribe.
+        // construye desde la MISMA observación ya cargada (no re-lee el archivo; R-DOBLE-FUENTE).
+        // Viaja dentro del leaf para que la ESCRITURA lo consuma; aquí NO se escribe.
         //
-        // Plan 59 (§11 — FRENTE 2, medido y NO eliminado): la rama es un ALCANCE declarado del T0b de
-        // 2026 (períodos 2026072/2026082) y NO una regla de negocio, pero eliminarla HOY no es seguro
-        // y por eso se conserva con este registro:
-        //   · el oráculo administrativo de 2026101 (primera quincena) SÍ trae el detalle por
-        //     componente de R2 y R4 lleno ⇒ el dato falta en el entregable de Q1;
-        //   · con la plantilla v3 el escrito funciona (los grupos del 2.º cuadro de R2 —`A/EAB`—
-        //     están declarados en los 5 ASE, §0.5), y la corrida real 2026101 cierra;
-        //   · con la base v2 que usan los fixtures de regresión, la MISMA fuente de ASE2 no tiene
-        //     destino (`ERR-SIN-SLOT` sobre la fila `|||Subsidio(-)/Contribucion(+)` con canal
-        //     `A/EAB`): la v2 no declara ese grupo. Eliminar la rama exige migrar esas bases a la v3
-        //     (trabajo de la migración, no de este frente) o cerrar antes el hueco de la v2.
-        // Gate que lo respalda mientras tanto: `EmparejarBloque` NUNCA remapea ni coloca por posición
-        // (una fila sin slot es `ERR-SIN-SLOT` accionable) ⇒ el día que la base sea v3, quitar estas
-        // dos líneas de condición es todo el cambio.
-        if (esQuincena2)
-        {
-            leaf.DetalleR2 = ConstruirDetalleR2(ase, rutaR2, filasR2);
-            leaf.DetalleR4 = ConstruirDetalleR4(ase, rutaR4, filasR4);
-        }
+        // Plan 59 (§11-bis / §0.2.2 — rama por quincena ELIMINADA): hasta aquí el detalle solo se
+        // construía en la 2.ª quincena. El oráculo administrativo de 2026101 y de 2026071 (ambos
+        // primera quincena) trae los tres niveles del bloque llenos —detalle por canal/concepto,
+        // total por canal y cierre de sección— y sin ellos el bloque queda en los literales 0 de la
+        // plantilla, E57 (que los suma) da 0 y la línea de anticipos de CONSOLIDADO!D28:D32 se cae.
+        // La quincena NO decide si hay detalle: el detalle es del período. Lo único que la quincena
+        // parametriza de verdad es el par de columnas del reporte de conciliación por empresa
+        // (D/E en la 1.ª, F/G en la 2.ª), y esa selección vive donde corresponde, no aquí.
+        leaf.DetalleR2 = ConstruirDetalleR2(ase, rutaR2, filasR2);
+        leaf.DetalleR4 = ConstruirDetalleR4(ase, rutaR4, filasR4);
 
         WorkbookLeafCoherence.ValidarContraFuentes(leaf, r1, r2, r4);
         return leaf;
