@@ -41,7 +41,9 @@ public sealed class ContratoUnicoLecturaR1H1Tests
         var leaf = new ExcelDataReaderWorkbookLeafInputReader()
             .LeerLeafInputs(AseFactory.DesdeId(1), Periodo.Parse("2026071"), r1, r2, r4);
 
-        Assert.Equal(0m, leaf.R1.CeldasPorAse["F70"]); // Mes2 sin fila de origen → 0 del template
+        // Plan 59 (H2.1): el rol `Mes #3` no se emite porque la fuente no trae la tercera fila; el slot
+        // queda en el cero del template (no se escribe). Antes se emitía un 0 con la celda congelada.
+        Assert.False(leaf.R1.ValoresPorRol.ContainsKey(RolsQ2.Oportuna(3)));
         Assert.InRange(leaf.R1.TotalOportunoEsperadoPorAse - 16704332434.57m, -Tolerancia, Tolerancia);
         Assert.InRange(leaf.R1.ExtemporaneoEsperadoPorAse - 11673020.00m, -Tolerancia, Tolerancia);
     }
@@ -58,9 +60,11 @@ public sealed class ContratoUnicoLecturaR1H1Tests
             .LeerLeafInputs(AseFactory.DesdeId(3), Periodo.Parse("2026101"), r1, r2, r4);
 
         Assert.Equal(0m, leaf.R1.ExtemporaneoEsperadoPorAse);
-        Assert.Equal(0m, leaf.R1.CeldasPorAse["F315"]);
-        Assert.Equal(0m, leaf.R1.CeldasPorAse["F342"]);
-        Assert.Equal(0m, leaf.R1.CeldasPorAse["L315"]);
+        // Sin subsecciones `Aplicacion` en la fuente, el lector no emite esos roles: los slots quedan en
+        // el cero del template (no se escribe). Plan 59 (H2.1): el cero es del template, no del mapa.
+        Assert.False(leaf.R1.ValoresPorRol.ContainsKey(RolsQ2.Extemporanea(1)));
+        Assert.False(leaf.R1.ValoresPorRol.ContainsKey(RolsQ2.Extemporanea(2)));
+        Assert.False(leaf.R1.ValoresPorRol.ContainsKey(RolsQ2.Extemporanea(1, especiales: true)));
         Assert.InRange(leaf.R1.TotalOportunoEsperadoPorAse - 8811472160.34m, -Tolerancia, Tolerancia);
     }
 
@@ -164,7 +168,9 @@ public sealed class ContratoUnicoLecturaR1H1Tests
             .LeerLeafInputs(AseFactory.DesdeId(5), Periodo.Parse("2026101"), r1, r2, r4);
 
         Assert.DoesNotContain(WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(5), p => p.Celda == "F674");
-        Assert.False(leaf.R1.CeldasPorAse.ContainsKey("F674"));
+        // Plan 59 (H2.1): la aserción se re-ancla a la IDENTIDAD — con dos filas `Mes` no existe el
+        // rol de la tercera ocurrencia, que es lo que la celda congelada `F674` representaba.
+        Assert.False(leaf.R1.ValoresPorRol.ContainsKey(RolsQ2.Oportuna(3)));
         Assert.InRange(leaf.R1.TotalOportunoEsperadoPorAse - 7544253279.94m, -Tolerancia, Tolerancia);
         Assert.Equal(0m, leaf.R1.ExtemporaneoEsperadoPorAse);
     }

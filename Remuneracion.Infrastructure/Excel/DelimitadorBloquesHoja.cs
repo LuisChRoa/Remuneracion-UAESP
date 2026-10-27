@@ -67,6 +67,12 @@ internal static class DelimitadorBloquesHoja
     /// <summary>Nombre de la hoja de reversión de pagos (R4).</summary>
     internal const string NombreHojaR4 = "Reversion Pagos R4";
 
+    /// <summary>Nombre de la hoja consolidada de recaudo (destinos de valor por tabla y ASE).</summary>
+    internal const string NombreConsolidado = "CONSOLIDADO_TOTAL RECAUDO";
+
+    /// <summary>Nombre de la hoja de saldos a favor por nota (tabla por ASE que alimenta R5).</summary>
+    internal const string NombreAjustesSfT = "AJUSTES - SF-T";
+
     // ── Gramática de COLUMNAS (roles de la firma A–E, no coordenadas de fila) ────────────────────
     private const string ColumnaSeccion = "A";
     private const string ColumnaSubseccion = "B";
@@ -75,7 +81,7 @@ internal static class DelimitadorBloquesHoja
     private const string ColumnaConcepto = "E";
 
     /// <summary>Marca literal de cierre (única palabra cerrada de la gramática).</summary>
-    private const string MarcaTotal = "Total";
+    internal const string MarcaTotal = "Total";
 
     /// <summary>
     /// Textos mínimos en las columnas de componente para reconocer la fila de encabezados de columna
@@ -159,7 +165,11 @@ internal static class DelimitadorBloquesHoja
     /// Hoja delimitable: su nombre + el vocabulario de cierres que ELLA declara. La cardinalidad de
     /// niveles (4/3/2) es la del T0, no una rama de código de la delimitación.
     /// </summary>
-    internal sealed record HojaDelimitable(string Nombre, IReadOnlyList<FirmaCierreHoja> Cierres)
+    internal sealed record HojaDelimitable(
+        string Nombre,
+        IReadOnlyList<FirmaCierreHoja> Cierres,
+        string ColumnaGrupoResumen,
+        string ColumnaConceptoResumen)
     {
         /// <summary>Verdad si la hoja declara dimensión de subsección (R1).</summary>
         internal bool DeclaraSubseccion => Cierres.Any(c => c.Nivel == NivelCierreHoja.Subseccion);
@@ -190,6 +200,9 @@ internal static class DelimitadorBloquesHoja
         int EncabezadoColumnas,
         IReadOnlyList<FilaBloqueHoja> Filas)
     {
+        /// <summary>Nombre de la hoja de la que se leyó el bloque (contexto de los mensajes).</summary>
+        internal string Hoja { get; init; } = string.Empty;
+
         /// <summary>Filas que el contrato de slots debe considerar (datos + cierres).</summary>
         internal IReadOnlyList<FilaBloqueHoja> FilasSlot => Filas.Where(f => f.EsSlot).ToList();
 
@@ -222,7 +235,9 @@ internal static class DelimitadorBloquesHoja
             new(
                 NivelCierreHoja.Canal, ColumnaCanal, ColumnaConcepto,
                 [ColumnaSeccion, ColumnaSubseccion, ColumnaFuente]),
-        ]);
+        ],
+        ColumnaGrupoResumen: ColumnaFuente,
+        ColumnaConceptoResumen: ColumnaCanal);
 
     /// <summary>R2: 3 niveles (canal, empresa, sección) + gran total; sin subsección.</summary>
     internal static readonly HojaDelimitable R2 = new(
@@ -240,7 +255,9 @@ internal static class DelimitadorBloquesHoja
             new(
                 NivelCierreHoja.Canal, ColumnaFuente, ColumnaCanal,
                 [ColumnaSeccion, ColumnaSubseccion]),
-        ]);
+        ],
+        ColumnaGrupoResumen: ColumnaSubseccion,
+        ColumnaConceptoResumen: ColumnaFuente);
 
     /// <summary>R4: 2 niveles (empresa, sección) + gran total; sin canal ni subsección.</summary>
     internal static readonly HojaDelimitable R4 = new(
@@ -255,7 +272,9 @@ internal static class DelimitadorBloquesHoja
             new(
                 NivelCierreHoja.Seccion, ColumnaSubseccion, ColumnaFuente,
                 [ColumnaSeccion]),
-        ]);
+        ],
+        ColumnaGrupoResumen: ColumnaSeccion,
+        ColumnaConceptoResumen: ColumnaSubseccion);
 
     /// <summary>
     /// Delimita TODOS los bloques de la hoja (uno por ASE del catálogo de dominio, en orden físico)
@@ -435,7 +454,10 @@ internal static class DelimitadorBloquesHoja
                 $"El bloque del ASE {aseId} ('{rotulo}') de la hoja '{hoja.Nombre}' ({cabecera}-{granTotal}) no declara ningún cierre de subsección ({ColumnaSubseccion}=<subsección> con {ColumnaFuente}='{MarcaTotal}'): la estructura de cierres está incompleta.");
         }
 
-        return new BloqueHoja(aseId, rotulo, cabecera, granTotal, encabezados[0], clasificadas);
+        return new BloqueHoja(aseId, rotulo, cabecera, granTotal, encabezados[0], clasificadas)
+        {
+            Hoja = hoja.Nombre,
+        };
     }
 
     /// <summary>

@@ -244,9 +244,9 @@ public sealed class GeometriaDerivadaV3T0Plan59Tests
     [Fact]
     public void T0_1_Sha256YLongitudDeLasTresPlantillas_CoincidenConElPlan()
     {
-        AssertEqualToPlan(PlantillaV3, ShaPlantillaV3, LongitudPlantillaV3);
-        AssertEqualToPlan(PlantillaV2, ShaPlantillaV2, LongitudPlantillaV2);
-        AssertEqualToPlan(PlantillaV1, ShaPlantillaV1, LongitudPlantillaV1);
+        AssertEqualToPlan(PlantillaV3, HuellaSemanticaPlantilla.V3);
+        AssertEqualToPlan(PlantillaV2, HuellaSemanticaPlantilla.V2);
+        Assert.Equal(HuellaSemanticaPlantilla.V1Sha256Archivo, Sha256(PlantillaV1));
     }
 
     [Fact]
@@ -956,8 +956,13 @@ public sealed class GeometriaDerivadaV3T0Plan59Tests
     [Fact]
     public void T0_5_PlantillasByteIdenticasAntesYDespuesDeTodasLasMediciones()
     {
-        var rutas = new[] { (Ruta: PlantillaV1, Sha: ShaPlantillaV1), (Ruta: PlantillaV2, Sha: ShaPlantillaV2), (Ruta: PlantillaV3, Sha: ShaPlantillaV3) };
-        var antes = rutas.Select(p => (p.Ruta, Sha: Sha256(p.Ruta), Longitud: new FileInfo(p.Ruta).Length)).ToArray();
+        var rutas = new[]
+        {
+            (Ruta: PlantillaV1, Huella: HuellaSemanticaPlantilla.V1),
+            (Ruta: PlantillaV2, Huella: HuellaSemanticaPlantilla.V2),
+            (Ruta: PlantillaV3, Huella: HuellaSemanticaPlantilla.V3),
+        };
+        var antes = rutas.Select(p => (p.Ruta, Sha: Sha256(p.Ruta), Longitud: new FileInfo(p.Ruta).Length, Huella: HuellaSemanticaPlantilla.Calcular(p.Ruta))).ToArray();
 
         // Ejercita los cuatro frentes completos (lectura pura) entre las dos mediciones de SHA.
         foreach (var hoja in new[] { HojaR1, HojaR2, HojaR4 })
@@ -970,13 +975,13 @@ public sealed class GeometriaDerivadaV3T0Plan59Tests
         _ = ResolverTablaConsolidado(LibroV3.Hojas[HojaConsolidado], TituloTotal);
         _ = Cargar(FuenteR2Octubre1(2)).Hojas.First().Value;
 
-        var despues = rutas.Select(p => (p.Ruta, Sha: Sha256(p.Ruta), Longitud: new FileInfo(p.Ruta).Length)).ToArray();
+        var despues = rutas.Select(p => (p.Ruta, Sha: Sha256(p.Ruta), Longitud: new FileInfo(p.Ruta).Length, Huella: HuellaSemanticaPlantilla.Calcular(p.Ruta))).ToArray();
 
         Assert.Equal(antes, despues);
 
         for (var i = 0; i < rutas.Length; i++)
         {
-            Assert.Equal(rutas[i].Sha, despues[i].Sha);
+            Assert.Equal(rutas[i].Huella, despues[i].Huella);
             Assert.True(despues[i].Longitud > 0, $"La plantilla '{Path.GetFileName(rutas[i].Ruta)}' quedó vacía.");
         }
     }
@@ -1504,15 +1509,14 @@ public sealed class GeometriaDerivadaV3T0Plan59Tests
 
     // ── G-SHA ────────────────────────────────────────────────────────────────────────────────
 
-    private static void AssertEqualToPlan(string ruta, string shaEsperado, long longitudEsperada)
+    private static void AssertEqualToPlan(string ruta, string huellaEsperada)
     {
         Assert.True(File.Exists(ruta), $"Falta la plantilla: {ruta}");
 
-        var longitud = new FileInfo(ruta).Length;
-        var sha = Sha256(ruta);
-
-        Assert.Equal(longitudEsperada, longitud);
-        Assert.Equal(shaEsperado, sha);
+        // Plan 59 §0.6 (G-HUELLA): el gate es la huella de CONTENIDO (hojas, dimension, <f>, <v> y
+        // fórmulas compartidas normalizadas y ordenadas). El SHA y la longitud del ARCHIVO cambian cada
+        // vez que un humano guarda la plantilla en Excel y por eso NO son gate: quedan como dato.
+        Assert.Equal(huellaEsperada, HuellaSemanticaPlantilla.Calcular(ruta));
     }
 
     private static void AssertDimension(string hoja, string dimensionV2, string dimensionV3)

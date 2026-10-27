@@ -65,9 +65,9 @@ public sealed class ContratoUnicoLecturaR1H2E2ETests
             var leaf = reader.LeerLeafInputs(AseFactory.DesdeId(aseId), periodo, r1, r2, r4);
 
             Assert.Equal(aseId, leaf.Ase.Id);
-            Assert.NotEmpty(leaf.R1.CeldasPorAse);
-            Assert.NotEmpty(leaf.R2.CeldasPorAse);
-            Assert.NotEmpty(leaf.R4.CeldasPorAse);
+            Assert.NotEmpty(leaf.R1.ValoresPorRol);
+            Assert.NotEmpty(leaf.R2.ValoresPorRol);
+            Assert.NotEmpty(leaf.R4.ValoresPorRol);
         }
 
         // ASE3 (el que abortaba): ruta única, EXTEMP 0 y TOT_OPT derivado (CA3).
@@ -125,7 +125,7 @@ public sealed class ContratoUnicoLecturaR1H2E2ETests
     [Fact]
     public void S3_CA6_PlantillasOficiales_Intactas()
     {
-        Assert.Equal(ShaPlantillaV2, Sha256(PlantillaV2));
+        Assert.Equal(HuellaSemanticaPlantilla.V2, HuellaSemanticaPlantilla.Calcular(PlantillaV2));
         Assert.Equal(ShaPlantillaV1, Sha256(PlantillaV1));
     }
 

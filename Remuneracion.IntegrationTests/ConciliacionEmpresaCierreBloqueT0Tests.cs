@@ -85,7 +85,7 @@ public sealed class ConciliacionEmpresaCierreBloqueT0Tests
     [Fact]
     public void T0_7_PlantillasOficiales_ShaIntacto()
     {
-        Assert.Equal(ShaPlantillaV2, Sha256(PlantillaV2));
+        Assert.Equal(HuellaSemanticaPlantilla.V2, HuellaSemanticaPlantilla.Calcular(PlantillaV2));
         Assert.Equal(ShaPlantillaV1, Sha256(PlantillaV1));
     }
 

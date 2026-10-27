@@ -54,4 +54,25 @@ public static class InterventoriaDeclarada
             [4] = 120391083m,
             [5] = 128990445m
         };
+
+    /// <summary>
+    /// Costo de interventoría DECLARADO para la quincena del período: la tabla `INTERVENTORIA`
+    /// declara dos columnas de valor —`N` (primera quincena) y `M` (segunda quincena)— y el
+    /// período elige una. Es la ÚNICA dependencia legítima de quincena de este costo (README,
+    /// hoja `INTERVENTORIA`, último cuadro) y la fuente única que consumen el asiento del
+    /// CONSOLIDADO (`R-INTERV-Q`) y el desglose trazable de las hojas de detalle del período
+    /// (`DetRetri` · columna 'Costo de la Interventoría'; `DetValiRetri` · misma columna negada).
+    /// Prohibido replicar la selección en el llamador: aquí se decide una sola vez.
+    /// </summary>
+    /// <param name="numeroQuincena">Quincena del período: 1 (primera) o 2 (segunda).</param>
+    /// <exception cref="ArgumentOutOfRangeException">La quincena no está declarada en la tabla.</exception>
+    public static IReadOnlyDictionary<int, decimal> PorQuincena(int numeroQuincena) => numeroQuincena switch
+    {
+        1 => PrimeraQuincenaPorAse,
+        2 => SegundaQuincenaPorAse,
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(numeroQuincena),
+            numeroQuincena,
+            "La tabla INTERVENTORIA declara solo la primera quincena (1) y la segunda (2); no hay valor declarado para otra.")
+    };
 }

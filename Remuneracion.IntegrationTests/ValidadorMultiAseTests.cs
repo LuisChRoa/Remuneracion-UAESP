@@ -157,7 +157,7 @@ public sealed class ValidadorMultiAseTests
                 F25 = v.Item2 + 100m, // primera fila Mes/Total col F = Extemp HU-02 (no el visible)
                 F41 = -100m,
                 L25 = 0m,
-                CeldasPorAse = new Dictionary<string, decimal> { ["F25"] = v.Item2 + 100m },
+                ValoresPorRol = new Dictionary<string, decimal> { [RolsQ2.Oportuna(1)] = v.Item2 + 100m },
                 TotalOportunoEsperadoPorAse = v.Item2,
                 ExtemporaneoEsperadoPorAse = v.Item4
             };
@@ -166,13 +166,13 @@ public sealed class ValidadorMultiAseTests
                 E15 = v.Item3,
                 E26 = 0m,
                 K15 = 0m,
-                CeldasPorAse = new Dictionary<string, decimal> { ["E15"] = v.Item3 }
+                ValoresPorRol = new Dictionary<string, decimal> { [RolsQ2.SeccionR2("Componente")] = v.Item3 }
             };
             var r4 = new WorkbookLeafInputsR4
             {
                 D9 = v.Item5,
                 P9 = 0m,
-                CeldasPorAse = new Dictionary<string, decimal> { ["D9"] = v.Item5 }
+                ValoresPorRol = new Dictionary<string, decimal> { [RolsQ2.GranTotalR4()] = v.Item5 }
             };
             return new WorkbookLeafInputs { Ase = ase, Periodo = resultado.Periodo, R1 = r1, R2 = r2, R4 = r4 };
         }).ToList();

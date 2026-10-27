@@ -397,9 +397,8 @@ public static class PreparadorBasePipeline
                 $"R-INTERV-Q: quincena no soportada ({periodo.NumeroQuincena}); solo 1 (Primera) o 2 (Segunda).");
         }
 
-        var valores = periodo.NumeroQuincena == 1
-            ? InterventoriaDeclarada.PrimeraQuincenaPorAse
-            : InterventoriaDeclarada.SegundaQuincenaPorAse;
+        // La mitad declarada la decide el DOMINIO en un solo lugar (primera 'N' / segunda 'M').
+        var valores = InterventoriaDeclarada.PorQuincena(periodo.NumeroQuincena);
 
         foreach (var (celda, filaInterventoria) in CeldasL9L13)
         {
@@ -1067,9 +1066,8 @@ public static class PreparadorBasePipeline
     private static IEnumerable<string> VerificarVarianteL(byte[] hojaConsolidado, Periodo periodo)
     {
         var columna = ColumnaLPorQuincena[periodo.NumeroQuincena];
-        var valores = periodo.NumeroQuincena == 1
-            ? InterventoriaDeclarada.PrimeraQuincenaPorAse
-            : InterventoriaDeclarada.SegundaQuincenaPorAse;
+        // La mitad declarada la decide el DOMINIO en un solo lugar (primera 'N' / segunda 'M').
+        var valores = InterventoriaDeclarada.PorQuincena(periodo.NumeroQuincena);
         var xml = Encoding.UTF8.GetString(hojaConsolidado);
 
         foreach (var (celda, filaInterventoria) in CeldasL9L13)

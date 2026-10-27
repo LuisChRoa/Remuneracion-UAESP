@@ -192,7 +192,7 @@ public sealed class AnclasDerivadasT0Plan57Tests
     [Fact]
     public void T0_5_PlantillasV1YV2_ByteIdenticas()
     {
-        Assert.Equal(ShaPlantillaV2, Sha256(PlantillaV2));
+        Assert.Equal(HuellaSemanticaPlantilla.V2, HuellaSemanticaPlantilla.Calcular(PlantillaV2));
         Assert.Equal(ShaPlantillaV1, Sha256(PlantillaV1));
     }
 

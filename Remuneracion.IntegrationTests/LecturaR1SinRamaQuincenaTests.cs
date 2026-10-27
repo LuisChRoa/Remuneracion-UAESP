@@ -99,10 +99,10 @@ public sealed class LecturaR1SinRamaQuincenaTests
         Assert.Equal(q2.R1.TotalOportunoEsperadoPorAse, q1.R1.TotalOportunoEsperadoPorAse);
         Assert.Equal(q2.R1.ExtemporaneoEsperadoPorAse, q1.R1.ExtemporaneoEsperadoPorAse);
 
-        Assert.Equal(q2.R1.CeldasPorAse.Count, q1.R1.CeldasPorAse.Count);
-        foreach (var (celda, valor) in q2.R1.CeldasPorAse)
+        Assert.Equal(q2.R1.ValoresPorRol.Count, q1.R1.ValoresPorRol.Count);
+        foreach (var (rol, valor) in q2.R1.ValoresPorRol)
         {
-            Assert.Equal(valor, q1.R1.CeldasPorAse[celda]);
+            Assert.Equal(valor, q1.R1.ValoresPorRol[rol]);
         }
 
         // La ÚNICA diferencia legítima entre quincenas es la declaración de visibles (DetalleR2/R4):

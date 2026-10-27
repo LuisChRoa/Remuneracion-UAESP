@@ -89,6 +89,22 @@ Causa raíz medida: la fila de cierre `A=Subs/Cont / B=Total` del bloque ASE1 es
 
 Ya está resuelto y **sirve de precedente de diseño** (no reabrir): `AnclasExtempR1` (Plan 49) fue eliminado por el Plan 57 mediante derivación de anclas desde la plantilla; `AnclasExtempR1.cs` ya no existe. El camino label‑driven que **sí** es tolerante y debe reutilizarse: `ContratoSeccionPeriodFreeR1` (`PlanificarJerarquiaR1`, `SeccionPorCierre`, `FirmaCuadroR1`, `CanalEfectivo`, `Alinear`), `SinonimosEmpresaR1`, `ResolvedorConciliacionEmpresa` (Plan 55), `EscritorValoresSlotR1` (identidad A/B/C/D/E del Plan 56), `ResolvedorOperandosEmpresaR1` (Plan 53).
 
+### 0.6 G-HUELLA — re-baseline 2026-10-26 (prevalece sobre cualquier SHA literal de este documento)
+
+**Hecho medido:** los archivos `v2/...vf.xlsx` y `v3/...v3.xlsx` fueron **re-guardados en Excel** (y commiteados en `2002b3f`). El empaquetado cambió, el **contenido no**:
+
+| Archivo | SHA de archivo al aprobar | SHA de archivo vigente | **Huella semántica (contenido)** |
+|---|---|---|---|
+| v3 | `8199F864…2B1295` (705.934 B) | `5ACE6F5AFAB068F2C947FF5CF8E6A80973A9A6195419C1758A96D28D5FBF71F1` (709.070 B) | **`c371a5fb7d5668c8cff62a11c6d8a533a6aff5e5895655c85b02b3c19709c2e0`** (idéntica antes/después) |
+| v2 | `0F192AD2…7F2DAB` (693.400 B) | `86E48E47EF9E8FDEC2849448C2C7947CFE51310F2F85A9AAB7D1F3C1CC9D3D14` (693.983 B) | **`dd7f5891665f653a183d0d9976d70ed8f5b2d91ae5a1cbc934d8c62749242329`** (idéntica antes/después) |
+| v1 | `3086AC31…C5214` (692.598 B) | igual | — (histórica, no se consume) |
+
+Prueba de identidad: comparación entrada por entrada de hojas, `dimension`, `<f>`, `<v>` y fórmulas compartidas — **v3: 42.214 entradas, 0 diferencias; v2: 38.407 entradas, 0 diferencias**.
+
+**Doctrina corregida (aplica a este plan y a los gates):** el **SHA de archivo no es un gate válido** para una plantilla que un humano abre en Excel — cada "Guardar" reescribe el paquete y produce un falso rojo (los 6 rojos de SHA de la suite son exactamente eso). El gate es la **huella semántica** (hash del contenido normalizado y ordenado); el SHA de archivo queda como dato informativo.
+- Gate: **huella de la v3 `c371a5fb…c2e0`** y de la v2 `dd7f5891…2329` antes y después de cada H. Huella distinta ⇒ **STOP** (cambió el contenido: hojas, dimensiones, fórmulas o valores).
+- Los fixtures que hoy asertan el SHA de archivo deben pasar a asertar **la huella** (o a comparar el contenido normalizado). Ese es el arreglo de los 6 rojos de `G-SHA`, no un re-baseline de números.
+
 ### 0.5 Hallazgo que cambia alcance (la v3 resuelve el pendiente P1 del Plan 58)
 
 La v3 **resuelve el pendiente P1 del Plan 58** (`EAB` −18.613,87 en ASE2, `VALIDACION_TOTAL!D34` = FALSE). Evidencia: en `RerpoteDetalleSaldosaFavor` de ASE2 (octubre‑1) hay **dos** grupos `C=A … B=EAB`: `+149.137,87` (1.er cuadro) y `−18.613,87` (2.º cuadro). El 2.º cuadro de R2 en la v2 **no declaraba** el grupo `A/EAB`, por eso el valor no tenía destino. La v3 lo declara en los 5 ASE. Además, `R-MAPA-V2-R2-ASE4` (recorte de la conciliación por empresa en Q2, hoy bloqueado porque `R2!E285` es fórmula en la v2) **pierde su bloqueo**: en la v3 esa coordenada ya no es fórmula y el 2.º cuadro declara el grupo. Nota: solo ASE2 tiene grupos `A/EAB` en ese período (0 en ASE1/3/4/5). Queda **abierto y fuera de alcance**: Plan 58‑P2 (columna E de disposición final vacía en R2/R4) — requiere decisión de negocio; este plan lo declara explícitamente como NO tocado.
@@ -406,9 +422,7 @@ Puertas vigentes: sin H0 verde no hay H1; sin candado ni review no hay H4. Padre
 
 ---
 
-## 9. H1 — estado y evidencia (2026-10-26)
-
-**H1/F1 EJECUTADO. `RangoDatosAse` ELIMINADO (0 ocurrencias en producción).** Verificación independiente del orquestador: build **0 warnings/0 errores**; fixture `DelimitadorBloquesHojaH1Plan59Tests` **8/8 verde**; `git status` de producción = solo los 3 archivos del camino tocado (`DelimitadorBloquesHoja.cs` nuevo, `LectorTextoHoja.cs` nuevo, `EscritorValoresSlotR1.cs` modificado); plantillas e insumos **intactos** (v3 `8199F864…2B1295`).
+## 9. H1 — estado y evidencia (2026-10-26)**H1/F1 EJECUTADO. `RangoDatosAse` ELIMINADO (0 ocurrencias en producción).** Verificación independiente del orquestador: build **0 warnings/0 errores**; fixture `DelimitadorBloquesHojaH1Plan59Tests` **8/8 verde**; `git status` de producción = solo los 3 archivos del camino tocado (`DelimitadorBloquesHoja.cs` nuevo, `LectorTextoHoja.cs` nuevo, `EscritorValoresSlotR1.cs` modificado); plantillas e insumos **intactos** (v3 `8199F864…2B1295`).
 
 **Diseño entregado:**
 - `DelimitadorBloquesHoja`: único, parametrizado por hoja (R1 4 niveles / R2 3 / R4 2), gramática de cierres **como datos**; inicio = rótulo del ASE del catálogo de dominio (D‑2); fin = primer `A='Total'` con B vacía; clasificación **por firma** (sin offsets); fila de encabezados localizada por estructura (≥2 textos en F..Z y cero numéricos); ambigüedad de firma ⇒ `ERR-PLANTILLA`.
@@ -422,3 +436,49 @@ Puertas vigentes: sin H0 verde no hay H1; sin candado ni review no hay H4. Padre
 **Suite:** base 1558/1518/40/0 → H1 1589/1552/37/0 (+31 tests: 23 de H0 + 8 de H1); **0 rojos nuevos**; los 37 persistentes conservan mensaje byte-idéntico.
 
 **Pendiente de decisión (no bloquea H2 arrancar, sí bloquea cerrar S2.4):** los 3 rojos de **contenido** del rename (constantes de negocio de los insumos anteriores) — re-basar con oráculo nuevo documentado o dejar rojos con causa citada.
+
+---
+
+## 10. H2-bis — estado y evidencia (2026-10-26)
+
+**Alcance:** cerrar el camino de escritura productivo con la v3 derivando el resto de coordenadas congeladas que lo bloqueaban, más el gate de huella (§0.6).
+
+**Ejecutado:**
+
+1. **`DetRetri`/`DetValiRetri` protegidos (A).** `WorkbookLeafCellMapQ2.DetRetriProtected` queda **LEGACY** (ningún camino productivo lo consume). Nuevo `DetallePeriodoDerivado` (Infrastructure) resuelve y verifica las 23 celdas por **ROL + FORMA**: tres familias de filas por ASE (principal · diferencia vs CONSOLIDADO · verificación de composición) identificadas por etiquetas, y forma derivada de las fórmulas que el propio CONSOLIDADO declara (expansión de hojas de origen, incluido `SUM(rango)`). Mensajes por identidad (hoja · familia · ASE · rótulo de columna). T0 por bytes: `Docs/T0-Plan59-H2bis-Detalle-Derivado.md`.
+2. **G-HUELLA (B).** Helper compartido `HuellaSemanticaPlantilla` (contenido normalizado y ordenado: hojas, `dimension`, `<f>`, `<v>`, fórmulas compartidas). Las 8 aserciones de SHA de archivo pasan a huella; el SHA queda informativo. **Decisión requerida:** las huellas del §0.6 (`c371a5fb…`, `dd7f5891…`) provienen de una normalización no documentada; con el helper canónico son `92935014…` (v3), `a4ea462b…` (v2), `cf9aa036…` (v1). Se pide ratificar la tabla de `Docs/T0-Plan59-H2bis-Detalle-Derivado.md` §5.
+3. **Barrido del camino de escritura (D).** `EscribirDetalleR2/R4` dejan de usar `WorkbookLeafCellMapDetalleR2R4.BloquesR2/R4` (ventanas por ASE de la v2) y delimitan el bloque con `DelimitadorBloquesHoja` (cabecera de bloque + gran total declarados). Fue el segundo bloqueo real de la corrida (`ERR-SIN-SLOT` con el bloque `3..33`).
+4. **NO ejecutado — C (`REMUNERACION_*`).** Medido: esas hojas **sí** son derivables (misma gramática de tabla: título `R1 - RECAUDO OPORTUNO` en `F`, encabezado con `B='ASE'`, filas por `B=id`, cierre `C='TOTAL'`), pero su mapa histórico **pasa** con la v3 porque su geometría no se movió; queda como deuda de la siguiente tanda (junto con el resto de mapas congelados listados en el T0 §4).
+
+**Evidencia:**
+
+- Build solución: **0 warnings / 0 errores**.
+- Suite: base 1598/1555/43 → **1600/1566/34**; **0 rojos nuevos**; **9 cerrados** (los 8 de SHA + `DivergenciaDeclaradaT0Tests.T0_CorridaVivaQ2…`). trx `Remuneracion.IntegrationTests/TestResults/p59-h2bis-suite.trx`.
+- Corridas reales con la v3: `2026101 --cinco-ase` → **exit 0** (`Remuneración 202610-1 Total.xlsx`, 604.435 B, `VALIDACION_TOTAL O9=0 / P9=TRUE`); `2026072 --cinco-ase` → **exit 1** `ERR-VALIDACION` en `VALIDACION_TOTAL · D34/F34/O25` (Δ 1.101.678,21 entre la suma de las 4 hojas `REMUNERACION_*!D109` y `CONSOLIDADO!D109`): **fallo de negocio (familia H3/C)**, no de camino de escritura — el workbook se genera (`… (sin validar).xlsx`, 625.397 B).
+- Integridad del `.xlsx` generado (`OpenXmlValidator` + caza de fórmulas compartidas huérfanas): **0 huérfanas** en ambos períodos; único hallazgo `pageSetup/@verticalDpi=0`, **presente ya en la plantilla v3** (artefacto heredado, ajeno al P0 del Plan 58).
+- Plantillas intactas (SHA de archivo): v3 `5ACE6F5A…FBF71F1`, v2 `86E48E47…9D3D14`, v1 `3086AC31…A49C5214`.
+- Tests nuevos: `DetalleDerivadoH2bisPlan59Tests` (verde en la base preparada del período + rojo al injertar un valor en una celda protegida, con mensaje por identidad).
+
+**Abierto:** (i) ratificar las huellas de `G-HUELLA`; (ii) C (`REMUNERACION_*`) y el resto del barrido D; (iii) `ERR-VALIDACION` de `2026072` (composición de las `REMUNERACION_*` por empresa vs CONSOLIDADO) — requiere decisión de negocio (H3).
+
+
+---
+
+## 11. Fix del asiento DetRetri (2026-10-26) — cerrado
+
+**Causa raíz medida:** OpenXmlPlantillaWriter.cs:346 escribía el asiento DetRetri solo bajo if (esQuincena2). **2026101 es quincena 1** ⇒ el asiento nunca se escribió y DetRetri!D9:D14 quedó en el literal `0` de la plantilla. La rama contradecía a `VerificadorDestinoProtegido.ValidarDetRetriEditable` (que exige D9:D14 editable en AMBAS quincenas).
+
+**Falso verde:** el único chequeo leía `DetValiRetri D16:D20` (diferencias `D9 − CONSOLIDADO!U104`) desde el caché; con el asiento sin escribir y el CONSOLIDADO sin recalcular ⇒ `0 − 0 = 0` ⇒ `RESULTADO OK`.
+
+**Corrección:** el asiento corre siempre, destino por etiqueta (ResolverTabla + EncabezadoRecaudoTotal + id leído), values-only. El cierre es **Σ de las filas por ASE** (no ROUND(Σ)): el R10 de 2026071 declaraba 58.210.094.822 = Σ filas, frente a 58.210.094.821 de ROUND(Σ) (1 peso de diferencia; en 2026101/2026072 ambas reglas coinciden).
+
+**Gate nuevo (VerificarAsientoDetRetri):** relee el .xlsx guardado y compara lo escrito contra el dominio; **0 escrito donde el dominio declara monto ⇒ `ERR-ESCRITURA` y no se entrega**. Prueba de inyección forzando ceros: enrojece.
+
+**Evidencia:** 2026101 D9:D14 = 14.842.425.136 / 11.302.637.605 / 8.823.787.300 / 10.483.172.762 / 7.550.668.665 / 53.002.691.468 (6/6 idénticos al oráculo administrativo). 2026071 6/6 contra el R10 oficial. 2026072 6/6 en el (sin validar); su único rojo restante es el typo de plantilla `R1!F328` (-M213 en vez de -L213), que es de la propietaria.
+
+**Pendientes declarados (decisión del Ingeniero):**
+1. `DetValiRetri!D9:D14` (tarifas TCS/TLU/TBL/TRT) queda en 0: el oráculo los llena, pero su fuente (tarifas del CONSOLIDADO U..AG) no está en el dominio del período.
+2. El desglose J/L (DetRetri) e I/O (DetValiRetri) sigue Q2-only; medido que en Q1 el oráculo usa N(1ª) (`InterventoriaDeclarada.PrimeraQuincenaPorAse`) ⇒ hay valor para eliminar la rama sin quemar nada.
+3. Modo 1-ASE nunca escribe DetRetri (no puebla DetRetriQ2): hueco preexistente.
+
+**Nota de gate:** la plantilla se re-guardó en Excel otra vez (SHA de archivo `8D0B3299…`); contenido idéntico (0 diferencias sobre el dump normalizado). El gate válido sigue siendo la **huella semántica**, no el SHA de archivo.

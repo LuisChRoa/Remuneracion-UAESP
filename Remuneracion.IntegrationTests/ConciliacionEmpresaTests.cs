@@ -138,19 +138,19 @@ public sealed class ConciliacionEmpresaTests
                 F25 = totOpt + 100m, // F25-equiv no es el visible; no afecta el gate 2.2
                 F41 = -100m,
                 L25 = 0m,
-                CeldasPorAse = new Dictionary<string, decimal> { ["F25"] = totOpt + 100m },
+                ValoresPorRol = new Dictionary<string, decimal> { [RolsQ2.Oportuna(1)] = totOpt + 100m },
                 TotalOportunoEsperadoPorAse = totOpt,
                 ExtemporaneoEsperadoPorAse = 0m
             };
             var r2Model = new WorkbookLeafInputsR2
             {
                 E15 = r2, E26 = 0m, K15 = 0m,
-                CeldasPorAse = new Dictionary<string, decimal> { ["E15"] = r2 }
+                ValoresPorRol = new Dictionary<string, decimal> { [RolsQ2.SeccionR2("Componente")] = r2 }
             };
             var r4Model = new WorkbookLeafInputsR4
             {
                 D9 = r4, P9 = 0m,
-                CeldasPorAse = new Dictionary<string, decimal> { ["D9"] = r4 }
+                ValoresPorRol = new Dictionary<string, decimal> { [RolsQ2.GranTotalR4()] = r4 }
             };
 
             var conciliacion = porAse.Select(v =>

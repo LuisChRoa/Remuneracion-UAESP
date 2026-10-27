@@ -27,6 +27,22 @@ using Remuneracion.Core.Models;
 /// Regla de oro (plan D1/G2): mapa hermano explícito por (<see cref="Ase.Id"/>, período);
 /// PROHIBIDOS offsets aritméticos; el mapa Q1 (<see cref="WorkbookLeafCellMapPorAse"/>) queda
 /// INTACTO y solo se activa con <see cref="Periodo.NumeroQuincena"/> == 1.
+///
+/// <para><b>OBSOLETE (Plan 59, H2.1) — LEGACY, solo fixtures históricos.</b> Los mapas de celdas
+/// congeladas de esta clase salieron del camino productivo:</para>
+/// <list type="bullet">
+/// <item><see cref="R1Q2EditablesPorAse"/>, <see cref="R2Q2EditablesPorAse"/>,
+/// <see cref="R4Q2EditablesPorAse"/>: el lector entrega valores por ROL y el escritor los resuelve
+/// contra la plantilla con <see cref="ResolvedorDestinoValor"/>;</item>
+/// <item><see cref="R1Q2ProtectedPorAse"/>, <see cref="R2Q2ProtectedPorAse"/>,
+/// <see cref="R4Q2ProtectedPorAse"/>: las protecciones se verifican por ROL + FORMA con
+/// <see cref="VerificadorDestinoProtegido"/> (los fragmentos también eran geometría, §2-D2.3-bis);</item>
+/// <item><see cref="DetRetriDestinoPorAse"/>: el destino se deriva por etiqueta del DetRetri.</item>
+/// </list>
+/// Motivo: con la plantilla v3 la celda Y los operandos cambiaron (p. ej. el cierre pasó de
+/// <c>F75 = F47+F70+F16-L16-L47</c> a <c>F89 = F55+F84+F16-L16-L55</c>). Ningún reader/writer
+/// productivo consume estos mapas: quedan para que los fixtures históricos conserven su oráculo
+/// congelado (patrón LEGACY del Plan 54/55). NO agregar consumidores nuevos.
 /// </summary>
 public static class WorkbookLeafCellMapQ2
 {
@@ -270,9 +286,13 @@ public static class WorkbookLeafCellMapQ2
     public const string DetRetriTotal = "D14";
 
     /// <summary>
-    /// Fórmulas protegidas DetRetri/DetValiRetri Q2 (T0-0.4, Requirement 5): diferencias vs
-    /// CONSOLIDADO (D23:D28 / D16:D21) y verificaciones booleanas de composición (D32:D36 /
-    /// D24:D29). Nunca se escriben; el writer falla si alguna deja de ser fórmula.
+    /// LEGACY (Plan 59 H2-bis). Map de fórmulas protegidas DetRetri/DetValiRetri Q2 de la plantilla v2
+    /// (T0-0.4, Requirement 5): diferencias vs CONSOLIDADO (D23:D28 / D16:D21) y verificaciones
+    /// booleanas de composición (D32:D36 / D24:D29). <b>Ya no lo consume ningún camino productivo</b>:
+    /// <c>OpenXmlPlantillaWriter</c> verifica esas protecciones con
+    /// <see cref="DetallePeriodoDerivado"/>, que resuelve cada celda por ROL (hoja · familia · ASE ·
+    /// rótulo de columna) y comprueba su FORMA derivada de la propia plantilla.
+    /// Se conserva como fixture histórico: sus operandos son la foto de la v2 y la v3 los cambió.
     /// </summary>
     public static (string Hoja, string Celda, string[] Fragmentos)[] DetRetriProtected(Periodo periodo)
     {

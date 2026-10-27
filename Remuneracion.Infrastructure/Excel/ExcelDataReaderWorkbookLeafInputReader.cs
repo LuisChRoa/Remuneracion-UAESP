@@ -1,3 +1,4 @@
+using Remuneracion.Core.Errors;
 using Remuneracion.Core.Exceptions;
 using Remuneracion.Core.Interfaces;
 using Remuneracion.Core.Models;
@@ -53,8 +54,22 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
 
         // Plan 29 (T2, Unidad R — SOLO LECTURA): el desglose-detalle por componente de R2/R4 se
         // construye desde la MISMA observación ya cargada (no re-lee el archivo; R-DOBLE-FUENTE) y
-        // solo en Q2 (alcance T0b: 2026072/2026082 — el detalle es un artefacto del 2° quincena).
-        // Viaja dentro del leaf para que la ESCRITURA de T3 lo consuma; aquí NO se escribe nada.
+        // solo en Q2. Viaja dentro del leaf para que la ESCRITURA de T3 lo consuma; aquí NO se escribe.
+        //
+        // Plan 59 (§11 — FRENTE 2, medido y NO eliminado): la rama es un ALCANCE declarado del T0b de
+        // 2026 (períodos 2026072/2026082) y NO una regla de negocio, pero eliminarla HOY no es seguro
+        // y por eso se conserva con este registro:
+        //   · el oráculo administrativo de 2026101 (primera quincena) SÍ trae el detalle por
+        //     componente de R2 y R4 lleno ⇒ el dato falta en el entregable de Q1;
+        //   · con la plantilla v3 el escrito funciona (los grupos del 2.º cuadro de R2 —`A/EAB`—
+        //     están declarados en los 5 ASE, §0.5), y la corrida real 2026101 cierra;
+        //   · con la base v2 que usan los fixtures de regresión, la MISMA fuente de ASE2 no tiene
+        //     destino (`ERR-SIN-SLOT` sobre la fila `|||Subsidio(-)/Contribucion(+)` con canal
+        //     `A/EAB`): la v2 no declara ese grupo. Eliminar la rama exige migrar esas bases a la v3
+        //     (trabajo de la migración, no de este frente) o cerrar antes el hueco de la v2.
+        // Gate que lo respalda mientras tanto: `EmparejarBloque` NUNCA remapea ni coloca por posición
+        // (una fila sin slot es `ERR-SIN-SLOT` accionable) ⇒ el día que la base sea v3, quitar estas
+        // dos líneas de condición es todo el cambio.
         if (esQuincena2)
         {
             leaf.DetalleR2 = ConstruirDetalleR2(ase, rutaR2, filasR2);
@@ -1214,54 +1229,51 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         decimal F(FilaEspejoR1? fila) => fila?.Valor("Total") ?? 0m;
         decimal Esp(FilaEspejoR1? fila) => fila?.Valor("SERVICIO ESPECIALES") ?? 0m;
 
-        FilaEspejoR1? RolCore(WorkbookLeafCellMapQ2.R1Q2Fuente rol) => rol switch
+        // Plan 59 (H2.1): el lector NO conoce celdas del template. Entrega los valores por ROL de
+        // destino (concepto) y el escritor los resuelve contra la geometría que la plantilla declare.
+        // El número de roles lo decide la FUENTE (subsecciones variables, §2.6 del T0); los slots que
+        // la fuente no trae quedan en el cero del template (doctrina Plan 50).
+        if (filasMes.Count < 2)
         {
-            WorkbookLeafCellMapQ2.R1Q2Fuente.Mes0 => filasMes.ElementAtOrDefault(0),
-            WorkbookLeafCellMapQ2.R1Q2Fuente.Mes1 => filasMes.ElementAtOrDefault(1),
-            WorkbookLeafCellMapQ2.R1Q2Fuente.Mes2 => filasMes.ElementAtOrDefault(2),
-            WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes0 => filasMes.ElementAtOrDefault(0),
-            WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes1 => filasMes.ElementAtOrDefault(1),
-            WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes2 => filasMes.ElementAtOrDefault(2),
-            _ => null
-        };
-
-        // Plan 54 (enmienda 2): Mes2/Lmes2 pasan a opcionales → 0 (mismo trato que los roles Aplic):
-        // julio-1 ASE1 trae 2 filas Mes/Total y su R10 se reproduce al peso con F70 = 0.
-        static bool EsRolOpcional(WorkbookLeafCellMapQ2.R1Q2Fuente rol) =>
-            rol is WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic0
-                or WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic1
-                or WorkbookLeafCellMapQ2.R1Q2Fuente.LAplic0
-                or WorkbookLeafCellMapQ2.R1Q2Fuente.Mes2
-                or WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes2;
-
-        // Fail-fast SOLO de roles core (slot ausente ≠ leído 0). Aplic y Mes2 son opcionales.
-        foreach (var (celda, fuente) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(ase.Id))
-        {
-            if (!EsRolOpcional(fuente) && RolCore(fuente) is null)
-            {
-                throw new CalculoInvalidoException(
-                    $"ASE {ase.Id}: la fuente R1-Q2 no trae la fila del rol {fuente} requerida por el mapa T0 para la celda {celda} (reporte Recaudoporcomponente).");
-            }
+            // Plan 54 (enmienda 2) conserva el contrato de ROLES CORE: el total oportuno del bloque
+            // exige las dos primeras subsecciones 'Mes' (Mes0/Mes1). Sin ellas, los valores se
+            // desplazarían en silencio al rol anterior — y eso es un reacomodo, no una lectura.
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"ASE {ase.Id}: la fuente R1 (R1-Q2, Recaudoporcomponente) no trae la fila del rol obligatorio 'Mes' #2 (segunda subsección de cierre 'Mes/Total'): el total oportuno del bloque se compone de las dos primeras y sin ella los valores se desplazarían de rol. Fail-fast: nunca se reacomoda la fuente.");
         }
 
         var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (celda, fuente) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(ase.Id))
-        {
-            var valor = fuente switch
-            {
-                WorkbookLeafCellMapQ2.R1Q2Fuente.Mes0
-                    or WorkbookLeafCellMapQ2.R1Q2Fuente.Mes1
-                    or WorkbookLeafCellMapQ2.R1Q2Fuente.Mes2 => F(RolCore(fuente)),
-                WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes0
-                    or WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes1
-                    or WorkbookLeafCellMapQ2.R1Q2Fuente.Lmes2 => Esp(RolCore(fuente)),
-                WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic0 => F(filasAplicacion.ElementAtOrDefault(0)),
-                WorkbookLeafCellMapQ2.R1Q2Fuente.Aplic1 => F(filasAplicacion.ElementAtOrDefault(1)),
-                WorkbookLeafCellMapQ2.R1Q2Fuente.LAplic0 => Esp(filasAplicacion.ElementAtOrDefault(0)),
-                _ => 0m
-            };
 
-            celdas[celda] = valor;
+        void Rol(
+            ResolvedorDestinoValor.NivelDestino nivel,
+            string etiqueta,
+            int ocurrencia,
+            string encabezado,
+            decimal valor) =>
+            celdas[new ResolvedorDestinoValor.RolValor(nivel, etiqueta, ocurrencia, encabezado).Clave] = valor;
+
+        RegistrarFamilia(ResolvedorDestinoValor.SubseccionOportuna, filasMes, ResolvedorDestinoValor.EncabezadoEspecialesR1);
+        RegistrarFamilia(ResolvedorDestinoValor.SubseccionExtemporanea, filasAplicacion, ResolvedorDestinoValor.EncabezadoEspecialesR1);
+
+        void RegistrarFamilia(string etiqueta, IReadOnlyList<FilaEspejoR1> filas, string encabezadoEspeciales)
+        {
+            for (var i = 0; i < filas.Count; i++)
+            {
+                Rol(
+                    ResolvedorDestinoValor.NivelDestino.Subseccion, etiqueta, i + 1,
+                    ResolvedorDestinoValor.EncabezadoTotal, F(filas[i]));
+
+                // Los especiales son operando de la fórmula del total para TODAS las ocurrencias menos
+                // la última (regla del dominio, Plan 25 D-C): el rol se emite con la misma regla, así
+                // que el número de términos lo decide la fuente y no una lista congelada.
+                if (i < filas.Count - 1)
+                {
+                    Rol(
+                        ResolvedorDestinoValor.NivelDestino.Subseccion, etiqueta, i + 1,
+                        encabezadoEspeciales, Esp(filas[i]));
+                }
+            }
         }
 
         // TOT_OPT: patrón visible del template resuelto por firma/observación —
@@ -1290,7 +1302,7 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             F30 = 0m,
             F10 = 0m,
             L10 = 0m,
-            CeldasPorAse = celdas,
+            ValoresPorRol = celdas,
             TotalOportunoEsperadoPorAse = totOpt,
             ExtemporaneoEsperadoPorAse = extemp
         };
@@ -1356,12 +1368,13 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             ? ExcelWorksheetNavigator.CeldaNumero(filaComponente.ElementAtOrDefault(indiceEspeciales))
             : 0m;
 
-        var celdasMap = WorkbookLeafCellMapQ2.ObtenerR2Q2Editables(ase.Id);
+        // Plan 59 (H2.1): el destino se entrega por ROL (cierre de cada sección + especiales de todas
+        // menos la última); el escritor resuelve la celda contra la plantilla. Cero celdas aquí.
         var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
         {
-            [celdasMap.Componente] = e15,
-            [celdasMap.SubsCont] = e26,
-            [celdasMap.Especiales] = k15
+            [RolSeccion(SeccionComponente, ResolvedorDestinoValor.EncabezadoTotal)] = e15,
+            [RolSeccion(SeccionSubsCont, ResolvedorDestinoValor.EncabezadoTotal)] = e26,
+            [RolSeccion(SeccionComponente, ResolvedorDestinoValor.EncabezadoEspecialesR2)] = k15
         };
 
         return new WorkbookLeafInputsR2
@@ -1369,9 +1382,19 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             E15 = e15,
             E26 = e26,
             K15 = k15,
-            CeldasPorAse = celdas
+            ValoresPorRol = celdas
         };
     }
+
+    /// <summary>Rótulo de la sección de anticipos del R2 (anticipos a usuarios).</summary>
+    private const string SeccionComponente = "Componente";
+
+    /// <summary>Rótulo de la sección de subsidio/contribución del R2.</summary>
+    private const string SeccionSubsCont = "Subs/Cont";
+
+    private static string RolSeccion(string etiqueta, string encabezado) =>
+        new ResolvedorDestinoValor.RolValor(
+            ResolvedorDestinoValor.NivelDestino.Seccion, etiqueta, 1, encabezado).Clave;
     /// <summary>
     /// Plan 54 (H1.4, D4): mapeo R4 ÚNICO para ambas quincenas — fila <c>Total</c> con <c>B</c> vacío
     /// sobre la columna D, con la tabla destino ÚNICA del mapa productivo v2. <c>P = 0</c> (sin análogo
@@ -1387,20 +1410,25 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         var d9 = ExcelWorksheetNavigator.CeldaNumero(filaTotal.ElementAtOrDefault(3));
         var p9 = 0m;
 
-        var celdasMap = WorkbookLeafCellMapQ2.ObtenerR4Q2Editables(ase.Id);
+        // Plan 59 (H2.1): el destino se entrega por ROL (gran total del bloque + sus especiales); el
+        // escritor resuelve la celda contra la plantilla. Cero celdas aquí.
         var celdas = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
         {
-            [celdasMap.Total] = d9,
-            [celdasMap.P] = p9
+            [RolGranTotal(ResolvedorDestinoValor.EncabezadoTotal)] = d9,
+            [RolGranTotal(ResolvedorDestinoValor.EncabezadoEspecialesR4)] = p9
         };
 
         return new WorkbookLeafInputsR4
         {
             D9 = d9,
             P9 = p9,
-            CeldasPorAse = celdas
+            ValoresPorRol = celdas
         };
     }
+
+    private static string RolGranTotal(string encabezado) =>
+        new ResolvedorDestinoValor.RolValor(
+            ResolvedorDestinoValor.NivelDestino.GranTotal, string.Empty, 1, encabezado).Clave;
 
     /// <summary>
     /// Plan 29 (T2, Unidad R): construye la matriz de detalle R2 desde las filas crudas de

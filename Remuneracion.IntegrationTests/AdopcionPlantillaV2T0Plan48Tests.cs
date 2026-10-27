@@ -84,7 +84,9 @@ public sealed class AdopcionPlantillaV2T0Plan48Tests
     public void T0P48_Sha256_V1_V2_Intactas()
     {
         Assert.Equal(ShaV1, Sha256(V1()));
-        Assert.Equal(ShaV2, Sha256(V2()));
+        // Plan 59 §0.6 (G-HUELLA): la v2 fue re-guardada en Excel; el gate es la huella de CONTENIDO
+        // y el SHA del archivo queda informativo.
+        Assert.Equal(HuellaSemanticaPlantilla.V2, HuellaSemanticaPlantilla.Calcular(V2()));
     }
 
     [Fact]

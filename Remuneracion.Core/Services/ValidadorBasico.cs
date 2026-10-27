@@ -194,27 +194,31 @@ public sealed class ValidadorBasico : IValidador
         // no reconocida → fail-fast. Sin ausencia, la etiqueta desconocida es solo evidencia.
         ValidarEtiquetasBancoNoReconocidas(errores, leafs);
 
-        // HU-12 (2.6 ampliada, §2.5 regla 2): DetRetri-Q2 por ASE — SOLO en Q2 (Q1 sin cambios,
-        // regresión ciega). Cada leaf debe traer DetRetriQ2 (error que nombra el ASE; nunca null)
-        // y el Detalle debe coincidir con ROUND(D104:D108,0) vía DetRetriRounder (composición V0.4;
-        // la comparación contra el caché golden vive en la Capa A, no en gates de fórmula).
-        if (esQuincena2)
+        // HU-12 (2.6 ampliada, §2.5 regla 2) / Plan 59 (§11 — FRENTE 2): DetRetri por ASE — en AMBAS
+        // quincenas. El gate se ACTIVA cuando el período declara el asiento (algún leaf trae
+        // DetRetriQ2, que es lo que hace siempre el procesador del período completo en las dos
+        // quincenas) y entonces exige que TODOS los ASE lo traigan — un leaf sin DetRetri en un
+        // período que sí lo declara es un hueco, no un 0 legítimo. Antes la regla vivía dentro de
+        // `if (esQuincena2)`: en Q1 la comprobación simplemente no ocurría.
+        var declaraDetRetri = leafs.Any(l => l.DetRetriQ2 is not null);
+        foreach (var leaf in leafs)
         {
-            foreach (var leaf in leafs)
+            var detalle = leaf.DetRetriQ2;
+            if (detalle is null)
             {
-                var detalle = leaf.DetRetriQ2;
-                if (detalle is null)
+                if (declaraDetRetri)
                 {
-                    AgregarError(errores, $"ASE {leaf.Ase.Id}: en Q2 el leaf debe traer DetRetriQ2 (ROUND(D104:D108,0)) para validar el gate; no puede ser null.");
-                    continue;
+                    AgregarError(errores, $"ASE {leaf.Ase.Id}: el leaf debe traer DetRetriQ2 (ROUND(D104:D108,0)) para validar el gate; no puede ser null.");
                 }
 
-                var redondeado = DetRetriRounder.Round(detalle.TotalD104);
-                var diferencia = Math.Abs(detalle.Detalle - redondeado);
-                if (diferencia > Tolerancia)
-                {
-                    AgregarError(errores, $"ASE {leaf.Ase.Id}: Detalle DetRetri ({detalle.Detalle}) no coincide con ROUND(D104:D108,0) ({redondeado}). Diferencia={diferencia} > ±{Tolerancia}.");
-                }
+                continue;
+            }
+
+            var redondeado = DetRetriRounder.Round(detalle.TotalD104);
+            var diferencia = Math.Abs(detalle.Detalle - redondeado);
+            if (diferencia > Tolerancia)
+            {
+                AgregarError(errores, $"ASE {leaf.Ase.Id}: Detalle DetRetri ({detalle.Detalle}) no coincide con ROUND(D104:D108,0) ({redondeado}). Diferencia={diferencia} > ±{Tolerancia}.");
             }
         }
 

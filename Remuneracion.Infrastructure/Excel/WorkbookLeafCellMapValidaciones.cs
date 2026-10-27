@@ -143,39 +143,12 @@ public static class WorkbookLeafCellMapValidaciones
             lista.Add((HojaValidacionTotal, celda, []));
         }
 
-        // Detalle Q1 (mapa Q2 ya cubierto por WorkbookLeafCellMapQ2.DetRetriProtected):
-        // DetRetri2026071 D23..D28 (diferencias vs CONSOLIDADO D104:D109) y D32..D36
-        // (booleanos de composición); DetValiRetri2026071 D16..D21/D24..D29 (columna D).
-        if (periodo.NumeroQuincena == 1)
-        {
-            var hojaDetRetri = HojaDetRetri(periodo);
-            var hojaDetValiRetri = HojaDetValiRetri(periodo);
-            for (var i = 0; i < 6; i++)
-            {
-                var fila = 23 + i;
-                lista.Add((hojaDetRetri, $"D{fila}", ["CONSOLIDADO", $"D{104 + i}"]));
-            }
-
-            // D32..D36 (booleanos de composición por ASE): los fragmentos varían por fila-ASE
-            // (F46/F176/F316/…, E41/E135/…) → presencia de <f> (shared-aware) basta.
-            for (var fila = 32; fila <= 36; fila++)
-            {
-                lista.Add((hojaDetRetri, $"D{fila}", []));
-            }
-
-            for (var i = 0; i < 6; i++)
-            {
-                var fila = 16 + i;
-                lista.Add((hojaDetValiRetri, $"D{fila}", ["CONSOLIDADO", $"U{104 + i}"]));
-            }
-
-            // D24..D29 (booleanos de composición por ASE + TOTAL): los fragmentos varían por
-            // fila-ASE (M46/M176/M316/…, L41/L135/…) → presencia de <f> (shared-aware) basta.
-            for (var fila = 24; fila <= 29; fila++)
-            {
-                lista.Add((hojaDetValiRetri, $"D{fila}", []));
-            }
-        }
+        // Plan 59 (§11 — FRENTE 2): aquí vivía el mapa Q1 del detalle del período con CELDAS Y
+        // OPERANDOS congelados (DetRetri D23..D28 'CONSOLIDADO D104+i', D32..D36; DetValiRetri
+        // D16..D21 'CONSOLIDADO U104+i', D24..D29). Se retiró: la verificación por ROL + FORMA
+        // (`DetallePeriodoDerivado.Validar`) corre ahora en AMBAS quincenas desde el tronco común del
+        // writer, cubre esas mismas columnas y no caduca con la próxima geometría (§2-D2.3-bis:
+        // prohibido "actualizar la lista").
 
         // Valida -*: representantes de fórmula (vistas lado-a-lado; T0-0.5 sin gate numérico).
         // Valida - Control Recaudo mezcla VALORES → no se exige fórmula (protegida-valor).

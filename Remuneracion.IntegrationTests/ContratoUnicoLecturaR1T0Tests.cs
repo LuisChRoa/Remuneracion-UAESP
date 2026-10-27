@@ -86,7 +86,7 @@ public sealed class ContratoUnicoLecturaR1T0Tests
     [Fact]
     public void T0_1_PlantillasOficiales_ShaIntacto()
     {
-        Assert.Equal(ShaPlantillaV2, Sha256(PlantillaV2));
+        Assert.Equal(HuellaSemanticaPlantilla.V2, HuellaSemanticaPlantilla.Calcular(PlantillaV2));
         Assert.Equal(ShaPlantillaV1, Sha256(PlantillaV1));
     }
 
@@ -360,11 +360,11 @@ public sealed class ContratoUnicoLecturaR1T0Tests
         Assert.Equal(q2.R2.E15, q1.R2.E15);
         Assert.Equal(q2.R2.E26, q1.R2.E26);
         Assert.Equal(q2.R2.K15, q1.R2.K15);
-        AssertCeldasIguales(q1.R2.CeldasPorAse, q2.R2.CeldasPorAse, aseId, "R2");
+        AssertCeldasIguales(q1.R2.ValoresPorRol, q2.R2.ValoresPorRol, aseId, "R2");
 
         Assert.Equal(q2.R4.D9, q1.R4.D9);
         Assert.Equal(q2.R4.P9, q1.R4.P9);
-        AssertCeldasIguales(q1.R4.CeldasPorAse, q2.R4.CeldasPorAse, aseId, "R4");
+        AssertCeldasIguales(q1.R4.ValoresPorRol, q2.R4.ValoresPorRol, aseId, "R4");
     }
 
     /// <summary>

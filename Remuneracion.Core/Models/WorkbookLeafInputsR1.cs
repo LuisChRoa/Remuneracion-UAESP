@@ -8,7 +8,7 @@ namespace Remuneracion.Core.Models;
 /// HU-07 (multi-ASE): cada bloque del template tiene operandos en direcciones distintas
 /// (congeladas por T0 en <c>plans/07 - HU-07 T0 Evidencia.md</c>). Las propiedades ASE1
 /// (F25/F41/L25/F30/F10/L10) se conservan para compatibilidad single-ASE; los operandos por
-/// bloque se exponen en <see cref="CeldasPorAse"/> y los visibles esperados por bloque en
+/// bloque se exponen en <see cref="ValoresPorRol"/> y los visibles esperados por bloque en
 /// <see cref="TotalOportunoEsperadoPorAse"/> y <see cref="ExtemporaneoEsperadoPorAse"/>.
 /// </summary>
 public sealed class WorkbookLeafInputsR1
@@ -63,10 +63,12 @@ public sealed class WorkbookLeafInputsR1
     public decimal ExtemporaneoEsperado => F30 + F10 - L10;
 
     /// <summary>
-    /// Operandos leaf del bloque R1 por ASE, keyed por referencia de celda del template
-    /// (ej. "F113", "L113", "F90"). Congelado por T0; el writer escribe SOLO estas celdas.
+    /// Valores del bloque R1 por ASE, keyed por ROL de destino (concepto, no coordenada): p. ej.
+    /// <c>Subseccion|Mes|1|Total</c>. Plan 59 (H2.1): el transporte entre lector y escritor ya no
+    /// lleva referencias de celda (llevarlas era el mapa congelado); el escritor resuelve cada rol
+    /// contra la plantilla con <c>ResolvedorDestinoValor</c>.
     /// </summary>
-    public IReadOnlyDictionary<string, decimal> CeldasPorAse { get; set; } = new Dictionary<string, decimal>();
+    public IReadOnlyDictionary<string, decimal> ValoresPorRol { get; set; } = new Dictionary<string, decimal>();
 
     /// <summary>
     /// Visible esperado del TOT_OPT por bloque (fórmula T0 §0.3 de <c>plans/07 - HU-07 T0 Evidencia.md</c>).

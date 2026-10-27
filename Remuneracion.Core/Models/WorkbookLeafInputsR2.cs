@@ -6,7 +6,7 @@ namespace Remuneracion.Core.Models;
 ///
 /// HU-07 (multi-ASE): el mapeo por labels es uniforme para los 5 bloques; solo cambian las
 /// direcciones del template (E85/E103/K85 para ASE2, E167/E178/K167 para ASE3, etc.), expuestas
-/// en <see cref="CeldasPorAse"/>.
+/// como ROL de destino en <see cref="ValoresPorRol"/> (Plan 59 H2.1: sin celdas en el transporte).
 /// </summary>
 public sealed class WorkbookLeafInputsR2
 {
@@ -32,8 +32,9 @@ public sealed class WorkbookLeafInputsR2
     public decimal TotalOportunoEsperado => E15 + E26 - K15;
 
     /// <summary>
-    /// Operandos leaf del bloque R2 por ASE, keyed por referencia de celda del template
-    /// (ej. "E85", "E103", "K85"). Congelado por T0; el writer escribe SOLO estas celdas.
+    /// Valores del bloque R2 por ASE, keyed por ROL de destino (concepto, no coordenada): el cierre
+    /// de cada sección y los especiales. Plan 59 (H2.1): el escritor resuelve el rol contra la
+    /// plantilla; el transporte no lleva celdas.
     /// </summary>
-    public IReadOnlyDictionary<string, decimal> CeldasPorAse { get; set; } = new Dictionary<string, decimal>();
+    public IReadOnlyDictionary<string, decimal> ValoresPorRol { get; set; } = new Dictionary<string, decimal>();
 }

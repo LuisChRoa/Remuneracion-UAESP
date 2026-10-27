@@ -80,8 +80,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         var worksheet = ObtenerHoja(workbook, HojaR1, nameof(EscribirDetalleR1));
 
         ValidarHojaConLabelsEsperados(workbookPart, HojaR1, ["Componente", "Total", "Mes"]);
-        ValidarCeldaTieneFormula(workbookPart, worksheet, "F75", ["F47", "F70", "F16", "L16", "L47"], HojaR1, nameof(EscribirDetalleR1));
-        ValidarCeldaTieneFormula(workbookPart, worksheet, "F77", ["F59", "F32", "L32"], HojaR1, nameof(EscribirDetalleR1));
+        VerificadorDestinoProtegido.ValidarBloquesDeRecaudo(workbookPart);
 
         LanzarPayloadInsuficiente(nameof(EscribirDetalleR1), HojaR1,
             "Se requiere un contrato de WorkbookLeafInputs que exponga los inputs reales detrás de F25,F41,L25,F30,F10,L10; el payload actual solo expone agregados TotOpt/Extemp y detalle parcial.");
@@ -99,7 +98,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         var worksheet = ObtenerHoja(workbook, HojaR2, nameof(EscribirDetalleR2));
 
         ValidarHojaConLabelsEsperados(workbookPart, HojaR2, ["Total", "Componente TDF"]);
-        ValidarCeldaTieneFormula(workbookPart, worksheet, "E47", ["E21", "E32", "K21"], HojaR2, nameof(EscribirDetalleR2));
+        VerificadorDestinoProtegido.ValidarBloquesDeRecaudo(workbookPart);
 
         LanzarPayloadInsuficiente(nameof(EscribirDetalleR2), HojaR2,
             "Se requiere un contrato de WorkbookLeafInputs que exponga los inputs reales detrás de E15,E26,K15; el modelo actual solo expone GrandTotal y ServEspK.");
@@ -116,7 +115,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         var workbookPart = workbook.WorkbookPart ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene WorkbookPart válido.");
         var worksheet = ObtenerHoja(workbook, HojaR4, nameof(EscribirDetalleR4));
 
-        ValidarCeldaTieneFormula(workbookPart, worksheet, "D73", ["D15", "P15"], HojaR4, nameof(EscribirDetalleR4));
+        VerificadorDestinoProtegido.ValidarBloquesDeRecaudo(workbookPart);
 
         LanzarPayloadInsuficiente(nameof(EscribirDetalleR4), HojaR4,
             "Se requiere un contrato de WorkbookLeafInputs que exponga los inputs reales detrás de D9 y P9; el modelo actual solo expone TotalReversiones agregado.");
@@ -255,7 +254,6 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         // HU-11 (2.5) + Plan 30 (D-A): el nombre de las hojas DetRetri/DetValiRetri depende del
         // período y se COMPONE del dominio (periodo.CodigoCompleto), no de literales.
         var periodoReferencia = leafInputs[0].Periodo;
-        var esQuincena2 = leafInputs.Any(l => l.Periodo.NumeroQuincena == 2);
 
         // Plan 21 (T4) / Plan 36 (T2, R-B-3/D-A/D-B): si el orquestador adjuntó el bloque espejo R1
         // de los 5 ASE, la hoja Reporte Componentes R1 se gobierna por el ESCRITOR VALUES-ONLY POR
@@ -340,14 +338,24 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                     EscribirCeldasDetalleR2R4(workbookPart, leaf);
                 }
 
-                // HU-12 (2.6 ampliada, V0.4): DetRetri-Q2 (enteros por ASE + total) en la MISMA
-                // pasada. SOLO en Q2: en Q1 el DetRetri calculado es oráculo de validación contra
-                // el R10 (HU-20/G3) y la hoja DetRetri2026071 queda con sus fórmulas protegidas
-                // intactas (NUNCA se sobrescribe).
-                if (esQuincena2)
-                {
-                    EscribirCeldasDetRetriQ2(workbookPart, leafInputs);
-                }
+                // HU-12 (2.6 ampliada, V0.4) / Plan 59 (H4): el asiento DetRetri (columna de valor de
+                // la tabla por ASE, encabezado 'Recaudo Total') se escribe en AMBAS quincenas. La v3
+                // declara ese destino como VALOR en las dos —medido por bytes:
+                // DetRetri2026092!D9:D14 son literales, sin <f>— y ValidarDetRetriEditable ya exige
+                // que siga siendo editable. La rama por quincena dejaba en Q1 el literal 0 de la
+                // plantilla dentro del entregable; en Q1 el valor ya está probado contra el R10
+                // (HU-20/G3), así que no hay oráculo que preservar en esa celda.
+                EscribirCeldasDetRetri(workbookPart, leafInputs);
+
+                // Plan 59 (§11 — FRENTE 1): el DESGLOSE trazable (DetRetri J/L/Cierre · DetValiRetri
+                // I/O/Cierre) se escribe en AMBAS quincenas. La plantilla declara esas celdas como
+                // VALOR en las dos (medido por bytes: literales sin <f>), la verificación por ROL del
+                // detalle ya las exige en ambas y el oráculo administrativo las trae llenas en Q1. La
+                // ÚNICA pieza que depende de la quincena es el costo de interventoría, y su selección
+                // vive en el DOMINIO (InterventoriaDeclarada.PorQuincena: primera 'N' / segunda 'M'),
+                // nunca aquí. Antes esta rama dejaba J/K/L e I/O en el literal 0 de la plantilla
+                // durante Q1.
+                EscribirDesgloseTrazableDetRetri(workbookPart, leafInputs);
 
                 // Plan 29 (T5, Unidad P — R-P-3/T0f) + Plan 48 (H1.2): control de recaudo.
                 EscribirControlRecaudoTotal(workbookPart, leafInputs);
@@ -377,6 +385,11 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                 // template) la validación protegida post-escritura es la MISMA que la pre-escritura,
                 // en ambos caminos y sin ramas por período ni por "espejo desplazado".
                 ValidarFormulasProtegidasMultiAse(workbookPart, nameof(GenerarWorkbook), periodoReferencia);
+
+                // Plan 59 (H4): gate de VALORES del asiento DetRetri sobre el archivo recién
+                // guardado — lo escrito contra el esperado del dominio. Es el contrapeso del gate
+                // de forma: la forma puede cerrar (0 − 0) con el asiento vacío, los valores no.
+                VerificarAsientoDetRetri(workbookPart, leafInputs);
             }
 
             // Plan 58 (H1.2): gate de integridad del paquete POST-escritura (por bytes, sin Excel).
@@ -513,38 +526,18 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
 
     private static void ValidarConsolidadoFormulario(WorkbookPart workbookPart, Worksheet worksheet)
     {
-        var reglas = new Dictionary<string, string[]>
-        {
-            ["D9"] = ["F75", "Reporte Componentes R1"],
-            ["D28"] = ["E47", "Rem. Anticipos R2"],
-            ["D47"] = ["F77", "Reporte Componentes R1"],
-            ["D66"] = ["D73", "Reversion Pagos R4"],
-            ["D85"] = ["D47", "AJUSTES"],
-            ["D104"] = ["D9", "D28", "D47", "D66", "D85"],
-            ["D109"] = ["D104", "D108", "SUM"]
-        };
-
-        foreach (var (celda, fragmentos) in reglas)
-        {
-            var formula = ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, HojaConsolidado, nameof(EscribirConsolidado));
-            if (string.IsNullOrWhiteSpace(formula))
-            {
-                // HU-15 (W-2.3, D5): estructura de plantilla = ERR-PLANTILLA.
-                throw new CalculoInvalidoException(CodigoError.Plantilla, $"La celda '{celda}' de '{HojaConsolidado}' no contiene una fórmula válida.");
-            }
-        }
+        _ = worksheet;
+        // Plan 59 (H2.2): las 30 celdas del CONSOLIDADO y su cierre se verifican por ROL + FORMA
+        // (tabla por ASE + destino resuelto por identidad). Ya no hay diccionario de celdas ni lista de
+        // fragmentos: los fragmentos también eran geometría (§2-D2.3-bis).
+        VerificadorDestinoProtegido.ValidarConsolidado(workbookPart);
     }
 
     private static void ValidarCadenaFormulaR1R2R4(WorkbookPart workbookPart)
     {
-        var hojaR1 = ObtenerHoja(workbookPart, HojaR1, nameof(EscribirConsolidado));
-        var hojaR2 = ObtenerHoja(workbookPart, HojaR2, nameof(EscribirConsolidado));
-        var hojaR4 = ObtenerHoja(workbookPart, HojaR4, nameof(EscribirConsolidado));
-
-        ValidarCeldaTieneFormula(workbookPart, hojaR1, "F75", ["F47", "F70", "F16", "L16", "L47"], HojaR1, nameof(EscribirConsolidado));
-        ValidarCeldaTieneFormula(workbookPart, hojaR1, "F77", ["F59", "F32", "L32"], HojaR1, nameof(EscribirConsolidado));
-        ValidarCeldaTieneFormula(workbookPart, hojaR2, "E47", ["E21", "E32", "K21"], HojaR2, nameof(EscribirConsolidado));
-        ValidarCeldaTieneFormula(workbookPart, hojaR4, "D73", ["D15", "P15"], HojaR4, nameof(EscribirConsolidado));
+        // Plan 59 (H2.2): los totales de bloque de R1/R2/R4 se verifican por identidad (bloque + rótulo
+        // del cuadro de totales) y por forma derivada de sus cierres. Cero literales de celda.
+        VerificadorDestinoProtegido.ValidarBloquesDeRecaudo(workbookPart);
     }
 
     private static void ValidarHojaConLabelsEsperados(WorkbookPart workbookPart, string hoja, params string[] labelsEsperados)
@@ -782,42 +775,30 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     /// </summary>
     private static void ValidarFormulasProtegidasMultiAse(WorkbookPart workbookPart, string operacion, Periodo periodo)
     {
+        // Plan 59 (§11 — FRENTE 2): la protección del DETALLE del período NO depende de la quincena.
+        // El escritor escribe el asiento en las dos, la plantilla declara esas celdas como VALOR en
+        // las dos (medido por bytes) y la gramática de roles/formas es la misma hoja con otro nombre.
+        // Antes estas dos verificaciones vivían SOLO dentro de la rama Q2: en Q1 el asiento se
+        // escribía sin que nadie comprobara que la celda siguiera siendo editable ni que la forma de
+        // sus familias fuera la que la plantilla declara. Una coherencia desactivada en silencio.
+        ObtenerHoja(workbookPart, NombresHojaPeriodo.DetRetri(periodo), operacion);
+        VerificadorDestinoProtegido.ValidarDetRetriEditable(workbookPart, periodo);
+        DetallePeriodoDerivado.Validar(workbookPart, periodo);
+
         if (periodo.NumeroQuincena == 2)
         {
             ValidarFormulasProtegidasMultiAseQ2(workbookPart, operacion, periodo);
             return;
         }
 
-        // Plan 54 (H1.3, D3): el iterador de ASE usa el mapa PRODUCTIVO único (geometría v2); el mapa
-        // v1 (<see cref="WorkbookLeafCellMapPorAse"/>) queda aislado como LEGACY fuera del path.
-        foreach (var aseId in WorkbookLeafCellMapQ2.R1Q2EditablesPorAse.Keys.OrderBy(k => k))
-        {
-            var bloque = WorkbookLeafCellMapPorAse.ProtectedFormulasPorAse[aseId];
-            foreach (var (hoja, celda, fragmentos) in bloque)
-            {
-                if (string.Equals(hoja, HojaConsolidado, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue; // las filas CONSOLIDADO se validan una sola vez abajo
-                }
-
-                var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
-                ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
-            }
-        }
-
-        // Plan 48 (H1b — S-3 del review): punto ÚNICO de verdad = `WorkbookLeafCellMapQ2.ConsolidadoProtected`
-        // (la copia inline del writer se retiró; cero cambio de comportamiento).
-        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapQ2.ConsolidadoProtected)
-        {
-            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
-            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
-        }
-
-        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapPorEmpresa.ProtectedFormulasPorEmpresa)
-        {
-            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
-            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
-        }
+        // Plan 54 (H1.3, D3) + Plan 59 (H2.2): las fórmulas protegidas de R1/R2/R4 y de las filas del
+        // CONSOLIDADO se verifican por ROL + FORMA derivada de la geometría que la plantilla declara.
+        // El mapa literal por ASE (geometría v1) queda fuera del camino productivo: con la v3 sus
+        // celdas y sus operandos ya no son los del template.
+        VerificadorDestinoProtegido.ValidarBloquesDeRecaudo(workbookPart);
+        // RESIDUO DECLARADO (STOP por concepto): las hojas REMUNERACION_* por empresa siguen validadas
+        // por su mapa histórico, porque el T0 de este plan no midió su gramática de tablas.
+        VerificadorDestinoProtegido.ValidarConsolidado(workbookPart);
 
         // HU-09 (2.3, D6): mapa de fórmulas protegidas del reporte por banco (consolidado 1–7,
         // Total de bloque, verificación I/J, validación 59–80 y TOTAL RECAUDO). Nunca se escriben.
@@ -874,32 +855,19 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     /// </summary>
     private static void ValidarFormulasProtegidasMultiAseQ2(WorkbookPart workbookPart, string operacion, Periodo periodo)
     {
-        foreach (var aseId in WorkbookLeafCellMapQ2.R1Q2EditablesPorAse.Keys.OrderBy(k => k))
-        {
-            foreach (var (celda, fragmentos) in WorkbookLeafCellMapQ2.ObtenerR1Q2Protegidos(aseId))
-            {
-                var worksheet = ObtenerHoja(workbookPart, HojaR1, operacion);
-                ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, HojaR1, operacion);
-            }
+        // Plan 59 (H2.2): los totales de bloque de R1/R2/R4 se verifican por ROL (bloque + rótulo del
+        // cuadro de totales) y FORMA derivada de sus cierres; el CONSOLIDADO, por tabla + ASE; el
+        // DetRetri, por etiqueta (slot de valor). Se retiraron los mapas Q2 de celdas editables y
+        // protegidas y su lista de fragmentos.
+        // RESIDUO DECLARADO (STOP por concepto): las hojas REMUNERACION_* por empresa siguen validadas
+        // por su mapa histórico (ProtegidasAdicionalesQ2), porque el T0 de este plan no midió su
+        // gramática de tablas. No se inventa su derivación.
+        VerificadorDestinoProtegido.ValidarBloquesDeRecaudo(workbookPart);
+        VerificadorDestinoProtegido.ValidarConsolidado(workbookPart);
 
-            foreach (var (celda, fragmentos) in WorkbookLeafCellMapQ2.ObtenerR2Q2Protegidos(aseId))
-            {
-                var worksheet = ObtenerHoja(workbookPart, HojaR2, operacion);
-                ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, HojaR2, operacion);
-            }
-
-            foreach (var (celda, fragmentos) in WorkbookLeafCellMapQ2.ObtenerR4Q2Protegidos(aseId))
-            {
-                var worksheet = ObtenerHoja(workbookPart, HojaR4, operacion);
-                ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, HojaR4, operacion);
-            }
-        }
-
-        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapQ2.ConsolidadoProtected)
-        {
-            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
-            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
-        }
+        // Plan 59 (§11 — FRENTE 2): la verificación del detalle del período (hoja editable + roles y
+        // formas de las tres familias) se ejecuta ANTES de esta rama, para AMBAS quincenas. Aquí ya no
+        // se repite: una sola llamada, un solo criterio.
 
         // HU-09 (2.3): mapa banco parametrizado al período — el Q2 excluye el TOTAL RECAUDO fila 81
         // (C81/D81) que no existe en el template Q2 (T0-0.5; la hoja termina en la fila 79).
@@ -924,14 +892,12 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
         }
 
-        // HU-12 (2.6 ampliada, Requirement 5): DetRetri/DetValiRetri Q2 (T0-0.4) + protegidas
-        // adicionales (REMUNERACION_* genéricas, VALIDACION_*, GERENTES_*, INTERVENTORIA, ANT EXT-REV).
-        // Plan 30 (T2, D-C): la resolución de la hoja Det del período anota hoja + período + operación.
-        foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapQ2.DetRetriProtected(periodo))
-        {
-            var worksheet = ObtenerHoja(workbookPart, hoja, operacion);
-            ValidarCeldaTieneFormula(workbookPart, worksheet, celda, fragmentos, hoja, operacion);
-        }
+        // HU-12 (2.6 ampliada, Requirement 5): DetRetri/DetValiRetri — Plan 59 (H2-bis): las 23 celdas
+        // protegidas se verifican por ROL + FORMA sobre la gramática que la propia hoja declara
+        // (tres familias de filas por ASE + rótulos de columna), no por la lista congelada de celdas y
+        // operandos de la v2 (`WorkbookLeafCellMapQ2.DetRetriProtected`, hoy LEGACY).
+        // Plan 59 (§11 — FRENTE 2): la verificación corre en el tronco común (antes de la rama de
+        // quincena), así que aquí NO se repite: una sola llamada para ambas quincenas.
 
         foreach (var (hoja, celda, fragmentos) in WorkbookLeafCellMapQ2.ProtegidasAdicionalesQ2)
         {
@@ -1085,60 +1051,64 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     }
 
     /// <summary>
-    /// Plan 54 (H1.3, D3): escribe SOLO las celdas del bloque del ASE con la geometría v2 del mapa
-    /// productivo (<see cref="WorkbookLeafCellMapQ2"/>), para AMBAS quincenas (la rama Q1 con la
-    /// geometría v1 se retiró: T0.4 probó que la tabla destino era idéntica). Los valores provienen de
-    /// <see cref="WorkbookLeafInputs"/> (<c>CeldasPorAse</c> por hoja). Fail-fast si falta un valor
-    /// (nombra ASE + hoja + celda; nunca 0 silencioso). El guard de
+    /// Plan 59 (H2.1): escribe las celdas de valor del bloque resolviéndolas por ROL contra la
+    /// geometría que la plantilla declara (<see cref="ResolvedorDestinoValor"/>). El transporte
+    /// (<c>ValoresPorRol</c>) no trae referencias: las referencias eran el mapa congelado.
+    /// Fail-fast si falta un valor (nombra ASE + hoja + rol; nunca 0 silencioso) y el guard de
     /// <see cref="EscribirValorNumerico"/> impide tocar fórmulas.
     /// </summary>
     private static void EscribirCeldasLeafPorAse(WorkbookPart workbookPart, WorkbookLeafInputs leaf, bool omitirR1)
     {
         if (!omitirR1)
         {
-            foreach (var (celda, _) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(leaf.Ase.Id))
-            {
-                if (!leaf.R1.CeldasPorAse.TryGetValue(celda, out var valorR1))
-                {
-                    throw new CalculoInvalidoException($"No hay valor leaf R1 mapeado para {celda} del ASE {leaf.Ase.Id}.");
-                }
-
-                EscribirValorNumerico(workbookPart, HojaR1, celda, valorR1, $"R1.ASE{leaf.Ase.Id}.{celda}");
-            }
+            EscribirRolesDeBloque(
+                workbookPart, leaf, DelimitadorBloquesHoja.R1, leaf.R1.ValoresPorRol, "R1");
         }
 
-        var r2 = WorkbookLeafCellMapQ2.ObtenerR2Q2Editables(leaf.Ase.Id);
-        foreach (var celda in new[] { r2.Componente, r2.SubsCont, r2.Especiales })
+        EscribirRolesDeBloque(
+            workbookPart, leaf, DelimitadorBloquesHoja.R2, leaf.R2.ValoresPorRol, "R2");
+        EscribirRolesDeBloque(
+            workbookPart, leaf, DelimitadorBloquesHoja.R4, leaf.R4.ValoresPorRol, "R4");
+    }
+
+    /// <summary>
+    /// Pega los valores del bloque en las celdas que cada ROL designa, resolviendo con el resolvedor
+    /// de destinos (identidad conceptual, cero coordenadas).
+    /// </summary>
+    private static void EscribirRolesDeBloque(
+        WorkbookPart workbookPart,
+        WorkbookLeafInputs leaf,
+        DelimitadorBloquesHoja.HojaDelimitable hoja,
+        IReadOnlyDictionary<string, decimal> valoresPorRol,
+        string sufijoOperacion)
+    {
+        var bloques = DelimitadorBloquesHoja.Delimitar(workbookPart, hoja);
+        var worksheet = ObtenerHoja(workbookPart, hoja.Nombre, $"escritura {sufijoOperacion} por rol");
+
+        foreach (var (clave, valor) in valoresPorRol)
         {
-            if (!leaf.R2.CeldasPorAse.TryGetValue(celda, out var valorR2))
-            {
-                throw new CalculoInvalidoException($"No hay valor leaf R2 mapeado para {celda} del ASE {leaf.Ase.Id}.");
-            }
+            var rol = ResolvedorDestinoValor.RolValor.DesdeClave(clave);
+            var destino = ResolvedorDestinoValor.Resolver(
+                workbookPart, worksheet, hoja, bloques, rol.IdentidadEn(hoja.Nombre, leaf.Ase.Id));
 
-            EscribirValorNumerico(workbookPart, HojaR2, celda, valorR2, $"R2.ASE{leaf.Ase.Id}.{celda}");
-        }
-
-        var r4 = WorkbookLeafCellMapQ2.ObtenerR4Q2Editables(leaf.Ase.Id);
-        foreach (var celda in new[] { r4.Total, r4.P })
-        {
-            if (!leaf.R4.CeldasPorAse.TryGetValue(celda, out var valorR4))
-            {
-                throw new CalculoInvalidoException($"No hay valor leaf R4 mapeado para {celda} del ASE {leaf.Ase.Id}.");
-            }
-
-            EscribirValorNumerico(workbookPart, HojaR4, celda, valorR4, $"R4.ASE{leaf.Ase.Id}.{celda}");
+            EscribirValorNumerico(
+                workbookPart, hoja.Nombre, destino.Celda, valor, $"{sufijoOperacion}.ASE{leaf.Ase.Id}.{clave}");
         }
     }
 
     /// <summary>
-    /// HU-12 (2.6 ampliada, V0.4): escribe DetRetri-Q2 (hoja <c>DetRetri2026072</c>) en la MISMA
-    /// pasada atómica: D9:D13 = ROUND(D104:D108) por ASE (vía <see cref="DetRetriRounder"/>, única
-    /// regla) y D14 = ROUND(Σ D104:D108). La composición está CONGELADA (probada 5/5 contra el
-    /// golden, V0.4); nunca se inventa. El llamador la ejecuta SOLO en Q2 (HU-20/G3): en Q1 el
-    /// DetRetri calculado existe como oráculo de validación contra el R10, pero la hoja
-    /// <c>DetRetri2026071</c> queda con sus fórmulas protegidas intactas.
+    /// HU-12 (2.6 ampliada, V0.4) / Plan 59 (H4): escribe el asiento DetRetri del período (hoja
+    /// <c>DetRetri{AAAAMMQ}</c>) en la MISMA pasada atómica: por ASE, la columna de valor de la tabla
+    /// por ASE (encabezado <c>'Recaudo Total'</c>) recibe <see cref="DetRetriQ2Inputs.Detalle"/> =
+    /// ROUND(D104:D108) vía <see cref="DetRetriRounder"/> (única regla) y la fila de cierre recibe la
+    /// SUMA de las filas por ASE (lo que Excel computa al sumar la columna). La composición está
+    /// congelada (probada 5/5 contra el golden, V0.4); nunca se inventa, y el destino se resuelve por
+    /// ETIQUETA (tabla por ASE + id leído de la fila), nunca por coordenada.
+    ///
+    /// Corre en AMBAS quincenas: la plantilla declara ese destino como valor en las dos (ver la nota
+    /// del llamador) y el DetRetri de Q1 ya viene validado contra el R10 (HU-20/G3).
     /// </summary>
-    private static void EscribirCeldasDetRetriQ2(WorkbookPart workbookPart, IReadOnlyList<WorkbookLeafInputs> leafInputs)
+    private static void EscribirCeldasDetRetri(WorkbookPart workbookPart, IReadOnlyList<WorkbookLeafInputs> leafInputs)
     {
         var conDetalle = leafInputs
             .Where(l => l.DetRetriQ2 is not null)
@@ -1146,81 +1116,391 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             .ToList();
         if (conDetalle.Count == 0)
         {
-            return; // Q1 puro: sin escrituras 2.6.
+            return; // Sin DetRetri en el dominio (modo 1-ASE legado): no hay asiento que escribir.
         }
 
         // Plan 30 (D-A): la hoja DetRetri se resuelve del dominio del período (no de un literal).
         var periodo = conDetalle[0].Periodo;
-        var hojaDetRetri = WorkbookLeafCellMapQ2.HojaDetRetri(periodo);
+        var hojaDetRetri = NombresHojaPeriodo.DetRetri(periodo);
+        // Plan 59 (H2.3): el destino se deriva por ETIQUETA (encabezado único de la tabla por ASE +
+        // id numérico de la fila). Ya no hay mapa congelado D9..D13.
+        var worksheet = ObtenerHoja(workbookPart, hojaDetRetri, "escritura DetRetri por rol");
 
         foreach (var leaf in conDetalle)
         {
-            var celda = WorkbookLeafCellMapQ2.ObtenerDetRetriDestino(leaf.Ase.Id);
-            EscribirValorNumericoEnCeldaExistente(workbookPart, hojaDetRetri, celda, leaf.DetRetriQ2!.Detalle, $"escritura DetRetri-Q2 ASE{leaf.Ase.Id} {celda}");
+            var destino = ResolvedorDestinoValor.ResolverTabla(
+                workbookPart, worksheet,
+                new ResolvedorDestinoValor.IdentidadTabla(
+                    hojaDetRetri, Titulo: null, leaf.Ase.Id,
+                    ResolvedorDestinoValor.EncabezadoRecaudoTotal));
 
-            // Plan 29 (T4, Unidad D): desglose trazable por columna (gate T0d) en la MISMA pasada.
-            EscribirDesgloseTrazableDetRetri(workbookPart, leaf);
+            EscribirValorNumericoEnCeldaExistente(
+                workbookPart, hojaDetRetri, destino.Celda, leaf.DetRetriQ2!.Detalle,
+                $"escritura DetRetri ASE{leaf.Ase.Id} · tabla por ASE · encabezado '{ResolvedorDestinoValor.EncabezadoRecaudoTotal}'");
         }
 
-        var totalD104 = conDetalle.Sum(l => l.DetRetriQ2!.TotalD104);
-        EscribirValorNumericoEnCeldaExistente(workbookPart, hojaDetRetri, WorkbookLeafCellMapQ2.DetRetriTotal, DetRetriRounder.Round(totalD104), "escritura DetRetri-Q2 total D14");
+        // Plan 59 (H4): el cierre es la SUMA de las filas por ASE (lo que el propio asiento declara),
+        // no un re-redondeo del total. Medido contra el oráculo oficial: el R10 del período 2026071
+        // (DetRetri2026071) declara D14 = 58.210.094.822 = Σ de sus cinco filas, mientras
+        // ROUND(Σ D104:D108) = 58.210.094.821 — un peso de diferencia que ninguna tolerancia de
+        // composición cubre porque el gate del R10 compara Σ Detalle (HU-20/G3).
+        var cierreEsperado = DetRetriRounder.Round(conDetalle.Sum(l => l.DetRetriQ2!.Detalle));
+        var cierre = ResolvedorDestinoValor.ResolverTabla(
+            workbookPart, worksheet,
+            new ResolvedorDestinoValor.IdentidadTabla(
+                hojaDetRetri, Titulo: null, AseId: null,
+                ResolvedorDestinoValor.EncabezadoRecaudoTotal));
+        EscribirValorNumericoEnCeldaExistente(
+            workbookPart, hojaDetRetri, cierre.Celda, cierreEsperado,
+            "escritura DetRetri · fila de cierre de la tabla por ASE");
     }
 
     /// <summary>
-    /// Plan 29 (T4, Unidad D — desglose trazable): escribe como LITERAL redondeado las columnas de
-    /// <c>DetRetri2026072</c> / <c>DetValiRetri2026072</c> cuyo valor workbook-interno es de UNA
-    /// arista (mapa <see cref="WorkbookLeafCellMapDetRetri"/>): J ← BCE F3 (Subsidio+Contribución),
-    /// L ← INTERVENTORIA F15, DetValiRetri I ← −L y O ← 0.
+    /// Plan 59 (H4, gate anti-falso-verde): contrasta el asiento <b>YA ESCRITO</b> en la tabla
+    /// principal de <c>DetRetri{AAAAMMQ}</c> contra el valor que el DOMINIO declara
+    /// (<see cref="DetRetriQ2Inputs.Detalle"/> por ASE; cierre = Σ de esas filas, que es lo que el
+    /// asiento suma y lo que el R10 oficial declara como total).
     ///
-    /// Las columnas cuyo origen es una fórmula de la cadena R1/R2/R4/AJUSTES NO se escriben y quedan
-    /// listadas con motivo en <see cref="WorkbookLeafCellMapDetRetri.ColumnasExcluidas"/> (el plan
-    /// prohíbe replicar la cadena en C#). El manual las deja literales (V7); la app no las inventa.
+    /// Antes de este gate la única verificación de valores leía la fila de diferencias de
+    /// <c>DetValiRetri</c> desde el caché de la salida: con el asiento en el literal 0 de la
+    /// plantilla, «0 − 0» cerraba y la corrida certificaba un entregable en cero. Ahora la
+    /// comparación es contra el esperado del dominio y sobre los bytes recién guardados:
+    /// una celda del asiento que no traiga el valor esperado (incluido el 0 escrito donde el
+    /// dominio declara un monto) aborta la corrida y el parcial se borra.
+    ///
+    /// Todo se resuelve por identidad (hoja · tabla por ASE · ASE · rótulo de columna); la celda
+    /// hallada solo se nombra como contexto. Sin filas ni columnas quemadas y sin ramas por período.
+    ///
+    /// <c>internal</c> como costura de prueba: el fixture de inyección del Plan 59 (H4) fuerza ceros
+    /// en la salida y demuestra que este gate enrojece (antes, ese escenario se entregaba como OK).
+    /// </summary>
+    internal static void VerificarAsientoDetRetri(WorkbookPart workbookPart, IReadOnlyList<WorkbookLeafInputs> leafInputs)
+    {
+        var conDetalle = leafInputs
+            .Where(l => l.DetRetriQ2 is not null)
+            .OrderBy(l => l.Ase.Id)
+            .ToList();
+        if (conDetalle.Count == 0)
+        {
+            return;
+        }
+
+        var hoja = NombresHojaPeriodo.DetRetri(conDetalle[0].Periodo);
+        var worksheet = ObtenerHoja(workbookPart, hoja, nameof(VerificarAsientoDetRetri));
+
+        decimal sumaEscrita = 0m;
+        foreach (var leaf in conDetalle)
+        {
+            var identidadAse = $"ASE {leaf.Ase.Id}";
+            var destino = ResolvedorDestinoValor.ResolverTabla(
+                workbookPart, worksheet,
+                new ResolvedorDestinoValor.IdentidadTabla(
+                    hoja, Titulo: null, leaf.Ase.Id,
+                    ResolvedorDestinoValor.EncabezadoRecaudoTotal));
+
+            var escrito = LeerValorDelAsiento(destino, hoja, identidadAse);
+            var esperado = leaf.DetRetriQ2!.Detalle;
+            if (escrito != esperado)
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Escritura,
+                    $"ERR-ESCRITURA: el asiento DetRetri no quedó escrito para {identidadAse}: " +
+                    $"la hoja '{hoja}' · tabla por ASE · columna '{ResolvedorDestinoValor.EncabezadoRecaudoTotal}' " +
+                    $"trae {escrito} y el dominio espera {esperado} (ROUND(D104:D108) del ASE). " +
+                    $"El workbook NO se entrega: un asiento en cero o desalineado no certifica la remuneración. " +
+                    $"Celda hallada {destino.Celda}.");
+            }
+
+            sumaEscrita += escrito;
+        }
+
+        var cierre = ResolvedorDestinoValor.ResolverTabla(
+            workbookPart, worksheet,
+            new ResolvedorDestinoValor.IdentidadTabla(
+                hoja, Titulo: null, AseId: null,
+                ResolvedorDestinoValor.EncabezadoRecaudoTotal));
+
+        var cierreEscrito = LeerValorDelAsiento(cierre, hoja, "fila de cierre");
+        var cierreEsperado = DetRetriRounder.Round(conDetalle.Sum(l => l.DetRetriQ2!.Detalle));
+        if (cierreEscrito != cierreEsperado)
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Escritura,
+                $"ERR-ESCRITURA: la fila de cierre del asiento DetRetri de '{hoja}' trae {cierreEscrito} y el dominio espera " +
+                $"{cierreEsperado} (Σ de las filas por ASE del asiento). El workbook NO se entrega. " +
+                $"Celda hallada {cierre.Celda}.");
+        }
+
+        if (cierreEscrito != sumaEscrita)
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Escritura,
+                $"ERR-ESCRITURA: el asiento DetRetri de '{hoja}' no cuadra consigo mismo: el cierre declara {cierreEscrito} " +
+                $"y la suma de las filas por ASE escrita es {sumaEscrita}. El workbook NO se entrega.");
+        }
+
+        VerificarDesgloseTrazableDetRetri(workbookPart, conDetalle);
+    }
+
+    /// <summary>
+    /// Plan 59 (§11 — FRENTE 1): gate de VALORES del DESGLOSE trazable sobre el archivo ya guardado.
+    ///
+    /// Hasta este gate, el desglose solo tenía verificación de FORMA (que la celda siga siendo el
+    /// valor editable que la plantilla declara) y se escribía únicamente en la 2.ª quincena: el
+    /// entregable de 2026101 salió con 'Balance de subsidio o contribuciones', 'Recaudo base de
+    /// remuneración', 'Costo de la Interventoría' y 'Costo de la Interventoría' de DetValiRetri en el
+    /// literal 0 de la plantilla, y la corrida certificó OK. Este gate relee lo escrito y lo contrasta
+    /// con lo que el DOMINIO declara para cada ASE: un 0 donde el dominio declara un monto aborta la
+    /// corrida y el parcial se borra (nunca se entrega).
+    ///
+    /// Qué cubre y qué no, sin ambigüedad: cubre las columnas que el dominio declara
+    /// (<see cref="DesgloseDeclaradoPorElDominio"/>). NO cubre 'RECAUDO BASE DE REMUNERACIÓN': su
+    /// valor es la cola de la cadena de fórmulas del CONSOLIDADO y sus operandos no están en el
+    /// dominio (ver el motivo medido en <see cref="EscribirDesgloseTrazableDetRetri"/>); gatearla
+    /// obligaría a inventar el número o a copiarlo del R10.
+    /// </summary>
+    private static void VerificarDesgloseTrazableDetRetri(
+        WorkbookPart workbookPart,
+        IReadOnlyList<WorkbookLeafInputs> leafs)
+    {
+        var hojas = new Dictionary<string, Worksheet>(StringComparer.OrdinalIgnoreCase);
+        foreach (var leaf in leafs)
+        {
+            foreach (var (hoja, rotulo, esperado) in DesgloseDeclaradoPorElDominio(leaf))
+            {
+                VerificarCeldaDeDesglose(workbookPart, hojas, hoja, leaf.Ase.Id, rotulo, esperado);
+            }
+        }
+
+        // La fila de cierre de cada columna también es un valor del entregable: se contrasta con la
+        // Σ de las filas por ASE que el dominio declara (el oráculo administrativo coincide con esa
+        // suma, no con un re-redondeo).
+        foreach (var (hoja, rotulo) in ColumnasDelDesglose(leafs[0].Periodo))
+        {
+            var esperado = leafs.Aggregate(0m, (suma, leaf) => suma + ValorDeclarado(leaf, hoja, rotulo));
+            VerificarCeldaDeDesglose(workbookPart, hojas, hoja, aseId: null, rotulo, esperado);
+        }
+    }
+
+    private static void VerificarCeldaDeDesglose(
+        WorkbookPart workbookPart,
+        IDictionary<string, Worksheet> hojas,
+        string hoja,
+        int? aseId,
+        string rotulo,
+        decimal esperado)
+    {
+        if (!hojas.TryGetValue(hoja, out var worksheet))
+        {
+            worksheet = ObtenerHoja(workbookPart, hoja, nameof(VerificarAsientoDetRetri));
+            hojas[hoja] = worksheet;
+        }
+
+        var destino = ResolvedorDestinoValor.ResolverTablaPorConcepto(
+            workbookPart, worksheet,
+            new ResolvedorDestinoValor.IdentidadTabla(hoja, Titulo: null, aseId, rotulo));
+
+        var identidad = aseId is { } ase ? $"ASE {ase}" : "la fila de cierre de la tabla por ASE";
+        var escrito = LeerValorDelAsiento(destino, hoja, identidad);
+        if (escrito != esperado)
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Escritura,
+                $"ERR-ESCRITURA: el desglose trazable no quedó escrito para {identidad}: " +
+                $"la hoja '{hoja}' · tabla por ASE · columna '{rotulo}' trae {escrito} y el dominio espera {esperado}. " +
+                "El workbook NO se entrega: un desglose en cero o desalineado no certifica la remuneración. " +
+                $"Celda hallada {destino.Celda}.");
+        }
+    }
+
+    /// <summary>
+    /// Lee el valor que el asiento dejó en el destino resuelto. Una celda sin valor numérico (vacía,
+    /// texto o fórmula sin caché) es un asiento no escrito: se informa como 0 y el gate lo contrasta
+    /// contra el esperado del dominio — nunca se asume que «no hay valor» equivale a «cero correcto».
+    /// </summary>
+    private static decimal LeerValorDelAsiento(ResolvedorDestinoValor.Destino destino, string hoja, string identidad)
+    {
+        var texto = destino.CeldaXml.CellValue?.InnerText;
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            return 0m;
+        }
+
+        if (!decimal.TryParse(texto, NumberStyles.Any, CultureInfo.InvariantCulture, out var valor))
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Escritura,
+                $"ERR-ESCRITURA: el asiento DetRetri de '{hoja}' para {identidad} no quedó como número ('{texto}'). " +
+                $"El workbook NO se entrega. Celda hallada {destino.Celda}.");
+        }
+
+        return valor;
+    }
+
+    /// <summary>
+    /// Encabezado de la columna donde las hojas de detalle publican el BALANCE de subsidio o
+    /// contribuciones (concepto; su valor es <c>BCE SC POR FACT.</c> = Subsidio + Contribución).
+    /// </summary>
+    private const string RotuloBalanceSubsidioContribuciones = "Balance de subsidio o contribuciones";
+
+    /// <summary>
+    /// Encabezado de la columna donde las hojas de detalle publican el COSTO DE LA INTERVENTORÍA
+    /// (la plantilla lo decora con <c>(*)</c> en una hoja y sin él en otra: la identidad es el
+    /// concepto, no la decoración).
+    /// </summary>
+    private const string RotuloCostoInterventoria = "Costo de la Interventoría";
+
+    /// <summary>Encabezado de la columna de la BANDERA de validación de retribución de <c>DetValiRetri</c>.</summary>
+    private const string RotuloValidacionRetribucion = "Validación retribución";
+
+    /// <summary>
+    /// Plan 29 (T4, Unidad D — desglose trazable) / Plan 59 (§11 — FRENTE 1): escribe como LITERAL
+    /// las columnas de las hojas de detalle del período cuyo valor el DOMINIO declara:
+    /// <list type="bullet">
+    /// <item><c>DetRetri</c> · 'Balance de subsidio o contribuciones' ← <c>BCE SC POR FACT.</c>
+    /// (Subsidio + Contribución, ya escritos por el ASE) redondeado con <see cref="DetRetriRounder"/>;</item>
+    /// <item><c>DetRetri</c> · 'Costo de la Interventoría' ← <see cref="InterventoriaDeclarada.PorQuincena"/>
+    /// (primera o segunda quincena según el PERÍODO, decidido en el dominio);</item>
+    /// <item><c>DetValiRetri</c> · 'Costo de la Interventoría' ← el mismo valor negado;</item>
+    /// <item><c>DetValiRetri</c> · 'Validación retribución' ← 0 (bandera sin desglose).</item>
+    /// </list>
+    ///
+    /// <para><b>Se escribe en AMBAS quincenas.</b> Antes vivía dentro de <c>if (esQuincena2)</c>: la
+    /// plantilla declara esas columnas como VALOR en las dos y el oráculo administrativo las trae
+    /// llenas también en la primera, así que la rama dejaba el entregable de Q1 en el literal 0.</para>
+    ///
+    /// <para><b>Lo que NO se escribe, con su motivo medido:</b> la columna
+    /// 'RECAUDO BASE DE REMUNERACIÓN' (<c>DetRetri</c>) y sus hermanas de la cadena
+    /// (RECAUDO POR DISPOSICIÓN FINAL, LIXIVIADOS, VIAT, APROVECHAMIENTO, COMERCIALIZACIÓN 11,4%,
+    /// REMUNERACIÓN FINAL, CONCEPTOS ESPECIALES, REMUNERACIÓN FINAL MÁS CONCEPTOS ESPECIALES).
+    /// Medido en el oráculo administrativo: cada una es el resultado de la fórmula que el
+    /// CONSOLIDADO declara por sección —<c>K104 = D104−E104−F104−G104−H104−I104−J104</c> sobre las
+    /// cinco tablas de recaudo— y sus operandos (E..I) NO están en el dominio del período.
+    /// Reproducir esa cadena en C# duplicaría la fuente de verdad (Plan 29 §2.2, «motor C#»
+    /// DESCARTADA) y copiarla del R10 sería tautología. Queda declarada como pendiente de negocio
+    /// en el gate del Plan 59 §11 (la columna se deja en el 0 de la plantilla, nunca se inventa).</para>
+    ///
     /// El guard anti-fórmula de <see cref="EscribirValorNumericoEnCeldaExistente"/> sigue intacto
     /// (destino fórmula ⇒ ERR-PLANTILLA, nunca sobrescritura).
     /// </summary>
-    private static void EscribirDesgloseTrazableDetRetri(WorkbookPart workbookPart, WorkbookLeafInputs leaf)
+    private static void EscribirDesgloseTrazableDetRetri(
+        WorkbookPart workbookPart,
+        IReadOnlyList<WorkbookLeafInputs> leafInputs)
+    {
+        var conDetalle = leafInputs
+            .Where(l => l.DetRetriQ2 is not null)
+            .OrderBy(l => l.Ase.Id)
+            .ToList();
+        if (conDetalle.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var leaf in conDetalle)
+        {
+            foreach (var (hoja, rotulo, valor) in DesgloseDeclaradoPorElDominio(leaf))
+            {
+                EscribirCeldaDeDesglose(workbookPart, hoja, leaf.Ase.Id, rotulo, valor);
+            }
+        }
+
+        // Cierre de cada columna = Σ de las filas por ASE, que es lo que la tabla totaliza y lo que
+        // el oráculo administrativo declara (p. ej. 'Costo de la Interventoría' = Σ de los cinco
+        // costos, sin re-redondeo). La fila de cierre es también un VALOR de la plantilla.
+        var periodo = conDetalle[0].Periodo;
+        foreach (var (hoja, rotulo) in ColumnasDelDesglose(periodo))
+        {
+            var cierre = conDetalle.Aggregate(0m, (suma, leaf) => suma + ValorDeclarado(leaf, hoja, rotulo));
+            EscribirCeldaDeDesglose(workbookPart, hoja, aseId: null, rotulo, cierre);
+        }
+    }
+
+    /// <summary>
+    /// Escribe un valor del desglose en la celda que el RÓTULO de la columna y la identidad de la
+    /// fila (ASE o cierre) resuelven. <paramref name="aseId"/> null = fila de cierre de la tabla.
+    /// </summary>
+    private static void EscribirCeldaDeDesglose(
+        WorkbookPart workbookPart,
+        string hoja,
+        int? aseId,
+        string rotulo,
+        decimal valor)
+    {
+        var worksheet = ObtenerHoja(workbookPart, hoja, "escritura del desglose trazable de las hojas de detalle");
+        var destino = ResolvedorDestinoValor.ResolverTablaPorConcepto(
+            workbookPart, worksheet,
+            new ResolvedorDestinoValor.IdentidadTabla(hoja, Titulo: null, aseId, rotulo));
+
+        var identidad = aseId is { } ase ? $"ASE{ase}" : "fila de cierre";
+        EscribirValorNumericoEnCeldaExistente(
+            workbookPart, hoja, destino.Celda, valor,
+            $"escritura {identidad} · '{hoja}' · columna '{rotulo}'");
+    }
+
+    /// <summary>
+    /// Valores del desglose trazable que el DOMINIO declara para un ASE, como tríos
+    /// (hoja, rótulo de columna, valor). Es la ÚNICA fuente que consumen la escritura y la
+    /// verificación: si el dominio no declara un monto, no aparece aquí y no se inventa.
+    /// </summary>
+    private static IReadOnlyList<(string Hoja, string Rotulo, decimal Valor)> DesgloseDeclaradoPorElDominio(
+        WorkbookLeafInputs leaf)
     {
         var aseId = leaf.Ase.Id;
         var periodo = leaf.Periodo;
-        var fila = WorkbookLeafCellMapDetRetri.ObtenerFila(aseId);
-        var hojaDetRetri = WorkbookLeafCellMapDetRetri.HojaDetRetri(periodo);
-        var hojaDetValiRetri = WorkbookLeafCellMapDetRetri.HojaDetValiRetri(periodo);
 
-        // Valor-trazable de la interventoría (INTERVENTORIA!F15, 2ª quincena, literal declarado).
-        var interventoria = InterventoriaDeclarada.SegundaQuincenaPorAse[aseId];
+        // La ÚNICA pieza del desglose que depende de la quincena: el costo declarado en la tabla
+        // INTERVENTORIA (primera 'N' / segunda 'M'). La selección se resuelve en el dominio.
+        var interventoria = InterventoriaDeclarada.PorQuincena(periodo.NumeroQuincena)[aseId];
 
-        // J = BCE SC POR FACT.!F3 = D3+E3 (Subsidio + Contribución), ya escritos por la Unidad B.
+        return
+        [
+            (NombresHojaPeriodo.DetRetri(periodo), RotuloBalanceSubsidioContribuciones, BalanceSubsidioContribuciones(leaf)),
+            (NombresHojaPeriodo.DetRetri(periodo), RotuloCostoInterventoria, interventoria),
+            (NombresHojaPeriodo.DetValiRetri(periodo), RotuloCostoInterventoria, -interventoria),
+            (NombresHojaPeriodo.DetValiRetri(periodo), RotuloValidacionRetribucion, 0m),
+        ];
+    }
+
+    /// <summary>
+    /// Columnas del desglose trazable que el dominio declara para el período (hoja + rótulo), en el
+    /// orden en que se escriben. Es la lista que la fila de cierre totaliza; cero coordenadas.
+    /// </summary>
+    private static IReadOnlyList<(string Hoja, string Rotulo)> ColumnasDelDesglose(Periodo periodo) =>
+    [
+        (NombresHojaPeriodo.DetRetri(periodo), RotuloBalanceSubsidioContribuciones),
+        (NombresHojaPeriodo.DetRetri(periodo), RotuloCostoInterventoria),
+        (NombresHojaPeriodo.DetValiRetri(periodo), RotuloCostoInterventoria),
+        (NombresHojaPeriodo.DetValiRetri(periodo), RotuloValidacionRetribucion),
+    ];
+
+    /// <summary>
+    /// Valor que el dominio declara para una columna del desglose de un ASE. Una columna pedida que
+    /// no esté declarada es defecto de programación (no hay valor que inventar).
+    /// </summary>
+    private static decimal ValorDeclarado(WorkbookLeafInputs leaf, string hoja, string rotulo) =>
+        DesgloseDeclaradoPorElDominio(leaf)
+            .Where(x => string.Equals(x.Hoja, hoja, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(x.Rotulo, rotulo, StringComparison.Ordinal))
+            .Select(x => x.Valor)
+            .Single();
+
+    /// <summary>
+    /// Balance de subsidio o contribuciones del ASE: <c>BCE SC POR FACT.</c> = Subsidio +
+    /// Contribución, redondeado con la regla única (<see cref="DetRetriRounder"/>). Sin el balance
+    /// en el dominio es fail-fast: nunca se escribe un 0 que parezca un dato.
+    /// </summary>
+    private static decimal BalanceSubsidioContribuciones(WorkbookLeafInputs leaf)
+    {
+        var aseId = leaf.Ase.Id;
         var balance = leaf.BalanceSc ?? throw new CalculoInvalidoException(
             CodigoError.Plantilla,
-            $"El leaf del ASE {aseId} no trae BalanceSc para derivar DetRetri!J{fila} (BCE SC POR FACT.!F3); fail-fast, nunca se inventa el desglose.");
+            $"El leaf del ASE {aseId} no trae BalanceSc para derivar el desglose trazable de DetRetri " +
+            $"(columna '{RotuloBalanceSubsidioContribuciones}' = BCE SC POR FACT. Subsidio + Contribución); " +
+            "fail-fast, nunca se inventa el desglose.");
         var bce = balance.Ases.SingleOrDefault(a => a.Ase.Id == aseId) ?? throw new CalculoInvalidoException(
             CodigoError.Plantilla,
-            $"El BalanceSc del ASE {aseId} no trae su fila; no se puede derivar DetRetri!J{fila}.");
-        var j = DetRetriRounder.Round(bce.TotalBsc);
-
-        foreach (var (columna, fuente) in WorkbookLeafCellMapDetRetri.ColumnasDetRetri)
-        {
-            var celda = $"{columna}{fila}";
-            var valor = fuente switch
-            {
-                WorkbookLeafCellMapDetRetri.FuenteDetRetri.BalanceBceF3 => j,
-                WorkbookLeafCellMapDetRetri.FuenteDetRetri.InterventoriaF15 => interventoria,
-                _ => throw new ArgumentOutOfRangeException(nameof(fuente), fuente, "Fuente DetRetri no soportada.")
-            };
-            EscribirValorNumericoEnCeldaExistente(workbookPart, hojaDetRetri, celda, valor, $"escritura DetRetri-Q2 desglose ASE{aseId} {celda}");
-        }
-
-        foreach (var (columna, fuente) in WorkbookLeafCellMapDetRetri.ColumnasDetValiRetri)
-        {
-            var celda = $"{columna}{fila}";
-            var valor = fuente switch
-            {
-                WorkbookLeafCellMapDetRetri.FuenteDetValiRetri.InterventoriaF15Negada => -interventoria,
-                WorkbookLeafCellMapDetRetri.FuenteDetValiRetri.Cero => 0m,
-                _ => throw new ArgumentOutOfRangeException(nameof(fuente), fuente, "Fuente DetValiRetri no soportada.")
-            };
-            EscribirValorNumericoEnCeldaExistente(workbookPart, hojaDetValiRetri, celda, valor, $"escritura DetValiRetri-Q2 desglose ASE{aseId} {celda}");
-        }
+            $"El BalanceSc del ASE {aseId} no trae su fila; no se puede derivar el desglose trazable de DetRetri.");
+        return DetRetriRounder.Round(bce.TotalBsc);
     }
 
     /// <summary>
@@ -1423,12 +1703,11 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     private static void EscribirDetalleR2(WorkbookPart workbookPart, DetalleR2AseInputs detalle)
     {
         var aseId = detalle.Ase.Id;
-        if (!WorkbookLeafCellMapDetalleR2R4.BloquesR2.TryGetValue(aseId, out var bloque))
-        {
-            throw new CalculoInvalidoException(
-                CodigoError.Plantilla,
-                $"No hay bloque de detalle R2 declarado para el ASE {aseId}. El mapa T0b no cubre ese ASE — fail-fast, nunca se inventa la fila.");
-        }
+        // Plan 59 (H2-bis, barrido del camino de escritura): el bloque destino se DELIMITA leyendo la
+        // propia hoja (cabecera de bloque + gran total declarado). Antes se tomaba de un mapa congelado
+        // por ASE (BloquesR2) que la v3 ya no respeta: la fuente traía firmas que el bloque 3..33 no
+        // contenía y la corrida abortaba con ERR-SIN-SLOT sobre un destino que la plantilla SÍ declara.
+        var bloque = BloqueDeDetalle(workbookPart, DelimitadorBloquesHoja.R2, aseId);
 
         var hoja = WorkbookLeafCellMapDetalleR2R4.HojaR2;
         var worksheet = ObtenerHoja(workbookPart, hoja, nameof(GenerarWorkbook));
@@ -1459,12 +1738,9 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     private static void EscribirDetalleR4(WorkbookPart workbookPart, DetalleR4AseInputs detalle)
     {
         var aseId = detalle.Ase.Id;
-        if (!WorkbookLeafCellMapDetalleR2R4.BloquesR4.TryGetValue(aseId, out var bloque))
-        {
-            throw new CalculoInvalidoException(
-                CodigoError.Plantilla,
-                $"No hay bloque de detalle R4 declarado para el ASE {aseId}. El mapa T0b no cubre ese ASE — fail-fast, nunca se inventa la fila.");
-        }
+        // Plan 59 (H2-bis): bloque del detalle delimitado por la cabecera de bloque y el gran total que
+        // la hoja declara (mismo criterio que R2).
+        var bloque = BloqueDeDetalle(workbookPart, DelimitadorBloquesHoja.R4, aseId);
 
         var hoja = WorkbookLeafCellMapDetalleR2R4.HojaR4;
         var worksheet = ObtenerHoja(workbookPart, hoja, nameof(GenerarWorkbook));
@@ -1490,6 +1766,20 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                 EscribirValorNumerico(workbookPart, hoja, celda, valor, $"DetalleR4.ASE{aseId}.{celda}");
             }
         }
+    }
+
+    /// <summary>
+    /// Plan 59 (H2-bis): rango de filas del detalle de un ASE, derivado de la ESTRUCTURA que la hoja
+    /// declara — primera fila de datos (la siguiente a la fila de encabezados de columna del bloque) y
+    /// última fila de datos (la anterior a su gran total). Cero ventanas congeladas por ASE.
+    /// </summary>
+    private static (int FilaInicio, int FilaFin) BloqueDeDetalle(
+        WorkbookPart workbookPart,
+        DelimitadorBloquesHoja.HojaDelimitable hoja,
+        int aseId)
+    {
+        var bloque = DelimitadorBloquesHoja.DelimitarBloque(workbookPart, hoja, aseId);
+        return (bloque.EncabezadoColumnas + 1, bloque.GranTotal);
     }
 
     /// <summary>

@@ -32,7 +32,8 @@ public sealed class DivergenciaDeclaradaT0Tests
         // Plan 48 (H1b): AMBAS plantillas intocables. v2 = base oficial vigente; v1 = histórica.
         var oficialV2 = Insumos.PlantillaOficial();
         Assert.True(File.Exists(oficialV2), $"Falta la plantilla oficial v2: {oficialV2}");
-        Assert.Equal(Sha256Oficial, Sha256(oficialV2));
+        // Plan 59 §0.6 (G-HUELLA): gate por contenido; el SHA del archivo es informativo.
+        Assert.Equal(HuellaSemanticaPlantilla.V2, HuellaSemanticaPlantilla.Calcular(oficialV2));
 
         var oficialV1 = Path.Combine(
             Insumos.Raiz(), "Docs", "Plantilla estandarizada", "Formato Remuneracion 2026xx-x Total.xlsx");
@@ -108,7 +109,7 @@ public sealed class DivergenciaDeclaradaT0Tests
             Assert.True(
                 File.Exists(NombresSalida.RutaSinValidar(salida)),
                 "El writer debió producir la salida marcada 'sin validar' antes del gate.");
-            Assert.Equal(Sha256Oficial, Sha256(oficial));
+            Assert.Equal(HuellaSemanticaPlantilla.V2, HuellaSemanticaPlantilla.Calcular(oficial));
         }
         finally
         {

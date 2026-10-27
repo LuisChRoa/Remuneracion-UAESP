@@ -30,9 +30,9 @@ public sealed class DetRetriQ2Tests
         var reader = new ExcelDataReaderWorkbookLeafInputReader();
         var leaf = reader.LeerLeafInputs(Insumos.Ase(5), Insumos.PeriodoQ2(), Insumos.R1Q2(5), Insumos.R2Q2(5), Insumos.R4Q2(5));
 
-        Assert.InRange(leaf.R1.CeldasPorAse["F613"] - 13084233937.44m, -Tolerancia, Tolerancia);
-        Assert.InRange(leaf.R1.CeldasPorAse["F648"] - (-1036320522.40m), -Tolerancia, Tolerancia);
-        Assert.InRange(leaf.R1.CeldasPorAse["L613"] - 14901729.33m, -Tolerancia, Tolerancia);
+        Assert.InRange(leaf.R1.ValoresPorRol[RolsQ2.Oportuna(1)] - 13084233937.44m, -Tolerancia, Tolerancia);
+        Assert.InRange(leaf.R1.ValoresPorRol[RolsQ2.Oportuna(2)] - (-1036320522.40m), -Tolerancia, Tolerancia);
+        Assert.InRange(leaf.R1.ValoresPorRol[RolsQ2.Oportuna(1, especiales: true)] - 14901729.33m, -Tolerancia, Tolerancia);
         Assert.InRange(leaf.R1.TotalOportunoEsperadoPorAse - 12033011685.71m, -Tolerancia, Tolerancia);
 
         #region DEUDA-DECLARADA Plan 49 (T0-EXTEMP-Ase5-Plan49 §4.3/§8.1)
@@ -67,7 +67,7 @@ public sealed class DetRetriQ2Tests
             {
                 var celdaGolden = GeometriaGoldenLegacy.R1Q2[(aseId, rol)];
                 var golden = LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR1, celdaGolden);
-                Assert.InRange(leaf.R1.CeldasPorAse[celda] - golden, -Tolerancia, Tolerancia);
+                Assert.InRange(leaf.R1.ValoresPorRol[RolsQ2.DeCeldaR1(aseId, celda)] - golden, -Tolerancia, Tolerancia);
             }
         }
     }
@@ -87,14 +87,14 @@ public sealed class DetRetriQ2Tests
 
             var r2 = WorkbookLeafCellMapQ2.ObtenerR2Q2Editables(aseId);
             var r2Legacy = GeometriaGoldenLegacy.R2Q2[aseId];
-            Assert.InRange(leaf.R2.CeldasPorAse[r2.Componente] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR2, r2Legacy.Componente), -Tolerancia, Tolerancia);
-            Assert.InRange(leaf.R2.CeldasPorAse[r2.SubsCont] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR2, r2Legacy.SubsCont), -Tolerancia, Tolerancia);
-            Assert.InRange(leaf.R2.CeldasPorAse[r2.Especiales] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR2, r2Legacy.Especiales), -Tolerancia, Tolerancia);
+            Assert.InRange(leaf.R2.ValoresPorRol[RolsQ2.DeCeldaR2(aseId, r2.Componente)] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR2, r2Legacy.Componente), -Tolerancia, Tolerancia);
+            Assert.InRange(leaf.R2.ValoresPorRol[RolsQ2.DeCeldaR2(aseId, r2.SubsCont)] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR2, r2Legacy.SubsCont), -Tolerancia, Tolerancia);
+            Assert.InRange(leaf.R2.ValoresPorRol[RolsQ2.DeCeldaR2(aseId, r2.Especiales)] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR2, r2Legacy.Especiales), -Tolerancia, Tolerancia);
 
             var r4 = WorkbookLeafCellMapQ2.ObtenerR4Q2Editables(aseId);
             var r4Legacy = GeometriaGoldenLegacy.R4Q2[aseId];
-            Assert.InRange(leaf.R4.CeldasPorAse[r4.Total] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR4, r4Legacy.Total), -Tolerancia, Tolerancia);
-            Assert.InRange(leaf.R4.CeldasPorAse[r4.P] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR4, r4Legacy.P), -Tolerancia, Tolerancia);
+            Assert.InRange(leaf.R4.ValoresPorRol[RolsQ2.DeCeldaR4(aseId, r4.Total)] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR4, r4Legacy.Total), -Tolerancia, Tolerancia);
+            Assert.InRange(leaf.R4.ValoresPorRol[RolsQ2.DeCeldaR4(aseId, r4.P)] - LeerCeldaNumerica(Insumos.GoldenQ2, WorkbookLeafCellMapQ2.HojaR4, r4Legacy.P), -Tolerancia, Tolerancia);
         }
     }
 
@@ -190,7 +190,7 @@ public sealed class DetRetriQ2Tests
 
         Assert.Contains("ASE 1", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("R1-Q2", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Mes1", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("'Mes' #2", ex.Message, StringComparison.Ordinal);
     }
 
     private static decimal SumarGoldenD104()

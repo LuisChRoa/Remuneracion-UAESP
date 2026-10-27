@@ -186,7 +186,7 @@ public sealed class ParidadCliTests : IDisposable
             // R1/R2/R4-Q2 (mapa hermano, incl. variante ASE5).
             foreach (var (celda, _) in WorkbookLeafCellMapQ2.ObtenerR1Q2Editables(leaf.Ase.Id))
             {
-                var esperado = leaf.R1.CeldasPorAse[celda];
+                var esperado = leaf.R1.ValoresPorRol[RolsQ2.DeCeldaR1(leaf.Ase.Id, celda)];
                 Assert.Equal(esperado, LeerCelda(salidaCli, WorkbookLeafCellMap.HojaR1, celda));
                 Assert.Equal(esperado, LeerCelda(salidaDirecta, WorkbookLeafCellMap.HojaR1, celda));
             }
@@ -194,7 +194,7 @@ public sealed class ParidadCliTests : IDisposable
             var r2 = WorkbookLeafCellMapQ2.ObtenerR2Q2Editables(leaf.Ase.Id);
             foreach (var celda in new[] { r2.Componente, r2.SubsCont, r2.Especiales })
             {
-                var esperado = leaf.R2.CeldasPorAse[celda];
+                var esperado = leaf.R2.ValoresPorRol[RolsQ2.DeCeldaR2(leaf.Ase.Id, celda)];
                 Assert.Equal(esperado, LeerCelda(salidaCli, WorkbookLeafCellMap.HojaR2, celda));
                 Assert.Equal(esperado, LeerCelda(salidaDirecta, WorkbookLeafCellMap.HojaR2, celda));
             }
@@ -202,7 +202,7 @@ public sealed class ParidadCliTests : IDisposable
             var r4 = WorkbookLeafCellMapQ2.ObtenerR4Q2Editables(leaf.Ase.Id);
             foreach (var celda in new[] { r4.Total, r4.P })
             {
-                var esperado = leaf.R4.CeldasPorAse[celda];
+                var esperado = leaf.R4.ValoresPorRol[RolsQ2.DeCeldaR4(leaf.Ase.Id, celda)];
                 Assert.Equal(esperado, LeerCelda(salidaCli, WorkbookLeafCellMap.HojaR4, celda));
                 Assert.Equal(esperado, LeerCelda(salidaDirecta, WorkbookLeafCellMap.HojaR4, celda));
             }
@@ -333,9 +333,9 @@ public sealed class ParidadCliTests : IDisposable
 
     private static decimal ValorLeaf(WorkbookLeafInputs leaf, string hoja, string celda) => hoja switch
     {
-        _ when string.Equals(hoja, WorkbookLeafCellMap.HojaR1, StringComparison.OrdinalIgnoreCase) => leaf.R1.CeldasPorAse[celda],
-        _ when string.Equals(hoja, WorkbookLeafCellMap.HojaR2, StringComparison.OrdinalIgnoreCase) => leaf.R2.CeldasPorAse[celda],
-        _ when string.Equals(hoja, WorkbookLeafCellMap.HojaR4, StringComparison.OrdinalIgnoreCase) => leaf.R4.CeldasPorAse[celda],
+        _ when string.Equals(hoja, WorkbookLeafCellMap.HojaR1, StringComparison.OrdinalIgnoreCase) => leaf.R1.ValoresPorRol[RolsQ2.DeCeldaR1(leaf.Ase.Id, celda)],
+        _ when string.Equals(hoja, WorkbookLeafCellMap.HojaR2, StringComparison.OrdinalIgnoreCase) => leaf.R2.ValoresPorRol[RolsQ2.DeCeldaR2(leaf.Ase.Id, celda)],
+        _ when string.Equals(hoja, WorkbookLeafCellMap.HojaR4, StringComparison.OrdinalIgnoreCase) => leaf.R4.ValoresPorRol[RolsQ2.DeCeldaR4(leaf.Ase.Id, celda)],
         _ => throw new InvalidOperationException($"Hoja sin valores leaf: {hoja}")
     };
 

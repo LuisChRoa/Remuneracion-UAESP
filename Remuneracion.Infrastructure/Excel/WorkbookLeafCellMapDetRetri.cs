@@ -7,6 +7,14 @@ namespace Remuneracion.Infrastructure.Excel;
 /// procedencia de las columnas C..O de <c>DetRetri2026072</c> y D..O de
 /// <c>DetValiRetri2026072</c>.
 ///
+/// <para><b>LEGACY desde el Plan 59 (§11 — FRENTE 1).</b> Ningún camino productivo consume ya las
+/// tablas de columnas ni el cálculo de fila de este tipo: el escritor y su gate resuelven el destino
+/// por el RÓTULO de la columna y la fila por el id del ASE
+/// (<c>ResolvedorDestinoValor.ResolverTablaPorConcepto</c>) y los valores salen del dominio
+/// (<see cref="InterventoriaDeclarada.PorQuincena"/>, <c>BCE SC POR FACT.</c>). Se conserva porque
+/// los fixtures históricos del desglose lo citan (<c>DetRetriDesgloseTrazableTests</c>); cualquier
+/// código NUEVO que lo use está reintroduciendo la coordenada congelada.</para>
+///
 /// Gate T0d (<c>plans/29-T0-Evidencia-B.md</c> §1.4): cada columna del MANUAL es igual, ±0.5, a
 /// la suma de la fila <c>104+(ASE-1)</c> de <c>CONSOLIDADO_TOTAL RECAUDO</c> (cols D..O para
 /// DetRetri; U..AE para DetValiRetri). Esa fila 104 es, a su vez, la suma de 5 filas-sección
@@ -48,8 +56,9 @@ public static class WorkbookLeafCellMapDetRetri
     public const int UltimoAse = 5;
 
     /// <summary>
-    /// Fila destino del ASE en <c>DetRetri*/DetValiRetri*</c> (T0-0.4): D9..D13 = ASE 1..5
-    /// (<c>fila = 8 + Ase.Id</c>). La fila 14 (Total) está fuera de este rango.
+    /// LEGACY (Plan 59 §11, FRENTE 1): fila destino del ASE en <c>DetRetri*/DetValiRetri*</c>
+    /// (T0-0.4: D9..D13 = ASE 1..5, <c>fila = 8 + Ase.Id</c>). Solo para fixtures históricos: el
+    /// camino productivo resuelve la fila por la columna B de la tabla (id del ASE leído).
     /// </summary>
     public static int ObtenerFila(int aseId) =>
         aseId is >= PrimerAse and <= UltimoAse
@@ -80,9 +89,10 @@ public static class WorkbookLeafCellMapDetRetri
     }
 
     /// <summary>
-    /// Columnas trazables de <c>DetRetri2026072</c> (columna destino → procedencia). Solo las
-    /// columnas cuyo valor es una celda workbook-interna de una arista. NO incluye C (código de
-    /// ASE, no es columna trazada por T0d) ni D (ya la escribe el path HU-12 V0.4).
+    /// LEGACY (Plan 59 §11, FRENTE 1): columnas trazables de <c>DetRetri</c> (columna destino →
+    /// procedencia) por coordenada. El camino productivo resuelve las mismas columnas por su RÓTULO
+    /// ('Balance de subsidio o contribuciones', 'Costo de la Interventoría') en ambas quincenas.
+    /// Solo fixtures.
     /// </summary>
     public static readonly IReadOnlyList<(string Columna, FuenteDetRetri Fuente)> ColumnasDetRetri =
     [
@@ -91,8 +101,8 @@ public static class WorkbookLeafCellMapDetRetri
     ];
 
     /// <summary>
-    /// Columnas trazables de <c>DetValiRetri2026072</c> (columna destino → procedencia). Solo las
-    /// de una arista. NO incluye D (ya la escribe el path HU-12 V0.4).
+    /// LEGACY (Plan 59 §11, FRENTE 1): columnas trazables de <c>DetValiRetri</c> por coordenada. El
+    /// camino productivo las resuelve por RÓTULO. Solo fixtures.
     /// </summary>
     public static readonly IReadOnlyList<(string Columna, FuenteDetValiRetri Fuente)> ColumnasDetValiRetri =
     [
