@@ -405,11 +405,17 @@ public sealed class EntregaConNovedadesH3Plan61Tests : IDisposable
             Assert.Equal(texto1, texto2);
             Assert.Equal("Remuneración 202609-1 Total" + ReporteNovedadesWriter.SufijoNovedades, Path.GetFileName(ruta1));
 
-            // Secciones obligatorias: veredicto, datos de corrida, ficha, guía.
-            Assert.Contains("Datos de la corrida", texto1, StringComparison.Ordinal);
-            Assert.Contains("Identificador de la corrida: 11111111-1111-1111-1111-111111111111", texto1, StringComparison.Ordinal);
-            Assert.Contains("Canal", texto1, StringComparison.OrdinalIgnoreCase);
+            // Contrato escueto (D-UX-TXT 2026-10-28): veredicto, ficha y guía. El bloque de datos de
+            // corrida, la explicación general y las reglas de comparación viven en el manual.
+            Assert.Contains("ENTREGADO CON NOVEDADES", texto1, StringComparison.Ordinal);
+            Assert.Contains("Detalle de las novedades", texto1, StringComparison.Ordinal);
             Assert.Contains("Cómo revisar", texto1, StringComparison.Ordinal);
+            Assert.DoesNotContain("Datos de la corrida", texto1, StringComparison.Ordinal);
+            Assert.DoesNotContain("Qué significa", texto1, StringComparison.Ordinal);
+            Assert.DoesNotContain("MANDA LA PLANTILLA", texto1, StringComparison.Ordinal);
+            Assert.DoesNotContain("Regla general", texto1, StringComparison.Ordinal);
+            Assert.DoesNotContain("no es un histórico", texto1, StringComparison.Ordinal);
+            Assert.DoesNotContain("11111111-1111-1111-1111-111111111111", texto1, StringComparison.Ordinal);
             Assert.DoesNotContain("Divergencias declaradas presentes", texto1, StringComparison.Ordinal);
 
             // Con declaradas: sección final en el MISMO reporte (un solo TXT, R-DOBLE-REPORTE).

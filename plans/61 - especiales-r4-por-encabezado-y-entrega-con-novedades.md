@@ -574,6 +574,14 @@ Premisa: la plantilla no es una rejilla de letras; es una jerarquía declarada. 
 
 **Pendiente:** H5 (sonda de encabezados, candado derivado de la plantilla extendido a la escritura, auditoría de supuestos, doctrina de fixtures), Plan 62 (triaje de los 24 rojos), D11 (modo 1-ASE) y la errata del R10 de 2026091 en manos de la administradora.
 
+### D13-bis — Reporte escueto (ratificado por el Ingeniero, 2026-10-28)
+
+El Ingeniero pidió un reporte **puntual, sin parafernalia**, y que el instructivo viva en el manual. Se retiraron del TXT: (1) el párrafo de presentación del estado; (2) el bloque **Datos de la corrida** (período, RunId, usuario, canal, fecha/hora, ruta del Excel); (3) la sección **«Qué significa "entregado con novedades"»**, incluida la regla «MANDA LA PLANTILLA»; (4) el párrafo **Regla general** de comparación por etiqueta; (5) el pie «no es un histórico».
+
+**Contrato vigente del TXT:** veredicto `ENTREGADO CON NOVEDADES — NO CERTIFICADO` → `Detalle de las novedades (n)` con una ficha por novedad (ubicación, concepto, observado, esperado, Δ, qué pasó, dueño, qué revisar) → `Cómo revisar` (5 pasos) → sección de declaradas si aplica. Tamaño del caso 2026091: **3.433 → 1.564 B (−55 %)**.
+
+La trazabilidad (RunId, usuario, canal, fecha) **no se pierde**: viaja en el log Serilog y en la salida de UI/CLI (`RESULTADO CON NOVEDADES ... runId=...`). Los parámetros de `IReporteNovedades.Emitir` se conservan por estabilidad del contrato y quedan documentados como «no se imprime».
+
 ---
 
 ## §14. Cierre de H1.6 — destino conceptual del detalle R2/R4 (2026-10-28)

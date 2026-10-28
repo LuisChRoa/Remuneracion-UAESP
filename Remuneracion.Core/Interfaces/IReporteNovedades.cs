@@ -22,19 +22,25 @@ public interface IReporteNovedades
     /// Emite el reporte de novedades junto a la salida y devuelve su ruta absoluta. El texto es de
     /// NEGOCIO y determinista: la misma corrida reescribe el mismo archivo. UTF-8 sin BOM
     /// (precedente Plan 42).
+    ///
+    /// <para><b>Reporte escueto (D-UX-TXT, 2026-10-28).</b> El documento trae solo el veredicto, la
+    /// ficha de cada novedad y la guía de revisión. NO imprime bloque de datos de corrida, ni
+    /// explicación general del estado, ni reglas de comparación: eso vive en el manual de usuario y
+    /// la trazabilidad (RunId, usuario, canal, fecha) en el log y en la salida de UI/CLI. Los
+    /// parámetros se conservan por estabilidad del contrato y para esa trazabilidad.</para>
     /// </summary>
     /// <param name="rutaSalida">
     /// Ruta DEFINITIVA solicitada (sin la marca de "sin validar"): gobierna el nombre del reporte,
     /// de modo que la misma corrida produzca siempre el mismo archivo.
     /// </param>
-    /// <param name="rutaExcelEntregado">Archivo realmente entregado (puede llevar la marca de "sin validar").</param>
-    /// <param name="periodo">Período de la corrida.</param>
-    /// <param name="runId">RunId de la corrida (correlación con el log).</param>
+    /// <param name="rutaExcelEntregado">Archivo realmente entregado (puede llevar la marca de "sin validar"). No se imprime en el reporte.</param>
+    /// <param name="periodo">Período de la corrida (gobierna el encabezado y el nombre).</param>
+    /// <param name="runId">RunId de la corrida (correlación con el log). No se imprime en el reporte.</param>
     /// <param name="novedades">Novedades tipadas, en lenguaje de negocio. Lista vacía = no hay nada que reportar.</param>
     /// <param name="declaradas">Divergencias declaradas de la corrida (sección final); <c>null</c> = sin declaradas.</param>
-    /// <param name="usuario">Usuario que ejecutó la corrida; <c>null</c>/vacío = <see cref="Environment.UserName"/>.</param>
-    /// <param name="canal">Canal de la corrida (UI/CLI); <c>null</c>/vacío = "No especificado".</param>
-    /// <param name="fechaHora">Fecha y hora de la corrida; <c>null</c> = ahora (inyectable para determinismo en tests).</param>
+    /// <param name="usuario">Usuario que ejecutó la corrida. No se imprime en el reporte.</param>
+    /// <param name="canal">Canal de la corrida (UI/CLI). No se imprime en el reporte.</param>
+    /// <param name="fechaHora">Fecha y hora de la corrida. No se imprime en el reporte.</param>
     /// <returns>Ruta absoluta del reporte emitido.</returns>
     string Emitir(
         string rutaSalida,

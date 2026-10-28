@@ -80,44 +80,12 @@ public sealed class ReporteNovedadesWriter : IReporteNovedades
         ArgumentNullException.ThrowIfNull(novedades);
 
         var sb = new StringBuilder();
-        var quincenaTexto = periodo.NumeroQuincena == 1 ? "primera" : "segunda";
-        var momento = fechaHora ?? DateTime.Now;
-        var usuarioTexto = ResolverUsuario(usuario);
-        var canalTexto = string.IsNullOrWhiteSpace(canal) ? HuellaAceptacion.CanalIndefinido : canal;
 
         // ── 1. Veredicto inequívoco ──────────────────────────────────────────────────────────────
         sb.AppendLine("ENTREGADO CON NOVEDADES — NO CERTIFICADO");
         sb.AppendLine("========================================");
         sb.AppendLine();
-        sb.AppendLine("El Excel de este período está completo y se entrega para revisión, pero la corrida NO se");
-        sb.AppendLine("certificó: hay diferencias que deben mirarse antes de dar las cifras por buenas. El archivo");
-        sb.AppendLine("lleva la marca \"(sin validar)\" en su nombre para que no se confunda con una entrega buena.");
-        sb.AppendLine();
-
-        // ── 2. Datos de la corrida ───────────────────────────────────────────────────────────────
-        sb.AppendLine("Datos de la corrida");
-        sb.AppendLine("-------------------");
-        sb.AppendLine($"Período: {periodo.CodigoCompleto} ({quincenaTexto} quincena)");
-        sb.AppendLine($"Identificador de la corrida: {runId}");
-        sb.AppendLine($"Ejecutado por: {usuarioTexto} (canal: {canalTexto})");
-        sb.AppendLine($"Fecha y hora: {momento.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)}");
-        sb.AppendLine($"Archivo entregado: {rutaExcelEntregado}");
-        sb.AppendLine();
-
-        sb.AppendLine("Qué significa \"entregado con novedades\"");
-        sb.AppendLine("---------------------------------------");
-        sb.AppendLine("La aplicación calculó la liquidación completa y la escribió en el Excel. Al contrastarla");
-        sb.AppendLine("contra sus controles internos y contra el reporte oficial del período aparecieron las");
-        sb.AppendLine("diferencias que se detallan abajo. Ninguna se corrigió de forma automática: la aplicación no");
-        sb.AppendLine("mueve cifras para que cuadren.");
-        sb.AppendLine();
-        sb.AppendLine("Cuando el reporte oficial del período (R10) y la cadena de cálculo de la plantilla no");
-        sb.AppendLine("coinciden, MANDA LA PLANTILLA: el cálculo se deja como está y la diferencia se informa aquí");
-        sb.AppendLine("para que la revise el área administrativa. Si la diferencia es de transcripción del reporte");
-        sb.AppendLine("oficial, se corrige allí y se vuelve a ejecutar.");
-        sb.AppendLine();
-
-        // ── 3. Una ficha por novedad ─────────────────────────────────────────────────────────────
+        // ── 2. Una ficha por novedad ─────────────────────────────────────────────────────────────
         sb.AppendLine($"Detalle de las novedades ({novedades.Count})");
         sb.AppendLine("---------------------------------");
         var numero = 1;
@@ -151,7 +119,7 @@ public sealed class ReporteNovedadesWriter : IReporteNovedades
             numero++;
         }
 
-        // ── 4. Guía de revisión ─────────────────────────────────────────────────────────────────
+        // ── 3. Guía de revisión ─────────────────────────────────────────────────────────────────
         sb.AppendLine("Cómo revisar");
         sb.AppendLine("------------");
         sb.AppendLine("1. Abra el Excel entregado (el que lleva \"(sin validar)\" en el nombre).");
@@ -164,12 +132,8 @@ public sealed class ReporteNovedadesWriter : IReporteNovedades
         sb.AppendLine("5. Vuelva a ejecutar la aplicación. Cuando no queden diferencias, el archivo saldrá con su");
         sb.AppendLine("   nombre definitivo y sin este documento.");
         sb.AppendLine();
-        sb.AppendLine("Regla general: compare SIEMPRE por etiqueta (nombre del ASE, de la empresa, del concepto) y");
-        sb.AppendLine("nunca por número de fila. El reporte oficial y la plantilla no tienen el mismo número de");
-        sb.AppendLine("filas, así que una comparación por fila da diferencias que no existen.");
-        sb.AppendLine();
 
-        // ── 5. Divergencias declaradas (si aplica) ───────────────────────────────────────────────
+        // ── 4. Divergencias declaradas (si aplica) ───────────────────────────────────────────────
         var declaradasDistintas = declaradas?.Declaradas
             .GroupBy(v => (v.EntradaId, v.Celda))
             .Select(g => g.First())
@@ -193,8 +157,6 @@ public sealed class ReporteNovedadesWriter : IReporteNovedades
             }
         }
 
-        sb.AppendLine("Este reporte se reescribe cada vez que se ejecuta la misma corrida: no es un histórico.");
-        sb.AppendLine();
 
         return sb.ToString();
     }
@@ -206,16 +168,6 @@ public sealed class ReporteNovedadesWriter : IReporteNovedades
         var reporte = string.IsNullOrWhiteSpace(novedad.Reporte) ? "revisión de la corrida" : novedad.Reporte;
         return $"{ase} · {reporte} · {hoja}";
     }
-
-    /// <summary>
-    /// Plan 43 (O-3): resuelve el usuario de forma honesta. Usa el valor declarado si llega; si no,
-    /// el usuario del sistema y, si el entorno no lo expone, un texto explícito (nunca un nombre
-    /// inventado).
-    /// </summary>
-    private static string ResolverUsuario(string? usuario) =>
-        !string.IsNullOrWhiteSpace(usuario)
-            ? usuario
-            : string.IsNullOrWhiteSpace(Environment.UserName) ? HuellaAceptacion.UsuarioNoDisponible : Environment.UserName;
 
     private static DivergenciasDeclaradasCatalogo.Entrada? BuscarEntrada(string? id)
     {
