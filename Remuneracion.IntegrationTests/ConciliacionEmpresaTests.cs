@@ -144,11 +144,17 @@ public sealed class ConciliacionEmpresaTests
             };
             var r2Model = new WorkbookLeafInputsR2
             {
-                E15 = r2, E26 = 0m, K15 = 0m,
-                ValoresPorRol = new Dictionary<string, decimal> { [RolsQ2.SeccionR2("Componente")] = r2 }
+                // Fixture SINTÉTICO (Plan 61 · H2.3 / doctrina H5.4): composición arbitraria que
+                // conserva el NETO golden (r2). Los componentes no nulos evitan bendecir «E26 = 0».
+                // (r2 + 100) + 150 − 250 = r2.
+                E15 = r2 + 100m, E26 = 150m, K15 = 250m,
+                ValoresPorRol = new Dictionary<string, decimal> { [RolsQ2.SeccionR2("Componente")] = r2 + 100m }
             };
             var r4Model = new WorkbookLeafInputsR4
             {
+                // 2026071 (Julio-1) NO declara «SERVICIO ESPECIALES» en R4: P9 = 0 es AUSENCIA
+                // MEDIDA del encabezado en el corpus (Plan 61, §14.3), no un literal por defecto.
+                // [AUSENCIA-MEDIDA] R4 sin encabezado de Especiales en la fuente de Julio-1.
                 D9 = r4, P9 = 0m,
                 ValoresPorRol = new Dictionary<string, decimal> { [RolsQ2.GranTotalR4()] = r4 }
             };

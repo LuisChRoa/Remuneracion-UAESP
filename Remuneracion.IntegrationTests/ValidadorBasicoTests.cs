@@ -86,6 +86,9 @@ public sealed class ValidadorBasicoTests
             },
             R4 = new WorkbookLeafInputsR4
             {
+                // 2026071 (Julio-1) NO declara «SERVICIO ESPECIALES» en R4 (medido en el corpus,
+                // Plan 61 §14.3): P9 = 0 es AUSENCIA DECLARADA del encabezado, no un supuesto.
+                // [AUSENCIA-MEDIDA] R4 sin encabezado de Especiales en la fuente de Julio-1.
                 D9 = -12054255.65m,
                 P9 = 0m
             }

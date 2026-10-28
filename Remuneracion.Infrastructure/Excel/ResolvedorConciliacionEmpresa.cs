@@ -46,8 +46,13 @@ internal static class ResolvedorConciliacionEmpresa
     /// <summary>Encabezado del componente "Total" (varía de columna por hoja: F en R1, E en R2, D en R4).</summary>
     private const string EncabezadoTotal = "Total";
 
-    /// <summary>Encabezados admitidos del componente Especiales (R1/R4: SERVICIO ESPECIALES; R2: Especiales).</summary>
-    private static readonly string[] EncabezadosEspeciales = ["SERVICIO ESPECIALES", "Especiales"];
+    /// <summary>
+    /// Encabezados admitidos del componente Especiales (R1/R4: SERVICIO ESPECIALES; R2: Especiales).
+    /// Plan 61 (D-ENCABEZADO ratificada): es la tabla ÚNICA de alias del repositorio. La consumen este
+    /// resolvedor, <c>ExcelDataReaderWorkbookLeafInputReader.MapearR4</c> y
+    /// <c>ExcelDataReaderRecaudoReader.LeerR4</c>; prohibido declarar una copia en otro archivo.
+    /// </summary>
+    internal static readonly string[] EncabezadosEspeciales = ["SERVICIO ESPECIALES", "Especiales"];
 
     private const string CuadroComponente = "Componente";
     private const string CuadroSubsCont = "Subs/Cont";
@@ -233,8 +238,11 @@ internal static class ResolvedorConciliacionEmpresa
 
     /// <summary>
     /// R4 (<c>ReversiónPorComponente</c>): filas-dato de empresa = <c>A=etiqueta ∧ B='Total'</c>; el
-    /// valor es la columna <c>Total</c> (D) y el componente Especiales (P) no tiene análogo en la
-    /// fuente → ausencia = cero del template.
+    /// valor es la columna del encabezado <c>Total</c> y el componente Especiales se resuelve por su
+    /// propio encabezado (<see cref="EncabezadosEspeciales"/>). Si la fuente no trae ese encabezado en
+    /// el período/ASE, Especiales = <c>0</c> declarado y el visible de bloque coincide con el Total.
+    /// Plan 61 (H1): el supuesto histórico de que Especiales no venía en la fuente era falso — la
+    /// columna aparece de forma INTERMITENTE (medido: 2 de 30 fuentes R4 del corpus).
     /// </summary>
     private static IEnumerable<Operando> OperandosR4(IReadOnlyList<object?[]> filas)
     {
@@ -298,7 +306,11 @@ internal static class ResolvedorConciliacionEmpresa
         return (componente?.Total ?? 0m) + (subsCont?.Total ?? 0m) - (componente?.Especiales ?? 0m);
     }
 
-    /// <summary>Visible R4 por empresa = <c>Total</c> (P = 0 en la fuente): <c>D(total) = D(empresa) − P</c>.</summary>
+    /// <summary>
+    /// Visible R4 por empresa = <c>Total − Especiales</c> por etiqueta, la MISMA descomposición del
+    /// visible de bloque (<c>Total del cierre − Especiales del cierre</c>, Plan 61 H1). Ambos operandos
+    /// se resuelven por encabezado; Especiales ausente en la fuente cuenta 0.
+    /// </summary>
     private static decimal VisibleR4(Acumulado acumulado) =>
         acumulado.Operandos.Where(o => o.Reporte == "R4").Sum(o => o.Total - o.Especiales);
 
@@ -555,8 +567,14 @@ internal static class ResolvedorConciliacionEmpresa
     /// Columnas del componente <c>Total</c> y de Especiales del bloque de datos: se resuelven en la
     /// fila de ENCABEZADOS (la inmediatamente anterior a la primera fila de concepto
     /// <c>Vlr Servicio</c>), nunca por índice fijo ni por barrido de toda la hoja.
+    ///
+    /// Plan 61 (D-ENCABEZADO / D-H1.2): es el ÚNICO punto de resolución por encabezado de R4. Lo
+    /// comparten el visible por empresa (este archivo), el leaf de bloque
+    /// (<c>MapearR4</c>) y el agregado del reporte (<c>LeerR4</c>). Un valor <c>-1</c> en
+    /// <c>Especiales</c> significa «la fuente no trae el encabezado en este período/ASE»: quien
+    /// consume lo traduce a <c>0</c> declarado, nunca por literal oculto.
     /// </summary>
-    private static (int Total, int Especiales) IndicesComponentes(IReadOnlyList<object?[]> filas)
+    internal static (int Total, int Especiales) IndicesComponentes(IReadOnlyList<object?[]> filas)
     {
         var filaConcepto = -1;
         for (var i = 1; i < filas.Count; i++)

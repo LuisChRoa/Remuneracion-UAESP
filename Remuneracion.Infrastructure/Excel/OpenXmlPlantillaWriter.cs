@@ -195,18 +195,12 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         catch (Exception ex)
         {
             // HU-15 (W-2.3, D5): atomicidad intacta (borrar parcial) + causa preservada.
-            try
-            {
-                if (File.Exists(rutaSalida))
-                {
-                    File.Delete(rutaSalida);
-                }
-            }
-            catch
-            {
-                // Best-effort: si el archivo quedó bloqueado (antivirus/handle), no enmascarar
-                // la causa real con un error de borrado.
-            }
+            // Plan 61 (D10, ratificada en §13.5): EXCEPCIÓN ACOTADA — en los fallos de
+            // LECTURA-DE-VUELTA de valores (VerificarAsientoDetRetri / VerificarDetalleR2R4) el
+            // workbook está COMPLETO y es evidencia útil: el archivo se CONSERVA. En ERR-PLANTILLA /
+            // ERR-INTEGRIDAD (estructura rota) se sigue borrando: un artefacto estructuralmente roto
+            // no es evidencia, es ruido.
+            BorrarParcialSalvoLecturaDeVuelta(ex, rutaSalida);
 
             if (ex is ArchivoFuenteNoEncontradoException or CalculoInvalidoException)
             {
@@ -237,13 +231,14 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         ValidarRutaSalida(rutaSalida);
         ValidarNoInPlace(origen, rutaSalida);
 
-        WorkbookLeafCoherence.ValidarContraResultadoMultiAse(leafInputs, resultado);
-
-        // HU-08 (2.2): gate Σ empresas = visible de bloque por ASE antes de escribir (D4/G5).
-        foreach (var leaf in leafInputs)
-        {
-            WorkbookLeafCoherence.ValidarSigmaEmpresas(leaf.Conciliacion, leaf);
-        }
+        // Plan 61 (H3.2 / §2-D-H3 + §12-D5): los gates de DIVERGENCIA DE DATOS (leaf-vs-agregado y
+        // Σ visibles-empresa vs bloque) se retiraron de aquí y viven en el PROCESADOR, donde
+        // clasifican como NOVEDAD: una divergencia de datos ya no impide escribir el Excel revisable.
+        // Este writer conserva los guardas ESTRUCTURALES (plantilla alterada, hoja/destino
+        // inexistente, celda-fórmula donde va valor, límites de bloque, verificación de lectura de
+        // vuelta): si el artefacto no puede construirse fielmente, no hay nada que entregar.
+        // Los métodos de coherencia siguen disponibles en WorkbookLeafCoherence y los ejercita el
+        // validador del procesador (§2.5) — no se debilitó ningún criterio, cambió el dueño.
 
         // HU-11 (2.5) + Plan 30 (D-A): el nombre de las hojas DetRetri/DetValiRetri depende del
         // período y se COMPONE del dominio (periodo.CodigoCompleto), no de literales.
@@ -402,18 +397,12 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         catch (Exception ex)
         {
             // HU-15 (W-2.3, D5): atomicidad intacta (borrar parcial) + causa preservada.
-            try
-            {
-                if (File.Exists(rutaSalida))
-                {
-                    File.Delete(rutaSalida);
-                }
-            }
-            catch
-            {
-                // Best-effort: si el archivo quedó bloqueado (antivirus/handle), no enmascarar
-                // la causa real con un error de borrado.
-            }
+            // Plan 61 (D10, ratificada en §13.5): EXCEPCIÓN ACOTADA — en los fallos de
+            // LECTURA-DE-VUELTA de valores (VerificarAsientoDetRetri / VerificarDetalleR2R4) el
+            // workbook está COMPLETO y es evidencia útil: el archivo se CONSERVA. En ERR-PLANTILLA /
+            // ERR-INTEGRIDAD (estructura rota) se sigue borrando: un artefacto estructuralmente roto
+            // no es evidencia, es ruido.
+            BorrarParcialSalvoLecturaDeVuelta(ex, rutaSalida);
 
             if (ex is ArchivoFuenteNoEncontradoException or CalculoInvalidoException)
             {
@@ -425,6 +414,52 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                 $"No se pudo generar el workbook de salida: {ex.Message}",
                 ex);
         }
+    }
+
+    /// <summary>
+    /// Plan 61 (D10, ratificada en §13.5): decide si el parcial se borra. Se CONSERVA solo cuando el
+    /// fallo es de LECTURA-DE-VUELTA de valores — la firma es una
+    /// <see cref="CalculoInvalidoException"/> de <see cref="CodigoError.Escritura"/> SIN excepción
+    /// interna (las lanzan <c>VerificarAsientoDetRetri</c> y <c>VerificarDetalleR2R4</c>), no un I/O
+    /// envuelto. Todo lo demás (<c>ERR-PLANTILLA</c>, <c>ERR-INTEGRIDAD</c>, I/O) se borra como antes.
+    /// </summary>
+    private static void BorrarParcialSalvoLecturaDeVuelta(Exception ex, string rutaSalida)
+    {
+        if (ConservaParcialAlFallar(ex))
+        {
+            return;
+        }
+
+        try
+        {
+            if (File.Exists(rutaSalida))
+            {
+                File.Delete(rutaSalida);
+            }
+        }
+        catch
+        {
+            // Best-effort: si el archivo quedó bloqueado (antivirus/handle), no enmascarar
+            // la causa real con un error de borrado.
+        }
+    }
+
+    /// <summary>
+    /// Plan 61 (D10, ratificada en §13.5): ¿se CONSERVA el workbook ya escrito cuando la corrida
+    /// falla? Solo en los fallos de LECTURA-DE-VUELTA de valores: la firma es una
+    /// <see cref="CalculoInvalidoException"/> de <see cref="CodigoError.Escritura"/> SIN excepción
+    /// interna (las lanzan <c>VerificarAsientoDetRetri</c> y <c>VerificarDetalleR2R4</c>), no un I/O
+    /// envuelto. Todo lo demás (<c>ERR-PLANTILLA</c>, <c>ERR-INTEGRIDAD</c>, I/O) se borra como
+    /// antes: una estructura rota no es evidencia útil, un valor mal leído sí lo es.
+    ///
+    /// <c>internal</c> como costura de prueba: el fixture de D10 ejerce las cuatro formas.
+    /// </summary>
+    internal static bool ConservaParcialAlFallar(Exception ex)
+    {
+        ArgumentNullException.ThrowIfNull(ex);
+        return ex is CalculoInvalidoException calculo
+            && string.Equals(calculo.Codigo, CodigoError.Escritura, StringComparison.Ordinal)
+            && calculo.InnerException is null;
     }
 
     /// <summary>
@@ -1328,8 +1363,11 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             .GroupBy(f => (int)f.RowIndex!.Value)
             .ToDictionary(g => g.Key, g => g.First());
 
-        var columnas = ColumnasDeValor(workbookPart, porNumero, bloque);
+        var columnas = ResolvedorDestinoDetalleR2R4.ColumnasDeclaradas(
+            workbookPart, worksheet, bloque.EncabezadoColumnas, identidad);
+        var indice = ResolvedorDestinoDetalleR2R4.IndicePorEtiqueta(columnas, identidad);
         var esperadoDelDominio = SumaDelDominio(hoja, dominio);
+        var esperadoPorColumna = EsperadoPorColumna(esperadoDelDominio, indice, identidad);
 
         foreach (var (etiqueta, columna) in columnas)
         {
@@ -1350,7 +1388,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                     continue;
                 }
 
-                if (!esperadoDelDominio.TryGetValue((nivel, etiqueta), out var esperado))
+                if (!esperadoPorColumna.TryGetValue((nivel, columna), out var esperado))
                 {
                     continue; // el nivel no existe en la fuente para ese componente (capacidad de plantilla).
                 }
@@ -1371,7 +1409,7 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
 
             var granTotal = ValorDeFila(porNumero, bloque.GranTotal, columna);
             if (granTotal.TieneFormula
-                || !esperadoDelDominio.TryGetValue((DelimitadorBloquesHoja.TipoFilaBloqueHoja.GranTotal, etiqueta), out var cierreEsperado))
+                || !esperadoPorColumna.TryGetValue((DelimitadorBloquesHoja.TipoFilaBloqueHoja.GranTotal, columna), out var cierreEsperado))
             {
                 continue;
             }
@@ -1387,13 +1425,14 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         }
 
         // Un componente con monto en la fuente y sin columna en la plantilla es un destino ausente:
-        // se nombra el componente (nunca se remapea a otra columna ni se descarta en silencio).
-        var columnasPorEtiqueta = columnas.ToDictionary(c => c.Etiqueta, c => c.Columna, StringComparer.OrdinalIgnoreCase);
+        // se nombra el componente (nunca se remapea a otra columna ni se descarta en silencio). La
+        // resolución es la MISMA que usa la escritura (rótulo + clase de alias única), de modo que el
+        // gate y el writer nunca discrepan sobre qué es un destino.
         foreach (var ((nivel, etiqueta), esperado) in esperadoDelDominio)
         {
             if (nivel == DelimitadorBloquesHoja.TipoFilaBloqueHoja.GranTotal
                 || Math.Abs(esperado) <= ToleranciaDetalle
-                || columnasPorEtiqueta.ContainsKey(etiqueta))
+                || ResolvedorDestinoDetalleR2R4.ColumnaDe(indice, etiqueta) is not null)
             {
                 continue;
             }
@@ -1407,46 +1446,43 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     }
 
     /// <summary>
-    /// Encabezados de las columnas de valor del bloque, leídos de la PROPIA fila de encabezados: la
-    /// etiqueta es el texto que la celda declara y la columna sale de su referencia. Cero letras de
-    /// columna escritas en el código (la firma A–E ya está consumida por el delimitador).
+    /// Σ esperada por COLUMNA destino (no por rótulo de la fuente): traduce el vocabulario de la
+    /// fuente al de la plantilla con la MISMA resolución que la escritura
+    /// (<see cref="ResolvedorDestinoDetalleR2R4.ColumnaDe"/>), de modo que un alias —p. ej.
+    /// <c>Especiales</c> de la fuente contra <c>SERVICIO ESPECIALES</c> de la plantilla— se juzgue
+    /// sobre la columna que de verdad recibió el valor. Dos rótulos distintos de la fuente que
+    /// apunten a la misma columna son una identidad ambigua: fail-fast, nunca se suman a ciegas.
     /// </summary>
-    private static IReadOnlyList<(string Etiqueta, string Columna)> ColumnasDeValor(
-        WorkbookPart workbookPart,
-        IReadOnlyDictionary<int, Row> porNumero,
-        DelimitadorBloquesHoja.BloqueHoja bloque)
+    private static Dictionary<(DelimitadorBloquesHoja.TipoFilaBloqueHoja Nivel, string Columna), decimal> EsperadoPorColumna(
+        IReadOnlyDictionary<(DelimitadorBloquesHoja.TipoFilaBloqueHoja Nivel, string Etiqueta), decimal> esperadoDelDominio,
+        IReadOnlyDictionary<string, string> indice,
+        string identidad)
     {
-        if (!porNumero.TryGetValue(bloque.EncabezadoColumnas, out var encabezado))
+        var porColumna = new Dictionary<(DelimitadorBloquesHoja.TipoFilaBloqueHoja, string), decimal>();
+        var origen = new Dictionary<(DelimitadorBloquesHoja.TipoFilaBloqueHoja, string), string>();
+        foreach (var ((nivel, etiqueta), esperado) in esperadoDelDominio)
         {
-            throw new CalculoInvalidoException(
-                CodigoError.Plantilla,
-                $"La hoja '{bloque.Hoja}' no trae la fila de encabezados ({bloque.EncabezadoColumnas}) del bloque del ASE {bloque.AseId}: no se pueden resolver las columnas del desglose-detalle.");
-        }
-
-        var columnas = new List<(string, string)>();
-        foreach (var celda in encabezado.Elements<Cell>())
-        {
-            var etiqueta = LectorTextoHoja.Texto(workbookPart, celda).Trim();
-            if (etiqueta.Length == 0)
+            var columna = ResolvedorDestinoDetalleR2R4.ColumnaDe(indice, etiqueta);
+            if (columna is null)
             {
-                continue;
+                continue; // sin destino: lo juzga el bucle de destinos ausentes.
             }
 
-            var columna = ColumnaDeReferencia(celda.CellReference?.Value);
-            if (columna.Length > 0)
+            var clave = (nivel, columna);
+            if (origen.TryGetValue(clave, out var previo))
             {
-                columnas.Add((etiqueta, columna));
+                throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"ERR-PLANTILLA: la fuente de la {identidad} declara los componentes '{previo}' y '{etiqueta}', " +
+                    $"y ambos resuelven a la MISMA columna '{columna}' de la plantilla en el nivel '{nivel}'. " +
+                    "La identidad del valor sería ambigua: fail-fast, nunca se suman ni se elige por orden.");
             }
+
+            origen[clave] = etiqueta;
+            porColumna[clave] = esperado;
         }
 
-        if (columnas.Count == 0)
-        {
-            throw new CalculoInvalidoException(
-                CodigoError.Plantilla,
-                $"La fila de encabezados ({bloque.EncabezadoColumnas}) del bloque del ASE {bloque.AseId} de la hoja '{bloque.Hoja}' no declara rótulos de columna: no se puede verificar el desglose-detalle por componente.");
-        }
-
-        return columnas;
+        return porColumna;
     }
 
     /// <summary>
@@ -1566,23 +1602,6 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         return decimal.TryParse(texto, NumberStyles.Any, CultureInfo.InvariantCulture, out var valor)
             ? (valor, false)
             : (0m, false);
-    }
-
-    /// <summary>Letras de columna de una referencia A1 (sin dígitos ni <c>$</c>).</summary>
-    private static string ColumnaDeReferencia(string? referencia)
-    {
-        if (string.IsNullOrEmpty(referencia))
-        {
-            return string.Empty;
-        }
-
-        var fin = 0;
-        while (fin < referencia.Length && (char.IsLetter(referencia[fin]) || referencia[fin] == '$'))
-        {
-            fin++;
-        }
-
-        return referencia[..fin].Replace("$", string.Empty, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -2029,9 +2048,11 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
     /// (R46-1 análogo, <see cref="CanalEfectivoDetalleR2R4"/>). Una fila-fuente sin slot es cero
     /// documentado sólo si está en <see cref="CerosDocumentadosDetalleR2R4"/>; fuera de la lista ⇒
     /// <c>ERR-SIN-SLOT</c>. Las filas-destino sin fuente quedan en su 0 de plantilla.
-    /// Las columnas se resuelven por ENCABEZADO (<see cref="WorkbookLeafCellMapDetalleR2R4.ColumnasR2"/>
-    /// / <c>ColumnasR4</c>, que incluye <c>Otros → R</c>), nunca por índice. Cero insert/delete de
-    /// filas (D-C); el guard de <see cref="EscribirValorNumerico"/> impide tocar fórmulas
+    /// Las columnas se resuelven por ENCABEZADO contra la fila de encabezados de la PROPIA hoja
+    /// (<see cref="ResolvedorDestinoDetalleR2R4"/>), nunca por índice ni contra una lista congelada:
+    /// un componente con monto y sin destino declarado aborta (invariante de no-pérdida, Plan 61
+    /// H1.6). Cero insert/delete de filas (D-C); el guard de
+    /// <see cref="EscribirValorNumerico"/> impide tocar fórmulas
     /// (destino-detalle fórmula ⇒ <c>ERR-PLANTILLA</c>, nunca sobrescritura — R-R-3).
     /// </summary>
     private static void EscribirCeldasDetalleR2R4(WorkbookPart workbookPart, WorkbookLeafInputs leaf)
@@ -2127,7 +2148,8 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         // propia hoja (cabecera de bloque + gran total declarado). Antes se tomaba de un mapa congelado
         // por ASE (BloquesR2) que la v3 ya no respeta: la fuente traía firmas que el bloque 3..33 no
         // contenía y la corrida abortaba con ERR-SIN-SLOT sobre un destino que la plantilla SÍ declara.
-        var bloque = BloqueDeDetalle(workbookPart, DelimitadorBloquesHoja.R2, aseId);
+        var bloque = DelimitadorBloquesHoja.DelimitarBloque(workbookPart, DelimitadorBloquesHoja.R2, aseId);
+        var rango = (bloque.EncabezadoColumnas + 1, bloque.GranTotal);
 
         var hoja = WorkbookLeafCellMapDetalleR2R4.HojaR2;
         var worksheet = ObtenerHoja(workbookPart, hoja, nameof(GenerarWorkbook));
@@ -2135,23 +2157,31 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             HojaDetalleR2R4.R2,
             hoja,
             aseId,
-            bloque,
-            LeerRotulos(workbookPart, worksheet, bloque),
+            rango,
+            LeerRotulos(workbookPart, worksheet, rango),
             detalle.Filas.Select(f => new CanalEfectivoDetalleR2R4.Rotulo(f.A, f.B, f.C, f.D)).ToList(),
             columnasFirma: [0, 1, 2, 3],
             columnasEtiquetaPropia: WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR2,
             columnasGrupo: WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaGrupoR2,
             columnasSegundoCierre: WorkbookLeafCellMapDetalleR2R4.ColumnasSegundoCierreR2);
 
+        var columnas = ResolvedorDestinoDetalleR2R4.ColumnasDeclaradas(
+            workbookPart, worksheet, bloque.EncabezadoColumnas, IdentidadDetalle(hoja, aseId));
+        var indice = ResolvedorDestinoDetalleR2R4.IndicePorEtiqueta(columnas, IdentidadDetalle(hoja, aseId));
+
         foreach (var (filaDestino, indiceFuente) in pares)
         {
             var filaFuente = detalle.Filas[indiceFuente];
-            foreach (var (encabezado, columna) in WorkbookLeafCellMapDetalleR2R4.ColumnasR2)
-            {
-                var valor = encabezado is null ? 0m : filaFuente.Valor(encabezado) ?? 0m;
-                var celda = columna + filaDestino.ToString(CultureInfo.InvariantCulture);
-                EscribirValorNumerico(workbookPart, hoja, celda, valor, $"DetalleR2.ASE{aseId}.{celda}");
-            }
+            EscribirComponentesDeFila(
+                workbookPart,
+                hoja,
+                aseId,
+                filaDestino,
+                filaFuente.ValoresPorComponente,
+                indice,
+                seccion: filaFuente.A,
+                subseccion: filaFuente.B,
+                concepto: filaFuente.D);
         }
     }
 
@@ -2160,7 +2190,8 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
         var aseId = detalle.Ase.Id;
         // Plan 59 (H2-bis): bloque del detalle delimitado por la cabecera de bloque y el gran total que
         // la hoja declara (mismo criterio que R2).
-        var bloque = BloqueDeDetalle(workbookPart, DelimitadorBloquesHoja.R4, aseId);
+        var bloque = DelimitadorBloquesHoja.DelimitarBloque(workbookPart, DelimitadorBloquesHoja.R4, aseId);
+        var rango = (bloque.EncabezadoColumnas + 1, bloque.GranTotal);
 
         var hoja = WorkbookLeafCellMapDetalleR2R4.HojaR4;
         var worksheet = ObtenerHoja(workbookPart, hoja, nameof(GenerarWorkbook));
@@ -2168,38 +2199,101 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             HojaDetalleR2R4.R4,
             hoja,
             aseId,
-            bloque,
-            LeerRotulos(workbookPart, worksheet, bloque),
+            rango,
+            LeerRotulos(workbookPart, worksheet, rango),
             detalle.Filas.Select(f => new CanalEfectivoDetalleR2R4.Rotulo(f.A, f.B, f.C, string.Empty)).ToList(),
             columnasFirma: [0, 1, 2],
             columnasEtiquetaPropia: WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR4,
             columnasGrupo: WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaGrupoR4,
             columnasSegundoCierre: WorkbookLeafCellMapDetalleR2R4.ColumnasSegundoCierreR4);
 
+        var columnas = ResolvedorDestinoDetalleR2R4.ColumnasDeclaradas(
+            workbookPart, worksheet, bloque.EncabezadoColumnas, IdentidadDetalle(hoja, aseId));
+        var indice = ResolvedorDestinoDetalleR2R4.IndicePorEtiqueta(columnas, IdentidadDetalle(hoja, aseId));
+
         foreach (var (filaDestino, indiceFuente) in pares)
         {
             var filaFuente = detalle.Filas[indiceFuente];
-            foreach (var (encabezado, columna) in WorkbookLeafCellMapDetalleR2R4.ColumnasR4)
-            {
-                var valor = encabezado is null ? 0m : filaFuente.Valor(encabezado) ?? 0m;
-                var celda = columna + filaDestino.ToString(CultureInfo.InvariantCulture);
-                EscribirValorNumerico(workbookPart, hoja, celda, valor, $"DetalleR4.ASE{aseId}.{celda}");
-            }
+            EscribirComponentesDeFila(
+                workbookPart,
+                hoja,
+                aseId,
+                filaDestino,
+                filaFuente.ValoresPorComponente,
+                indice,
+                seccion: filaFuente.A,
+                subseccion: filaFuente.B,
+                concepto: filaFuente.C);
         }
     }
 
+    /// <summary>Identidad de la hoja + bloque para los mensajes de resolución de destino.</summary>
+    private static string IdentidadDetalle(string hoja, int aseId) => $"hoja '{hoja}' · ASE {aseId}";
+
     /// <summary>
-    /// Plan 59 (H2-bis): rango de filas del detalle de un ASE, derivado de la ESTRUCTURA que la hoja
-    /// declara — primera fila de datos (la siguiente a la fila de encabezados de columna del bloque) y
-    /// última fila de datos (la anterior a su gran total). Cero ventanas congeladas por ASE.
+    /// Plan 61 (D9 ratificada — H1.6): escribe los componentes de UNA fila del detalle en la columna
+    /// que la PROPIA fila de encabezados del bloque declara para cada encabezado de la fuente.
+    ///
+    /// <para><b>Invariante de no-pérdida (dura).</b> Un componente con valor distinto de cero que no
+    /// resuelve a ninguna columna declarada aborta con <c>ERR-PLANTILLA</c> nombrando hoja · ASE ·
+    /// sección · subsección · concepto · encabezado · valor. Prohibido el descarte en silencio y
+    /// prohibido el cero por defecto: eso es exactamente lo que dejaba perder montos cuando la
+    /// fuente traía una columna que el mapa congelado no conocía. Un componente en cero (o vacío)
+    /// sin destino es un cero documentado: no hay nada que perder.</para>
     /// </summary>
-    private static (int FilaInicio, int FilaFin) BloqueDeDetalle(
+    /// <exception cref="CalculoInvalidoException"><c>ERR-PLANTILLA</c> si un componente con monto no
+    /// tiene destino declarado, si dos encabezados de la fuente resuelven a la misma columna o si la
+    /// celda destino fuera fórmula (guard de <see cref="EscribirValorNumerico"/>).</exception>
+    private static void EscribirComponentesDeFila(
         WorkbookPart workbookPart,
-        DelimitadorBloquesHoja.HojaDelimitable hoja,
-        int aseId)
+        string hoja,
+        int aseId,
+        int filaDestino,
+        IReadOnlyDictionary<string, decimal?> valores,
+        IReadOnlyDictionary<string, string> indiceColumnas,
+        string seccion,
+        string subseccion,
+        string concepto)
     {
-        var bloque = DelimitadorBloquesHoja.DelimitarBloque(workbookPart, hoja, aseId);
-        return (bloque.EncabezadoColumnas + 1, bloque.GranTotal);
+        var escritas = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (encabezado, valor) in valores)
+        {
+            var columna = ResolvedorDestinoDetalleR2R4.ColumnaDe(indiceColumnas, encabezado);
+            if (columna is null)
+            {
+                if (valor is null || valor.Value == 0m)
+                {
+                    continue; // cero documentado: la plantilla no declara destino y no hay monto que perder.
+                }
+
+                throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"ERR-PLANTILLA: la fuente de la {IdentidadDetalle(hoja, aseId)} trae {valor.Value} en el " +
+                    $"componente '{encabezado}' de la fila (sección '{seccion}' · subsección '{subseccion}' · " +
+                    $"concepto '{concepto}') y la plantilla no declara ninguna columna de valor con ese " +
+                    "encabezado en la fila de encabezados de su bloque. El monto NO se descarta ni se deja en " +
+                    "cero: fail-fast accionable, nunca remapeo por posición.");
+            }
+
+            if (escritas.TryGetValue(columna, out var previo))
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"ERR-PLANTILLA: la fuente de la {IdentidadDetalle(hoja, aseId)} trae dos encabezados " +
+                    $"('{previo}' y '{encabezado}') que resuelven a la MISMA columna '{columna}' de la plantilla " +
+                    $"(fila destino {filaDestino} · sección '{seccion}' · subsección '{subseccion}' · concepto " +
+                    $"'{concepto}'): el destino sería ambiguo y no se elige por orden.");
+            }
+
+            escritas[columna] = encabezado;
+            var celda = columna + filaDestino.ToString(CultureInfo.InvariantCulture);
+            EscribirValorNumerico(
+                workbookPart,
+                hoja,
+                celda,
+                valor ?? 0m,
+                $"Detalle.(ASE{aseId}).{celda}.{encabezado}");
+        }
     }
 
     /// <summary>

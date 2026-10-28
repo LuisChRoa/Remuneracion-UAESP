@@ -109,6 +109,15 @@ public static class EjecutorCli
                 EjecutarUnAse(opciones, salida, runId, stdout, validador, lectorLeaf);
             }
 
+            // Plan 61 (H4.2 / S3.4, D-CODIGO): ENTREGA CON NOVEDADES. El Excel existe (marcado "sin
+            // validar") y el reporte explica qué revisar. Código 7 — DISTINTO de 0 y de 6 — y
+            // NUNCA la línea "RESULTADO OK": es un estado de entrega, no un error ni un cierre limpio.
+            if (resultadoProceso?.EstadoEntrega == EstadoEntrega.EntregadaConNovedades)
+            {
+                EmitirCierreConNovedades(stdout, resultadoProceso, runId);
+                return CodigosSalida.NovedadesEntrega;
+            }
+
             // Plan 42 (T3, D-G): cierre con divergencia declarada reconocida → código DISTINTO de
             // Ok (0). La salida textual enumera lo mismo que la UI (celda, Δ, dueño, reporte emitido).
             var clasificacion = resultadoProceso?.DivergenciasDeclaradas;
@@ -178,7 +187,10 @@ public static class EjecutorCli
             new ArchivoFuenteLocator(),
             new ExcelDataReaderDetRetriR10Reader(),
             new ValidacionOracleReader(),
-            new ReporteDivergenciasDeclaradasWriter());
+            new ReporteDivergenciasDeclaradasWriter(),
+            // Plan 61 (H4.1): emisor del reporte de novedades. Sin él, una corrida con novedades
+            // FALLA (sin reporte no hay entrega).
+            new ReporteNovedadesWriter());
 
         return procesador.Ejecutar(new SolicitudProcesoPeriodo
         {
@@ -191,6 +203,33 @@ public static class EjecutorCli
             // Plan 43 (O-3): el reporte/log registran el canal (CLI) por el que se aceptó.
             Canal = HuellaAceptacion.CanalCli
         }, new ProgresoConsola(stdout));
+    }
+
+    /// <summary>
+    /// Plan 61 (H4.2 / S3.4, CA-C4): salida textual del cierre ENTREGADO CON NOVEDADES. Enumera lo
+    /// mismo que la UI (cuántas novedades, dónde está el Excel marcado y dónde el reporte) y deja la
+    /// línea final grepable del contrato. NUNCA se imprime <c>RESULTADO OK</c>.
+    /// </summary>
+    private static void EmitirCierreConNovedades(
+        TextWriter stdout,
+        ResultadoProcesoPeriodo resultado,
+        Guid runId)
+    {
+        stdout.WriteLine("CIERRE ENTREGADO CON NOVEDADES — NO CERTIFICADO");
+        stdout.WriteLine("El Excel del período está completo y se entrega marcado como \"(sin validar)\" para revisión;");
+        stdout.WriteLine("la corrida NO se certificó porque hay diferencias que deben mirarse (ver el reporte).");
+
+        foreach (var novedad in resultado.Novedades)
+        {
+            var ase = novedad.AseId == 0 ? "Período completo" : $"ASE {novedad.AseId}";
+            var monto = novedad.ValorObservado is null || novedad.ValorEsperado is null
+                ? string.Empty
+                : $"; observado {novedad.ValorObservado:0.##}; esperado {novedad.ValorEsperado:0.##}; Δ {novedad.Delta:0.##}";
+            stdout.WriteLine($"  {ase} · {novedad.Hoja} · {novedad.ConceptoOCelda}{monto}; responsable {novedad.Dueno}.");
+        }
+
+        stdout.WriteLine($"Reporte de novedades: {resultado.RutaReporteNovedades}");
+        stdout.WriteLine($"RESULTADO CON NOVEDADES codigo={CodigosSalida.NovedadesEntrega} salida={resultado.RutaSalida} reporte={resultado.RutaReporteNovedades} runId={runId}");
     }
 
     /// <summary>

@@ -131,7 +131,12 @@ public sealed class DetalleR2R4Tests
 
         // Agregados existentes intactos (fórmulas visibles del workbook).
         Assert.Equal(leaf.R2.E15 + leaf.R2.E26 - leaf.R2.K15, leaf.R2.TotalOportunoEsperado);
-        Assert.Equal(leaf.R4.D9 - leaf.R4.P9, leaf.R4.TotalReversionEsperada);
+
+        // Valor MEDIDO independiente (Plan 61 · H2.3): cierre del R4 de Julio-Q2/ASE1, columna
+        // 'Total' = −16.536.713,09 (fuente medida; Julio-2 no declara 'SERVICIO ESPECIALES' ⇒ P9 = 0
+        // por ausencia). NO es la identidad D9−P9: es el número que publica la fuente.
+        Assert.Equal(0m, leaf.R4.P9);
+        Assert.InRange(leaf.R4.TotalReversionEsperada, -16536713.09m - Tol, -16536713.09m + Tol);
     }
 
     /// <summary>
@@ -158,6 +163,11 @@ public sealed class DetalleR2R4Tests
 
         // Los agregados existentes no cambian de regla por poblar el detalle.
         Assert.Equal(leaf.R2.E15 + leaf.R2.E26 - leaf.R2.K15, leaf.R2.TotalOportunoEsperado);
-        Assert.Equal(leaf.R4.D9 - leaf.R4.P9, leaf.R4.TotalReversionEsperada);
+
+        // Valor MEDIDO independiente (Plan 61 · H2.3): cierre del R4 de Julio-1/ASE1 = −12.054.255,65
+        // (fuente medida; Julio-1 no declara 'SERVICIO ESPECIALES' ⇒ P9 = 0 por ausencia). NO se
+        // re-ejecuta la fórmula de la propia clase.
+        Assert.Equal(0m, leaf.R4.P9);
+        Assert.InRange(leaf.R4.TotalReversionEsperada, -12054255.65m - Tol, -12054255.65m + Tol);
     }
 }

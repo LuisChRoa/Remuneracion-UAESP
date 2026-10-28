@@ -163,13 +163,19 @@ public sealed class ValidadorMultiAseTests
             };
             var r2 = new WorkbookLeafInputsR2
             {
-                E15 = v.Item3,
-                E26 = 0m,
-                K15 = 0m,
-                ValoresPorRol = new Dictionary<string, decimal> { [RolsQ2.SeccionR2("Componente")] = v.Item3 }
+                // Fixture SINTÉTICO (Plan 61 · H2.3 / doctrina H5.4): el NETO es el golden (v.Item3);
+                // los componentes son arbitrarios y NO nulos para no bendecir «E26 = 0».
+                // (v.Item3 + 100) + 150 − 250 = v.Item3.
+                E15 = v.Item3 + 100m,
+                E26 = 150m,
+                K15 = 250m,
+                ValoresPorRol = new Dictionary<string, decimal> { [RolsQ2.SeccionR2("Componente")] = v.Item3 + 100m }
             };
             var r4 = new WorkbookLeafInputsR4
             {
+                // 2026071 (Julio-1) NO declara «SERVICIO ESPECIALES» en R4: P9 = 0 es AUSENCIA
+                // MEDIDA del encabezado en el corpus (Plan 61, §14.3), no un literal por defecto.
+                // [AUSENCIA-MEDIDA] R4 sin encabezado de Especiales en la fuente de Julio-1.
                 D9 = v.Item5,
                 P9 = 0m,
                 ValoresPorRol = new Dictionary<string, decimal> { [RolsQ2.GranTotalR4()] = v.Item5 }

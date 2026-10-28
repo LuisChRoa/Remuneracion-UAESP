@@ -33,4 +33,13 @@ public static class CodigosSalida
     /// quedan emitidos. Sin el reconocimiento, la declarada bloquea con <see cref="Validacion"/>.
     /// </summary>
     public const int DivergenciaDeclaradaReconocida = 6;
+
+    /// <summary>
+    /// Plan 61 (H4.2 / S3.4, D-CODIGO): la corrida ENTREGÓ el Excel marcado <c>(sin validar)</c> más
+    /// el reporte de novedades, con al menos una novedad de DATOS sin resolver. Es un estado de
+    /// entrega, NO un error: el orquestador del lote lo trata como "revisar y seguir". Distinto de
+    /// <see cref="Ok"/> (0) y de <see cref="DivergenciaDeclaradaReconocida"/> (6) por diseño; el
+    /// contrato 0..6 queda intacto (este valor se suma, no se renumera).
+    /// </summary>
+    public const int NovedadesEntrega = 7;
 }

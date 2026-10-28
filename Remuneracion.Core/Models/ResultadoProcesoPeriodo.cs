@@ -56,4 +56,27 @@ public sealed class ResultadoProcesoPeriodo
     /// presente no reconocida). Vacía = sin hallazgos.
     /// </summary>
     public IReadOnlyList<string> EtiquetasNoReconocidas { get; set; } = [];
+
+    /// <summary>
+    /// Plan 61 (H3.1 / S3.1, §2-D-H3): estado de entrega de la corrida. Aditivo: el default
+    /// <see cref="Models.EstadoEntrega.Certificada"/> reproduce el comportamiento anterior, de modo
+    /// que ninguna composición que ignore el concepto cambia de significado.
+    /// </summary>
+    public EstadoEntrega EstadoEntrega { get; set; } = EstadoEntrega.Certificada;
+
+    /// <summary>
+    /// Plan 61 (H3.1 / S3.1, §2-D-H3): novedades de DATOS tipadas de la corrida, en lenguaje de
+    /// negocio. Vacía = corrida certificada. Invariante (fijada por
+    /// <see cref="Services.InvarianteEntrega"/>): no vacía ⇒
+    /// <see cref="EstadoEntrega"/> = <see cref="Models.EstadoEntrega.EntregadaConNovedades"/>,
+    /// <see cref="RutaSalida"/> termina en <c>" (sin validar)"</c> y existe
+    /// <see cref="RutaReporteNovedades"/>.
+    /// </summary>
+    public IReadOnlyList<NovedadEntrega> Novedades { get; set; } = [];
+
+    /// <summary>
+    /// Plan 61 (H4.1, D-H4): ruta del reporte de novedades emitido junto a la salida. Vacío = no hubo
+    /// novedades (no se emite) o solo hubo declaradas (aplica el reporte del Plan 42).
+    /// </summary>
+    public string RutaReporteNovedades { get; set; } = string.Empty;
 }

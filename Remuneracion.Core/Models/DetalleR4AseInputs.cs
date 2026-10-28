@@ -56,9 +56,13 @@ public sealed class DetalleR4Fila
     /// <summary>
     /// Valores de la fila por ENCABEZADO de componente (<c>"Total"</c>, <c>"Componente TDF"</c>, …,
     /// <c>"Ajuste Decena"</c>). <c>null</c> = celda vacía en la fuente (distingue "ausente" de "cero").
-    /// Plan 47 (H1.3): `Otros` SÍ tiene contraparte en la fuente de ASE4 (falso hueco de columna) y se
-    /// escribe en la columna R; <c>SERVICIO ESPECIALES</c> y <c>Ajuste Recargo Aseo</c> no tienen
-    /// contraparte en ninguna fuente julio-2 (ausencia probada) y quedan en el 0 de la plantilla.
+    /// El conjunto de claves es el que la FUENTE declara: la plantilla puede declarar más columnas de
+    /// valor (o menos) y el destino de cada una se resuelve por encabezado contra la propia hoja
+    /// (<c>ResolvedorDestinoDetalleR2R4</c>, Infrastructure), nunca por letra.
+    /// Plan 47 (H1.3): `Otros` tiene contraparte en la fuente de ASE4. Plan 61 (H1): `SERVICIO
+    /// ESPECIALES` también aparece (2 de 30 fuentes del corpus) y se lee por encabezado; `Ajuste
+    /// Recargo Aseo` aparece en 4 de 30. Cuando una fuente NO trae uno de esos encabezados, la columna
+    /// destino conserva el cero que la plantilla declara y no se inventa ningún valor.
     /// </summary>
     public IReadOnlyDictionary<string, decimal?> ValoresPorComponente { get; init; } =
         new Dictionary<string, decimal?>(StringComparer.OrdinalIgnoreCase);

@@ -401,17 +401,15 @@ public sealed class DetalleR2R4EscritoPlan59Tests
     [Fact]
     public void G6_Alcance_R4SinDebCred_NoCorre()
     {
-        var r4 = WorkbookLeafCellMapDetalleR2R4.ColumnasR4.Select(c => c.Encabezado ?? string.Empty).ToArray();
-        Assert.DoesNotContain(r4, encabezado => encabezado.Contains("Deb", StringComparison.OrdinalIgnoreCase));
+        // Plan 61 (H1.6, D9): el vocabulario de columnas de cada bloque se LEE de la plantilla
+        // vigente (autoridad del destino), no de una lista congelada en el mapa de escritura.
+        var r4 = ColumnasDeValorDeLaPlantilla(PlantillaVigente, HojaR4, aseId: 1);
+        Assert.DoesNotContain(ColumnaDebCred, r4);
+        Assert.DoesNotContain(ColumnaDebCredOtros, r4);
 
-        var r2 = WorkbookLeafCellMapDetalleR2R4.ColumnasR2.Select(c => c.Encabezado ?? string.Empty).ToArray();
+        var r2 = ColumnasDeValorDeLaPlantilla(PlantillaVigente, HojaR2, aseId: 1);
         Assert.Contains(ColumnaDebCred, r2);
         Assert.Contains(ColumnaDebCredOtros, r2);
-
-        // Y la hoja de la plantilla vigente tampoco declara esas columnas en su bloque de R4.
-        var columnasR4 = ColumnasDeValorDeLaPlantilla(PlantillaVigente, HojaR4, aseId: 1);
-        Assert.DoesNotContain(ColumnaDebCred, columnasR4);
-        Assert.DoesNotContain(ColumnaDebCredOtros, columnasR4);
     }
 
     // ── Cobertura R4 vigente (sin reclasificación: R4 no tiene esos puertos) ────────────────────

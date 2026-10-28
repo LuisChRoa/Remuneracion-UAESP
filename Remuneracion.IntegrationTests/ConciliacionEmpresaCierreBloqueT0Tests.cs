@@ -392,7 +392,8 @@ public sealed class ConciliacionEmpresaCierreBloqueT0Tests
     /// Valor que el lector de producción escribe en cada celda destino (derivación
     /// <c>fuente × mapa</c>): R1 por sección declarada (<see cref="ResolvedorOperandosEmpresaR1"/>),
     /// R2 por magnitud (Total = mayor |E|, SubsCont = menor |E|, Especiales = K de la fila Total),
-    /// R4 por fila <c>Total</c> del label con <c>P = 0</c>. Congelado por bytes.
+    /// R4 por fila <c>Total</c> del label con Especiales resuelto por ENCABEZADO (0 si la fuente no lo
+    /// trae; corregido en Plan 61 H1: el «P = 0» histórico era un supuesto, no una medición).
     /// </summary>
     public static TheoryData<string, int, int, string, decimal> OperandosPorEmpresa =>
         new()
@@ -679,7 +680,9 @@ public sealed class ConciliacionEmpresaCierreBloqueT0Tests
 
     /// <summary>
     /// Espejo de <c>LeerConciliacionEmpresas</c> + <c>CalcularVisibleR4</c> + el visible de
-    /// <c>MapearR4</c> (<c>D(Total con B vacío) − P</c>, con <c>P = 0</c>).
+    /// <c>MapearR4</c> (<c>Total del cierre − Especiales por encabezado</c>). Las cinco fuentes del
+    /// período <c>2026101</c> no traen el encabezado de Especiales, así que el visible es el Total
+    /// (Plan 61 H1: cero por ausencia declarada, no por literal).
     /// </summary>
     private static (decimal SumaEmpresas, decimal VisibleBloque) DerivarGateR4(int aseId)
     {
@@ -818,7 +821,8 @@ public sealed class ConciliacionEmpresaCierreBloqueT0Tests
     }
 
     /// <summary>
-    /// Operandos R4 por empresa: fila <c>A=label ∧ B=Total</c>, valor en D (negativo), <c>P = 0</c>.
+    /// Operandos R4 por empresa: fila <c>A=label ∧ B=Total</c>, valor del componente Total (negativo);
+    /// Especiales se resuelve por encabezado y en <c>2026101</c> no existe (0 declarado).
     /// Devuelve además el marcador <c>#T</c> (Total del bloque de la empresa) para el visible.
     /// </summary>
     private static IReadOnlyDictionary<string, decimal> ExtraerCeldasR4(int aseId, EmpresaFacturacion empresa, List<FilaCruda> filas)

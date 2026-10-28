@@ -2,6 +2,7 @@ using System.Globalization;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using Remuneracion.Core.Constants;
 using Remuneracion.Core.Exceptions;
 using Remuneracion.Core.Models;
 using Remuneracion.Core.Services;
@@ -181,23 +182,31 @@ public sealed class GoldenResumenMesYR10Tests
         const decimal r10Alterado = 17450229673m;
         ModificarCeldaNumerica(rutaR10, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.PeriodoQ2()), "D9", r10Alterado);
 
-        var salida = Path.Combine(Path.GetTempPath(), "remuneracion-r10-divergente-salida-" + Guid.NewGuid().ToString("N"), Insumos.PeriodoQ2().NombreArchivo);
+        var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-r10-divergente-salida-" + Guid.NewGuid().ToString("N"));
+        var salida = Path.Combine(salidaDir, Insumos.PeriodoQ2().NombreArchivo);
         var procesador = CrearProcesadorConR10();
 
-        var ex = Assert.Throws<CalculoInvalidoException>(() =>
-            procesador.Ejecutar(new SolicitudProcesoPeriodo
-            {
-                Periodo = Insumos.PeriodoQ2(),
-                CarpetaPeriodo = carpetaPeriodo,
-                RutaPlantilla = Insumos.PlantillaQ2,
-                RutaSalida = salida
-            }));
+        // Plan 61 (H3.2 / D8, RE-ANCLADO): la divergencia DetRetri-vs-R10 ya NO es un fail-fast sin
+        // archivo; es una NOVEDAD: el Excel se entrega marcado, el reporte explica la diferencia por
+        // etiqueta y la corrida nunca toma el nombre limpio. Se conservan las tres aserciones de
+        // fondo: período, archivo del oráculo y AMBOS valores.
+        var resultado = procesador.Ejecutar(new SolicitudProcesoPeriodo
+        {
+            Periodo = Insumos.PeriodoQ2(),
+            CarpetaPeriodo = carpetaPeriodo,
+            RutaPlantilla = Insumos.PlantillaQ2,
+            RutaSalida = salida
+        });
 
-        Assert.Contains("2026072", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("R10_Remuneracion_2026072.xlsx", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains(calculadoAse1.ToString(CultureInfo.InvariantCulture), ex.Message, StringComparison.Ordinal);
-        Assert.Contains(r10Alterado.ToString(CultureInfo.InvariantCulture), ex.Message, StringComparison.Ordinal);
+        Assert.Equal(EstadoEntrega.EntregadaConNovedades, resultado.EstadoEntrega);
+        var novedad = Assert.Single(resultado.Novedades, n => n.AseId == 1);
+        Assert.Contains("2026072", novedad.Reporte, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("R10_Remuneracion_2026072.xlsx", novedad.Reporte, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(calculadoAse1, novedad.ValorObservado);
+        Assert.Equal(r10Alterado, novedad.ValorEsperado);
         Assert.False(File.Exists(salida), "No debe existir salida certificada ante divergencia DetRetri-vs-R10.");
+        Assert.True(File.Exists(NombresSalida.RutaSinValidar(salida)), "La entrega con novedades debe dejar el Excel marcado.");
+        Assert.True(File.Exists(resultado.RutaReporteNovedades), "La entrega con novedades debe dejar su reporte.");
     }
 
     // ── B4c (Q1) ──────────────────────────────────────────────────────────────────────────
@@ -216,29 +225,33 @@ public sealed class GoldenResumenMesYR10Tests
         const decimal r10Alterado = 16758168585m;
         ModificarCeldaNumerica(rutaR10, WorkbookLeafCellMapQ2.HojaDetRetri(Insumos.Periodo()), "D9", r10Alterado);
 
-        var salida = Path.Combine(Path.GetTempPath(), "remuneracion-r10-divergente-q1-salida-" + Guid.NewGuid().ToString("N"), Insumos.Periodo().NombreArchivo);
+        var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-r10-divergente-q1-salida-" + Guid.NewGuid().ToString("N"));
+        var salida = Path.Combine(salidaDir, Insumos.Periodo().NombreArchivo);
         var procesador = CrearProcesadorConR10();
 
-        var ex = Assert.Throws<CalculoInvalidoException>(() =>
-            procesador.Ejecutar(new SolicitudProcesoPeriodo
-            {
-                Periodo = Insumos.Periodo(),
-                CarpetaPeriodo = carpetaPeriodo,
-                RutaPlantilla = Insumos.Plantilla,
-                RutaSalida = salida
-            }));
+        var resultado = procesador.Ejecutar(new SolicitudProcesoPeriodo
+        {
+            Periodo = Insumos.Periodo(),
+            CarpetaPeriodo = carpetaPeriodo,
+            RutaPlantilla = Insumos.Plantilla,
+            RutaSalida = salida
+        });
 
-        Assert.Contains("2026071", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("R10_Remuneracion_2026071.xlsx", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains(calculadoAse1.ToString(CultureInfo.InvariantCulture), ex.Message, StringComparison.Ordinal);
-        Assert.Contains(r10Alterado.ToString(CultureInfo.InvariantCulture), ex.Message, StringComparison.Ordinal);
+        Assert.Equal(EstadoEntrega.EntregadaConNovedades, resultado.EstadoEntrega);
+        var novedad = Assert.Single(resultado.Novedades, n => n.AseId == 1);
+        Assert.Contains("2026071", novedad.Reporte, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("R10_Remuneracion_2026071.xlsx", novedad.Reporte, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(calculadoAse1, novedad.ValorObservado);
+        Assert.Equal(r10Alterado, novedad.ValorEsperado);
         Assert.False(File.Exists(salida), "No debe existir salida certificada ante divergencia DetRetri-vs-R10 en Q1.");
+        Assert.True(File.Exists(NombresSalida.RutaSinValidar(salida)), "La entrega con novedades debe dejar el Excel marcado.");
     }
 
     /// <summary>
     /// Procesador de período con el reader R10 inyectado (7.º parámetro, OBLIGATORIO desde
     /// HU-20/G3): los casos negativos necesitan que el oráculo de período se consulte
-    /// (G3-D2/R-G3-3) en AMBAS quincenas.
+    /// (G3-D2/R-G3-3) en AMBAS quincenas. Plan 61: la composición incluye los emisores de reporte
+    /// (declaradas y novedades) porque una corrida con novedades EXIGE su reporte.
     /// </summary>
     private static ProcesadorPeriodo CrearProcesadorConR10() =>
         new(
@@ -248,7 +261,9 @@ public sealed class GoldenResumenMesYR10Tests
             new ValidadorBasico(),
             new OpenXmlPlantillaWriter(),
             new ArchivoFuenteLocator(),
-            detRetriR10Reader: new ExcelDataReaderDetRetriR10Reader());
+            detRetriR10Reader: new ExcelDataReaderDetRetriR10Reader(),
+            reporteDivergencias: new ReporteDivergenciasDeclaradasWriter(),
+            reporteNovedades: new ReporteNovedadesWriter());
 
     private static void CopiarArbol(string origen, string destino)
     {

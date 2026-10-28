@@ -102,11 +102,17 @@ public sealed class ContratoUnicoLecturaR1H2E2ETests
 
         var log = stdout.ToString();
 
-        // La etapa de LECTURA (la que cambia este plan) completó: los 5 ASE se leyeron y la coherencia
-        // multi-ASE corrió. El código de salida NO se aserta: las deudas de escritura son externas y
-        // pre-existentes (ver el doc-comment del tipo).
+        // La etapa de LECTURA (la que cambia este plan) completó: los 5 ASE se leyeron y la corrida
+        // llegó a construir el workbook. El código de salida NO se aserta: las deudas de escritura son
+        // externas y pre-existentes (ver el doc-comment del tipo).
+        //
+        // RE-ANCLADO EN H3 (Plan 61, §2-D-H3-ii): el hito "Validando coherencia multi-ASE" dejó de ser
+        // un marcador válido de la etapa de lectura porque ese gate ahora corre DESPUÉS de escribir
+        // (degrada a novedad). Con la base v2, `2026101` aborta en la ESCRITURA por una deuda
+        // pre-existente (ERR-SIN-SLOT del bloque 'Rem. Anticipos R2', ajena a este plan), así que el
+        // marcador correcto del fin de lectura es el paso a la escritura. La cobertura es la misma.
         Assert.Contains("ASE 5: leyendo", log, StringComparison.Ordinal);
-        Assert.Contains("Validando coherencia multi-ASE", log, StringComparison.Ordinal);
+        Assert.Contains("Generando workbook de salida", log, StringComparison.Ordinal);
 
         // CA1/CA7: el defecto que el plan elimina NO reaparece en ningún período.
         Assert.DoesNotContain(MensajeDelDefecto, log, StringComparison.OrdinalIgnoreCase);

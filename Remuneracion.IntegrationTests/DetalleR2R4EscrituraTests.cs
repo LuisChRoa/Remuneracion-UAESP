@@ -435,14 +435,10 @@ public sealed class DetalleR2R4EscrituraTests
             WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR2,
             WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaGrupoR2, [0, 1, 2, 3]);
 
-        foreach (var (encabezado, columna) in WorkbookLeafCellMapDetalleR2R4.ColumnasR2)
-        {
-            var esperado = encabezado is null ? 0m : fila.Valor(encabezado) ?? 0m;
-            var real = LeerCeldaNumerica(salida, HojaR2, columna + destino);
-            Assert.True(
-                Math.Abs(real - esperado) <= Tol,
-                $"{contexto}: R2 {columna}{destino} escrito={real} fuente={esperado} (Δ={real - esperado}).");
-        }
+        // Plan 61 (H1.6, D9): el destino de la columna se resuelve contra la fila de encabezados que la
+        // plantilla declara en ESTA hoja, no contra una lista congelada. Se verifica cada componente de
+        // la fuente y, además, que ninguna columna declarada con monto quede sin escribir.
+        AssertComponentesEscritos(salida, HojaR2, DelimitadorBloquesHoja.R2, aseId, destino, fila.ValoresPorComponente, contexto);
 
         var primerCanal = CanalEfectivoDetalleR2R4.CanalEfectivo(
             RotulosDestino(salida, HojaR2, bloque), 0,
@@ -470,14 +466,7 @@ public sealed class DetalleR2R4EscrituraTests
             WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaPropiaR4,
             WorkbookLeafCellMapDetalleR2R4.ColumnasEtiquetaGrupoR4, [0, 1, 2]);
 
-        foreach (var (encabezado, columna) in WorkbookLeafCellMapDetalleR2R4.ColumnasR4)
-        {
-            var esperado = encabezado is null ? 0m : fila.Valor(encabezado) ?? 0m;
-            var real = LeerCeldaNumerica(salida, HojaR4, columna + destino);
-            Assert.True(
-                Math.Abs(real - esperado) <= Tol,
-                $"{contexto}: R4 {columna}{destino} escrito={real} fuente={esperado} (Δ={real - esperado}).");
-        }
+        AssertComponentesEscritos(salida, HojaR4, DelimitadorBloquesHoja.R4, aseId, destino, fila.ValoresPorComponente, contexto);
 
         var primerCanal = CanalEfectivoDetalleR2R4.CanalEfectivo(
             RotulosDestino(salida, HojaR4, bloque), 0,
@@ -486,6 +475,53 @@ public sealed class DetalleR2R4EscrituraTests
         {
             Assert.InRange(
                 LeerCeldaNumerica(salida, HojaR4, "D" + bloque.FilaInicio.ToString(CultureInfo.InvariantCulture)), -Tol, Tol);
+        }
+    }
+
+    /// <summary>
+    /// Plan 61 (H1.6, D9): verifica la fila escrita componente a componente resolviendo la COLUMNA
+    /// contra la fila de encabezados que la propia hoja declara (la autoridad del destino). Un
+    /// componente de la fuente con monto que no resuelva a una columna declarada es una pérdida y el
+    /// assert la nombra; una columna declarada que no recibió su valor también.
+    /// </summary>
+    private static void AssertComponentesEscritos(
+        string salida,
+        string hoja,
+        DelimitadorBloquesHoja.HojaDelimitable hojaDelimitable,
+        int aseId,
+        string filaDestino,
+        IReadOnlyDictionary<string, decimal?> valoresFuente,
+        string contexto)
+    {
+        using var workbook = SpreadsheetDocument.Open(salida, false);
+        var workbookPart = workbook.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
+        var worksheet = Hoja(workbookPart, hoja);
+        var identidad = $"hoja '{hoja}' · ASE {aseId}";
+        var bloque = DelimitadorBloquesHoja.DelimitarBloque(workbookPart, hojaDelimitable, aseId, worksheet);
+        var columnas = ResolvedorDestinoDetalleR2R4.ColumnasDeclaradas(workbookPart, worksheet, bloque.EncabezadoColumnas, identidad);
+        var indice = ResolvedorDestinoDetalleR2R4.IndicePorEtiqueta(columnas, identidad);
+
+        var esperadoPorColumna = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (encabezado, valor) in valoresFuente)
+        {
+            var columna = ResolvedorDestinoDetalleR2R4.ColumnaDe(indice, encabezado);
+            Assert.True(
+                columna is not null || valor is null || valor.Value == 0m,
+                $"{contexto}: el componente '{encabezado}' trae {valor} y la plantilla no declara columna para él ({identidad}).");
+            if (columna is not null)
+            {
+                esperadoPorColumna[columna] = valor ?? 0m;
+            }
+        }
+
+        Assert.NotEmpty(columnas);
+        foreach (var (etiqueta, columna) in columnas)
+        {
+            var esperado = esperadoPorColumna.GetValueOrDefault(columna);
+            var real = LeerCeldaNumerica(salida, hoja, columna + filaDestino);
+            Assert.True(
+                Math.Abs(real - esperado) <= Tol,
+                $"{contexto}: {hoja} {columna}{filaDestino} ('{etiqueta}') escrito={real} fuente={esperado} (Δ={real - esperado}).");
         }
     }
 

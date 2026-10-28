@@ -39,9 +39,9 @@ internal static class WorkbookLeafCoherence
             leaf.R2.TotalOportunoEsperado,
             r2.TotalOportuno);
         AsegurarDentroDeTolerancia(
-            "R4.TotalReversionEsperada vs ReversionR4.TotalReversiones",
+            "R4.TotalReversionEsperada vs ReversionR4.TotalReversiones − Especiales",
             leaf.R4.TotalReversionEsperada,
-            r4.TotalReversiones);
+            r4.TotalReversiones - r4.EspecialesReversion);
     }
 
     internal static void ValidarContraResultado(WorkbookLeafInputs leaf, ResultadoRemuneracion resultado)
@@ -197,6 +197,11 @@ internal static class WorkbookLeafCoherence
             "R2.TotalOportunoEsperado vs ConsolidadoAse.R2TotalOportuno",
             leaf.R2.TotalOportunoEsperado,
             consolidado.R2TotalOportuno);
+
+        // Plan 61 (H1.3 / S2.1, R-UN-LADO): el mismo número por los dos caminos. El leaf expone el
+        // visible (Total del cierre − Especiales por encabezado); el consolidado recibe ese MISMO
+        // visible porque CalculoRemuneracion consume el agregado neto del R4. Por eso aquí NO se
+        // vuelve a restar Especiales: restarlas otra vez reintroduciría el defecto por el otro lado.
         AsegurarDentroDeTolerancia(
             "R4.TotalReversionEsperada vs ConsolidadoAse.ReversionR4",
             leaf.R4.TotalReversionEsperada,

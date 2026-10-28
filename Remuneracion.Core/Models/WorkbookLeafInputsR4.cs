@@ -16,7 +16,9 @@ public sealed class WorkbookLeafInputsR4
     public decimal D9 { get; set; }
 
     /// <summary>
-    /// Valor de la celda leaf <c>P9</c> (0 en la plantilla de referencia).
+    /// Valor de la celda leaf <c>P9</c>: el componente «SERVICIO ESPECIALES» de la fila de cierre del
+    /// R4, resuelto por ENCABEZADO (Plan 61 H1). <c>0</c> cuando la fuente no trae ese encabezado en
+    /// el período/ASE — ausencia declarada, nunca un literal por defecto.
     /// </summary>
     public decimal P9 { get; set; }
 

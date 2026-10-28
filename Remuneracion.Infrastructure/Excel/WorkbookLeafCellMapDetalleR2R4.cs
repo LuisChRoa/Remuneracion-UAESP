@@ -1,10 +1,16 @@
 namespace Remuneracion.Infrastructure.Excel;
 
 /// <summary>
-/// Plan 29 (T3, Unidad R — ESCRITURA): mapa de destino del desglose-detalle de las hojas
-/// <c>Rem. Anticipos R2</c> y <c>Reversion Pagos R4</c>. Declara —por ASE— el bloque de filas de
-/// captura (que existen en la plantilla como literales-0, T0b) y la resolución de COLUMNAS por
-/// ENCABEZADO de componente (nunca por índice fijo, T0b §2.1).
+/// Plan 29 (T3, Unidad R — ESCRITURA): VOCABULARIO DE LA IDENTIDAD del desglose-detalle de las hojas
+/// <c>Rem. Anticipos R2</c> y <c>Reversion Pagos R4</c> — qué columna de la fila porta la sección,
+/// la subsección, la fuente/canal y el concepto de la firma A–E, más las listas de ceros documentados.
+///
+/// <para><b>Plan 61 (H1.6, D9 ratificada):</b> este archivo ya NO fija el destino de ninguna columna
+/// de VALOR. Lo que era <c>ColumnasR2</c>/<c>ColumnasR4</c> (dos listas congeladas de pares
+/// encabezado→letra) se retiró: el destino se resuelve cruzando el encabezado del componente de la
+/// fuente contra los rótulos que la propia plantilla declara en la fila de encabezados del bloque
+/// (<see cref="ResolvedorDestinoDetalleR2R4"/>). Un componente con monto y sin destino ya no se
+/// descarta en silencio: aborta con <c>ERR-PLANTILLA</c>.</para>
 ///
 /// Plan 47 (H1, S2.1 — §2.2 + autorización H1.1/H1.3): la fila destino NO se resuelve por orden
 /// físico. La clave de colocación es <c>(firma + CANAL EFECTIVO)</c>:
@@ -103,59 +109,21 @@ public static class WorkbookLeafCellMapDetalleR2R4
         };
 
     /// <summary>
-    /// Columnas destino del detalle R2 en orden: (encabezado-fuente, columna-destino). El
-    /// encabezado <c>null</c> marca una columna destino SIN contraparte en la fuente (se escribe 0
-    /// explícito). <c>Especiales K</c> tiene contraparte solo en agosto; en julio la fuente no trae
-    /// la columna y el modelo emite 0 explícito (invariante).
+    /// Plan 61 (D9 ratificada — H1.6): aquí vivían <c>ColumnasR2</c> y <c>ColumnasR4</c>, dos listas
+    /// congeladas de pares <c>encabezado → letra</c> que fijaban el DESTINO de la escritura del
+    /// detalle. Contradecían la doctrina del proyecto (la plantilla es la autoridad y su jerarquía se
+    /// lee, no se fotografía): <c>ColumnasR4</c> declaraba 13 de las 15 columnas de valor del bloque y
+    /// un componente con monto que no estuviera en la lista <b>se descartaba en silencio</b> (6 de 30
+    /// fuentes R4 del corpus traen la 14.ª/15.ª columna: <c>SERVICIO ESPECIALES</c> /
+    /// <c>Ajuste Recargo Aseo</c>). El destino de la columna se resuelve ahora cruzando el encabezado
+    /// de la fuente contra la fila de encabezados que la propia hoja declara
+    /// (<see cref="ResolvedorDestinoDetalleR2R4"/>, con la tabla ÚNICA de alias
+    /// <see cref="ResolvedorConciliacionEmpresa.EncabezadosEspeciales"/>), y un componente con valor
+    /// distinto de cero sin destino aborta con <c>ERR-PLANTILLA</c> nombrando ASE · sección ·
+    /// concepto · encabezado · valor. Cero letras de columna en producción.
     ///
-    /// <para><b>Plan 60 (H2.2):</b> las dos últimas columnas son los puertos del par
-    /// <c>Deb/Cred</c> / <c>Deb/Cred-otros</c> y su reparto NO es invariante. La fuente R2 solo trae
-    /// <c>Deb/Cred</c>; <c>Deb/Cred-otros</c> arranca en 0 y pasa a ser DESTINO de la reclasificación
-    /// por canal: la regla <see cref="ReclasificadorDebCredR2"/> mueve a <c>R</c> el bloque completo
-    /// del canal cuyo cierre supera el umbral y re-propaga los agregados literales, de modo que ambos
-    /// valores se escriben POR VALOR MOVIDO (el par <c>Q + R</c> se conserva). Antes de esta regla el
-    /// doc declaraba <c>R</c> como «invariante en 0»; ya no lo es.</para>
+    /// <para>Lo que sobrevive en este archivo es el VOCABULARIO DE ROLES de la fila (qué columna porta
+    /// la sección/subsección/fuente/canal/concepto de la firma A–E) y las listas de ceros
+    /// documentados; nada aquí nombra una columna de VALOR.</para>
     /// </summary>
-    public static readonly IReadOnlyList<(string? Encabezado, string Columna)> ColumnasR2 =
-    [
-        ("Total", "E"),
-        ("Componente TDF", "F"),
-        ("Componente TTL", "G"),
-        ("Componente TVIAT", "H"),
-        ("Aprovechamiento", "I"),
-        ("CCSA Prest.Aprov.", "J"),
-        ("Especiales", "K"),
-        ("Componente TCS", "L"),
-        ("Componente TLU", "M"),
-        ("Componente TBL", "N"),
-        ("Componente TRT", "O"),
-        ("CCSA Prest. No Aprov.", "P"),
-        ("Deb/Cred", "Q"),
-        ("Deb/Cred-otros", "R")
-    ];
-
-    /// <summary>
-    /// Columnas destino del detalle R4 en orden: (encabezado-fuente, columna-destino). <c>D..O</c>
-    /// tienen contraparte en la fuente en los 5 ASE; <c>Otros → R</c> tiene contraparte en la fuente
-    /// de ASE4 (Plan 47 H1.3 — falso hueco de columna: el oficial tiene `R2=Otros` como VALOR y la
-    /// fuente de ASE4 trae el encabezado `Otros` con valores, p. ej. `P6=-0,29`). Las columnas
-    /// <c>SERVICIO ESPECIALES P</c> y <c>Ajuste Recargo Aseo Q</c> NO tienen contraparte en ninguna
-    /// fuente julio-2 (ausencia probada por bytes, T0 §6.3): quedan en el 0 de la plantilla.
-    /// </summary>
-    public static readonly IReadOnlyList<(string? Encabezado, string Columna)> ColumnasR4 =
-    [
-        ("Total", "D"),
-        ("Componente TDF", "E"),
-        ("Componente TTL", "F"),
-        ("Componente TVIAT", "G"),
-        ("Aprovechamiento", "H"),
-        ("CCSA Prest.Aprov.", "I"),
-        ("Componente TCS", "J"),
-        ("Componente TLU", "K"),
-        ("Componente TBL", "L"),
-        ("Componente TRT", "M"),
-        ("CCSA Prest. No Aprov.", "N"),
-        ("Ajuste Decena", "O"),
-        ("Otros", "R")
-    ];
 }

@@ -232,8 +232,9 @@ public sealed class OpcionesCli
                                se guarda entre corridas y deja reporte durable + log.
           --help, -h           Muestra esta ayuda y sale con 0.
 
-        Códigos de salida (contrato HU-14/Plan 42): 0 OK · 1 validación · 2 fuente/plantilla ·
-        3 escritura · 4 inesperado · 5 cancelado · 6 cierre con divergencia declarada reconocida.
+        Códigos de salida (contrato HU-14/Plan 42/Plan 61): 0 OK · 1 validación · 2 fuente/plantilla ·
+        3 escritura · 4 inesperado · 5 cancelado · 6 cierre con divergencia declarada reconocida ·
+        7 entregado con novedades (NO certificado: el Excel va marcado "sin validar" y hay reporte).
         """;
 
     private static bool EsCodigoPeriodoValido(string periodo)

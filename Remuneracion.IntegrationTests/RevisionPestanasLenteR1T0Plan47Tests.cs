@@ -229,11 +229,13 @@ public sealed class RevisionPestanasLenteR1T0Plan47Tests
             ],
             oficial.EncabezadosDesde(2, "E"));
 
-        Assert.Equal(14, WorkbookLeafCellMapDetalleR2R4.ColumnasR2.Count);
-        Assert.Equal("E", WorkbookLeafCellMapDetalleR2R4.ColumnasR2[0].Columna);
-        Assert.Equal("Total", WorkbookLeafCellMapDetalleR2R4.ColumnasR2[0].Encabezado);
-        Assert.Equal("R", WorkbookLeafCellMapDetalleR2R4.ColumnasR2[^1].Columna);
-        Assert.Equal("Deb/Cred-otros", WorkbookLeafCellMapDetalleR2R4.ColumnasR2[^1].Encabezado);
+        // Plan 61 (H1.6, D9 — re-anclaje): el destino de la columna NO se congela en una lista de pares
+        // encabezado→letra. Se resuelve cruzando el encabezado de la fuente contra la fila de
+        // encabezados que la PROPIA plantilla declara. Invariante: todo encabezado declarado es
+        // alcanzable y todo encabezado de la fuente (con o sin monto) resuelve a su columna.
+        var columnas = ColumnasDeEncabezado(oficial, 2);
+        var indice = ResolvedorDestinoDetalleR2R4.IndicePorEtiqueta(columnas, "plantilla · Rem. Anticipos R2");
+        AssertTodaColumnaDeclaradaEsAlcanzable(columnas, indice);
 
         string[] sinEspeciales =
         [
@@ -255,6 +257,18 @@ public sealed class RevisionPestanasLenteR1T0Plan47Tests
         foreach (var ase in new[] { 3, 5 })
         {
             Assert.Equal(conEspeciales, LeerFuenteDetalle(ase, esR2: true).Encabezados);
+        }
+
+        // Ningún encabezado de la fuente con valor puede quedar sin destino (invariante de no-pérdida).
+        for (var ase = 1; ase <= 5; ase++)
+        {
+            var fuente = LeerFuenteDetalle(ase, esR2: true);
+            foreach (var encabezado in fuente.Encabezados)
+            {
+                Assert.True(
+                    ResolvedorDestinoDetalleR2R4.ColumnaDe(indice, encabezado) is not null,
+                    $"ASE{ase}: el encabezado de fuente '{encabezado}' no resuelve a ninguna columna declarada por la plantilla.");
+            }
         }
     }
 
@@ -283,14 +297,53 @@ public sealed class RevisionPestanasLenteR1T0Plan47Tests
 
         Assert.Equal([.. fuente12, "Otros"], LeerFuenteDetalle(4, esR2: false).Encabezados);
 
-        // Plan 47 (H1.3): `Otros → R` declarada por ENCABEZADO (13 columnas); las otras dos columnas
-        // del oficial (`SERVICIO ESPECIALES P`, `Ajuste Recargo Aseo Q`) no tienen contraparte en
-        // ninguna fuente julio-2/agosto-2 (ausencia probada) y siguen en el 0 de la plantilla.
-        Assert.Equal(13, WorkbookLeafCellMapDetalleR2R4.ColumnasR4.Count);
-        Assert.Equal("R", WorkbookLeafCellMapDetalleR2R4.ColumnasR4[^1].Columna);
-        Assert.Equal("Otros", WorkbookLeafCellMapDetalleR2R4.ColumnasR4[^1].Encabezado);
-        Assert.DoesNotContain(WorkbookLeafCellMapDetalleR2R4.ColumnasR4, c => c.Encabezado == "SERVICIO ESPECIALES");
-        Assert.DoesNotContain(WorkbookLeafCellMapDetalleR2R4.ColumnasR4, c => c.Encabezado == "Ajuste Recargo Aseo");
+        // Plan 61 (H1.6, D9 — re-anclaje del defecto): hasta aquí este assert bendecía la AUSENCIA de
+        // `SERVICIO ESPECIALES` y `Ajuste Recargo Aseo` en el mapa de escritura (13 pares congelados) y
+        // congelaba `Assert.Equal(13, …)`. Ese mapa se retiró: la plantilla declara las 15 columnas y el
+        // destino se resuelve por encabezado contra la propia fila de encabezados. La invariante es
+        // conceptual: cada encabezado declarado es alcanzable y los dos que el mapa perdía tienen
+        // destino en la columna que la plantilla declara, incluido el alias único `Especiales`.
+        var columnas = ColumnasDeEncabezado(oficial, 2);
+        var indice = ResolvedorDestinoDetalleR2R4.IndicePorEtiqueta(columnas, "plantilla · Reversion Pagos R4");
+        AssertTodaColumnaDeclaradaEsAlcanzable(columnas, indice);
+
+        Assert.Equal("P", ResolvedorDestinoDetalleR2R4.ColumnaDe(indice, "SERVICIO ESPECIALES"));
+        Assert.Equal("Q", ResolvedorDestinoDetalleR2R4.ColumnaDe(indice, "Ajuste Recargo Aseo"));
+        Assert.Equal("R", ResolvedorDestinoDetalleR2R4.ColumnaDe(indice, "Otros"));
+        Assert.Equal("P", ResolvedorDestinoDetalleR2R4.ColumnaDe(indice, "Especiales"));
+    }
+
+    /// <summary>
+    /// Columnas de la fila de encabezados con su letra, tal como la plantilla las declara (BCL
+    /// ZIP+XML, read-only). Es la ÚNICA fuente de la identidad columna↔encabezado: ningún test
+    /// necesita congelar la pareja.
+    /// </summary>
+    private static IReadOnlyList<ResolvedorDestinoDetalleR2R4.EncabezadoDestino> ColumnasDeEncabezado(Hoja hoja, int fila)
+    {
+        var columnas = new List<ResolvedorDestinoDetalleR2R4.EncabezadoDestino>();
+        for (var i = IndiceDeLetra("A"); i <= IndiceDeLetra("Z"); i++)
+        {
+            var columna = LetraDe(i);
+            var etiqueta = hoja.Texto(columna, fila).Trim();
+            if (etiqueta.Length > 0)
+            {
+                columnas.Add(new ResolvedorDestinoDetalleR2R4.EncabezadoDestino(etiqueta, columna));
+            }
+        }
+
+        return columnas;
+    }
+
+    /// <summary>Invariante de alcanzabilidad: todo encabezado declarado resuelve a SU propia columna.</summary>
+    private static void AssertTodaColumnaDeclaradaEsAlcanzable(
+        IReadOnlyList<ResolvedorDestinoDetalleR2R4.EncabezadoDestino> columnas,
+        IReadOnlyDictionary<string, string> indice)
+    {
+        Assert.NotEmpty(columnas);
+        foreach (var (etiqueta, columna) in columnas)
+        {
+            Assert.Equal(columna, ResolvedorDestinoDetalleR2R4.ColumnaDe(indice, etiqueta));
+        }
     }
 
     // ── P2: canal efectivo (R46-1) — identidad de canal en TODO par + regla del predicado ───────
@@ -545,7 +598,13 @@ public sealed class RevisionPestanasLenteR1T0Plan47Tests
         Assert.Equal("Otros", oficial.Texto("R", 2));
         Assert.Equal("0", oficial.Texto("R", 232));
         Assert.False(oficial.TieneFormula("R232"));
-        Assert.Contains(WorkbookLeafCellMapDetalleR2R4.ColumnasR4, c => c is { Encabezado: "Otros", Columna: "R" });
+
+        // Plan 61 (H1.6): el destino se resuelve por el encabezado que la plantilla declara (no por una
+        // lista congelada de pares encabezado→letra, que ya no existe en producción).
+        var indice = ResolvedorDestinoDetalleR2R4.IndicePorEtiqueta(
+            ColumnasDeEncabezado(oficial, 2),
+            "plantilla · Reversion Pagos R4");
+        Assert.Equal("R", ResolvedorDestinoDetalleR2R4.ColumnaDe(indice, "Otros"));
     }
 
     // ── P1/P4: SALDOS POR NOTA — fuente propia, mapeo por título (sin orden) ────────────────────

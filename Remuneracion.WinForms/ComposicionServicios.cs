@@ -71,7 +71,11 @@ public static class ComposicionServicios
             // Plan 42 (T3-UI, R-UI-WIRING, D-E): emisor del reporte durable de divergencias
             // declaradas. Sin él, un cierre con declarada reconocida FALLA cerrado (sin reporte no
             // hay ÉXITO) en vez de silenciarse.
-            new ReporteDivergenciasDeclaradasWriter());
+            new ReporteDivergenciasDeclaradasWriter(),
+            // Plan 61 (H4.1): emisor del reporte de novedades. Sin él, una corrida con novedades
+            // FALLA cerrado: el usuario nunca se queda con un Excel marcado sin el documento que
+            // explica qué revisar.
+            new ReporteNovedadesWriter());
 
         return (procesador, procesadorPeriodo, locator);
     }

@@ -3,6 +3,7 @@ using System.Text;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using Remuneracion.Core.Constants;
 using Remuneracion.Core.Exceptions;
 using Remuneracion.Core.Interfaces;
 using Remuneracion.Core.Models;
@@ -406,7 +407,12 @@ internal static class Program
                 return ok;
             });
 
-        EjecutarCasoNegativo("T19", "GenerarWorkbook(...) falla si leaf y agregado divergen por encima de ±0.5",
+        // Plan 61 (H3.3 / §12-D5, §13.3): RE-ANCLADO preservando la intención. El gate de divergencia
+        // de DATOS (leaf vs agregado) ya no vive en el escritor: se movió al procesador, donde
+        // degrada a NOVEDAD (el Excel marcado se entrega y el reporte explica qué revisar). Lo que
+        // este caso debe seguir demostrando es que una divergencia NO CERTIFICA el archivo: existe el
+        // marcado "(sin validar)" y NO existe el nombre limpio.
+        EjecutarCasoNegativo("T19", "Una divergencia leaf↔agregado no certifica: existe el archivo '(sin validar)' y no el nombre limpio (el gate vive en el procesador, no en el escritor)",
             () =>
             {
                 var ase = CrearAsePromoambiental();
@@ -418,21 +424,16 @@ internal static class Program
                 var leaf = leafReader.LeerLeafInputs(ase, periodo, ArchivoR1, ArchivoR2, ArchivoR4);
                 leaf.R2.E15 += 10m;
                 var salida = Path.Combine(Path.GetTempPath(), "remuneracion-hu05-fail-" + Guid.NewGuid().ToString("N"), "salida.xlsx");
+                var marcada = NombresSalida.RutaSinValidar(salida);
 
-                try
-                {
-                    writer.GenerarWorkbook(PlantillaReferencia, salida, resultado, leaf);
-                    Console.WriteLine("    ERROR: No se lanzó excepción por mismatch leaf vs agregado");
-                    return false;
-                }
-                catch (CalculoInvalidoException ex)
-                {
-                    var noCertificado = !File.Exists(salida);
-                    Console.WriteLine($"    Excepción lanzada: {ex.GetType().Name}");
-                    Console.WriteLine($"    Mensaje: {ex.Message}");
-                    Console.WriteLine($"    Archivo certificado ausente: {noCertificado}");
-                    return noCertificado;
-                }
+                // Mismo orden que el procesador: escribe SIEMPRE en la ruta marcada.
+                writer.GenerarWorkbook(PlantillaReferencia, marcada, resultado, leaf);
+
+                var noCertificado = File.Exists(marcada) && !File.Exists(salida);
+                Console.WriteLine($"    Archivo '(sin validar)' presente: {File.Exists(marcada)}");
+                Console.WriteLine($"    Nombre limpio ausente: {!File.Exists(salida)}");
+                Console.WriteLine("    Gate de datos: en ProcesadorPeriodo (novedad). El escritor conserva los guardas estructurales.");
+                return noCertificado;
             });
 
         EjecutarCasoNegativo("T16", "Si una celda canónica del consolidado se convierte a valor fijo, EscribirConsolidado(...) lanza excepción",

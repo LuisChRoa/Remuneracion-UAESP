@@ -37,6 +37,13 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
     private readonly IReporteDivergenciasDeclaradas? _reporteDivergencias;
 
     /// <summary>
+    /// Plan 61 (H3.2/H4.1, §2-D-H4): emisor del REPORTE DE NOVEDADES de la corrida. Nullable para no
+    /// romper las composiciones de regresión, pero fail-closed: si una corrida produce novedades y no
+    /// hay emisor, el procesador FALLA (sin reporte no hay entrega — nunca un cierre silencioso).
+    /// </summary>
+    private readonly IReporteNovedades? _reporteNovedades;
+
+    /// <summary>
     /// Plan 26 (T2, D-A): preflight de insumos del período. Se compone con el localizador ya
     /// inyectado (mismo contrato que usan los finders runtime) para no ampliar la firma de
     /// composición de UI/CLI.
@@ -59,7 +66,8 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         ILocalizadorArchivosAse localizador,
         IDetRetriR10Reader detRetriR10Reader,
         IValidacionOracleReader? validacionOracleReader = null,
-        IReporteDivergenciasDeclaradas? reporteDivergencias = null)
+        IReporteDivergenciasDeclaradas? reporteDivergencias = null,
+        IReporteNovedades? reporteNovedades = null)
     {
         _recaudoReader = recaudoReader ?? throw new ArgumentNullException(nameof(recaudoReader));
         _leafReader = leafReader ?? throw new ArgumentNullException(nameof(leafReader));
@@ -70,6 +78,7 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         _detRetriR10Reader = detRetriR10Reader ?? throw new ArgumentNullException(nameof(detRetriR10Reader));
         _validacionOracleReader = validacionOracleReader;
         _reporteDivergencias = reporteDivergencias;
+        _reporteNovedades = reporteNovedades;
         _validadorInsumos = new ValidadorInsumosPeriodo(_localizador);
     }
 
@@ -369,36 +378,15 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         resultado.FechaProceso = r10.FechaProceso;
         resultado.HoraProceso = r10.HoraProceso;
 
-        progreso?.Report("Validando coherencia multi-ASE...");
-        Log.Information("Validando coherencia multi-ASE...");
-        var errores = _validador.Validar(resultado, leafs);
-        if (errores.Count > 0)
-        {
-            var detalle = string.Join("; ", errores);
-            // HU-15 (S-2): sin prefijo [CÓDIGO] redundante — el código viaja en la excepción
-            // (Codigo) y cada error del validador ya lo porta (AgregarError). El catch del
-            // frontend agrega [{Codigo}] una sola vez (antes quedaba doble/triple en el log).
-            throw new CalculoInvalidoException(CodigoError.Validacion, $"La validación multi-ASE falló: {detalle}");
-        }
-
-        // HU-20 (G3-D1/R-G3-3): DetRetri calculado vs R10 (±0.5 post-redondeo) en AMBAS quincenas.
-        // Divergencia → error fail-fast con período + archivo + ambos valores; nunca escritura
-        // parcial silenciosa.
-        progreso?.Report($"Validando DetRetri calculado contra el R10 ({Path.GetFileName(rutaR10)})...");
-        Log.Information("Validando DetRetri calculado contra el R10 ({Archivo})...", Path.GetFileName(rutaR10));
-        var erroresR10 = _validador.ValidarDetRetriContraR10(leafs, r10);
-        if (erroresR10.Count > 0)
-        {
-            var detalleR10 = string.Join("; ", erroresR10);
-            throw new CalculoInvalidoException(
-                CodigoError.Validacion,
-                $"La validación DetRetri-vs-R10 falló (periodo {solicitud.Periodo.CodigoCompleto}, archivo {Path.GetFileName(rutaR10)}): {detalleR10}");
-        }
-
         progreso?.Report("Generando workbook de salida (una sola escritura)...");
         Log.Information("Generando workbook de salida (una sola escritura)...");
-        // Plan 43 (O-4): se escribe en la ruta MARCADA "sin validar"; solo al final, tras superar
-        // todas las validaciones, se promueve al nombre definitivo (File.Move).
+        // Plan 61 (H3.2 / S3.1, §2-D-H3-ii): POLÍTICA DE ENTREGA INVERTIDA. El workbook se escribe
+        // ANTES de los gates de DATOS: ante una novedad el usuario SIEMPRE tiene el Excel revisable
+        // (marcado "sin validar") para comparar y ajustar mientras la app se corrige. Los gates que
+        // siguen aquí abajo ya NO bloquean la escritura: clasifican (ver §2-D-H3). Los gates de
+        // PREFLIGHT (insumos faltantes) y los de ESTRUCTURA (plantilla alterada, hoja/destino
+        // inexistente, celda-fórmula donde va valor) siguen siendo fallo duro: sin artefacto fiel no
+        // hay nada que entregar.
         _workbookLeafWriter.GenerarWorkbook(solicitud.RutaPlantilla, rutaSinValidar, resultado, leafs);
 
         if (esQuincena2)
@@ -429,13 +417,48 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
                 .Debug("ASE {AseId}: INTERVENTORIA (insumo externo declarado) K={K:0} M(2ª)={M:0} N(1ª)={N:0} — hoja intacta, no se escribe.", leaf.Ase.Id, interventoria, seg, pri);
         }
 
+        // ── Plan 61 (H3.2 / S3.2, §2-D-H3): GATES DE DATOS → NOVEDAD (nunca bloqueo de la entrega) ──
+        // Escribir→validar. Lo que sigue ya NO lanza: clasifica. La corrida sigue adelante con el
+        // Excel escrito y termina en `EntregadaConNovedades` (marcado + reporte + código ≠ 0).
+        var novedades = new List<NovedadEntrega>();
+
+        // Gate multi-ASE (§2.5): Σ visibles-empresa vs visible de bloque (R1/R2/R4), cifras del ASE
+        // frente a su consolidado, ajustes, banco y balance. El hito conserva su texto (es contrato
+        // del frente de lectura); lo que cambió es el EFECTO: clasifica como novedad, no bloquea.
+        progreso?.Report("Validando coherencia multi-ASE...");
+        Log.Information("Validando coherencia multi-ASE (Plan 61: divergencia de datos = novedad, no bloqueo)...");
+        var erroresCoherencia = _validador.Validar(resultado, leafs);
+        foreach (var errorCoherencia in erroresCoherencia)
+        {
+            Log.Warning("Novedad de coherencia multi-ASE: {Detalle}", errorCoherencia);
+        }
+
+        novedades.AddRange(ClasificadorNovedadesEntrega.DesdeCoherencia(erroresCoherencia, solicitud.Periodo));
+
+        // HU-20 (G3-D1/R-G3-3) + D8 (ratificada): el DetRetri calculado se contrasta con el R10 en
+        // AMBAS quincenas. Si discrepan, MANDA LA PLANTILLA: la diferencia se reporta como novedad y
+        // NUNCA se corrige el cálculo ni se amplía la tolerancia (ver §13.2-C: errata del oráculo).
+        progreso?.Report($"Validando DetRetri calculado contra el R10 ({Path.GetFileName(rutaR10)})...");
+        Log.Information("Validando DetRetri calculado contra el R10 ({Archivo})...", Path.GetFileName(rutaR10));
+        var erroresR10 = _validador.ValidarDetRetriContraR10(leafs, r10);
+        foreach (var errorR10 in erroresR10)
+        {
+            Log.Warning("Novedad del asiento frente al R10: {Detalle}", errorR10);
+        }
+
+        novedades.AddRange(ClasificadorNovedadesEntrega.DesdeR10(
+            leafs, r10, solicitud.Periodo, Path.GetFileName(rutaR10)));
+
         // HU-13 (2.7): validaciones cruzadas como ORÁCULO DE LECTURA (D1). Solo si hay reader
         // (modo período completo de la UI): se lee el snapshot de la SALIDA (read-only, caché
-        // visible — OpenXML no recalcula) y se evalúan los gates 2.7 con fail-fast que nombra
-        // ASE + validación. Sin reader (regresión) = HU-12 puro por construcción (D3).
+        // visible — OpenXML no recalcula) y se evalúan los gates 2.7. Plan 61 (D-NOVEDAD-27): una
+        // divergencia NO declarada degrada a novedad con su ficha (celda + Δ + oráculo) — negar el
+        // Excel no hace el FALSE menos real; entregarlo lo hace revisable. Sin reader (regresión) =
+        // HU-12 puro por construcción (D3).
         var lineasValidaciones = new List<string>();
         ClasificacionDivergenciasDeclaradas? clasificacion = null;
         var rutaReporte = string.Empty;
+        var hayDeclaradaReconocida = false;
         if (_validacionOracleReader is not null)
         {
             progreso?.Report("Leyendo oráculo de validaciones cruzadas de la salida (read-only)...");
@@ -446,16 +469,36 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
 
             // Plan 42 (T1, R-CLS-1/R-CLS-2/R-CLS-3, D-B/D-F): clasificación en Core. La declarada
             // es la ÚLTIMA puerta: primero todo lo interno; solo si queda SOLO la declarada se pide
-            // reconocimiento y, con él, se produce + reporta. Cualquier no declarada FALLA en duro
-            // con el mismo nombre y severidad de siempre (E1-1..E1-5 intactos).
+            // reconocimiento y, con él, se produce + reporta. Plan 61 (H3): lo NO declarado ya no
+            // aborta la entrega — se reporta como novedad y el archivo queda marcado.
             clasificacion = _validador.ClasificarDivergenciasDeclaradas(resultado, leafs, snapshots);
 
             if (clasificacion.HayNoDeclaradas)
             {
-                var detalleNoDeclarado = string.Join("; ", clasificacion.ErroresNoDeclarados);
-                Log.Error("La validación cruzada (2.7) falló con divergencia(s) NO declarada(s): {Detalle}", detalleNoDeclarado);
-                // HU-15 (S-2): sin prefijo [CÓDIGO] redundante (ver nota de validación multi-ASE).
-                throw new CalculoInvalidoException(CodigoError.Validacion, $"La validación cruzada (2.7) falló: {detalleNoDeclarado}");
+                Log.Warning(
+                    "La validación cruzada (2.7) trae divergencia(s) NO declarada(s): se entregan como novedad. {Detalle}",
+                    string.Join("; ", clasificacion.ErroresNoDeclarados));
+                novedades.AddRange(ClasificadorNovedadesEntrega.DesdeValidacionCruzada(
+                    clasificacion, erroresCoherencia, solicitud.Periodo));
+
+                // Red de seguridad anti-falso-verde: si por cualquier motivo la clasificación declara
+                // divergencias no declaradas y no se pudo componer NINGUNA ficha (p. ej. todos sus
+                // errores ya venían del gate §2.5), la corrida NO puede salir certificada. Se entrega
+                // con una novedad explícita que manda a revisar la hoja de validaciones.
+                if (novedades.Count == 0)
+                {
+                    novedades.Add(new NovedadEntrega(
+                        "Validación cruzada de la salida (VALIDACION_TOTAL)",
+                        "VALIDACION_TOTAL",
+                        0,
+                        "Control de la hoja de validaciones cruzadas",
+                        null,
+                        null,
+                        null,
+                        "Equipo de la aplicación (control interno del cálculo)",
+                        "Revise la hoja VALIDACION_TOTAL del Excel entregado: hay controles internos que no cierran.",
+                        "La validación cruzada de la salida reportó diferencias no declaradas que no se pudieron detallar por separado."));
+                }
             }
 
             if (clasificacion.SoloDeclaradas)
@@ -467,28 +510,22 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
                 if (pendientes.Count > 0)
                 {
                     // S3 (D-D): sin acto consciente de ESTA corrida (UI) o sin flag (CLI), la
-                    // declarada también bloquea — nunca se cierra "por costumbre". La excepción
-                    // porta la clasificación para que el frontend presente el reconocimiento.
+                    // declarada también bloquea — nunca se cierra "por costumbre". Plan 61: el
+                    // flujo Plan 42 se mantiene (la UI/CLI necesitan la clasificación para ofrecer
+                    // el reconocimiento), pero AHORA con el Excel y el reporte ya en disco.
                     var detalleDeclarada = string.Join("; ", clasificacion.Declaradas
                         .Select(v => $"[{CodigoError.Validacion}] ASE {v.AseId} · VALIDACION_TOTAL · {v.Celda}: divergencia declarada ({v.EntradaId}) pendiente de reconocimiento explícito en esta corrida (Δ = {v.Delta:0.##})"));
-                    Log.Warning("Cierre bloqueado: hay divergencia(s) declarada(s) sin reconocimiento explícito en esta corrida.");
+                    Log.Warning("Cierre bloqueado: hay divergencia(s) declarada(s) sin reconocimiento explícito en esta corrida (el Excel marcado y su reporte quedan entregados).");
+                    EmitirReporteNovedadesDeBloqueo(
+                        solicitud, runId, usuarioAceptacion, canalAceptacion, rutaSinValidar, clasificacion,
+                        ClasificadorNovedadesEntrega.DesdeDeclaradasPendientes(clasificacion));
                     throw new CalculoInvalidoException(
                         CodigoError.Validacion,
                         $"La validación cruzada (2.7) falló: {detalleDeclarada}",
                         clasificacion);
                 }
 
-                // Reconocida: la doble huella es obligatoria (D-E). Sin reporte NO hay ÉXITO.
-                if (_reporteDivergencias is null)
-                {
-                    throw new CalculoInvalidoException(
-                        CodigoError.Inesperado,
-                        "El cierre con divergencia declarada exige el reporte durable y no hay emisor de reporte configurado (sin reporte no hay éxito).");
-                }
-
-                rutaReporte = _reporteDivergencias.Emitir(solicitud.RutaSalida, solicitud.Periodo, runId, clasificacion, usuarioAceptacion, canalAceptacion);
-                RegistrarHuellaDeclaradas(clasificacion, rutaReporte, runId, usuarioAceptacion, canalAceptacion);
-                progreso?.Report($"Divergencia(s) declarada(s) reconocida(s) en esta corrida. Reporte: {rutaReporte}");
+                hayDeclaradaReconocida = true;
             }
 
             // Veredictos por ASE (bloque VALIDACIONES del log/UI, §2.6). Honestidad: se lee el
@@ -536,9 +573,56 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             }
         }
 
-        // Plan 43 (O-4): la corrida superó TODAS las validaciones (si el oráculo hubiera fallado, se
-        // habría lanzado arriba). Recién ahora el archivo deja la marca "sin validar" y toma el
-        // nombre DEFINITIVO. Una corrida que no cierra bien nunca llega aquí.
+        // Plan 61 (H3.2 / S3.5, §2-D-H3-ii): PROMOCIÓN SOLO CON CERO NOVEDADES. Si el workbook tiene
+        // alguna novedad de datos, la corrida TERMINA AQUÍ con la marca "sin validar": nunca toma el
+        // nombre limpio, nunca se reporta como OK y siempre deja el reporte de novedades. El Excel
+        // fue escrito ANTES de los gates, así que el usuario tiene el artefacto para revisar.
+        if (novedades.Count > 0)
+        {
+            var rutaReporteNovedades = EmitirReporteNovedades(
+                solicitud, runId, usuarioAceptacion, canalAceptacion, rutaSinValidar, novedades, clasificacion);
+
+            Log.Warning(
+                "Entrega CON NOVEDADES (no certificada): {Cantidad} novedad(es) de datos. Excel marcado: {Excel}. Reporte: {Reporte}. RunId: {RunId}.",
+                novedades.Count,
+                rutaSinValidar,
+                rutaReporteNovedades,
+                runId);
+            progreso?.Report($"ENTREGADO CON NOVEDADES — NO CERTIFICADO. {novedades.Count} novedad(es) por revisar. Excel: {rutaSinValidar}. Reporte: {rutaReporteNovedades}");
+
+            var entregaConNovedades = ConstruirResultado(
+                resultado,
+                leafs,
+                rutaSinValidar,
+                lineasValidaciones,
+                clasificacion,
+                rutaReporte,
+                nuevoEstado: EstadoEntrega.EntregadaConNovedades,
+                novedades,
+                rutaReporteNovedades);
+            InvarianteEntrega.Garantizar(entregaConNovedades);
+            return entregaConNovedades;
+        }
+
+        // Reconocida y sin novedades de datos: la doble huella es obligatoria (D-E). Sin reporte NO
+        // hay ÉXITO (Plan 42 intacto). Plan 61 (D-TXT): cuando SOLO hay declaradas se conserva el
+        // nombre anterior del reporte; el de novedades absorbe esa sección cuando coexisten.
+        if (hayDeclaradaReconocida)
+        {
+            if (_reporteDivergencias is null)
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Inesperado,
+                    "El cierre con divergencia declarada exige el reporte durable y no hay emisor de reporte configurado (sin reporte no hay éxito).");
+            }
+
+            rutaReporte = _reporteDivergencias.Emitir(solicitud.RutaSalida, solicitud.Periodo, runId, clasificacion!, usuarioAceptacion, canalAceptacion);
+            RegistrarHuellaDeclaradas(clasificacion!, rutaReporte, runId, usuarioAceptacion, canalAceptacion);
+            progreso?.Report($"Divergencia(s) declarada(s) reconocida(s) en esta corrida. Reporte: {rutaReporte}");
+        }
+
+        // Plan 43 (O-4): la corrida no trae novedades (si las hubiera, habría retornado arriba).
+        // Recién ahora el archivo deja la marca "sin validar" y toma el nombre DEFINITIVO.
         if (!string.Equals(Path.GetFullPath(rutaSinValidar), Path.GetFullPath(solicitud.RutaSalida), StringComparison.OrdinalIgnoreCase))
         {
             File.Move(rutaSinValidar, solicitud.RutaSalida, overwrite: true);
@@ -547,14 +631,119 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         progreso?.Report("Proceso del período completado correctamente.");
         Log.Information("Proceso del período completado correctamente.");
 
-        return new ResultadoProcesoPeriodo
+        var entregaCertificada = ConstruirResultado(
+            resultado,
+            leafs,
+            solicitud.RutaSalida,
+            lineasValidaciones,
+            clasificacion,
+            rutaReporte,
+            nuevoEstado: EstadoEntrega.Certificada,
+            [],
+            string.Empty);
+        InvarianteEntrega.Garantizar(entregaCertificada);
+        return entregaCertificada;
+    }
+
+    /// <summary>
+    /// Plan 61 (H3.2/H4.1): emite el reporte de novedades y devuelve su ruta. Fail-closed: sin
+    /// emisor configurado la corrida NO puede devolver un resultado con novedades (sin reporte no hay
+    /// entrega, misma doctrina que el reporte de declaradas).
+    /// </summary>
+    private string EmitirReporteNovedades(
+        SolicitudProcesoPeriodo solicitud,
+        Guid runId,
+        string usuario,
+        string canal,
+        string rutaSinValidar,
+        IReadOnlyList<NovedadEntrega> novedades,
+        ClasificacionDivergenciasDeclaradas? clasificacion)
+    {
+        if (_reporteNovedades is null)
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Inesperado,
+                $"La corrida tiene {novedades.Count} novedad(es) de datos y exige el reporte de novedades, pero no hay emisor de reporte configurado. Se entrega el Excel marcado solo si además queda el reporte que el usuario pueda leer (sin reporte no hay entrega).");
+        }
+
+        return _reporteNovedades.Emitir(
+            solicitud.RutaSalida,
+            rutaSinValidar,
+            solicitud.Periodo,
+            runId,
+            novedades,
+            clasificacion,
+            usuario,
+            canal);
+    }
+
+    /// <summary>
+    /// Plan 61 (H3.2): bloqueo por divergencia DECLARADA sin reconocer. El flujo Plan 42 se mantiene
+    /// (la excepción porta la clasificación para que UI/CLI ofrezcan el reconocimiento), pero el
+    /// usuario ya no se queda sin nada: el Excel marcado está escrito y, si hay emisor, se deja el
+    /// reporte que explica qué hay que reconocer.
+    /// </summary>
+    private void EmitirReporteNovedadesDeBloqueo(
+        SolicitudProcesoPeriodo solicitud,
+        Guid runId,
+        string usuario,
+        string canal,
+        string rutaSinValidar,
+        ClasificacionDivergenciasDeclaradas clasificacion,
+        IReadOnlyList<NovedadEntrega> novedades)
+    {
+        if (_reporteNovedades is null)
+        {
+            // Composición sin emisor (regresión): el bloqueo del Plan 42 sigue siendo la garantía.
+            return;
+        }
+
+        try
+        {
+            var ruta = _reporteNovedades.Emitir(
+                solicitud.RutaSalida,
+                rutaSinValidar,
+                solicitud.Periodo,
+                runId,
+                novedades,
+                clasificacion,
+                usuario,
+                canal);
+            Log.Warning("Corrida bloqueada por divergencia declarada sin reconocer: Excel marcado y reporte entregados. Reporte: {Reporte}", ruta);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // El bloqueo (ERR-VALIDACION) es la garantía dura; un fallo al dejar el reporte no debe
+            // enmascararlo con otro error distinto.
+            Log.Error(ex, "No se pudo emitir el reporte de novedades de la corrida bloqueada.");
+        }
+    }
+
+    /// <summary>
+    /// Plan 61 (H3.1): compone el resultado del período. Aditivo: los campos nuevos llevan sus
+    /// defaults cuando la corrida se certifica.
+    /// </summary>
+    private static ResultadoProcesoPeriodo ConstruirResultado(
+        ResultadoRemuneracion resultado,
+        IReadOnlyList<WorkbookLeafInputs> leafs,
+        string rutaEntregada,
+        IReadOnlyList<string> lineasValidaciones,
+        ClasificacionDivergenciasDeclaradas? clasificacion,
+        string rutaReporteDeclaradas,
+        EstadoEntrega nuevoEstado,
+        IReadOnlyList<NovedadEntrega> novedades,
+        string rutaReporteNovedades) =>
+        new()
         {
             Resultado = resultado,
             Leafs = leafs,
-            RutaSalida = solicitud.RutaSalida,
+            RutaSalida = rutaEntregada,
             Validaciones = lineasValidaciones,
             DivergenciasDeclaradas = clasificacion,
-            ReporteDivergenciasDeclaradas = rutaReporte,
+            ReporteDivergenciasDeclaradas = rutaReporteDeclaradas,
+            EstadoEntrega = nuevoEstado,
+            Novedades = novedades,
+            RutaReporteNovedades = rutaReporteNovedades,
             FuentesAusentes = leafs
                 .SelectMany(leaf => leaf.Conciliacion.SelectMany(conc => conc.FuentesAusentes)
                     .Select(fuente => $"ASE {leaf.Ase.Id} · {fuente}"))
@@ -574,7 +763,7 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList()
         };
-    }
+
 
     /// <summary>
     /// Plan 43 (O-3): resuelve el usuario de la aceptación de forma honesta. Usa el valor declarado

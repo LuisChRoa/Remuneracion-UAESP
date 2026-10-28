@@ -1,4 +1,6 @@
+using Remuneracion.Core.Constants;
 using Remuneracion.Core.Exceptions;
+using Remuneracion.Core.Interfaces;
 using Remuneracion.Core.Models;
 using Remuneracion.Core.Services;
 using Remuneracion.Infrastructure.Excel;
@@ -369,36 +371,88 @@ public sealed class ProcesadorPeriodoTests
     }
 
     [Fact]
-    public void WriterMultiAse_GateDeCoherenciaRotoEnAse3_NoGeneraArchivo()
+    public void WriterMultiAse_GateDeCoherenciaRotoEnAse3_EntregaMarcadaSinNombreLimpio()
     {
-        // Req 3 / §2.3: el writer multi-ASE valida coherencia por ASE con matcheo estricto ANTES
-        // de escribir; si un leaf no cuadra con su consolidado, no hay archivo certificado.
-        var lector = new ExcelDataReaderRecaudoReader();
-        var leafReader = new ExcelDataReaderWorkbookLeafInputReader();
-        var calculo = new CalculoRemuneracion();
-        var periodo = Insumos.Periodo();
+        // Req 3 / §2.3 + Plan 61 (H3.3 / §12-D5): RE-ANCLADO preservando la INTENCIÓN
+        // (no certificar ≠ no escribir). Antes el gate de coherencia vivía DENTRO del writer y
+        // abortaba sin archivo; desde H3 vive en el procesador, donde degrada a NOVEDAD. Lo que el
+        // test fija ahora es la política del Ingeniero: con la coherencia rota en el ASE 3 existe el
+        // archivo marcado "(sin validar)" con su reporte, y NO existe el nombre limpio.
+        var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-proceso-coherencia-" + Guid.NewGuid().ToString("N"));
+        var salida = Path.Combine(salidaDir, Insumos.Periodo().NombreArchivo);
+        var marcada = NombresSalida.RutaSinValidar(salida);
 
-        var datos = Enumerable.Range(1, 5).Select(i =>
+        var procesador = new ProcesadorPeriodo(
+            new ExcelDataReaderRecaudoReader(),
+            new ExcelDataReaderWorkbookLeafInputReader(),
+            new CalculoRemuneracion(),
+            new ValidadorConCoherenciaRotaEnAse3(),
+            new OpenXmlPlantillaWriter(),
+            new ArchivoFuenteLocator(),
+            new ExcelDataReaderDetRetriR10Reader(),
+            new ValidacionOracleReader(),
+            new ReporteDivergenciasDeclaradasWriter(),
+            new ReporteNovedadesWriter());
+
+        try
         {
-            var r1 = lector.LeerR1(Insumos.R1(i));
-            var r2 = lector.LeerR2(Insumos.R2(i));
-            var r4 = lector.LeerR4(Insumos.R4(i));
-            return (ase: Insumos.Ase(i), r1, r2, r4);
-        }).ToList();
-        var resultado = calculo.CalcularConsolidado(periodo, datos);
+            var resultado = procesador.Ejecutar(new SolicitudProcesoPeriodo
+            {
+                Periodo = Insumos.Periodo(),
+                CarpetaPeriodo = Insumos.CarpetaPeriodo,
+                RutaPlantilla = Insumos.Plantilla,
+                RutaSalida = salida
+            });
 
-        var leafs = datos.Select(d =>
-            leafReader.LeerLeafInputs(d.ase, periodo, Insumos.R1(d.ase.Id), Insumos.R2(d.ase.Id), Insumos.R4(d.ase.Id))).ToList();
+            Assert.Equal(EstadoEntrega.EntregadaConNovedades, resultado.EstadoEntrega);
+            Assert.Contains(resultado.Novedades, n => n.AseId == 3);
+            Assert.True(File.Exists(marcada), "La corrida con coherencia rota debe entregar el Excel marcado '(sin validar)'.");
+            Assert.False(File.Exists(salida), "Una corrida con novedades NO debe tomar el nombre limpio.");
+            Assert.Equal(marcada, resultado.RutaSalida);
+            Assert.True(File.Exists(resultado.RutaReporteNovedades), "Sin reporte de novedades no hay entrega.");
+        }
+        finally
+        {
+            if (Directory.Exists(salidaDir))
+            {
+                Directory.Delete(salidaDir, recursive: true);
+            }
+        }
+    }
 
-        // Rompemos la coherencia SOLO del ASE 3.
-        leafs[2].R2.E15 += 100m;
+    /// <summary>
+    /// Plan 61 (H3.3): validador de producción con UNA divergencia de coherencia inyectada en el
+    /// ASE 3 (el resto delega en <see cref="ValidadorBasico"/>). Se inyecta por la costura pública de
+    /// <c>IValidador</c>: no hay fixture de hoja rota ni rama de producción por ASE.
+    /// </summary>
+    private sealed class ValidadorConCoherenciaRotaEnAse3 : IValidador
+    {
+        private readonly ValidadorBasico _interno = new();
 
-        var salida = Path.Combine(Path.GetTempPath(), "remuneracion-writer-gate-" + Guid.NewGuid().ToString("N"), "salida.xlsx");
+        public List<string> Validar(ResultadoRemuneracion resultado) => _interno.Validar(resultado);
 
-        Assert.Throws<CalculoInvalidoException>(() =>
-            new OpenXmlPlantillaWriter().GenerarWorkbook(Insumos.Plantilla, salida, resultado, leafs));
+        public List<string> Validar(ResultadoRemuneracion resultado, WorkbookLeafInputs leaf) => _interno.Validar(resultado, leaf);
 
-        Assert.False(File.Exists(salida), "No debe existir salida certificada ante gate roto.");
+        public List<string> Validar(ResultadoRemuneracion resultado, IReadOnlyList<WorkbookLeafInputs> leafs)
+        {
+            var errores = _interno.Validar(resultado, leafs);
+            errores.Add("[ERR-VALIDACION] ASE 3: la hoja R2 TotalOportunoEsperado (100) no coincide con R2TotalOportuno del consolidado (200).");
+            return errores;
+        }
+
+        public List<string> Validar(
+            ResultadoRemuneracion resultado,
+            IReadOnlyList<WorkbookLeafInputs> leafs,
+            IReadOnlyList<ValidacionCruzadaSnapshot> snapshots) => _interno.Validar(resultado, leafs, snapshots);
+
+        public ClasificacionDivergenciasDeclaradas ClasificarDivergenciasDeclaradas(
+            ResultadoRemuneracion resultado,
+            IReadOnlyList<WorkbookLeafInputs> leafs,
+            IReadOnlyList<ValidacionCruzadaSnapshot> snapshots) =>
+            _interno.ClasificarDivergenciasDeclaradas(resultado, leafs, snapshots);
+
+        public List<string> ValidarDetRetriContraR10(IReadOnlyList<WorkbookLeafInputs> leafs, DetRetriInputs r10) =>
+            _interno.ValidarDetRetriContraR10(leafs, r10);
     }
 
     [Fact]

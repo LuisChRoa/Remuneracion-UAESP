@@ -44,6 +44,13 @@ namespace Remuneracion.WinForms
         /// </summary>
         public int UltimoCodigoSalida { get; private set; } = CodigosSalida.Ok;
 
+        /// <summary>
+        /// Plan 61 (H4.3, §2-D-H4): ruta del reporte de novedades de la ÚLTIMA corrida. Vacía = la
+        /// corrida no dejó novedades (se certificó) o no se ha ejecutado nada. La usa el botón que
+        /// abre el reporte.
+        /// </summary>
+        private string _rutaReporteNovedades = string.Empty;
+
         public Form1(
             IProcesadorRemuneracion procesadorRemuneracion,
             IProcesadorPeriodo procesadorPeriodo,
@@ -268,6 +275,11 @@ namespace Remuneracion.WinForms
             btnVerLogs.Enabled = false;
             ActualizarResumenHumano(ResumenSinEjecucion);
             toolStripStatusLabel.Text = "Listo";
+            toolStripStatusLabel.ForeColor = SystemColors.ControlText;
+            // Plan 61 (H4.3): el reset general también retira el acceso al reporte de la corrida anterior.
+            btnAbrirReporteNovedades.Visible = false;
+            btnAbrirReporteNovedades.Enabled = false;
+            _rutaReporteNovedades = string.Empty;
             UltimoCodigoSalida = CodigosSalida.Ok;
 
             // 1. Rutas: se vacían (los tooltips se restauran vía Ruta_TextChanged).
@@ -529,6 +541,8 @@ namespace Remuneracion.WinForms
             AppendLogLine($"ERROR [{codigo}]: {ex.GetType().Name} — {ex.Message}");
             Log.Error(ex, "[{Codigo}] Error en la ejecución del proceso: {Mensaje}", codigo, ex.Message);
             MostrarErrorUx(codigo, ex);
+            toolStripStatusLabel.ForeColor = SystemColors.ControlText;
+            btnAbrirReporteNovedades.Visible = false;
             toolStripStatusLabel.Text = $"Error {codigo} — ver guía en pantalla";
             ActualizarResumenHumano($"Período {PeriodoSeleccionado} · no completado (error inesperado) — ver guía en pantalla");
         }
@@ -592,9 +606,42 @@ namespace Remuneracion.WinForms
         /// <see cref="CodigosSalida.DivergenciaDeclaradaReconocida"/> (6, DISTINTA de Ok) y
         /// entregables nombrados (archivo + reporte); las huellas (reporte + log) las emite el
         /// procesador antes de devolver (sin reporte no hay ÉXITO).
+        ///
+        /// Plan 61 (H4.3 / S3.4, §2-D-H4): ENTREGADO CON NOVEDADES → estado ÁMBAR (nunca verde),
+        /// ruta del reporte visible y botón para abrirlo, con
+        /// <see cref="CodigosSalida.NovedadesEntrega"/> registrado. El usuario tiene el Excel marcado
+        /// y el documento que dice qué revisar: nunca un cierre silencioso.
         /// </summary>
         private void CompletarExitoPeriodo(ResultadoProcesoPeriodo resultado, decimal granTotal)
         {
+            if (resultado.EstadoEntrega == EstadoEntrega.EntregadaConNovedades)
+            {
+                UltimoCodigoSalida = CodigosSalida.NovedadesEntrega;
+                _rutaReporteNovedades = resultado.RutaReporteNovedades;
+                var nombreReporteNovedades = Path.GetFileName(resultado.RutaReporteNovedades);
+                AppendLogLine($"ENTREGADO CON NOVEDADES — NO CERTIFICADO ({resultado.Novedades.Count} novedad(es)). Excel: {resultado.RutaSalida}. Reporte: {resultado.RutaReporteNovedades}");
+                foreach (var novedad in resultado.Novedades)
+                {
+                    AppendLogLine($"  ASE {(novedad.AseId == 0 ? "todos" : novedad.AseId)} · {novedad.Hoja} · {novedad.ConceptoOCelda}: {novedad.QueRevisar}");
+                }
+
+                Log.Warning(
+                    "Entrega con novedades (no certificada): {Cantidad} novedad(es). Excel marcado: {Excel}. Reporte: {Reporte}.",
+                    resultado.Novedades.Count,
+                    resultado.RutaSalida,
+                    resultado.RutaReporteNovedades);
+                AplicarEstadoAmbar(
+                    $"Entregado con novedades — NO certificado ({resultado.Novedades.Count} por revisar). Reporte: {nombreReporteNovedades}",
+                    $"Período {PeriodoSeleccionado} · 5 ASE · GranTotal ≈ {granTotal:0.##} · ENTREGADO CON NOVEDADES — revisar el reporte ({nombreReporteNovedades})");
+                btnAbrirReporteNovedades.Visible = true;
+                btnAbrirReporteNovedades.Enabled = true;
+                return;
+            }
+
+            btnAbrirReporteNovedades.Visible = false;
+            _rutaReporteNovedades = string.Empty;
+            toolStripStatusLabel.ForeColor = SystemColors.ControlText;
+
             if (resultado.DivergenciasDeclaradas?.SoloDeclaradas == true
                 && !string.IsNullOrWhiteSpace(resultado.ReporteDivergenciasDeclaradas))
             {
@@ -612,6 +659,48 @@ namespace Remuneracion.WinForms
                 UltimoCodigoSalida = CodigosSalida.Ok;
                 toolStripStatusLabel.Text = $"Completado — archivo listo en {txtCarpetaSalida.Text}";
                 ActualizarResumenHumano($"Período {PeriodoSeleccionado} · 5 ASE · GranTotal ≈ {granTotal:0.##}");
+            }
+        }
+
+        /// <summary>
+        /// Plan 61 (H4.3): estado ÁMBAR del status. Es el único color de "hay algo que revisar": el
+        /// verde queda reservado a la certificación y por eso NUNCA se usa aquí (§2-D-H3-iii).
+        /// </summary>
+        private void AplicarEstadoAmbar(string textoStatus, string textoResumen)
+        {
+            toolStripStatusLabel.ForeColor = Color.FromArgb(0xB4, 0x53, 0x09);
+            toolStripStatusLabel.Text = textoStatus;
+            ActualizarResumenHumano(textoResumen);
+        }
+
+        /// <summary>
+        /// Plan 61 (H4.3): abre el reporte de novedades de la última corrida. Validación UX (no de
+        /// proceso): si el archivo ya no está, avisa y no lanza excepción.
+        /// </summary>
+        private void btnAbrirReporteNovedades_Click(object? sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(_rutaReporteNovedades) || !File.Exists(_rutaReporteNovedades))
+            {
+                MessageBox.Show(
+                    "El reporte de novedades de la última corrida ya no está disponible.",
+                    "Reporte de novedades",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo(_rutaReporteNovedades) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "No se pudo abrir el reporte de novedades: {Reporte}", _rutaReporteNovedades);
+                MessageBox.Show(
+                    "No se pudo abrir el reporte de novedades. La ruta quedó registrada en el detalle de la corrida.",
+                    "Reporte de novedades",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
             }
         }
 
@@ -963,6 +1052,8 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
             btnEjecutar.Enabled = habilitados;
             btnLimpiar.Enabled = habilitados;
             btnAbrirSalida.Enabled = habilitados;
+            // Plan 61 (H4.3): el acceso al reporte de novedades solo existe si la última corrida lo dejó.
+            btnAbrirReporteNovedades.Enabled = habilitados && btnAbrirReporteNovedades.Visible;
             // HU-19: "Ver logs" solo cuando hay contenido en el buffer y no hay ejecución en curso.
             btnVerLogs.Enabled = habilitados && _bufferLog.Length > 0;
         }

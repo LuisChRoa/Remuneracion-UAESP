@@ -72,6 +72,8 @@ namespace Remuneracion.WinForms
         private System.Windows.Forms.Button btnLimpiar;
         private System.Windows.Forms.Button btnAbrirSalida;
         private System.Windows.Forms.Button btnVerLogs;
+        /// <summary>Plan 61 (H4.3): abre el reporte de novedades de la última corrida.</summary>
+        private System.Windows.Forms.Button btnAbrirReporteNovedades;
         private System.Windows.Forms.ProgressBar progressBar;
         private System.Windows.Forms.Label lblProgresoPct;
         private System.Windows.Forms.Label lblAseActual;
@@ -137,6 +139,7 @@ namespace Remuneracion.WinForms
             btnAbrirSalida = new Button();
             lblAseActual = new Label();
             btnVerLogs = new Button();
+            btnAbrirReporteNovedades = new Button();
             statusStrip = new StatusStrip();
             toolStripStatusLabel = new ToolStripStatusLabel();
             toolStripVersion = new ToolStripStatusLabel();
@@ -527,6 +530,7 @@ namespace Remuneracion.WinForms
             pnlCardEjecucion.Controls.Add(btnAbrirSalida);
             pnlCardEjecucion.Controls.Add(lblAseActual);
             pnlCardEjecucion.Controls.Add(btnVerLogs);
+            pnlCardEjecucion.Controls.Add(btnAbrirReporteNovedades);
             pnlCardEjecucion.Dock = DockStyle.Fill;
             pnlCardEjecucion.Location = new Point(22, 350);
             pnlCardEjecucion.Margin = new Padding(6);
@@ -670,6 +674,25 @@ namespace Remuneracion.WinForms
             btnVerLogs.Text = "Ver logs";
             btnVerLogs.UseVisualStyleBackColor = false;
             btnVerLogs.Click += btnVerLogs_Click;
+            // 
+            // btnAbrirReporteNovedades
+            // 
+            // Plan 61 (H4.3 / §2-D-H4): botón para abrir el reporte de novedades de la última corrida.
+            // Nace OCULTO (una corrida certificada no tiene reporte) y aparece solo cuando la corrida
+            // se entregó con novedades; reutiliza el patrón visual de "Abrir salida" (sin rediseño).
+            btnAbrirReporteNovedades.BackColor = SystemColors.Window;
+            btnAbrirReporteNovedades.Enabled = false;
+            btnAbrirReporteNovedades.FlatAppearance.BorderColor = SystemColors.ControlDark;
+            btnAbrirReporteNovedades.FlatStyle = FlatStyle.Flat;
+            btnAbrirReporteNovedades.ForeColor = SystemColors.WindowText;
+            btnAbrirReporteNovedades.Location = new Point(272, 139);
+            btnAbrirReporteNovedades.Name = "btnAbrirReporteNovedades";
+            btnAbrirReporteNovedades.Size = new Size(180, 28);
+            btnAbrirReporteNovedades.TabIndex = 12;
+            btnAbrirReporteNovedades.Text = "Abrir reporte de novedades";
+            btnAbrirReporteNovedades.UseVisualStyleBackColor = false;
+            btnAbrirReporteNovedades.Visible = false;
+            btnAbrirReporteNovedades.Click += btnAbrirReporteNovedades_Click;
             // 
             // statusStrip
             // 

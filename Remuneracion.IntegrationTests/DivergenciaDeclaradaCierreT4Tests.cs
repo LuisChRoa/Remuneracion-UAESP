@@ -1,6 +1,7 @@
 using System.IO;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using Remuneracion.Core.Constants;
 using Remuneracion.Core.Exceptions;
 using Remuneracion.Core.Interfaces;
 using Remuneracion.Core.Models;
@@ -80,27 +81,37 @@ public sealed class DivergenciaDeclaradaCierreT4Tests : IDisposable
     [Fact]
     public void T4_NoDeclaradaInyectada_SigueBloqueandoAunqueLaDeclaradaEsteReconocida()
     {
+        // Plan 61 (H3.2 / D-NOVEDAD-27, RE-ANCLADO): la divergencia NO declarada ya no aborta la
+        // entrega — degrada a NOVEDAD con Excel marcado y reporte. Lo que este test sigue fijando,
+        // que es la intención del Plan 42 (D-F), es que reconocer la declarada NO lava lo no
+        // declarado: la corrida NO se certifica, no toma el nombre limpio y la celda inyectada
+        // aparece como novedad.
         var dir = DirectorioTemp("p42-t4-mixta");
         try
         {
             var salida = Path.Combine(dir, Insumos.PeriodoQ2().NombreArchivo);
             // Inyecta una divergencia NO declarada (C15 recaudo) tras la escritura del writer real.
-            var procesador = CrearProcesador(escritor: new EscritorConDivergenciaInyectada(), reporte: new ReporteDivergenciasDeclaradasWriter());
+            var procesador = CrearProcesador(
+                escritor: new EscritorConDivergenciaInyectada(),
+                reporte: new ReporteDivergenciasDeclaradasWriter(),
+                reporteNovedades: new ReporteNovedadesWriter());
 
-            var ex = Assert.Throws<CalculoInvalidoException>(() => procesador.Ejecutar(new SolicitudProcesoPeriodo
+            var resultado = procesador.Ejecutar(new SolicitudProcesoPeriodo
             {
                 Periodo = Insumos.PeriodoQ2(),
                 CarpetaPeriodo = Insumos.CarpetaPeriodoQ2,
                 RutaPlantilla = Insumos.PlantillaHistoricaV2(),
                 RutaSalida = salida,
                 DivergenciasDeclaradasAceptadas = ["OCCIDENTE-ASE5"] // la declarada SÍ está reconocida
-            }));
+            });
 
-            // D-F: la no declarada manda; FAIL duro nombrando la celda inyectada.
-            Assert.Contains("[ERR-VALIDACION]", ex.Message, StringComparison.Ordinal);
-            Assert.Contains("VALIDACION_TOTAL · C15", ex.Message, StringComparison.Ordinal);
-            // La clasificación NO viaja (es un fallo no declarado, no un cierre pendiente).
-            Assert.Null(ex.Clasificacion);
+            // D-F: la no declarada manda — la corrida NO se certifica.
+            Assert.Equal(EstadoEntrega.EntregadaConNovedades, resultado.EstadoEntrega);
+            Assert.Contains(resultado.Novedades, n =>
+                n.Hoja == "VALIDACION_TOTAL" && n.ConceptoOCelda.Contains("C15", StringComparison.Ordinal));
+            Assert.False(File.Exists(salida), "La corrida con divergencia no declarada no debe tomar el nombre limpio.");
+            Assert.True(File.Exists(NombresSalida.RutaSinValidar(salida)), "Debe quedar el Excel marcado para revisión.");
+            Assert.True(File.Exists(resultado.RutaReporteNovedades), "Debe quedar el reporte que explica qué revisar.");
         }
         finally
         {
@@ -110,7 +121,8 @@ public sealed class DivergenciaDeclaradaCierreT4Tests : IDisposable
 
     private static ProcesadorPeriodo CrearProcesador(
         IWorkbookLeafWriter? escritor = null,
-        IReporteDivergenciasDeclaradas? reporte = null) =>
+        IReporteDivergenciasDeclaradas? reporte = null,
+        IReporteNovedades? reporteNovedades = null) =>
         new(
             new ExcelDataReaderRecaudoReader(),
             new ExcelDataReaderWorkbookLeafInputReader(),
@@ -120,7 +132,8 @@ public sealed class DivergenciaDeclaradaCierreT4Tests : IDisposable
             new ArchivoFuenteLocator(),
             new ExcelDataReaderDetRetriR10Reader(),
             new ValidacionOracleReader(),
-            reporte);
+            reporte,
+            reporteNovedades);
 
     private static string DirectorioTemp(string etiqueta)
     {

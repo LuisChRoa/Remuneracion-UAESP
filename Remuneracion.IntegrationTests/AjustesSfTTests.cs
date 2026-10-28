@@ -303,13 +303,16 @@ public sealed class AjustesSfTTests
                 RetribucionNegativa = new RetribucionNegativaAseInputs { Ase = ase, Total = 50m + i, ServEspK = 0m }
             };
 
+            // Fixture SINTÉTICO (Plan 61 · H2.3 / doctrina H5.4): no modela una fuente real. Los
+            // componentes de R2/R4 son no nulos a propósito, para que el caso NO bendiga el supuesto
+            // histórico «Especiales = 0»; el NETO visible se conserva (R2 = 2000+i, R4 = −(300+i)).
             var leaf = new WorkbookLeafInputs
             {
                 Ase = ase,
                 Periodo = periodo,
                 R1 = new WorkbookLeafInputsR1 { F25 = 100m + i, F41 = 200m + i, L25 = 0m, F30 = 0m, F10 = 0m, L10 = 0m },
-                R2 = new WorkbookLeafInputsR2 { E15 = 2000m + i, E26 = 0m, K15 = 0m },
-                R4 = new WorkbookLeafInputsR4 { D9 = -(300m + i), P9 = 0m },
+                R2 = new WorkbookLeafInputsR2 { E15 = 2000m + i, E26 = 100m, K15 = 100m },
+                R4 = new WorkbookLeafInputsR4 { D9 = -(400m + i), P9 = -100m },
                 AjustesSfT = ajustes,
                 DetRetriQ2 = new DetRetriQ2Inputs
                 {

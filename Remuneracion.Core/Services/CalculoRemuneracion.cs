@@ -37,7 +37,11 @@ public sealed class CalculoRemuneracion : ICalculoRemuneracion
             TotOpt = r1.TotalOportuno,
             R2TotalOportuno = r2.TotalOportuno,
             Extemp = r1.Extemporaneo,
-            ReversionR4 = r4.TotalReversiones,
+            // Plan 61 (H1.3 / S2.1): visible del R4 = Total del cierre − Especiales por encabezado,
+            // la misma descomposición que el leaf (`TotalReversionEsperada`) y que el visible por
+            // empresa. Espejo de R2 (`r2.TotalOportuno` = GrandTotal − ServEspK). Con la fuente sin
+            // el encabezado, EspecialesReversion = 0 y el valor es idéntico al histórico.
+            ReversionR4 = r4.TotalReversiones - r4.EspecialesReversion,
             AjustesSfT = 0m
         };
     }

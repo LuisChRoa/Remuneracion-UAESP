@@ -1385,9 +1385,15 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
         new ResolvedorDestinoValor.RolValor(
             ResolvedorDestinoValor.NivelDestino.Seccion, etiqueta, 1, encabezado).Clave;
     /// <summary>
-    /// Plan 54 (H1.4, D4): mapeo R4 ÚNICO para ambas quincenas — fila <c>Total</c> con <c>B</c> vacío
-    /// sobre la columna D, con la tabla destino ÚNICA del mapa productivo v2. <c>P = 0</c> (sin análogo
-    /// en la fuente, patrón histórico). Valores idénticos a la rama Q2 por caracterización T0.4.
+    /// Plan 54 (H1.4, D4): mapeo R4 ÚNICO para ambas quincenas — fila de cierre <c>Total</c> con
+    /// <c>B</c> vacío, con la tabla destino ÚNICA del mapa productivo v2.
+    ///
+    /// Plan 61 (H1.1 / D-H1): el gran total se lee del componente <c>Total</c> y sus Especiales del
+    /// encabezado de Especiales de la MISMA fila de cierre, resuelto por la tabla ÚNICA de alias
+    /// (<see cref="ResolvedorConciliacionEmpresa.IndicesComponentes"/>). Se retira el supuesto
+    /// histórico de que Especiales no venía en la fuente: la columna aparece de forma INTERMITENTE
+    /// (medido: 2 de 30 fuentes R4 del corpus) y su letra física no es contrato.
+    /// Encabezado ausente ⇒ <c>0</c> declarado; el valor nunca se inventa.
     /// </summary>
     private static WorkbookLeafInputsR4 MapearR4(Ase ase, List<object?[]> filas)
     {
@@ -1396,8 +1402,12 @@ public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputR
             && string.IsNullOrWhiteSpace(ExcelWorksheetNavigator.CeldaTexto(f.ElementAtOrDefault(1))))
             ?? throw new CalculoInvalidoException($"ASE {ase.Id}: no se encontró la fila Total (B vacío) del R4 para D9.");
 
+        var (_, indiceEspeciales) = ResolvedorConciliacionEmpresa.IndicesComponentes(filas);
+
         var d9 = ExcelWorksheetNavigator.CeldaNumero(filaTotal.ElementAtOrDefault(3));
-        var p9 = 0m;
+        var p9 = indiceEspeciales >= 0
+            ? ExcelWorksheetNavigator.CeldaNumero(filaTotal.ElementAtOrDefault(indiceEspeciales))
+            : 0m;
 
         // Plan 59 (H2.1): el destino se entrega por ROL (gran total del bloque + sus especiales); el
         // escritor resuelve la celda contra la plantilla. Cero celdas aquí.

@@ -315,8 +315,11 @@ public sealed class ConciliacionEmpresaSigmaPlan55Tests
         Ase = AseFactory.DesdeId(1),
         Periodo = new Periodo { CodigoAAAAMM = "202610", NumeroQuincena = quincena },
         R1 = new WorkbookLeafInputsR1 { TotalOportunoEsperadoPorAse = visibleR1 },
-        R2 = new WorkbookLeafInputsR2 { E15 = visibleR2, E26 = 0m, K15 = 0m },
-        R4 = new WorkbookLeafInputsR4 { D9 = visibleR4, P9 = 0m }
+        // Fixture SINTÉTICO (Plan 61 · H2.3 / doctrina H5.4): el gate compara el NETO; los
+        // componentes son arbitrarios y NO nulos para no bendecir «Especiales = 0».
+        // R2: (visibleR2 + 250) + 150 − 400 = visibleR2 ; R4: (visibleR4 − 75) − (−75) = visibleR4.
+        R2 = new WorkbookLeafInputsR2 { E15 = visibleR2 + 250m, E26 = 150m, K15 = 400m },
+        R4 = new WorkbookLeafInputsR4 { D9 = visibleR4 - 75m, P9 = -75m }
     };
 
     private static (WorkbookLeafInputs Leaf, IReadOnlyList<ConciliacionEmpresaInputs> Conciliacion) Leer(

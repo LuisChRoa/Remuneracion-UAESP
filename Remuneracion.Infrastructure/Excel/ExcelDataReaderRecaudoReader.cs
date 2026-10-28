@@ -186,14 +186,27 @@ public class ExcelDataReaderRecaudoReader : IRecaudoReader
                 $"No se encontró la fila con A='Total' y B vacío (TotalReversiones) en '{Path.GetFileName(rutaArchivo)}'. " +
                 $"Filas leídas: {filas.Count}");
 
-        var totalReversiones = CeldaNumero(filaTotal.ElementAtOrDefault(3)); // Columna D (index 3) — ya negativo
+        // Componente Total de la fila de cierre: observación fiel de la fuente (negativo, sin restar).
+        var totalReversiones = CeldaNumero(filaTotal.ElementAtOrDefault(3));
+
+        // Plan 61 (H1.2 / D-H1.3): el componente «SERVICIO ESPECIALES» de la MISMA fila de cierre se
+        // resuelve por ENCABEZADO sobre la tabla ÚNICA de alias (ResolvedorConciliacionEmpresa), no
+        // por letra ni por índice fijo: la columna es INTERMITENTE por ASE y por mes (medido: 2 de 30
+        // fuentes R4 traen el encabezado, y la misma letra la ocupa otro concepto en otros ASE).
+        // Encabezado ausente ⇒ 0 declarado. TotalReversiones sigue siendo la observación fiel del
+        // componente Total (D-MODELO ratificada).
+        var (_, indiceEspeciales) = ResolvedorConciliacionEmpresa.IndicesComponentes(filas);
+        var especialesReversion = indiceEspeciales >= 0
+            ? CeldaNumero(filaTotal.ElementAtOrDefault(indiceEspeciales))
+            : 0m;
 
         var nombreAse = ObtenerNombreAse(rutaArchivo);
 
         return new ReversionR4
         {
             NombreAse = nombreAse,
-            TotalReversiones = totalReversiones
+            TotalReversiones = totalReversiones,
+            EspecialesReversion = especialesReversion
         };
     }
 
