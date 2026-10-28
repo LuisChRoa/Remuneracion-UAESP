@@ -23,9 +23,7 @@ namespace Remuneracion.WinForms
 
         private const string ResumenSinEjecucion = "Aún no hay ejecución en esta sesión.";
 
-        private readonly IProcesadorRemuneracion _procesadorRemuneracion;
         private readonly IProcesadorPeriodo _procesadorPeriodo;
-        private readonly ArchivoFuenteLocator _archivoFuenteLocator;
 
         /// <summary>HU-19 (§2.7/G6): última línea de resumen humano mostrada (sin códigos técnicos).</summary>
         private string _ultimoResumen = ResumenSinEjecucion;
@@ -51,20 +49,15 @@ namespace Remuneracion.WinForms
         /// </summary>
         private string _rutaReporteNovedades = string.Empty;
 
-        public Form1(
-            IProcesadorRemuneracion procesadorRemuneracion,
-            IProcesadorPeriodo procesadorPeriodo,
-            ArchivoFuenteLocator archivoFuenteLocator)
+        public Form1(IProcesadorPeriodo procesadorPeriodo)
         {
-            _procesadorRemuneracion = procesadorRemuneracion ?? throw new ArgumentNullException(nameof(procesadorRemuneracion));
             _procesadorPeriodo = procesadorPeriodo ?? throw new ArgumentNullException(nameof(procesadorPeriodo));
-            _archivoFuenteLocator = archivoFuenteLocator ?? throw new ArgumentNullException(nameof(archivoFuenteLocator));
 
             InitializeComponent();
             ConfigurarSerilog();
             InicializarLogo();
+            InicializarIcono();
             InicializarPeriodo();
-            InicializarAse();
         }
 
         /// <summary>
@@ -78,10 +71,7 @@ namespace Remuneracion.WinForms
             new(() => ComposicionServicios.Crear());
 
         public Form1()
-            : this(
-                ServiciosPorDefecto.Value.Remuneracion,
-                ServiciosPorDefecto.Value.Periodo,
-                ServiciosPorDefecto.Value.Locator)
+            : this(ServiciosPorDefecto.Value.Periodo)
         {
         }
 
@@ -163,31 +153,46 @@ namespace Remuneracion.WinForms
             }
         }
 
-        private void InicializarAse()
+        /// <summary>
+        /// Carga el icono de la aplicación (Assets/app.ico, monograma FN) desde el manifiesto y lo
+        /// asigna a la ventana. Sin esto, en ejecución desde <c>dotnet run</c> el título mostraría
+        /// el icono del host; el .exe usa el mismo .ico vía <c>ApplicationIcon</c>. Si el recurso
+        /// falta o está corrupto, la ventana queda con el icono por defecto: NUNCA se propaga
+        /// excepción (fallback seguro, apto para el diseñador).
+        /// </summary>
+        private void InicializarIcono()
         {
-            cmbAse.BeginUpdate();
-            foreach (string prefijo in CarpetasAse.Prefijos)
+            try
             {
-                int guion = prefijo.IndexOf('-');
-                if (guion > 0)
-                {
-                    string numero = prefijo[..guion].Trim();
-                    string nombre = prefijo[(guion + 1)..].Trim();
-                    cmbAse.Items.Add($"{numero} - {nombre}");
-                }
-                else
-                {
-                    cmbAse.Items.Add(prefijo);
-                }
-            }
-            cmbAse.SelectedIndex = 0;
-            cmbAse.EndUpdate();
-        }
+                var ensamblado = typeof(Form1).Assembly;
+                var nombreRecurso = ensamblado
+                    .GetManifestResourceNames()
+                    .FirstOrDefault(n => n.EndsWith("app.ico", StringComparison.OrdinalIgnoreCase));
 
-        private void chkCincoAse_CheckedChanged(object? sender, EventArgs e)
-        {
-            // En modo 5 ASE el combo conserva la selección para modo single, pero se deshabilita.
-            cmbAse.Enabled = !chkCincoAse.Checked;
+                if (nombreRecurso is null)
+                {
+                    Log.Warning("No se encontró el recurso embebido del icono (Assets/app.ico); la ventana usará el icono por defecto.");
+                    return;
+                }
+
+                using var stream = ensamblado.GetManifestResourceStream(nombreRecurso);
+                if (stream is null)
+                {
+                    Log.Warning("El recurso embebido del icono existe pero no pudo abrirse; la ventana usará el icono por defecto.");
+                    return;
+                }
+
+                using var memoria = new MemoryStream();
+                stream.CopyTo(memoria);
+                memoria.Position = 0;
+                using var icono = new System.Drawing.Icon(memoria);
+                // Clone desacopla el Icon del stream: seguro disponer ambos aquí.
+                Icon = (System.Drawing.Icon)icono.Clone();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "No se pudo cargar el icono embebido; la ventana usará el icono por defecto.");
+            }
         }
 
         private void Periodo_SelectedIndexChanged(object? sender, EventArgs e)
@@ -298,13 +303,6 @@ namespace Remuneracion.WinForms
             cmbQuincena.SelectedIndex = DateTime.Now.Day <= 15 ? 0 : 1;
             ActualizarSubtitulo();
 
-            // 3. ASE al valor inicial: primero uncheck (el handler habilita el combo), luego índice 0.
-            chkCincoAse.Checked = false;
-            if (cmbAse.Items.Count > 0)
-            {
-                cmbAse.SelectedIndex = 0;
-            }
-
             Log.Debug("Formulario limpiado (reset general) por el usuario.");
         }
 
@@ -394,8 +392,8 @@ namespace Remuneracion.WinForms
                 return;
             }
 
-            var modoCincoAse = chkCincoAse.Checked;
-            var maxProgreso = modoCincoAse ? 42 : 8; // hitos × 5 + escritura en modo período
+            // La corrida SIEMPRE cubre los 5 ASE (única forma de procesar): 40 hitos + escritura.
+            const int maxProgreso = 42;
 
             SetControlesHabilitados(false);
             progressBar.Style = ProgressBarStyle.Continuous;
@@ -408,10 +406,10 @@ namespace Remuneracion.WinForms
             ActualizarResumenHumano();
 
             var periodo = Periodo.Parse(PeriodoSeleccionado);
-            var aseSeleccionada = cmbAse.Text;
             var rutaSalida = Path.Combine(txtCarpetaSalida.Text, periodo.NombreArchivo);
 
-            var modoTexto = modoCincoAse ? "5 ASE" : $"ASE {aseSeleccionada}";
+            // La corrida SIEMPRE cubre los 5 ASE: es la única forma de procesar.
+            const string modoTexto = "5 ASE";
 
             // HU-14 (3.2, D5): RunId por ejecución + propiedades de contexto. Se empuja AQUÍ
             // (hilo UI) para que TODOS los eventos de la ejecución —el callback de progreso, los
@@ -474,23 +472,11 @@ namespace Remuneracion.WinForms
 
             try
             {
-                decimal granTotalCincoAse = 0m;
-                if (modoCincoAse)
-                {
-                    // Primera pasada SIN aceptaciones (R-RE-RUN-UI, D-D): si lo único pendiente es
-                    // una divergencia declarada, el procesador LANZA con la clasificación y el catch
-                    // dedicado presenta la superficie de reconocimiento.
-                    var pasada = await EjecutarModoCincoAse(periodo, rutaSalida, progreso, runId);
-                    granTotalCincoAse = pasada.GranTotal;
-                    CompletarExitoPeriodo(pasada.Resultado, granTotalCincoAse);
-                }
-                else
-                {
-                    await EjecutarModoUnAse(periodo, rutaSalida, progreso, runId);
-                    UltimoCodigoSalida = CodigosSalida.Ok;
-                    toolStripStatusLabel.Text = $"Completado — archivo listo en {txtCarpetaSalida.Text}";
-                    ActualizarResumenHumano($"Período {PeriodoSeleccionado} · ASE {aseSeleccionada} · salida = {Path.GetFileName(rutaSalida)}");
-                }
+                // Primera pasada SIN aceptaciones (R-RE-RUN-UI, D-D): si lo único pendiente es
+                // una divergencia declarada, el procesador LANZA con la clasificación y el catch
+                // dedicado presenta la superficie de reconocimiento.
+                var pasada = await EjecutarModoCincoAse(periodo, rutaSalida, progreso, runId);
+                CompletarExitoPeriodo(pasada.Resultado, pasada.GranTotal);
 
                 progressBar.Value = progressBar.Maximum;
                 lblProgresoPct.Text = "100 %";
@@ -702,38 +688,6 @@ namespace Remuneracion.WinForms
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
             }
-        }
-
-        private async Task EjecutarModoUnAse(Periodo periodo, string rutaSalida, IProgress<string> progreso, Guid runId)
-        {
-            var ase = ParseAse(cmbAse.Text);
-            var carpetaAse = ObtenerCarpetaAse(ase.Id);
-
-            var solicitud = new SolicitudProcesoAse
-            {
-                Ase = ase,
-                Periodo = periodo,
-                // HU-15 (W-2.1): el RunId de ESTA ejecución (hilo UI) se inyecta para que el
-                // procesador NO genere otro Guid: un solo RunId correlaciona UI → procesador → writer.
-                RunId = runId,
-                RutaR1 = _archivoFuenteLocator.BuscarArchivo(carpetaAse, "Recaudoporcomponente") ?? throw new ArchivoFuenteNoEncontradoException($"No se encontró R1 en {carpetaAse}."),
-                RutaR2 = _archivoFuenteLocator.BuscarArchivo(carpetaAse, "RerpoteDetalleSaldosaFavor") ?? throw new ArchivoFuenteNoEncontradoException($"No se encontró R2 en {carpetaAse}."),
-                RutaR4 = _archivoFuenteLocator.BuscarArchivo(carpetaAse, "ReversiónPorComponente") ?? _archivoFuenteLocator.BuscarArchivo(carpetaAse, "ReversionPorComponente") ?? throw new ArchivoFuenteNoEncontradoException($"No se encontró R4 en {carpetaAse}."),
-                RutaPlantilla = txtPlantilla.Text,
-                RutaSalida = rutaSalida
-            };
-
-            var resultadoProceso = await Task.Run(() => _procesadorRemuneracion.Ejecutar(solicitud, progreso));
-
-            var leaf = resultadoProceso.Leaf;
-            var valorD9Esperado = leaf.R1.TotalOportunoEsperado;
-            var valorF48Esperado = leaf.R1.ExtemporaneoEsperado;
-            var valorE41Esperado = leaf.R2.TotalOportunoEsperado;
-            var valorD67Esperado = leaf.R4.TotalReversionEsperada;
-
-            AppendLogLine($"Resumen final: F46/D9 esperado post-Excel = {valorD9Esperado:0.##}; F48/D47 esperado = {valorF48Esperado:0.##}; E41/D28 esperado = {valorE41Esperado:0.##}; D67/D66 esperado = {valorD67Esperado:0.##}; salida = {rutaSalida}");
-            Log.Information("Resumen final: F46/D9 esperado post-Excel = {D9}; F48/D47 esperado = {D47}; E41/D28 esperado = {D28}; D67/D66 esperado = {D66}; salida = {Salida}",
-                valorD9Esperado, valorF48Esperado, valorE41Esperado, valorD67Esperado, rutaSalida);
         }
 
         private async Task<(decimal GranTotal, ResultadoProcesoPeriodo Resultado)> EjecutarModoCincoAse(
@@ -1004,38 +958,6 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
             return (granTotal, resultadoProceso);
         }
 
-        private string ObtenerCarpetaAse(int idAse)
-        {
-            var carpetaPeriodo = txtCarpetaFuentes.Text;
-            var carpeta = _archivoFuenteLocator.ObtenerCarpetasAse(carpetaPeriodo)
-                .FirstOrDefault(c => Path.GetFileName(c).StartsWith(idAse.ToString(), StringComparison.OrdinalIgnoreCase));
-
-            if (string.IsNullOrWhiteSpace(carpeta))
-            {
-                throw new ArchivoFuenteNoEncontradoException($"No se encontró la carpeta del ASE {idAse} en '{carpetaPeriodo}'.");
-            }
-
-            return carpeta;
-        }
-
-        private static Ase ParseAse(string texto)
-        {
-            var numero = texto.Split('-')[0].Trim();
-            // HU-14 (S-3): se conserva el parseo del combo (UI), pero la construcción valida
-            // contra CarpetasAse.Prefijos vía AseFactory.DesdeId (fuente única; id fuera de
-            // 1..5 = fail-fast nombrado).
-            if (!int.TryParse(numero, out var id))
-            {
-                // HU-17 (S-4 HU-14): selección inválida ≠ archivo faltante — ArgumentException
-                // (consistente con AseFactory.DesdeId, que lanza ArgumentOutOfRangeException para
-                // id fuera de 1..5; ambos son ArgumentException). El catch general lo traduce a
-                // ERR-INESPERADO (código 4), nunca ERR-FUENTE-NO-ENCONTRADA (código 2).
-                throw new ArgumentException($"No se pudo interpretar el ASE seleccionado: '{texto}'.", nameof(texto));
-            }
-
-            return AseFactory.DesdeId(id);
-        }
-
         private void SetControlesHabilitados(bool habilitados)
         {
             cmbAnio.Enabled = habilitados;
@@ -1047,8 +969,6 @@ foreach (var bloque in leaf.ReporteBanco.Ases)
             btnSeleccionarPlantilla.Enabled = habilitados;
             txtCarpetaSalida.Enabled = habilitados;
             btnSeleccionarSalida.Enabled = habilitados;
-            cmbAse.Enabled = habilitados && !chkCincoAse.Checked;
-            chkCincoAse.Enabled = habilitados;
             btnEjecutar.Enabled = habilitados;
             btnLimpiar.Enabled = habilitados;
             btnAbrirSalida.Enabled = habilitados;

@@ -65,9 +65,6 @@ namespace Remuneracion.WinForms
         private System.Windows.Forms.Label lblPlantillaAyuda;
 
         // --- Ejecución ---
-        private System.Windows.Forms.Label lblAse;
-        private System.Windows.Forms.ComboBox cmbAse;
-        private System.Windows.Forms.CheckBox chkCincoAse;
         private System.Windows.Forms.Button btnEjecutar;
         private System.Windows.Forms.Button btnLimpiar;
         private System.Windows.Forms.Button btnAbrirSalida;
@@ -129,9 +126,6 @@ namespace Remuneracion.WinForms
             pnlCardEjecucion = new Panel();
             pnlAccentBarEjecucion = new Panel();
             lblCardTituloEjecucion = new Label();
-            lblAse = new Label();
-            cmbAse = new ComboBox();
-            chkCincoAse = new CheckBox();
             btnEjecutar = new Button();
             progressBar = new ProgressBar();
             btnLimpiar = new Button();
@@ -229,7 +223,7 @@ namespace Remuneracion.WinForms
             tlpMain.RowStyles.Add(new RowStyle());
             tlpMain.RowStyles.Add(new RowStyle());
             tlpMain.RowStyles.Add(new RowStyle());
-            tlpMain.Size = new Size(960, 568);
+            tlpMain.Size = new Size(960, 528);
             tlpMain.TabIndex = 1;
             // 
             // pnlCardPeriodo
@@ -520,9 +514,6 @@ namespace Remuneracion.WinForms
             pnlCardEjecucion.BorderStyle = BorderStyle.FixedSingle;
             pnlCardEjecucion.Controls.Add(pnlAccentBarEjecucion);
             pnlCardEjecucion.Controls.Add(lblCardTituloEjecucion);
-            pnlCardEjecucion.Controls.Add(lblAse);
-            pnlCardEjecucion.Controls.Add(cmbAse);
-            pnlCardEjecucion.Controls.Add(chkCincoAse);
             pnlCardEjecucion.Controls.Add(btnEjecutar);
             pnlCardEjecucion.Controls.Add(progressBar);
             pnlCardEjecucion.Controls.Add(btnLimpiar);
@@ -532,12 +523,12 @@ namespace Remuneracion.WinForms
             pnlCardEjecucion.Controls.Add(btnVerLogs);
             pnlCardEjecucion.Controls.Add(btnAbrirReporteNovedades);
             pnlCardEjecucion.Dock = DockStyle.Fill;
-            pnlCardEjecucion.Location = new Point(22, 350);
+            pnlCardEjecucion.Location = new Point(22, 310);
             pnlCardEjecucion.Margin = new Padding(6);
-            pnlCardEjecucion.MinimumSize = new Size(0, 196);
+            pnlCardEjecucion.MinimumSize = new Size(0, 156);
             pnlCardEjecucion.Name = "pnlCardEjecucion";
             pnlCardEjecucion.Padding = new Padding(16);
-            pnlCardEjecucion.Size = new Size(916, 196);
+            pnlCardEjecucion.Size = new Size(916, 156);
             pnlCardEjecucion.TabIndex = 2;
             // 
             // pnlAccentBarEjecucion
@@ -546,8 +537,8 @@ namespace Remuneracion.WinForms
             pnlAccentBarEjecucion.Dock = DockStyle.Left;
             pnlAccentBarEjecucion.Location = new Point(16, 16);
             pnlAccentBarEjecucion.Name = "pnlAccentBarEjecucion";
-            pnlAccentBarEjecucion.Size = new Size(4, 162);
-            pnlAccentBarEjecucion.TabIndex = 11;
+            pnlAccentBarEjecucion.Size = new Size(4, 122);
+            pnlAccentBarEjecucion.TabIndex = 9;
             // 
             // lblCardTituloEjecucion
             // 
@@ -560,45 +551,16 @@ namespace Remuneracion.WinForms
             lblCardTituloEjecucion.TabIndex = 0;
             lblCardTituloEjecucion.Text = "Ejecución";
             // 
-            // lblAse
-            // 
-            lblAse.AutoSize = true;
-            lblAse.Location = new Point(20, 46);
-            lblAse.Name = "lblAse";
-            lblAse.Size = new Size(38, 20);
-            lblAse.TabIndex = 1;
-            lblAse.Text = "ASE:";
-            // 
-            // cmbAse
-            // 
-            cmbAse.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbAse.FormattingEnabled = true;
-            cmbAse.Location = new Point(58, 42);
-            cmbAse.Name = "cmbAse";
-            cmbAse.Size = new Size(150, 28);
-            cmbAse.TabIndex = 2;
-            // 
-            // chkCincoAse
-            // 
-            chkCincoAse.AutoSize = true;
-            chkCincoAse.Location = new Point(220, 45);
-            chkCincoAse.Name = "chkCincoAse";
-            chkCincoAse.Size = new Size(129, 24);
-            chkCincoAse.TabIndex = 3;
-            chkCincoAse.Text = "Procesar todos";
-            chkCincoAse.UseVisualStyleBackColor = true;
-            chkCincoAse.CheckedChanged += chkCincoAse_CheckedChanged;
-            // 
             // btnEjecutar
             // 
             btnEjecutar.BackColor = SystemColors.Highlight;
             btnEjecutar.FlatAppearance.BorderSize = 0;
             btnEjecutar.FlatStyle = FlatStyle.Flat;
             btnEjecutar.ForeColor = SystemColors.HighlightText;
-            btnEjecutar.Location = new Point(761, 139);
+            btnEjecutar.Location = new Point(761, 95);
             btnEjecutar.Name = "btnEjecutar";
             btnEjecutar.Size = new Size(140, 28);
-            btnEjecutar.TabIndex = 4;
+            btnEjecutar.TabIndex = 1;
             btnEjecutar.Text = "▶ Ejecutar";
             btnEjecutar.UseVisualStyleBackColor = false;
             btnEjecutar.Click += btnEjecutar_Click;
@@ -606,11 +568,11 @@ namespace Remuneracion.WinForms
             // progressBar
             // 
             progressBar.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            progressBar.Location = new Point(26, 91);
+            progressBar.Location = new Point(26, 47);
             progressBar.Name = "progressBar";
             progressBar.Size = new Size(822, 14);
             progressBar.Style = ProgressBarStyle.Continuous;
-            progressBar.TabIndex = 8;
+            progressBar.TabIndex = 6;
             progressBar.TabStop = false;
             // 
             // btnLimpiar
@@ -619,20 +581,20 @@ namespace Remuneracion.WinForms
             btnLimpiar.FlatAppearance.BorderColor = SystemColors.ControlDark;
             btnLimpiar.FlatStyle = FlatStyle.Flat;
             btnLimpiar.ForeColor = SystemColors.WindowText;
-            btnLimpiar.Location = new Point(28, 139);
+            btnLimpiar.Location = new Point(28, 95);
             btnLimpiar.Name = "btnLimpiar";
             btnLimpiar.Size = new Size(110, 28);
-            btnLimpiar.TabIndex = 5;
+            btnLimpiar.TabIndex = 2;
             btnLimpiar.Text = "Limpiar";
             btnLimpiar.UseVisualStyleBackColor = false;
             btnLimpiar.Click += btnLimpiar_Click;
             // 
             // lblProgresoPct
             // 
-            lblProgresoPct.Location = new Point(857, 81);
+            lblProgresoPct.Location = new Point(857, 37);
             lblProgresoPct.Name = "lblProgresoPct";
             lblProgresoPct.Size = new Size(44, 32);
-            lblProgresoPct.TabIndex = 9;
+            lblProgresoPct.TabIndex = 7;
             lblProgresoPct.Text = "0 %";
             lblProgresoPct.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -642,10 +604,10 @@ namespace Remuneracion.WinForms
             btnAbrirSalida.FlatAppearance.BorderColor = SystemColors.ControlDark;
             btnAbrirSalida.FlatStyle = FlatStyle.Flat;
             btnAbrirSalida.ForeColor = SystemColors.WindowText;
-            btnAbrirSalida.Location = new Point(633, 139);
+            btnAbrirSalida.Location = new Point(633, 95);
             btnAbrirSalida.Name = "btnAbrirSalida";
             btnAbrirSalida.Size = new Size(120, 28);
-            btnAbrirSalida.TabIndex = 6;
+            btnAbrirSalida.TabIndex = 3;
             btnAbrirSalida.Text = "Abrir salida";
             btnAbrirSalida.UseVisualStyleBackColor = false;
             btnAbrirSalida.Click += btnAbrirSalida_Click;
@@ -654,10 +616,10 @@ namespace Remuneracion.WinForms
             // 
             lblAseActual.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblAseActual.AutoEllipsis = true;
-            lblAseActual.Location = new Point(61, 108);
+            lblAseActual.Location = new Point(61, 64);
             lblAseActual.Name = "lblAseActual";
             lblAseActual.Size = new Size(834, 24);
-            lblAseActual.TabIndex = 10;
+            lblAseActual.TabIndex = 8;
             lblAseActual.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // btnVerLogs
@@ -667,10 +629,10 @@ namespace Remuneracion.WinForms
             btnVerLogs.FlatAppearance.BorderColor = SystemColors.ControlDark;
             btnVerLogs.FlatStyle = FlatStyle.Flat;
             btnVerLogs.ForeColor = SystemColors.WindowText;
-            btnVerLogs.Location = new Point(144, 139);
+            btnVerLogs.Location = new Point(144, 95);
             btnVerLogs.Name = "btnVerLogs";
             btnVerLogs.Size = new Size(120, 28);
-            btnVerLogs.TabIndex = 7;
+            btnVerLogs.TabIndex = 4;
             btnVerLogs.Text = "Ver logs";
             btnVerLogs.UseVisualStyleBackColor = false;
             btnVerLogs.Click += btnVerLogs_Click;
@@ -685,10 +647,10 @@ namespace Remuneracion.WinForms
             btnAbrirReporteNovedades.FlatAppearance.BorderColor = SystemColors.ControlDark;
             btnAbrirReporteNovedades.FlatStyle = FlatStyle.Flat;
             btnAbrirReporteNovedades.ForeColor = SystemColors.WindowText;
-            btnAbrirReporteNovedades.Location = new Point(272, 139);
+            btnAbrirReporteNovedades.Location = new Point(272, 95);
             btnAbrirReporteNovedades.Name = "btnAbrirReporteNovedades";
             btnAbrirReporteNovedades.Size = new Size(180, 28);
-            btnAbrirReporteNovedades.TabIndex = 12;
+            btnAbrirReporteNovedades.TabIndex = 5;
             btnAbrirReporteNovedades.Text = "Abrir reporte de novedades";
             btnAbrirReporteNovedades.UseVisualStyleBackColor = false;
             btnAbrirReporteNovedades.Visible = false;

@@ -15,6 +15,9 @@
          ensamblado (sin ruta absoluta ni dependencia de archivo en runtime). Supersede a
          Assets/slogan.jpg de HU-19.1, que se retira del proyecto. -->
     <EmbeddedResource Include="Assets\slogan-blanco.png" />
+    <!-- Icono de la aplicación (monograma FN): el .exe lo usa vía ApplicationIcon y la ventana
+         vía InicializarIcono (mismo archivo, recurso embebido). -->
+    <EmbeddedResource Include="Assets\app.ico" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -23,6 +26,9 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Icono del .exe: monograma FN (navy #161D37 + acento #3468A4). La ventana lo toma del
+         mismo archivo vía EmbeddedResource + InicializarIcono (título correcto con dotnet run). -->
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
 
 </Project>
