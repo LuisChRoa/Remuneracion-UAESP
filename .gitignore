@@ -37,3 +37,6 @@ Desktop.ini
 # NuGet
 *.nupkg
 nuget-packages/
+
+# Paquetes de entrega generados por publicar-operador.cmd
+Entrega/

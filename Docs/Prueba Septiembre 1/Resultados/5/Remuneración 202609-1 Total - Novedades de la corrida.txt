@@ -1,0 +1,26 @@
+ENTREGADO CON NOVEDADES — NO CERTIFICADO
+========================================
+
+Detalle de las novedades (1)
+---------------------------------
+1) Período completo (los 5 ASE) · R10 del período (R10_Remuneracion_2026091.xlsx) · hoja DetRetri2026091
+   Concepto: Total del período
+   Qué muestra el Excel entregado: 63.145.073.622
+   Qué esperaba la revisión: 63.145.073.623
+   Diferencia (lo entregado menos lo esperado): -1
+   Qué pasó: La suma de los cinco ASE de la plantilla no coincide con el total del reporte oficial del período, aunque cada ASE cuadra por separado.
+   De quién es: Área administrativa (elabora el reporte oficial)
+   Qué revisar: Compare el total del período en el Excel entregado contra el total del reporte oficial del período.
+
+Cómo revisar
+------------
+1. Abra el Excel entregado (el que lleva "(sin validar)" en el nombre).
+2. Para cada novedad, vaya a la hoja que se indica arriba y busque el ASE, la empresa o el
+   concepto POR SU NOMBRE (su etiqueta).
+3. Compare esa cifra contra el reporte oficial del período (R10) y contra el archivo del
+   administrativo, también por etiqueta.
+4. Anote la diferencia y decida: si es una diferencia real de datos, corríjala en su fuente;
+   si es una diferencia de transcripción del reporte oficial, corríjala en el reporte.
+5. Vuelva a ejecutar la aplicación. Cuando no queden diferencias, el archivo saldrá con su
+   nombre definitivo y sin este documento.
+

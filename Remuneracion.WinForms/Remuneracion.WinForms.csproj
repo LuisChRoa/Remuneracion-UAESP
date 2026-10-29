@@ -29,6 +29,10 @@
     <!-- Icono del .exe: monograma FN (navy #161D37 + acento #3468A4). La ventana lo toma del
          mismo archivo vía EmbeddedResource + InicializarIcono (título correcto con dotnet run). -->
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <!-- Entrega a operador (perfil Operador-win-x64): el restore debe conocer el RID, si no
+         aparece NETSDK1047 al publicar autocontenido desde Visual Studio. Plural a propósito:
+         el build normal sigue siendo agnóstico de plataforma. -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
 </Project>

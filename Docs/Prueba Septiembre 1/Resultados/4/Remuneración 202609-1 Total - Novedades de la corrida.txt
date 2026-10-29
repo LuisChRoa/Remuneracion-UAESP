@@ -1,0 +1,26 @@
+ENTREGADO CON NOVEDADES — NO CERTIFICADO
+========================================
+
+Detalle de las novedades (1)
+---------------------------------
+1) ASE 3 · R10 del período (R10_Remuneracion_2026091.xlsx) · hoja DetRetri2026091
+   Concepto: Retribución total del ASE (asiento del período)
+   Qué muestra el Excel entregado: 10.891.338.739
+   Qué esperaba la revisión: 10.891.338.740
+   Diferencia (lo entregado menos lo esperado): -1
+   Qué pasó: La cadena de cálculo de la plantilla da 10.891.338.739,48 y el asiento se redondea a 10.891.338.739; el reporte oficial trae 10.891.338.740: la diferencia de 1 está en el reporte oficial.
+   De quién es: Área administrativa (elabora el reporte oficial)
+   Qué revisar: Compare, por la etiqueta del ASE, el valor del asiento en el Excel entregado contra el del reporte oficial del período. La plantilla manda: si la diferencia es de transcripción del reporte oficial, corríjala allí y vuelva a ejecutar.
+
+Cómo revisar
+------------
+1. Abra el Excel entregado (el que lleva "(sin validar)" en el nombre).
+2. Para cada novedad, vaya a la hoja que se indica arriba y busque el ASE, la empresa o el
+   concepto POR SU NOMBRE (su etiqueta).
+3. Compare esa cifra contra el reporte oficial del período (R10) y contra el archivo del
+   administrativo, también por etiqueta.
+4. Anote la diferencia y decida: si es una diferencia real de datos, corríjala en su fuente;
+   si es una diferencia de transcripción del reporte oficial, corríjala en el reporte.
+5. Vuelva a ejecutar la aplicación. Cuando no queden diferencias, el archivo saldrá con su
+   nombre definitivo y sin este documento.
+
