@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="9f7859ce-3552-482c-8bbc-eee60ae435eb" name="lechaparro@FA-HTPA15NG 2026-10-29 13:25:16" runUser="ASEINGES\lechaparro" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-29T13:25:16.4704555-05:00" queuing="2026-10-29T13:25:16.4704561-05:00" start="2026-10-29T13:25:12.6752699-05:00" finish="2026-10-29T13:25:16.8343468-05:00" />
+  <TestSettings name="default" id="f9537170-2fc9-4292-848c-7f30e211e7bc">
+    <Deployment runDeploymentRoot="lechaparro_FA-HTPA15NG_2026-10-29_13_25_16" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="5fe3af8c-867c-4b3f-923e-b6d5e0512a3f" testId="f91061cb-26e4-cf04-c67a-b93d6b372ae9" testName="Remuneracion.IntegrationTests.AutoChequeoM32M36H2Plan63Tests.T4_RestoDelWorkbookSinDeltas(codigo: &quot;2026072&quot;)" computerName="FA-HTPA15NG" duration="00:00:00.0407337" startTime="2026-10-29T13:25:16.6815804-05:00" endTime="2026-10-29T13:25:16.7219630-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5fe3af8c-867c-4b3f-923e-b6d5e0512a3f" />
+    <UnitTestResult executionId="1535c77a-a81b-4fa1-bb38-0908c022e221" testId="43074a9b-2163-bd2d-6169-42cde57cd019" testName="Remuneracion.IntegrationTests.AutoChequeoM32M36H2Plan63Tests.T4_Q2_TextoM26M30_SinImpactoNumerico" computerName="FA-HTPA15NG" duration="00:00:01.0099028" startTime="2026-10-29T13:25:14.7887571-05:00" endTime="2026-10-29T13:25:15.8054827-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1535c77a-a81b-4fa1-bb38-0908c022e221" />
+    <UnitTestResult executionId="631cd4f9-6b08-47a6-a584-6280f039de94" testId="ce1bbc40-6e04-52f5-e76b-14cec9ec5fc8" testName="Remuneracion.IntegrationTests.AutoChequeoM32M36H2Plan63Tests.T4_Q1_TextoN26N30_YEquivalenciaDeCuerpoConElManual" computerName="FA-HTPA15NG" duration="00:00:00.8608640" startTime="2026-10-29T13:25:15.8185236-05:00" endTime="2026-10-29T13:25:16.6667816-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="631cd4f9-6b08-47a6-a584-6280f039de94" />
+    <UnitTestResult executionId="940717b5-deb7-45be-a3c2-3aa29c27a266" testId="b1a2ffe6-56d1-6736-ca3f-5f048e6775ed" testName="Remuneracion.IntegrationTests.AutoChequeoM32M36H2Plan63Tests.T4_RestoDelWorkbookSinDeltas(codigo: &quot;2026091&quot;)" computerName="FA-HTPA15NG" duration="00:00:00.0309495" startTime="2026-10-29T13:25:16.7221602-05:00" endTime="2026-10-29T13:25:16.7531194-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="940717b5-deb7-45be-a3c2-3aa29c27a266" />
+    <UnitTestResult executionId="22ababbd-0463-49c8-b4f2-690f1e7582d5" testId="3067e08d-d7c0-ff90-db06-3d344ad8c894" testName="Remuneracion.IntegrationTests.AutoChequeoM32M36H2Plan63Tests.T1_4_AllowListFase0_CreceDe73A78ConLas5CeldasM32M36" computerName="FA-HTPA15NG" duration="00:00:00.0143290" startTime="2026-10-29T13:25:16.6684526-05:00" endTime="2026-10-29T13:25:16.6811916-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="22ababbd-0463-49c8-b4f2-690f1e7582d5" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Remuneracion.IntegrationTests.AutoChequeoM32M36H2Plan63Tests.T4_Q2_TextoM26M30_SinImpactoNumerico" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="43074a9b-2163-bd2d-6169-42cde57cd019">
+      <Execution id="1535c77a-a81b-4fa1-bb38-0908c022e221" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.AutoChequeoM32M36H2Plan63Tests" name="T4_Q2_TextoM26M30_SinImpactoNumerico" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.AutoChequeoM32M36H2Plan63Tests.T1_4_AllowListFase0_CreceDe73A78ConLas5CeldasM32M36" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="3067e08d-d7c0-ff90-db06-3d344ad8c894">
+      <Execution id="22ababbd-0463-49c8-b4f2-690f1e7582d5" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.AutoChequeoM32M36H2Plan63Tests" name="T1_4_AllowListFase0_CreceDe73A78ConLas5CeldasM32M36" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.AutoChequeoM32M36H2Plan63Tests.T4_RestoDelWorkbookSinDeltas(codigo: &quot;2026072&quot;)" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="f91061cb-26e4-cf04-c67a-b93d6b372ae9">
+      <Execution id="5fe3af8c-867c-4b3f-923e-b6d5e0512a3f" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.AutoChequeoM32M36H2Plan63Tests" name="T4_RestoDelWorkbookSinDeltas" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.AutoChequeoM32M36H2Plan63Tests.T4_Q1_TextoN26N30_YEquivalenciaDeCuerpoConElManual" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="ce1bbc40-6e04-52f5-e76b-14cec9ec5fc8">
+      <Execution id="631cd4f9-6b08-47a6-a584-6280f039de94" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.AutoChequeoM32M36H2Plan63Tests" name="T4_Q1_TextoN26N30_YEquivalenciaDeCuerpoConElManual" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.AutoChequeoM32M36H2Plan63Tests.T4_RestoDelWorkbookSinDeltas(codigo: &quot;2026091&quot;)" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="b1a2ffe6-56d1-6736-ca3f-5f048e6775ed">
+      <Execution id="940717b5-deb7-45be-a3c2-3aa29c27a266" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.AutoChequeoM32M36H2Plan63Tests" name="T4_RestoDelWorkbookSinDeltas" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="f91061cb-26e4-cf04-c67a-b93d6b372ae9" executionId="5fe3af8c-867c-4b3f-923e-b6d5e0512a3f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="43074a9b-2163-bd2d-6169-42cde57cd019" executionId="1535c77a-a81b-4fa1-bb38-0908c022e221" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ce1bbc40-6e04-52f5-e76b-14cec9ec5fc8" executionId="631cd4f9-6b08-47a6-a584-6280f039de94" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b1a2ffe6-56d1-6736-ca3f-5f048e6775ed" executionId="940717b5-deb7-45be-a3c2-3aa29c27a266" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3067e08d-d7c0-ff90-db06-3d344ad8c894" executionId="22ababbd-0463-49c8-b4f2-690f1e7582d5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="5" executed="5" passed="5" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.4+50e68bbb8b (64-bit .NET 10.0.12)&#xD;
+[xUnit.net 00:00:00.96]   Discovering: Remuneracion.IntegrationTests&#xD;
+[xUnit.net 00:00:01.25]   Discovered:  Remuneracion.IntegrationTests&#xD;
+[xUnit.net 00:00:01.29]   Starting:    Remuneracion.IntegrationTests&#xD;
+[xUnit.net 00:00:03.28]   Finished:    Remuneracion.IntegrationTests&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

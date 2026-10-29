@@ -172,6 +172,32 @@ public static class PreparadorBasePipeline
         ("I24", 26), ("I25", 27), ("I26", 28), ("I27", 29), ("I28", 30), ("I29", 31),
     ];
 
+    // ── Plan 63 (T1.1, D-H1): la familia F-NEW-1 se extiende a los auto-chequeos M32:M36 ────────
+    //
+    // El oficial trae DetRetri{per}!M32:M36 = cuerpo − INTERVENTORIA!F15:F19 + 'AJUSTES - SF-T'!M47:M51
+    // = M9:M13, con F = la columna de la 2.ª quincena REDONDEADA. En Q1 los montos viven en N
+    // (crudos) y la diferencia de ±1 peso por ASE hace que el chequeo evalúe FALSO (medido: cierra
+    // solo ASE4, donde F = N). La REGLA es la MISMA de R-INTERV-Q/E1-4: la columna la decide el
+    // DOMINIO (NumeroQuincena) vía ColumnaLPorQuincena {1→N, 2→M}; el resto de la fórmula se
+    // PRESERVA byte-idéntico (D-REEMPLAZO-DIRIGIDO: solo se sustituye la referencia).
+
+    /// <summary>
+    /// Plan 63 (T1.1, D-H1): <c>DetRetri{per}!M32:M36</c> y la fila CRUDA de
+    /// <c>INTERVENTORIA</c> que cada uno resta (M32→26 … M36→30). Tabla de la GEOMETRÍA (T0-06).
+    /// </summary>
+    private static readonly (string Celda, int FilaInterventoria)[] CeldasAutoChequeoDetRetriM =
+    [
+        ("M32", 26), ("M33", 27), ("M34", 28), ("M35", 29), ("M36", 30),
+    ];
+
+    /// <summary>
+    /// Plan 63 (T0-06): desplazamiento entre la fila del término REDONDEADO del template
+    /// (<c>INTERVENTORIA!F15:F19</c>) y la fila del término CRUDO de la quincena (<c>26:30</c>):
+    /// <c>26 − 15 = 11</c>. El origen se DERIVA del mismo eje; una plantilla que mueva la geometría
+    /// enrojece el T0-06 del fixture y la autoverificación de Phase 0 — nunca se ajusta en silencio.
+    /// </summary>
+    private const int DesplazamientoFilaInterventoriaM32M36 = 11;
+
     /// <summary>
     /// Plan 40 (T3, E1-4): columna del bloque <c>'Recaudo *'</c> de la quincena del run. Fuente
     /// ÚNICA del dato (la consumen Phase 0 y el sellado del writer). Quincena no soportada = FAIL.
@@ -364,6 +390,10 @@ public static class PreparadorBasePipeline
                     var hojaDetRetri = NombresHojaPeriodo.DetRetri(periodoDestino);
                     texto = AplicarVarianteAutoChequeos(texto, hojaDetRetri, periodo, CeldasAutoChequeoDetRetriL, resumen);
                     texto = AplicarVarianteAutoChequeos(texto, hojaDetRetri, periodo, CeldasAutoChequeoDetRetriO, resumen);
+
+                    // Plan 63 (T1.1, D-H1): M32:M36 restan la interventoría CRUDA de la quincena
+                    // (Q1 → N26:N30, Q2 → M26:M30) por reemplazo DIRIGIDO de la referencia.
+                    texto = AplicarVarianteAutoChequeoDetRetriM(texto, hojaDetRetri, periodo, resumen);
                 }
 
                 if (string.Equals(nombre, hojaDetValiRetriParte, StringComparison.OrdinalIgnoreCase))
@@ -792,6 +822,109 @@ public static class PreparadorBasePipeline
     private static string ColumnaContraria(string columna) =>
         ColumnaLPorQuincena.Values.FirstOrDefault(c => !string.Equals(c, columna, StringComparison.Ordinal)) ?? columna;
 
+    // ── Plan 63 (T1.1, D-REEMPLAZO-DIRIGIDO): M32:M36 restan la interventoría CRUDA del run ──────
+    //
+    // A diferencia de L/O/I (donde el template fija la fila correcta y solo cambia la COLUMNA), acá
+    // cambian las dos coordenadas: F15:F19 (redondeado, 2.ª quincena) → {N,M}26:{N,M}30 (crudo, por
+    // ASE). Por eso el reemplazo es DIRIGIDO por patrón exacto de la referencia — se sustituye SOLO
+    // ese token y se exige que aparezca EXACTAMENTE UNA vez por celda — y NO se reconstruye la
+    // fórmula: el término AJUSTES, el comparando, los paréntesis y el resto de los operandos viajan
+    // byte-idénticos (assert de H1). R5-GATE: los atributos de <f> (t/ref/si) se preservan vía
+    // SustituirTextoFormula (la costura del Plan 58), y una seguidora shared sin texto propio hace
+    // fail-fast en vez de reescribirse a ciegas.
+
+    /// <summary>
+    /// Plan 63 (T1.1): reescribe <c>DetRetri{per}!M32:M36</c> para que resten la interventoría cruda
+    /// de la quincena del run (Q1 → <c>N26:N30</c>, Q2 → <c>M26:M30</c>) sustituyendo SOLO la
+    /// referencia <c>INTERVENTORIA!F15:F19</c>. Cualquier otra forma = FAIL (<c>ERR-PLANTILLA</c>).
+    /// Si la celda ya trae la variante del run, NO se toca (paridad byte-preserving).
+    /// </summary>
+    private static string AplicarVarianteAutoChequeoDetRetriM(
+        string xml,
+        string hoja,
+        Periodo periodo,
+        List<string> resumen)
+    {
+        if (!ColumnaLPorQuincena.TryGetValue(periodo.NumeroQuincena, out var columna))
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"Plan 63: quincena no soportada ({periodo.NumeroQuincena}); solo 1 (Primera) o 2 (Segunda).");
+        }
+
+        foreach (var (celda, fila) in CeldasAutoChequeoDetRetriM)
+        {
+            var origen = $"INTERVENTORIA!F{fila - DesplazamientoFilaInterventoriaM32M36}";
+            var destino = $"INTERVENTORIA!{columna}{fila}";
+            xml = AsegurarVarianteAutoChequeoDetRetriM(xml, hoja, celda, origen, destino, periodo, out var cambiado);
+            resumen.Add(cambiado
+                ? $"  {hoja}!{celda}: {origen} -> {destino} (Q{periodo.NumeroQuincena}, Plan 63)"
+                : $"  {hoja}!{celda}: ya resta {destino} (Q{periodo.NumeroQuincena}, Plan 63)");
+        }
+
+        return xml;
+    }
+
+    private static string AsegurarVarianteAutoChequeoDetRetriM(
+        string xml,
+        string hoja,
+        string celda,
+        string origen,
+        string destino,
+        Periodo periodo,
+        out bool cambiado)
+    {
+        var match = BuscarCelda(xml, celda)
+            ?? throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"Plan 63: falta la celda {hoja}!{celda} en la base del período {periodo.CodigoCompleto}.");
+
+        var (prefijo, _, inner, autocierre, tieneFormula) = AnalizarCelda(match);
+        if (!tieneFormula || autocierre || inner is null)
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"Plan 63: {hoja}!{celda} no es una <f> simple en la base del período {periodo.CodigoCompleto} (forma inesperada).");
+        }
+
+        var formulaActual = FormulaRegex.Match(inner).Groups["texto"].Value;
+        var ocurrenciasOrigen = ContarReferencia(formulaActual, origen);
+        var ocurrenciasDestino = ContarReferencia(formulaActual, destino);
+
+        if (ocurrenciasDestino == 1 && ocurrenciasOrigen == 0)
+        {
+            cambiado = false;
+            return xml; // no-op byte-preserving (paridad Q2 sobre el oficial).
+        }
+
+        if (ocurrenciasOrigen != 1 || ocurrenciasDestino != 0)
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Plantilla,
+                $"Plan 63: {hoja}!{celda} trae la forma inesperada (se esperaba exactamente una '{origen}' " +
+                $"y ninguna '{destino}'; se encontraron {ocurrenciasOrigen}/{ocurrenciasDestino}). " +
+                $"Fórmula medida: '{formulaActual}'. Fail-fast, nunca se sobrescribe a ciegas.");
+        }
+
+        var nueva = Regex.Replace(
+            formulaActual,
+            Regex.Escape(origen) + "(?![0-9])",
+            _ => destino,
+            RegexOptions.None);
+        var nuevoInner = SustituirTextoFormula(inner, prefijo, nueva, hoja, celda);
+        var nuevaCelda = $"<{prefijo}c r=\"{celda}\"{match.Groups["attrs"].Value}>{nuevoInner}</{prefijo}c>";
+        cambiado = true;
+        return xml[..match.Index] + nuevaCelda + xml[(match.Index + match.Length)..];
+    }
+
+    /// <summary>
+    /// Ocurrencias de una referencia en el texto de una fórmula, con frontera numérica
+    /// (<c>F15</c> no matchea dentro de <c>F150</c>) y de identificador (no matchea si viene pegada a
+    /// otra letra/dígito, p. ej. dentro de un nombre de hoja).
+    /// </summary>
+    private static int ContarReferencia(string formula, string referencia) =>
+        Regex.Matches(formula, $"(?<![A-Za-z0-9_]){Regex.Escape(referencia)}(?![0-9])").Count;
+
     // ── Plan 41 (T3, R-S31-1 — D-G): auto-chequeo S26:S31 = (Q26:R26) de la tabla J ─────────────
     //
     // El oficial trae INTERVENTORIA!R26 = <f t="shared" ref="R26:R31">J15</f> (la tabla anual J =
@@ -910,11 +1043,12 @@ public static class PreparadorBasePipeline
     }
 
     /// <summary>
-    /// Plan 40 (T3, F-NEW-1): <c>&lt;f&gt;</c> de <c>INTERVENTORIA</c> esperadas de cada auto-chequeo
-    /// por quincena. Fuente ÚNICA de la regla (la consumen la autoverificación de Phase 0 y el
-    /// preflight <see cref="ValidadorBasePeriodo"/>).
+    /// Plan 40 (T3, F-NEW-1) + Plan 63 (T1.3): <c>&lt;f&gt;</c> de <c>INTERVENTORIA</c> esperadas de
+    /// cada auto-chequeo por quincena, junto con la referencia PROHIBIDA (la de la otra forma, cuando
+    /// el template la fija con fila distinta). Fuente ÚNICA de la regla (la consumen la
+    /// autoverificación de Phase 0 y el preflight <see cref="ValidadorBasePeriodo"/>).
     /// </summary>
-    public static IReadOnlyList<(string Hoja, string Celda, string Fragmento)> FragmentosAutoChequeoEsperados(Periodo periodo)
+    public static IReadOnlyList<(string Hoja, string Celda, string Fragmento, string? Prohibido)> FragmentosAutoChequeoEsperados(Periodo periodo)
     {
         ArgumentNullException.ThrowIfNull(periodo);
         if (!ColumnaLPorQuincena.TryGetValue(periodo.NumeroQuincena, out var columna))
@@ -926,24 +1060,43 @@ public static class PreparadorBasePipeline
 
         var hojaDetRetri = NombresHojaPeriodo.DetRetri(periodo);
         var hojaDetValiRetri = NombresHojaPeriodo.DetValiRetri(periodo);
-        var lista = new List<(string, string, string)>();
+        var lista = new List<(string Hoja, string Celda, string Fragmento, string? Prohibido)>();
         foreach (var (celda, fila) in CeldasAutoChequeoDetRetriL)
         {
-            lista.Add((hojaDetRetri, celda, $"INTERVENTORIA!{columna}{fila}"));
+            lista.Add((hojaDetRetri, celda, $"INTERVENTORIA!{columna}{fila}", null));
         }
 
         foreach (var (celda, fila) in CeldasAutoChequeoDetRetriO)
         {
-            lista.Add((hojaDetRetri, celda, $"INTERVENTORIA!{columna}{fila}"));
+            lista.Add((hojaDetRetri, celda, $"INTERVENTORIA!{columna}{fila}", null));
         }
 
         foreach (var (celda, fila) in CeldasAutoChequeoDetValiRetriI)
         {
-            lista.Add((hojaDetValiRetri, celda, $"INTERVENTORIA!{columna}{fila}"));
+            lista.Add((hojaDetValiRetri, celda, $"INTERVENTORIA!{columna}{fila}", null));
+        }
+
+        // Plan 63 (T1.3): M32:M36 arrancan de F15:F19 (fila distinta de la cruda) ⇒ la forma
+        // "redondeada" queda PROHIBIDA explícitamente, para que el preflight nombre la tercera forma
+        // (hoja + celda + variante esperada) en vez de aceptar una fórmula mixta.
+        foreach (var (celda, fila) in CeldasAutoChequeoDetRetriM)
+        {
+            lista.Add((
+                hojaDetRetri,
+                celda,
+                $"INTERVENTORIA!{columna}{fila}",
+                $"INTERVENTORIA!F{fila - DesplazamientoFilaInterventoriaM32M36}"));
         }
 
         return lista;
     }
+
+    /// <summary>
+    /// Plan 63 (T1.1): geometría de <c>DetRetri{per}!M32:M36</c> (celda → fila CRUDA de
+    /// <c>INTERVENTORIA</c>). Fuente ÚNICA para el preflight, la autoverificación y los gates.
+    /// </summary>
+    public static IReadOnlyList<(string Celda, int FilaInterventoria)> CeldasAutoChequeoDeDetRetriM =>
+        CeldasAutoChequeoDetRetriM;
 
     /// <summary>Plan 40 (T3, E1-4): celdas de <c>VALIDACION_TOTAL</c> que suman el bloque <c>'Recaudo *'</c> (celda → fila).</summary>
     public static IReadOnlyList<(string Celda, int FilaRecaudo)> CeldasRecaudoDeValidacionTotal => CeldasRecaudoValidacion;
@@ -1078,6 +1231,7 @@ public static class PreparadorBasePipeline
             partes[hojaConsolidadoParte], HojaConsolidado, CeldasRecaudoValidacionConsolidado142, periodo));
 
         lineas.AddRange(VerificarAutoChequeos(partes[hojaDetRetriParte], CeldasAutoChequeoDetRetriL, CeldasAutoChequeoDetRetriO, periodo));
+        lineas.AddRange(VerificarAutoChequeoDetRetriM(partes[hojaDetRetriParte], periodo));
         lineas.AddRange(VerificarAutoChequeos(partes[hojaDetValiRetriParte], CeldasAutoChequeoDetValiRetriI, [], periodo));
         lineas.AddRange(VerificarTablaJ(partes[hojaInterventoriaParte], periodo));
 
@@ -1141,6 +1295,33 @@ public static class PreparadorBasePipeline
             Exigir(formula.Contains(esperado, StringComparison.Ordinal),
                 $"Autoverificación F-NEW-1: {celda} = '{formula}' no contiene '{esperado}' (Q{periodo.NumeroQuincena}).");
             yield return $"{celda} ⊇ {esperado} (Q{periodo.NumeroQuincena}, F-NEW-1): OK";
+        }
+    }
+
+    /// <summary>
+    /// Plan 63 (T1.1): autoverificación de <c>DetRetri!M32:M36</c> — cada celda debe restar la
+    /// interventoría de la quincena del run y NO debe conservar el término redondeado del template
+    /// (<c>INTERVENTORIA!F15:F19</c>). Una tercera forma la detecta el aplicador con fail-fast.
+    /// </summary>
+    private static IEnumerable<string> VerificarAutoChequeoDetRetriM(byte[] hojaDetRetri, Periodo periodo)
+    {
+        var columna = ColumnaLPorQuincena[periodo.NumeroQuincena];
+        var xml = Encoding.UTF8.GetString(hojaDetRetri);
+        foreach (var (celda, fila) in CeldasAutoChequeoDetRetriM)
+        {
+            var match = BuscarCelda(xml, celda)
+                ?? throw new CalculoInvalidoException(CodigoError.Plantilla, $"Autoverificación Plan 63: falta la celda {celda}.");
+            var (_, _, inner, _, tieneFormula) = AnalizarCelda(match);
+            Exigir(tieneFormula && inner is not null, $"Autoverificación Plan 63: {celda} no es <f>.");
+
+            var formula = FormulaRegex.Match(inner!).Groups["texto"].Value;
+            var esperado = $"INTERVENTORIA!{columna}{fila}";
+            var origen = $"INTERVENTORIA!F{fila - DesplazamientoFilaInterventoriaM32M36}";
+            Exigir(ContarReferencia(formula, esperado) == 1,
+                $"Autoverificación Plan 63: {celda} = '{formula}' no resta '{esperado}' exactamente una vez (Q{periodo.NumeroQuincena}).");
+            Exigir(ContarReferencia(formula, origen) == 0,
+                $"Autoverificación Plan 63: {celda} = '{formula}' conserva la referencia redondeada '{origen}' (Q{periodo.NumeroQuincena}).");
+            yield return $"{celda} resta {esperado} (Q{periodo.NumeroQuincena}, Plan 63): OK";
         }
     }
 

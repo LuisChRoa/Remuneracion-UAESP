@@ -246,8 +246,11 @@ public sealed class FNew1Q1BlockerT0Tests
 
         if (hoja.StartsWith("DetRetri", StringComparison.Ordinal))
         {
+            // Plan 40 (T3): las dos familias de auto-chequeos L/O. Plan 63 (T1.4): M32:M36 sale de
+            // "pendiente F-NEW-1" y entra a la allow-list (73 → 78 celdas).
             return celda is "L32" or "L33" or "L34" or "L35" or "L36"
-                or "O32" or "O33" or "O34" or "O35" or "O36";
+                or "O32" or "O33" or "O34" or "O35" or "O36"
+                or "M32" or "M33" or "M34" or "M35" or "M36";
         }
 
         if (hoja.StartsWith("DetValiRetri", StringComparison.Ordinal))

@@ -176,7 +176,7 @@ internal static class ValidadorBasePeriodo
             periodo,
             "E1-4/142-147");
 
-        foreach (var (hoja, celda, fragmento) in PreparadorBasePipeline.FragmentosAutoChequeoEsperados(periodo))
+        foreach (var (hoja, celda, fragmento, prohibido) in PreparadorBasePipeline.FragmentosAutoChequeoEsperados(periodo))
         {
             var worksheet = ResolverHoja(workbookPart, hoja);
             var cell = worksheet.Descendants<Cell>()
@@ -192,6 +192,17 @@ internal static class ValidadorBasePeriodo
                     CodigoError.Plantilla,
                     $"La base del período {periodo.CodigoCompleto} no trae la variante de su quincena: " +
                     $"'{hoja}!{celda}' = '{formula ?? "(valor)"}' no contiene '{fragmento}' (F-NEW-1, Q{periodo.NumeroQuincena}). Fail-fast antes de escribir.");
+            }
+
+            // Plan 63 (T1.3): una tercera forma (la referencia del template que NO es la del run)
+            // pasa en silencio si solo se busca el fragmento esperado — se prohíbe explícitamente.
+            if (prohibido is not null && formula.Contains(prohibido, StringComparison.Ordinal))
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"La base del período {periodo.CodigoCompleto} trae una variante de quincena inesperada: " +
+                    $"'{hoja}!{celda}' = '{formula}' contiene la referencia '{prohibido}'; " +
+                    $"se esperaba la variante del run '{fragmento}' (Plan 63, Q{periodo.NumeroQuincena}). Fail-fast antes de escribir.");
             }
         }
 

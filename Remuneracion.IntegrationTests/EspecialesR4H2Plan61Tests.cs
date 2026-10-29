@@ -29,8 +29,8 @@ namespace Remuneracion.IntegrationTests;
 /// <list type="bullet">
 /// <item>H2.1: 2026091 ASE 2 (Δ P = −26.500,00; DetRetri 14.147.357.755), 2026092 ASE 4
 /// (Δ P = −49.900,44; DetRetri 7.675.362.502) y 2026091 ASE 3 — el «caso del peso» (§13.2-C):
-/// D104:D108 = 10.891.338.739,48 → ROUND 739 vs R10 740 (Δ 1). El R10 es errata humana y el test
-/// lo documenta para que nadie «arregle» el redondeo mañana.</item>
+/// D104:D108 = 10.891.338.739,48 → ROUND 739 (errata humana del 740 corregida en R10 y en el
+/// manual, Plan 63 §7.1). El test documenta el número para que nadie «arregle» el redondeo mañana.</item>
 /// <item>H2.2: «sin columna → 0» por AUSENCIA DECLARADA (no por literal) y «columna movida de
 /// letra» (misma fuente, encabezado en T en vez de P ⇒ mismo resultado).</item>
 /// </list>
@@ -240,13 +240,13 @@ public sealed class EspecialesR4H2Plan61Tests
     /// redondeo (<see cref="DetRetriRounder"/>, ROUND de Excel) da <b>10.891.338.739</b> (últimos
     /// dígitos <b>739</b>).
     ///
-    /// <para><b>Estado vigente del dato (data drift, actualizado en Plan 62 H5/T5.2):</b> el R10
-    /// REEMITIDO del período ya trae el valor correcto <b>739</b> (la errata humana 740 quedó
-    /// corregida en el dato); el que conserva el <b>740</b> es el DetRetri del manual del
-    /// administrativo. Este test fija AMBOS números para que nadie «corrija» el redondeo ni amplíe
-    /// la tolerancia: el Δ = 1 peso que queda entre la app (739) y el manual (740) es ERRATA DEL
-    /// MANUAL, declarada en el comparador como <c>P62-DETRETRI-D11-ERRATA-PESO-ASE3</c> (y su
-    /// arrastre al TOTAL en <c>P62-DETRETRI-D14-TOTAL-ERRATA-PESO</c>, H5/T5.1).</para>
+    /// <para><b>Estado vigente del dato (corregido por el negocio, ratificado en Plan 63 §7.1 el
+    /// 2026-10-29):</b> el R10 REEMITIDO y el manual del administrativo traen AMBOS el valor
+    /// correcto <b>739</b>; la errata humana del 740 quedó corregida en las dos fuentes. Por eso el
+    /// Δ app-vs-manual es <b>0</b> y las entradas <c>P62-DETRETRI-D11-ERRATA-PESO-ASE3</c> /
+    /// <c>P62-DETRETRI-D14-TOTAL-ERRATA-PESO</c> quedaron RETIRADAS del catálogo (historia
+    /// auditable). Este test fija el número para que nadie «corrija» el redondeo ni amplíe la
+    /// tolerancia.</para>
     /// </summary>
     [Fact]
     public void H21_2026091_Ase3_ElCasoDelPeso_ErrataHumanaCorregidaEnElR10()
@@ -263,10 +263,10 @@ public sealed class EspecialesR4H2Plan61Tests
             10891338739.48m,
             ConsolidadoDPorAse(RutaAdminSeptiembre1, 3));
 
-        // El DetRetri del administrativo conserva el 740 humano; el R10 vigente ya trae el 739 del
-        // ROUND. Ninguno de los dos es un cálculo independiente (los dos copian la composición).
+        // El DetRetri del manual fue CORREGIDO por el negocio al 739 del ROUND (2026-10-29): la
+        // divergencia de 1 peso ya no existe y su declaración se retiró (Plan 63 §7.1).
         var admin = R10DetRetriPorAse(RutaAdminSeptiembre1, "2026091", 3);
-        AfirmarMonto("2026091 ASE3 · administrativo DetRetri2026091 · ASE 3 (errata: 740)", 10891338740m, admin.Valor);
+        AfirmarMonto("2026091 ASE3 · administrativo DetRetri2026091 · ASE 3 (corregido: 739)", 10891338739m, admin.Valor);
 
         var r10 = R10DetRetriPorAse(RutaR10Septiembre1, "2026091", 3);
         Assert.True(
@@ -275,9 +275,9 @@ public sealed class EspecialesR4H2Plan61Tests
         AfirmarMonto("2026091 ASE3 · R10 DetRetri2026091 · ASE 3 (corregido: 739)", 10891338739m, r10.Valor);
         Assert.Equal(r10.Valor, detRetri.Detalle);
 
-        // Δ = 1 peso exacto, y vive en el MANUAL: el redondeo de la plantilla (739) NO se toca y la
-        // tolerancia NO se amplía.
-        Assert.Equal(1m, admin.Valor - detRetri.Detalle);
+        // Δ = 0 en las DOS fuentes: el redondeo de la plantilla (739) NO se toca y la tolerancia NO
+        // se amplía. Si el 740 reapareciera en el manual, este aserto enrojece (anti-recurrencia).
+        Assert.Equal(0m, admin.Valor - detRetri.Detalle);
         Assert.Equal(0m, r10.Valor - detRetri.Detalle);
     }
 

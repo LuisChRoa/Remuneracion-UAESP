@@ -15,9 +15,11 @@ namespace Remuneracion.IntegrationTests;
 /// <para><b>Evidencia medida (H5, sobre <c>Docs/Prueba Septiembre 1</c>):</b> corrida 5-ASE de
 /// 2026091 (fixture compartido <c>EspecialesR4H2Plan61Tests.Generacion2026091</c>) comparada contra
 /// el manual <c>Resultados/Administrativo/Remuneracion 202609-1 Total.xlsx</c>. En la SUPERFICIE DEL
-/// PEGADO (<c>DetRetri</c> A3:O19, <c>DetValiRetri</c> A3:O14) quedan exactamente tres divergencias,
-/// las tres declaradas: el pie de interventoría de <c>C16</c> y el peso de la errata del ASE 3 en
-/// <c>D11</c>/<c>D14</c>. Cero inesperadas.</para>
+/// PEGADO (<c>DetRetri</c> A3:O19, <c>DetValiRetri</c> A3:O14) queda exactamente UNA divergencia
+/// declarada: el pie de interventoría de <c>C16</c>. Cero inesperadas. Las dos entradas de errata
+/// del peso (<c>D11</c>/<c>D14</c>) quedaron RETIRADAS el 2026-10-29 (Plan 63 §7.1, ratificación
+/// del Ingeniero) porque el administrativo corrigió el dato en su manual: el par de 1 peso que las
+/// constituía ya no existe y declararlo taparía una regresión real.</para>
 ///
 /// <para><b>Alcance (honesto):</b> las fórmulas de las filas 20+ de esas hojas son geometría del
 /// manual heredado (mesh R1/R2/R4 por anclas distintas), NO superficie del pegado: pertenecen a la
@@ -104,10 +106,11 @@ public sealed class ComparadorPegadoH5Plan62Tests
         Assert.False(ComparadorSalidaVsManual.EsDivergenciaDeclarada(
             HojaDetRetri, "C16", "* Costos de Interventoría: REMUNERACIÓN 202609-1", "Firma autorizada"));
 
-        // Errata: Δ = 1 peso exacto y entero. Δ = 2 o Δ fraccionario NO están declarados.
-        Assert.True(ComparadorSalidaVsManual.EsDivergenciaDeclarada(HojaDetRetri, "D11", "10891338739", "10891338740"));
-        Assert.False(ComparadorSalidaVsManual.EsDivergenciaDeclarada(HojaDetRetri, "D11", "10891338739", "10891338741"));
-        Assert.False(ComparadorSalidaVsManual.EsDivergenciaDeclarada(HojaDetRetri, "D11", "10891338739", "10891338739,5"));
+        // Retiro ratificado (Plan 63 §7.1, 2026-10-29): el par de la errata del peso YA NO está
+        // declarado — el manual fue corregido en la fuente (D11/D14 = R10), así que un Δ de 1 peso
+        // vuelve a ser divergencia INESPERADA (antesala de una regresión real, no una declaración).
+        Assert.False(ComparadorSalidaVsManual.EsDivergenciaDeclarada(HojaDetRetri, "D11", "10891338739", "10891338740"));
+        Assert.False(ComparadorSalidaVsManual.EsDivergenciaDeclarada(HojaDetRetri, "D14", "63145073622", "63145073623"));
 
         // La declaración es de CELDA: el mismo par en otra celda no se declara.
         Assert.False(ComparadorSalidaVsManual.EsDivergenciaDeclarada(HojaDetRetri, "D12", c16App, c16Manual));
@@ -134,7 +137,7 @@ public sealed class ComparadorPegadoH5Plan62Tests
             "Divergencias INESPERADAS en la superficie del pegado (DetRetri A3:O19 / DetValiRetri A3:O14):\n"
             + string.Join("\n", inesperadas.Select(d => $"{d.Hoja}!{d.Celda} app=[{d.ValorApp}] manual=[{d.ValorManual}] ({d.Motivo})")));
 
-        // Anti-vacuidad: las tres declaradas SE APLICAN (una entrada que no aplica es una declaración
+        // Anti-vacuidad: la declarada VIGENTE SE APLICA (una entrada que no aplica es una declaración
         // muerta: la divergencia que documenta ya no existe y la cita quedó obsoleta).
         var conDeclaradas = comparador.Comparar(resultado.RutaSalida, manual, incluirDivergenciasDeclaradas: true)
             .Where(d => EnSuperficieDelPegado(d.Hoja, d.Celda))
@@ -146,14 +149,21 @@ public sealed class ComparadorPegadoH5Plan62Tests
             .OrderBy(id => id, StringComparer.Ordinal)
             .ToList();
 
-        Assert.Equal(
-            new[]
-            {
-                "P62-DETRETRI-C16-PIE-INTERVENTORIA",
-                "P62-DETRETRI-D11-ERRATA-PESO-ASE3",
-                "P62-DETRETRI-D14-TOTAL-ERRATA-PESO"
-            },
-            declaradasAplicadas);
+        // Plan 63 §7.1 (ratificación del Ingeniero 2026-10-29): el manual del administrativo fue
+        // CORREGIDO (D11 = 10.891.338.739, D14 = 63.145.073.622, idénticos al R10) y las dos entradas
+        // de errata se retiraron. Queda SOLO el pie de interventoría heredado.
+        Assert.Equal(["P62-DETRETRI-C16-PIE-INTERVENTORIA"], declaradasAplicadas);
+
+        // Anti-recurrencia del retiro: las dos entradas de errata siguen en el catálogo como historia
+        // auditable, con su retiro documentado, y NO aplican (el par de 1 peso ya no se declara).
+        Assert.Equal(2, DivergenciasDeclaradasComparador.Retiradas.Count);
+        Assert.All(DivergenciasDeclaradasComparador.Retiradas, e => Assert.True(e.RetiroDocumentado));
+        Assert.All(DivergenciasDeclaradasComparador.Retiradas, e => Assert.Equal("2026-10-29", e.FechaRetiro));
+        Assert.DoesNotContain(DivergenciasDeclaradasComparador.Vigentes, e =>
+            e.Celdas.Contains("D11", StringComparer.OrdinalIgnoreCase)
+            || e.Celdas.Contains("D14", StringComparer.OrdinalIgnoreCase));
+        Assert.False(ComparadorSalidaVsManual.EsDivergenciaDeclarada(HojaDetRetri, "D11", "10891338739", "10891338740"));
+        Assert.False(ComparadorSalidaVsManual.EsDivergenciaDeclarada(HojaDetRetri, "D14", "63145073622", "63145073623"));
     }
 
     /// <summary>

@@ -293,11 +293,11 @@ public sealed class ComparadorSalidaVsManual
     }
 
     /// <summary>
-    /// Divergencias declaradas vigentes (catálogo versionado, ver
-    /// <see cref="DivergenciasDeclaradasComparador"/>).
+    /// Divergencias declaradas VIGENTES (catálogo versionado, ver
+    /// <see cref="DivergenciasDeclaradasComparador"/>). Las retiradas (Plan 63 §7.1) no aparecen.
     /// </summary>
     public static IReadOnlyList<DivergenciasDeclaradasComparador.Entrada> DivergenciasDeclaradas =>
-        DivergenciasDeclaradasComparador.Entradas;
+        DivergenciasDeclaradasComparador.Vigentes;
 
     /// <summary>
     /// Indica si la diferencia (hoja/celda/valores) está DECLARADA en el catálogo versionado. Solo
