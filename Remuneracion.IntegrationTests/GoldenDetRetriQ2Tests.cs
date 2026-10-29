@@ -242,6 +242,13 @@ public sealed class GoldenDetRetriQ2Tests
         }
 
         var resultado = new CalculoRemuneracion().CalcularConsolidado(Insumos.PeriodoQ2(), datos);
+
+        // Plan 62 (T2.2/T2.5, reclassificado): DetRetri/DetValiRetri se PEGAN del R10 del periodo
+        // (N1). El asiento del dominio (Plan 59 H4) se retiro; para ejercitar el writer Q2 con su
+        // DetRetri se adjunta el bloque real del R10 2026072.
+        var lectorR10 = new ExcelDataReaderDetRetriR10Reader();
+        resultado.BloqueDetRetriR10 = lectorR10.LeerBloqueDetRetri(Insumos.PeriodoQ2(), Insumos.R10Q2);
+        resultado.BloqueValiRetriR10 = lectorR10.LeerBloqueDetValiRetri(Insumos.PeriodoQ2(), Insumos.R10Q2);
         var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-golden-q2-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(salidaDir);
         var salida = Path.Combine(salidaDir, Insumos.PeriodoQ2().NombreArchivo);

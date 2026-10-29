@@ -1,0 +1,34 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="066219be-fcb2-43fc-90a6-8b004f04e349" name="lechaparro@FA-HTPA15NG 2026-10-29 06:52:45" runUser="ASEINGES\lechaparro" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-29T06:52:45.2744222-05:00" queuing="2026-10-29T06:52:45.2744227-05:00" start="2026-10-29T06:52:26.5120493-05:00" finish="2026-10-29T06:52:45.2798550-05:00" />
+  <TestSettings name="default" id="875c91d0-ac8e-492c-b028-dc025b0fdfd7">
+    <Deployment runDeploymentRoot="lechaparro_FA-HTPA15NG_2026-10-29_06_52_45" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="0feeb7bd-b454-45af-ad33-b10a5adf6c5f" testId="ee75695c-4132-43df-c772-b43e015336fe" testName="Remuneracion.IntegrationTests.ParidadCliTests.Paridad_5Ase_Q1_CliVsDirecto_ValoresYSnapshotsIguales" computerName="FA-HTPA15NG" duration="00:00:17.4455221" startTime="2026-10-29T06:52:27.7054018-05:00" endTime="2026-10-29T06:52:45.1584248-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0feeb7bd-b454-45af-ad33-b10a5adf6c5f" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Remuneracion.IntegrationTests.ParidadCliTests.Paridad_5Ase_Q1_CliVsDirecto_ValoresYSnapshotsIguales" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="ee75695c-4132-43df-c772-b43e015336fe">
+      <Execution id="0feeb7bd-b454-45af-ad33-b10a5adf6c5f" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.ParidadCliTests" name="Paridad_5Ase_Q1_CliVsDirecto_ValoresYSnapshotsIguales" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="ee75695c-4132-43df-c772-b43e015336fe" executionId="0feeb7bd-b454-45af-ad33-b10a5adf6c5f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="1" executed="1" passed="1" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.4+50e68bbb8b (64-bit .NET 10.0.12)&#xD;
+[xUnit.net 00:00:00.14]   Discovering: Remuneracion.IntegrationTests&#xD;
+[xUnit.net 00:00:00.38]   Discovered:  Remuneracion.IntegrationTests&#xD;
+[xUnit.net 00:00:00.41]   Starting:    Remuneracion.IntegrationTests&#xD;
+[xUnit.net 00:00:17.89]   Finished:    Remuneracion.IntegrationTests&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

@@ -140,7 +140,9 @@ internal static class ValidadorBasePeriodo
     /// run en las 3 familias por-columna: <c>VALIDACION_TOTAL!C3:C8</c> (columna del bloque
     /// <c>'Recaudo *'</c>: D en Q1 / F en Q2) y los auto-chequeos de <c>DetRetri/DetValiRetri</c>
     /// que hardcodean <c>INTERVENTORIA!M26:M31</c> (N en Q1 / M en Q2, misma tabla que R-INTERV-Q).
-    /// Cualquier otra forma = <c>ERR-PLANTILLA</c> nombrando hoja + celda + variante esperada.
+    /// Plan 62 (T4.2, D-H4): se suma <c>CONSOLIDADO_TOTAL RECAUDO!E142:E146</c> (extensión E1-4 al
+    /// bloque 142–147, filas 21:25 de cada canal). Cualquier otra forma = <c>ERR-PLANTILLA</c>
+    /// nombrando hoja + celda + quincena.
     /// </summary>
     private static void ExigirVariantesDeQuincena(WorkbookPart workbookPart, Periodo periodo)
     {
@@ -153,42 +155,26 @@ internal static class ValidadorBasePeriodo
         hojasValidacion.AddRange(EmpresaFacturacion.Catalogo.OrderBy(e => e.Id).Select(e => e.HojaValidacion));
         foreach (var nombreHoja in hojasValidacion)
         {
-            var worksheet = ResolverHoja(workbookPart, nombreHoja);
-            foreach (var (celda, fila) in PreparadorBasePipeline.CeldasRecaudoDeValidacionTotal)
-            {
-                var cell = worksheet.Descendants<Cell>()
-                    .FirstOrDefault(c => string.Equals(c.CellReference?.Value, celda, StringComparison.OrdinalIgnoreCase))
-                    ?? throw new CalculoInvalidoException(
-                        CodigoError.Plantilla,
-                        $"La base del período {periodo.CodigoCompleto} no trae '{nombreHoja}!{celda}' (E1-4). Fail-fast antes de escribir.");
-
-                var formula = cell.CellFormula?.Text;
-                if (string.IsNullOrWhiteSpace(formula))
-                {
-                    throw new CalculoInvalidoException(
-                        CodigoError.Plantilla,
-                        $"La base del período {periodo.CodigoCompleto} no trae la variante de recaudo de su quincena: " +
-                        $"'{nombreHoja}!{celda}' no es fórmula (E1-4, Q{periodo.NumeroQuincena}). Fail-fast antes de escribir.");
-                }
-
-                foreach (var termino in PreparadorBasePipeline.SepararTerminosSuma(formula))
-                {
-                    var m = Regex.Match(termino, "^'(?<hoja>[^']+)'!(?<col>[A-Z]+)(?<fila>\\d+)$");
-                    var ok = m.Success
-                        && hojasRecaudo.Contains(m.Groups["hoja"].Value)
-                        && string.Equals(m.Groups["fila"].Value, fila.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
-                        && string.Equals(m.Groups["col"].Value, columnaRecaudo, StringComparison.Ordinal);
-                    if (!ok)
-                    {
-                        throw new CalculoInvalidoException(
-                            CodigoError.Plantilla,
-                            $"La base del período {periodo.CodigoCompleto} no trae la variante de recaudo de su quincena: " +
-                            $"'{nombreHoja}!{celda}' = '{formula}' no es Σ 'Recaudo *'!{columnaRecaudo}{fila} " +
-                            $"(E1-4, Q{periodo.NumeroQuincena}). Fail-fast antes de escribir.");
-                    }
-                }
-            }
+            ExigirRecaudoDeQuincena(
+                ResolverHoja(workbookPart, nombreHoja),
+                nombreHoja,
+                PreparadorBasePipeline.CeldasRecaudoDeValidacionTotal,
+                hojasRecaudo,
+                columnaRecaudo,
+                periodo,
+                "E1-4");
         }
+
+        // Plan 62 (T4.2): extensión E1-4 al bloque 142–147 del CONSOLIDADO (misma regla, misma tabla
+        // de columnas por quincena de dominio).
+        ExigirRecaudoDeQuincena(
+            ResolverHoja(workbookPart, HojaConsolidado),
+            HojaConsolidado,
+            PreparadorBasePipeline.CeldasRecaudoDeConsolidado142,
+            hojasRecaudo,
+            columnaRecaudo,
+            periodo,
+            "E1-4/142-147");
 
         foreach (var (hoja, celda, fragmento) in PreparadorBasePipeline.FragmentosAutoChequeoEsperados(periodo))
         {
@@ -225,6 +211,57 @@ internal static class ValidadorBasePeriodo
                 CodigoError.Plantilla,
                 $"La base del período {periodo.CodigoCompleto} no trae la tabla J de su quincena: " +
                 $"'{WorkbookLeafCellMapAjustesSfT.HojaInterventoria}!{PreparadorBasePipeline.CeldaTablaJMaestro}' = '{formulaR26 ?? "(valor)"}' != '{esperadoTablaJ}' (T3, Q{periodo.NumeroQuincena}). Fail-fast antes de escribir.");
+        }
+    }
+
+    /// <summary>
+    /// Plan 40/62 (E1-4 + extensión 142–147): cada celda de <paramref name="celdas"/> debe ser la
+    /// suma de referencias al bloque <c>'Recaudo *'</c> (hojas del catálogo abierto) en su fila y en
+    /// la columna de la quincena del run. Cualquier otra forma = <c>ERR-PLANTILLA</c> nombrando hoja +
+    /// celda + quincena. Una sola implementación para las dos tablas (cero duplicación).
+    /// </summary>
+    private static void ExigirRecaudoDeQuincena(
+        Worksheet worksheet,
+        string nombreHoja,
+        IReadOnlyList<(string Celda, int FilaRecaudo)> celdas,
+        IReadOnlySet<string> hojasRecaudo,
+        string columnaRecaudo,
+        Periodo periodo,
+        string familia)
+    {
+        foreach (var (celda, fila) in celdas)
+        {
+            var cell = worksheet.Descendants<Cell>()
+                .FirstOrDefault(c => string.Equals(c.CellReference?.Value, celda, StringComparison.OrdinalIgnoreCase))
+                ?? throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"La base del período {periodo.CodigoCompleto} no trae '{nombreHoja}!{celda}' ({familia}). Fail-fast antes de escribir.");
+
+            var formula = cell.CellFormula?.Text;
+            if (string.IsNullOrWhiteSpace(formula))
+            {
+                throw new CalculoInvalidoException(
+                    CodigoError.Plantilla,
+                    $"La base del período {periodo.CodigoCompleto} no trae la variante de recaudo de su quincena: " +
+                    $"'{nombreHoja}!{celda}' no es fórmula ({familia}, Q{periodo.NumeroQuincena}). Fail-fast antes de escribir.");
+            }
+
+            foreach (var termino in PreparadorBasePipeline.SepararTerminosSuma(formula))
+            {
+                var m = Regex.Match(termino, "^'(?<hoja>[^']+)'!(?<col>[A-Z]+)(?<fila>\\d+)$");
+                var ok = m.Success
+                    && hojasRecaudo.Contains(m.Groups["hoja"].Value)
+                    && string.Equals(m.Groups["fila"].Value, fila.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
+                    && string.Equals(m.Groups["col"].Value, columnaRecaudo, StringComparison.Ordinal);
+                if (!ok)
+                {
+                    throw new CalculoInvalidoException(
+                        CodigoError.Plantilla,
+                        $"La base del período {periodo.CodigoCompleto} no trae la variante de recaudo de su quincena: " +
+                        $"'{nombreHoja}!{celda}' = '{formula}' no es Σ 'Recaudo *'!{columnaRecaudo}{fila} " +
+                        $"({familia}, Q{periodo.NumeroQuincena}). Fail-fast antes de escribir.");
+                }
+            }
         }
     }
 

@@ -92,10 +92,13 @@ public interface IValidador
     /// <summary>
     /// HU-20 (G3): valida el DetRetri CALCULADO por ASE (<see cref="WorkbookLeafInputs.DetRetriQ2"/>,
     /// ROUND(D104:D108,0)) contra el oráculo <c>R10</c> del período, tolerancia ±0.5 tras el
-    /// redondeo a entero (G3-D1: el R10 es oráculo de validación, NUNCA fuente de escritura).
-    /// El proceso puebla el detalle en AMBAS quincenas, por lo que el gate corre en Q1 y Q2; los
-    /// leafs sin detalle (construcciones manuales de test) se omiten. Divergencia → mensaje con
-    /// ASE + ambos valores; el procesador lo eleva a fail-fast con período + archivo (G3-D2/R-G3-3).
+    /// redondeo a entero. El proceso puebla el detalle en AMBAS quincenas, por lo que el gate corre
+    /// en Q1 y Q2; los leafs sin detalle (construcciones manuales de test) se omiten. Divergencia →
+    /// mensaje con ASE + ambos valores; el procesador lo eleva a novedad de entrega.
+    ///
+    /// <para>Plan 62 (T3.2, D-61R10): solo se evalúa el gate PER-ASE. El gate de TOTAL
+    /// calculado-vs-R10 se retiró: con el pegado (N1) la hoja DetRetri/DetValiRetri es el R10 por
+    /// construcción y su integridad la verifica <c>VerificarIntegridadPegadoR10</c>.</para>
     /// </summary>
     /// <param name="leafs">Inputs leaf, uno por ASE (5 en modo período).</param>
     /// <param name="r10">DetRetri leído del R10 del período (oráculo).</param>

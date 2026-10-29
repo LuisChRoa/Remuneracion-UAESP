@@ -53,6 +53,13 @@ public sealed class FailFastHojaDetRetriPeriodoTests
 
         var resultado = new CalculoRemuneracion().CalcularConsolidado(Insumos.PeriodoQ2(), datos);
 
+        // Plan 62 (T2.2/T2.5, reclassificado): la hoja DetRetri del periodo la resuelve ahora el
+        // PEGADO del bloque del R10 (el asiento del dominio se retiro). Sin bloque no habria lectura
+        // de la hoja y el fail-fast de hoja ausente no se ejercitaria.
+        var lectorR10 = new ExcelDataReaderDetRetriR10Reader();
+        resultado.BloqueDetRetriR10 = lectorR10.LeerBloqueDetRetri(Insumos.PeriodoQ2(), Insumos.R10Q2);
+        resultado.BloqueValiRetriR10 = lectorR10.LeerBloqueDetValiRetri(Insumos.PeriodoQ2(), Insumos.R10Q2);
+
         var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-s3-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(salidaDir);
         try
@@ -67,10 +74,12 @@ public sealed class FailFastHojaDetRetriPeriodoTests
 
             // ERR-PLANTILLA: la ausencia de la hoja del período es un problema de plantilla.
             Assert.Equal(CodigoError.Plantilla, ex.Codigo);
-            // El mensaje es honesto: hoja esperada del período + código de período + operación.
+            // El mensaje es honesto: hoja esperada del período + código de período + resolucion fallida.
+            // (Plan 62: la hoja la resuelve el pegado o, antes, la validacion de forma del writer; el
+            // contrato del test es el fail-fast, no el nombre de la rutina que lo detecta.)
             Assert.Contains(HojaDetRetriVieja, ex.Message, StringComparison.Ordinal);
             Assert.Contains("2026072", ex.Message, StringComparison.Ordinal);
-            Assert.Contains("GenerarWorkbook", ex.Message, StringComparison.Ordinal);
+            Assert.Contains("no existe", ex.Message, StringComparison.Ordinal);
             Assert.Contains("hoja Det", ex.Message, StringComparison.Ordinal);
 
             // Nombra la hoja del período (no la de otro) y NO cae en fallback a otra hoja.

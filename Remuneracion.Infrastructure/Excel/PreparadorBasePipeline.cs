@@ -27,7 +27,9 @@ namespace Remuneracion.Infrastructure.Excel;
 ///   (d) NUEVO: selecciona <c>L9:L13</c> = <c>INTERVENTORIA!N26:N30</c> (Q1) / <c>M26:M30</c> (Q2)
 ///       por DOMINIO (<see cref="Periodo.NumeroQuincena"/>, jamás por contenido);
 ///   (e) autoverificación embebida (0 token viejo, N hojas, rIds intactos, N3 sellado, variante L
-///       == esperada) + escritura atómica (tmp + verificación + move).
+///       == esperada) + escritura atómica (tmp + verificación + move);
+///   (f) Plan 62 (T4.1, D-H4): la familia E1-4 se extiende a <c>CONSOLIDADO!E142:E146</c>
+///       (Σ <c>'Recaudo *'</c> por ASE en filas 21:25, columna de la quincena del run).
 ///
 /// Invariante (D-D): esta fase SÍ puede tocar <c>&lt;f&gt;</c> (allow-list T0: 11 tokens de período
 /// + 5 L9:L13). El PROCESAMIENTO de negocio (slot writer values-only y todo lo downstream) NUNCA.
@@ -128,6 +130,29 @@ public static class PreparadorBasePipeline
         [1] = "D",
         [2] = "F",
     };
+
+    // ── Plan 62 (T4.1, D-H4 / D-E1-4EXT): la familia E1-4 se extiende al bloque 142–147 ──────────
+    //
+    // El bloque "VALIDACION DEL RECAUDO VERSUS REMUNERACION" del CONSOLIDADO suma el recaudo de los
+    // 5 canales en una COLUMNA FIJA (F, filas 21:25) — la de la 2.ª quincena —, así que en Q1 el
+    // bloque queda en 0 mientras el recaudo se escribe en D (desalineación T0-12 del Plan 62). La
+    // REGLA es la MISMA de E1-4: la columna la decide el DOMINIO (NumeroQuincena) vía
+    // <see cref="ColumnaRecaudoDe"/>, nunca el contenido del workbook (D-H). La geometría
+    // (E142→fila 21 … E146→fila 25) es del T0-10/T0-11 (Plan 62); la fila 147 (cierre) NO se toca.
+
+    /// <summary>
+    /// Plan 62 (T4.1, D-H4): celdas de <c>CONSOLIDADO_TOTAL RECAUDO!E142:E146</c> que suman el
+    /// bloque <c>'Recaudo *'</c> y su fila en cada hoja de canal (geometría T0-11: E142→21 …
+    /// E146→25). La COLUMNA la decide <see cref="ColumnaRecaudoPorQuincena"/> (misma fuente que E1-4).
+    /// </summary>
+    private static readonly (string Celda, int FilaRecaudo)[] CeldasRecaudoValidacionConsolidado142 =
+    [
+        ("E142", 21),
+        ("E143", 22),
+        ("E144", 23),
+        ("E145", 24),
+        ("E146", 25),
+    ];
 
     /// <summary>F-NEW-1: <c>DetRetri{per}!L32:L36</c> = <c>INTERVENTORIA!M{26..30}+L{23..27}=L{9..13}</c>.</summary>
     private static readonly (string Celda, int FilaInterventoria)[] CeldasAutoChequeoDetRetriL =
@@ -313,6 +338,12 @@ public static class PreparadorBasePipeline
 
                     // Plan 39 (T1, paso 4d / R-INTERV-Q): variante L9:L13 por quincena (dominio).
                     texto = AplicarVarianteL(texto, periodo, resumen);
+
+                    // Plan 62 (T4.1, D-H4 / D-E1-4EXT): el bloque 142–147 del CONSOLIDADO suma el
+                    // recaudo de los 5 canales en la columna de la quincena del run (Q1 → D,
+                    // Q2 → F). Sin esto el bloque lee F21:F25 en Q1 (donde el recaudo aterriza en D)
+                    // y queda en 0 (desalineación T0-12).
+                    texto = AplicarVarianteRecaudoValidacionConsolidado142(texto, periodo, resumen);
                 }
 
                 // Plan 40 (T3, E1-4): las celdas que suman el bloque 'Recaudo *'
@@ -554,6 +585,37 @@ public static class PreparadorBasePipeline
         return xml;
     }
 
+    /// <summary>
+    /// Plan 62 (T4.1, D-H4 / D-E1-4EXT): reescribe <c>CONSOLIDADO_TOTAL RECAUDO!E142:E146</c> a la
+    /// columna del bloque <c>'Recaudo *'</c> de la quincena del run (Q1 → D, Q2 → F).
+    ///
+    /// <para><b>Reuso (decisión, cero duplicación):</b> la construcción de la fórmula es EXACTAMENTE
+    /// la de la familia E1-4 — <see cref="AsegurarVarianteRecaudo"/> + <see cref="ReconstruirFormulaRecaudo"/>
+    /// —, que son genéricas (hoja + celda + fila + columna) y ya validan cada término contra el
+    /// catálogo abierto de <c>'Recaudo *'</c> y su fila. No se agrega un constructor de fórmula
+    /// nuevo: solo una tabla de celdas (geometría T0) y este bucle. La etiqueta de error sigue
+    /// siendo <c>E1-4</c> porque la extensión ES la familia (D-E1-4EXT), no una familia distinta.</para>
+    ///
+    /// <para>Alcance cerrado: SOLO el texto de <c>E142:E146</c>. <c>D/F..M</c>, la fila 147 y las
+    /// fórmulas compartidas <c>L145</c> (<c>si=68</c>) / <c>M142</c> (<c>si=67</c>) quedan
+    /// byte-idénticas (R5-GATE): <see cref="SustituirTextoFormula"/> reutiliza los atributos crudos
+    /// de la <c>&lt;f&gt;</c> y <c>ValidadorIntegridadPaquete.ValidarPreparacion</c> aborta si
+    /// <c>t</c>/<c>ref</c>/<c>si</c> cambian.</para>
+    /// </summary>
+    private static string AplicarVarianteRecaudoValidacionConsolidado142(string xml, Periodo periodo, List<string> resumen)
+    {
+        var columna = ColumnaRecaudoDe(periodo);
+        foreach (var (celda, fila) in CeldasRecaudoValidacionConsolidado142)
+        {
+            xml = AsegurarVarianteRecaudo(xml, HojaConsolidado, celda, fila, columna, periodo, out var cambiado);
+            resumen.Add(cambiado
+                ? $"  {HojaConsolidado}!{celda}: recaudo → columna {columna} (Q{periodo.NumeroQuincena}, E1-4/142-147)"
+                : $"  {HojaConsolidado}!{celda}: recaudo ya en columna {columna} (Q{periodo.NumeroQuincena})");
+        }
+
+        return xml;
+    }
+
     private static string AsegurarVarianteRecaudo(
         string xml,
         string hoja,
@@ -612,7 +674,7 @@ public static class PreparadorBasePipeline
                 throw new CalculoInvalidoException(
                     CodigoError.Plantilla,
                     $"E1-4: {hoja}!{celda} trae la forma inesperada '{formula}' " +
-                    $"(se esperaba Σ 'Recaudo *'!{{col}}{fila} con col ∈ {{D,F}}); fail-fast, nunca se sobrescribe a ciegas.");
+                    $"(se esperaba Σ 'Recaudo *'!{{col}}{fila} con col ∈ {{D,F}}; Q{periodo.NumeroQuincena}); fail-fast, nunca se sobrescribe a ciegas.");
             }
 
             partes.Add($"'{m.Groups["hoja"].Value}'!{columna}{fila}");
@@ -886,6 +948,13 @@ public static class PreparadorBasePipeline
     /// <summary>Plan 40 (T3, E1-4): celdas de <c>VALIDACION_TOTAL</c> que suman el bloque <c>'Recaudo *'</c> (celda → fila).</summary>
     public static IReadOnlyList<(string Celda, int FilaRecaudo)> CeldasRecaudoDeValidacionTotal => CeldasRecaudoValidacion;
 
+    /// <summary>
+    /// Plan 62 (T4.1, D-H4): celdas de <c>CONSOLIDADO_TOTAL RECAUDO!E142:E146</c> que suman el bloque
+    /// <c>'Recaudo *'</c> (celda → fila 21:25). Fuente ÚNICA de la geometría para el preflight
+    /// <see cref="ValidadorBasePeriodo"/> (la columna también sale de <see cref="ColumnaRecaudoDe"/>).
+    /// </summary>
+    public static IReadOnlyList<(string Celda, int FilaRecaudo)> CeldasRecaudoDeConsolidado142 => CeldasRecaudoValidacionConsolidado142;
+
     // ── Autoverificación (e) ─────────────────────────────────────────────────────────────────────
     /// <summary>
     /// Autoverificación embebida: 0 tokens del período base; las hojas del período destino presentes
@@ -1000,8 +1069,13 @@ public static class PreparadorBasePipeline
         lineas.AddRange(VerificarVarianteL(partes[hojaConsolidadoParte], periodo));
         foreach (var (hojaRecaudo, parteRecaudo) in hojasRecaudoValidacion)
         {
-            lineas.AddRange(VerificarVarianteRecaudoValidacion(partes[parteRecaudo], hojaRecaudo, periodo));
+            lineas.AddRange(VerificarVarianteRecaudoValidacion(partes[parteRecaudo], hojaRecaudo, CeldasRecaudoValidacion, periodo));
         }
+
+        // Plan 62 (T4.1): la extensión E1-4 al bloque 142–147 se autoverifica con la MISMA rutina
+        // (tabla de celdas + columna de la quincena del run).
+        lineas.AddRange(VerificarVarianteRecaudoValidacion(
+            partes[hojaConsolidadoParte], HojaConsolidado, CeldasRecaudoValidacionConsolidado142, periodo));
 
         lineas.AddRange(VerificarAutoChequeos(partes[hojaDetRetriParte], CeldasAutoChequeoDetRetriL, CeldasAutoChequeoDetRetriO, periodo));
         lineas.AddRange(VerificarAutoChequeos(partes[hojaDetValiRetriParte], CeldasAutoChequeoDetValiRetriI, [], periodo));
@@ -1010,14 +1084,22 @@ public static class PreparadorBasePipeline
         return lineas;
     }
 
-    /// <summary>Autoverificación de las celdas C3:C8 que suman <c>'Recaudo *'</c> (E1-4) en la columna de la quincena.</summary>
-    private static IEnumerable<string> VerificarVarianteRecaudoValidacion(byte[] hoja, string nombreHoja, Periodo periodo)
+    /// <summary>
+    /// Autoverificación de las celdas que suman <c>'Recaudo *'</c> (E1-4 y su extensión 142–147 del
+    /// Plan 62) en la columna de la quincena. La tabla de celdas es un parámetro: la rutina es la
+    /// MISMA para <c>VALIDACION_*!C3:C8</c> y para <c>CONSOLIDADO!E142:E146</c> (cero duplicación).
+    /// </summary>
+    private static IEnumerable<string> VerificarVarianteRecaudoValidacion(
+        byte[] hoja,
+        string nombreHoja,
+        IReadOnlyList<(string Celda, int FilaRecaudo)> celdas,
+        Periodo periodo)
     {
         var columna = ColumnaRecaudoDe(periodo);
         var xml = Encoding.UTF8.GetString(hoja);
         var hojas = EmpresaFacturacion.Catalogo.Select(e => e.HojaRecaudo).ToHashSet(StringComparer.Ordinal);
 
-        foreach (var (celda, fila) in CeldasRecaudoValidacion)
+        foreach (var (celda, fila) in celdas)
         {
             var match = BuscarCelda(xml, celda)
                 ?? throw new CalculoInvalidoException(CodigoError.Plantilla, $"Autoverificación E1-4: falta {nombreHoja}!{celda}.");

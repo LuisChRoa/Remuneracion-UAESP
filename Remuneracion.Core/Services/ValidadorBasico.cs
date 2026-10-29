@@ -419,12 +419,30 @@ public sealed class ValidadorBasico : IValidador
     }
 
     /// <summary>
-    /// HU-20 (G3-D1): valida el DetRetri CALCULADO por ASE (<see cref="DetRetriQ2Inputs.Detalle"/> =
-    /// ROUND(D104:D108,0)) contra el oráculo R10 del período, tolerancia ±0.5. El R10 es oráculo de
-    /// VALIDACIÓN (nunca se escribe al template). Matcheo estricto por <see cref="Ase.Id"/>. El
-    /// proceso puebla <see cref="WorkbookLeafInputs.DetRetriQ2"/> en AMBAS quincenas, por lo que el
-    /// gate corre en Q1 y Q2; los leafs sin detalle (construcciones manuales de test) se omiten.
-    /// El procesador agrega período + archivo al fail-fast.
+    /// HU-20 (G3-D1) + Plan 62 (T3.1/T3.2, D-61R10): valida el DetRetri CALCULADO por ASE
+    /// (<see cref="DetRetriQ2Inputs.Detalle"/> = ROUND(D104:D108,0)) contra el R10 del período,
+    /// tolerancia ±0.5. Matcheo estricto por <see cref="Ase.Id"/>. El proceso puebla
+    /// <see cref="WorkbookLeafInputs.DetRetriQ2"/> en AMBAS quincenas, por lo que el gate corre en
+    /// Q1 y Q2; los leafs sin detalle (construcciones manuales de test) se omiten.
+    ///
+    /// <para>
+    /// <b>Gate per-ASE CONSERVADO (T3.1):</b> el operando izquierdo es el cálculo del DOMINIO
+    /// (<see cref="ProcesadorPeriodo"/> compone <c>TotalD104</c> desde los leafs R1/R2/R4 +
+    /// AJUSTES-SF-T, no desde la hoja) y el derecho es la lectura del insumo R10. No es una
+    /// tautología del pegado: comprueba que el cálculo de la plantilla sigue cuadrando por ASE con
+    /// el reporte oficial, aunque la hoja ya sea el R10 por construcción.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Gate de TOTAL RETIRADO (T3.2, D-61R10):</b> la capa "Σ de los <c>Detalle</c> vs
+    /// <c>r10.Total</c>" ya no se evalúa. Desde el pegado, la hoja DetRetri es el R10 por
+    /// construcción, así que comparar la suma calculada contra el total declarado sería un verde
+    /// que no prueba nada; su sustituto es la verificación de integridad del pegado
+    /// (<c>OpenXmlPlantillaWriter.VerificarIntegridadPegadoR10</c>). El residuo de redondeo de
+    /// composición vive donde ya lo tiene el manual (<c>DetValiRetri!D21</c>, divergencia
+    /// documentada D6, excluida del gate de validaciones cruzadas). El procesador agrega período +
+    /// archivo al fail-fast/novedad.
+    /// </para>
     /// </summary>
     public List<string> ValidarDetRetriContraR10(IReadOnlyList<WorkbookLeafInputs> leafs, DetRetriInputs r10)
     {
@@ -457,13 +475,9 @@ public sealed class ValidadorBasico : IValidador
             }
         }
 
-        var sumaCalculada = conDetalle.Sum(l => l.DetRetriQ2!.Detalle);
-        var diferenciaTotal = Math.Abs(sumaCalculada - r10.Total);
-        if (diferenciaTotal > Tolerancia)
-        {
-            AgregarError(errores, $"DetRetri total calculado (Σ {sumaCalculada}) no coincide con el R10 total ({r10.Total}). Diferencia={diferenciaTotal} > ±{Tolerancia}.");
-        }
-
+        // Plan 62 (T3.2, D-61R10): el gate de TOTAL calculado-vs-R10 se RETIRÓ. Con el pegado
+        // (N1) la hoja DetRetri/DetValiRetri ES el R10 por construcción; el total se prueba con el
+        // read-back de integridad del pegado, no con una suma del dominio contra el mismo insumo.
         return errores;
     }
 

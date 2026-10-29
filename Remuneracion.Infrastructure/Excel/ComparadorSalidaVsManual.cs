@@ -34,8 +34,14 @@ namespace Remuneracion.Infrastructure.Excel;
 ///   - Metadatos de período en <c>CONSOLIDADO_TOTAL RECAUDO</c>: N3/C6/D6 (Plan 28 los deja fuera de
 ///     scope) y los NOMBRES de hoja con sufijo de período (el par se resuelve por nombre
 ///     normalizado sin el token de período; H1/T0g: la base hereda el sufijo).
-///   - <c>DetValiRetri*!J</c> (AJUSTE A LA DECENA): SALE documentado de T0d (manual-externo, sin
-///     origen workbook-interno 10/10).
+///
+/// Plan 62 (H5, T5.1 — D-J9): la exclusión <c>DetValiRetri*!J</c> (AJUSTE A LA DECENA) se RETIRÓ.
+/// Nació del SALE de Unidad D (T0d del Plan 29) porque la app dejaba <c>J9:J14</c> en 0; desde el
+/// pegado del R10 esas celdas traen dato real (T0-09 + R-Aclareo), así que se comparan como
+/// cualquier otra. Las diferencias que SÍ son legítimas (el manual conserva un dato heredado y la
+/// app reproduce su fuente) viven en el catálogo versionado
+/// <see cref="DivergenciasDeclaradasComparador"/>, celda a celda y con el par de valores exacto
+/// (R-FALSO-POSITIVO: una entrada ancha taparía una regresión real).
 /// </summary>
 public sealed class ComparadorSalidaVsManual
 {
@@ -57,9 +63,19 @@ public sealed class ComparadorSalidaVsManual
 
     /// <summary>
     /// Compara dos workbooks <c>.xlsx</c> y devuelve las divergencias fuera de las exclusiones
-    /// versionadas. Archivo inexistente → fail-fast nombrando la ruta.
+    /// versionadas y de las divergencias declaradas (ver
+    /// <see cref="DivergenciasDeclaradasComparador"/>). Archivo inexistente → fail-fast nombrando la
+    /// ruta.
     /// </summary>
-    public IReadOnlyList<Divergencia> Comparar(string rutaApp, string rutaManual)
+    public IReadOnlyList<Divergencia> Comparar(string rutaApp, string rutaManual) =>
+        Comparar(rutaApp, rutaManual, incluirDivergenciasDeclaradas: false);
+
+    /// <summary>
+    /// Igual que <see cref="Comparar(string, string)"/>; con <paramref name="incluirDivergenciasDeclaradas"/>
+    /// las divergencias declaradas también se devuelven (sirve para demostrar que la declaración se
+    /// está aplicando, en vez de que la celda haya dejado de diferir).
+    /// </summary>
+    public IReadOnlyList<Divergencia> Comparar(string rutaApp, string rutaManual, bool incluirDivergenciasDeclaradas)
     {
         if (!File.Exists(rutaApp))
         {
@@ -97,7 +113,7 @@ public sealed class ComparadorSalidaVsManual
                 continue;
             }
 
-            CompararHoja(hojaApp, app[hojaApp], hojaManual, manual[hojaManual], divergencias);
+            CompararHoja(hojaApp, app[hojaApp], hojaManual, manual[hojaManual], divergencias, incluirDivergenciasDeclaradas);
         }
 
         foreach (var (hojaBase, hojaManual) in nombresManual)
@@ -129,7 +145,8 @@ public sealed class ComparadorSalidaVsManual
         IReadOnlyDictionary<string, Celda> app,
         string hojaManual,
         IReadOnlyDictionary<string, Celda> manual,
-        List<Divergencia> divergencias)
+        List<Divergencia> divergencias,
+        bool incluirDivergenciasDeclaradas)
     {
         var celdas = app.Keys.Concat(manual.Keys).Distinct(StringComparer.OrdinalIgnoreCase);
         foreach (var celda in celdas)
@@ -141,15 +158,19 @@ public sealed class ComparadorSalidaVsManual
 
             app.TryGetValue(celda, out var a);
             manual.TryGetValue(celda, out var m);
-            if (!SonEquivalentes(a, m))
+            if (SonEquivalentes(a, m))
             {
-                divergencias.Add(new Divergencia(
-                    hoja,
-                    celda,
-                    a is null ? null : Describir(a),
-                    m is null ? null : Describir(m),
-                    Motivo(a, m)));
+                continue;
             }
+
+            var valorApp = a is null ? null : Describir(a);
+            var valorManual = m is null ? null : Describir(m);
+            if (!incluirDivergenciasDeclaradas && EsDivergenciaDeclarada(hoja, celda, valorApp, valorManual))
+            {
+                continue;
+            }
+
+            divergencias.Add(new Divergencia(hoja, celda, valorApp, valorManual, Motivo(a, m)));
         }
     }
 
@@ -266,14 +287,25 @@ public sealed class ComparadorSalidaVsManual
             return true;
         }
 
-        // SALE T0d: DetValiRetri J (AJUSTE A LA DECENA), manual-externo sin origen 10/10.
-        if (baseHoja.StartsWith("DETVALIRETRI", StringComparison.OrdinalIgnoreCase) && columna == "J")
-        {
-            return true;
-        }
-
+        // Plan 62 (T5.1, D-J9): la exclusión SALE de `DetValiRetri!J` (AJUSTE A LA DECENA) se RETIRÓ
+        // — J9:J14 viaja pegado desde el R10 (T0-09 + R-Aclareo) y se compara como cualquier celda.
         return false;
     }
+
+    /// <summary>
+    /// Divergencias declaradas vigentes (catálogo versionado, ver
+    /// <see cref="DivergenciasDeclaradasComparador"/>).
+    /// </summary>
+    public static IReadOnlyList<DivergenciasDeclaradasComparador.Entrada> DivergenciasDeclaradas =>
+        DivergenciasDeclaradasComparador.Entradas;
+
+    /// <summary>
+    /// Indica si la diferencia (hoja/celda/valores) está DECLARADA en el catálogo versionado. Solo
+    /// aplica cuando el par de valores coincide con la entrada: cualquier otro valor en la misma
+    /// celda sigue siendo divergencia inesperada.
+    /// </summary>
+    public static bool EsDivergenciaDeclarada(string hoja, string celda, string? valorApp, string? valorManual) =>
+        DivergenciasDeclaradasComparador.Buscar(hoja, celda, valorApp, valorManual) is not null;
 
     /// <summary>
     /// Normaliza el nombre de hoja quitando el token de período (H1/T0g: la base hereda el sufijo,
@@ -288,7 +320,11 @@ public sealed class ComparadorSalidaVsManual
     private static string NormalizarFormula(string formula) =>
         new(formula.Where(c => !char.IsWhiteSpace(c)).ToArray());
 
-    private static string NormalizarTexto(string texto)
+    /// <summary>
+    /// Normaliza texto para comparación: mayúsculas, sin diacríticos, sin espacios de borde. Público
+    /// porque el catálogo de divergencias declaradas cita y compara rótulos con la MISMA regla.
+    /// </summary>
+    public static string NormalizarTexto(string texto)
     {
         var descompuesto = texto.Normalize(NormalizationForm.FormD);
         var sb = new StringBuilder(descompuesto.Length);

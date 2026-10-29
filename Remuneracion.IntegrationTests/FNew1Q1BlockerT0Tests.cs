@@ -228,7 +228,10 @@ public sealed class FNew1Q1BlockerT0Tests
     {
         if (string.Equals(hoja, "CONSOLIDADO_TOTAL RECAUDO", StringComparison.Ordinal))
         {
-            return celda is "L9" or "L10" or "L11" or "L12" or "L13";
+            // Plan 39: L9:L13 (R-INTERV-Q). Plan 62 (T4.3, D-H4): E142:E146 — extensión de la
+            // familia E1-4 al bloque 142–147 (Σ 'Recaudo *' por ASE, columna de la quincena).
+            return celda is "L9" or "L10" or "L11" or "L12" or "L13"
+                or "E142" or "E143" or "E144" or "E145" or "E146";
         }
 
         if (string.Equals(hoja, "BCE SC POR FACT.", StringComparison.Ordinal))

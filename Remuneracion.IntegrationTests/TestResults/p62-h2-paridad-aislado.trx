@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="b1ee0fc0-4292-4292-8aef-2d083caebf4c" name="lechaparro@FA-HTPA15NG 2026-10-29 00:10:17" runUser="ASEINGES\lechaparro" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-29T00:10:17.6224894-05:00" queuing="2026-10-29T00:10:17.6224902-05:00" start="2026-10-29T00:08:59.7914337-05:00" finish="2026-10-29T00:10:17.6452968-05:00" />
+  <TestSettings name="default" id="125410d9-43ac-4a56-9689-007fd1a88ebe">
+    <Deployment runDeploymentRoot="lechaparro_FA-HTPA15NG_2026-10-29_00_10_17" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="d95bcd31-1a2d-4b7f-9f4e-5135b1eee434" testId="ee75695c-4132-43df-c772-b43e015336fe" testName="Remuneracion.IntegrationTests.ParidadCliTests.Paridad_5Ase_Q1_CliVsDirecto_ValoresYSnapshotsIguales" computerName="FA-HTPA15NG" duration="00:01:14.0102095" startTime="2026-10-29T00:09:03.1793500-05:00" endTime="2026-10-29T00:10:17.1623092-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d95bcd31-1a2d-4b7f-9f4e-5135b1eee434">
+      <Output>
+        <ErrorInfo>
+          <Message>El log debe tener al menos el inicio y el fin con el RunId d3411fdc-cc0b-4a91-8c04-c59999218b50; encontradas 0.</Message>
+          <StackTrace>   at Remuneracion.IntegrationTests.ParidadCliTests.Paridad_5Ase_Q1_CliVsDirecto_ValoresYSnapshotsIguales() in C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\ParidadCliTests.cs:line 113&#xD;
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Remuneracion.IntegrationTests.ParidadCliTests.Paridad_5Ase_Q1_CliVsDirecto_ValoresYSnapshotsIguales" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="ee75695c-4132-43df-c772-b43e015336fe">
+      <Execution id="d95bcd31-1a2d-4b7f-9f4e-5135b1eee434" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.ParidadCliTests" name="Paridad_5Ase_Q1_CliVsDirecto_ValoresYSnapshotsIguales" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="ee75695c-4132-43df-c772-b43e015336fe" executionId="d95bcd31-1a2d-4b7f-9f4e-5135b1eee434" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="1" executed="1" passed="0" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.4+50e68bbb8b (64-bit .NET 10.0.12)&#xD;
+[xUnit.net 00:00:00.46]   Discovering: Remuneracion.IntegrationTests&#xD;
+[xUnit.net 00:00:01.14]   Discovered:  Remuneracion.IntegrationTests&#xD;
+[xUnit.net 00:00:01.21]   Starting:    Remuneracion.IntegrationTests&#xD;
+[xUnit.net 00:01:15.39]       El log debe tener al menos el inicio y el fin con el RunId d3411fdc-cc0b-4a91-8c04-c59999218b50; encontradas 0.&#xD;
+[xUnit.net 00:01:15.39]       Stack Trace:&#xD;
+[xUnit.net 00:01:15.40]         C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\ParidadCliTests.cs(113,0): at Remuneracion.IntegrationTests.ParidadCliTests.Paridad_5Ase_Q1_CliVsDirecto_ValoresYSnapshotsIguales()&#xD;
+[xUnit.net 00:01:15.40]            at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+[xUnit.net 00:01:15.40]            at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)&#xD;
+[xUnit.net 00:01:15.46]   Finished:    Remuneracion.IntegrationTests&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="FA-HTPA15NG" outcome="Error" timestamp="2026-10-29T00:10:17.1750611-05:00">
+        <Text>[xUnit.net 00:01:15.39]     Remuneracion.IntegrationTests.ParidadCliTests.Paridad_5Ase_Q1_CliVsDirecto_ValoresYSnapshotsIguales [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

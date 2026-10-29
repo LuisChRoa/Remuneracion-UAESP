@@ -48,13 +48,20 @@ internal static class ClasificadorNovedadesEntrega
     }
 
     /// <summary>
-    /// Gate DetRetri calculado vs R10. Es la ficha con más detalle útil, así que se construye con
-    /// los números del dominio (no con el texto del gate): el administrativo ve el valor de la
-    /// plantilla y el del reporte oficial del período.
+    /// Gate DetRetri calculado vs R10 (frente per-ASE). Es la ficha con más detalle útil, así que se
+    /// construye con los números del dominio (no con el texto del gate): el administrativo ve el
+    /// valor de la plantilla y el del reporte oficial del período.
     ///
     /// <para><b>D8 (ratificada).</b> Cuando el R10 y la cadena de fórmulas de la plantilla
     /// discrepan, manda la plantilla: la diferencia se reporta y JAMÁS se corrige el cálculo ni se
     /// amplía la tolerancia.</para>
+    ///
+    /// <para><b>Plan 62 (T3.2, D-61R10) — sin novedad de TOTAL.</b> La capa de TOTAL
+    /// (Σ de los <c>Detalle</c> vs <c>r10.Total</c>) dejó de emitirse: la hoja DetRetri es el R10
+    /// por construcción (pegado N1), así que esa ficha sería una tautología y su residuo de
+    /// redondeo vive donde ya lo tiene el manual (<c>DetValiRetri!D21</c>, D6). Solo quedan las
+    /// fichas per-ASE, que siguen probando que el cálculo de la plantilla cuadra con el reporte
+    /// oficial de cada operador.</para>
     /// </summary>
     internal static IReadOnlyList<NovedadEntrega> DesdeR10(
         IReadOnlyList<WorkbookLeafInputs> leafs,
@@ -71,7 +78,6 @@ internal static class ClasificadorNovedadesEntrega
         var novedades = new List<NovedadEntrega>();
 
         var conDetalle = leafs.Where(l => l.DetRetriQ2 is not null).OrderBy(l => l.Ase.Id).ToList();
-        var huboDiferenciaPorAse = false;
 
         foreach (var leaf in conDetalle)
         {
@@ -98,7 +104,6 @@ internal static class ClasificadorNovedadesEntrega
                 continue;
             }
 
-            huboDiferenciaPorAse = true;
             var origen = leaf.DetRetriQ2.TotalD104;
             novedades.Add(new NovedadEntrega(
                 reporte,
@@ -113,27 +118,9 @@ internal static class ClasificadorNovedadesEntrega
                 ExplicarDiferenciaDelAsiento(origen, calculado, oraculo)));
         }
 
-        // La Σ de los cinco ASE solo aporta información nueva cuando los ASE cuadran uno a uno: si ya
-        // hay una diferencia por ASE, el total es su consecuencia y repetirla duplicaría la ficha.
-        if (!huboDiferenciaPorAse)
-        {
-            var suma = conDetalle.Sum(l => l.DetRetriQ2!.Detalle);
-            if (Math.Abs(suma - r10.Total) > 0.5m)
-            {
-                novedades.Add(new NovedadEntrega(
-                    reporte,
-                    hoja,
-                    0,
-                    "Total del período",
-                    suma,
-                    r10.Total,
-                    suma - r10.Total,
-                    DuenoAdministrativo,
-                    "Compare el total del período en el Excel entregado contra el total del reporte oficial del período.",
-                    "La suma de los cinco ASE de la plantilla no coincide con el total del reporte oficial del período, aunque cada ASE cuadra por separado."));
-            }
-        }
-
+        // Plan 62 (T3.2, D-61R10): NO se emite la ficha de "Total del período". Con el pegado (N1)
+        // el total entregado es el del R10 por construcción; repetirlo sería un verde que no prueba
+        // nada. El residuo de composición vive en DetValiRetri!D21 (divergencia D6 existente).
         return novedades;
     }
 

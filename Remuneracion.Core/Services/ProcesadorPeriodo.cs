@@ -327,6 +327,18 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
         Log.Information("Leyendo R10 del período ({Archivo}) como oráculo de DetRetri...", Path.GetFileName(rutaR10));
         var r10 = _detRetriR10Reader.LeerDetRetri(solicitud.Periodo, rutaR10);
 
+        // Plan 62 (N1, T2.1/D-ORDEN): el R10 es la FUENTE de las hojas DetRetri/DetValiRetri (N1
+        // reemplaza a G3-D1). Los DOS bloques del contrato T0 (A3:O19 y A3:O14) se leen AQUI, antes
+        // de escribir: un R10 sin las 2 hojas o con el bloque incompleto falla con
+        // ERR-FUENTE-NO-ENCONTRADA / ERR-FORMATO-FUENTE ANTES de tocar la salida (fail-fast sin
+        // escritura parcial). El writer los pega en su MISMA pasada atomica, despues del CONSOLIDADO
+        // (D104:D108) y de la Phase 0 de la base, y ANTES de los gates de datos (ValidarDetRetri-
+        // ContraR10) y del oraculo de validaciones (LeerSnapshots), que asi leen lo pegado.
+        progreso?.Report("Leyendo el bloque del R10 que se pega en DetRetri/DetValiRetri...");
+        Log.Information("Leyendo el bloque del R10 (DetRetri/DetValiRetri) que se pega en las hojas del periodo...");
+        resultado.BloqueDetRetriR10 = _detRetriR10Reader.LeerBloqueDetRetri(solicitud.Periodo, rutaR10);
+        resultado.BloqueValiRetriR10 = _detRetriR10Reader.LeerBloqueDetValiRetri(solicitud.Periodo, rutaR10);
+
         // Plan 28 (Unidad F / D-E): el sello de fechas del período exige que el R10 traiga
         // 'Fecha Desde' (G7) y 'Fecha Hasta' (J7) legibles. Sin fechas → fail-fast que nombra
         // período + archivo + celda; NUNCA se sellan fechas silenciosas de otro período ni se

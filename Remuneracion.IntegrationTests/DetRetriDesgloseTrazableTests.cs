@@ -20,12 +20,13 @@ namespace Remuneracion.IntegrationTests;
 /// REALES de julio-Q2 (<c>Docs/Prueba Julio-2/Insumos</c>) y agosto-Q2
 /// (<c>Docs/Prueba Agosto-2/Insumos</c>).
 ///
-/// Cobertura (R-D-1 + S5):
-///   - DetRetri J ← BCE F3 (Subsidio + Contribución): igual a ROUND(D+E) de la salida y, salvo la
-///     divergencia documentada de julio-ASE5 (T0a DIVERGENCIA-DEL-MANUAL), igual al manual ±0.5.
-///   - DetRetri L ← INTERVENTORIA F15 (2ª quincena declarada) y DetValiRetri I ← −L, O ← 0.
-///   - SALE T0d: DetValiRetri J (AJUSTE A LA DECENA) NO se escribe (queda en 0) y está listada con
-///     motivo en <see cref="WorkbookLeafCellMapDetRetri.ColumnasExcluidas"/>.
+/// Cobertura (R-D-1 + S5), reescrita por el Plan 62 (H2/H3 — D-59H4/D-61R10/D-J9):
+///   - DetRetri J y L y DetValiRetri I/O viajan PEGADOS del R10 del período (N1). La derivación
+///     histórica "J ← BCE F3" se conserva como diagnóstico y coincide en julio; el manual del
+///     administrativo coincide con el R10 en los 5 ASE (la antigua divergencia ASE5 desaparece
+///     porque la app ya no calcula J/L: copia el R10, fuente también del manual).
+///   - DetValiRetri J (AJUSTE A LA DECENA) también entra pegado (D-J9); la exclusión SALE del
+///     comparador (Plan 29) se retira en H5.
 ///   - DetRetri D 5/5 intacto (el desglose no mueve el dinero).
 ///   - R-D-1/guard: una celda-destino convertida en fórmula ⇒ ERR-PLANTILLA, sin sobrescritura.
 ///
@@ -59,11 +60,14 @@ public sealed class DetRetriDesgloseTrazableTests
         EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida.Ruta);
         Assert.True(File.Exists(ManualJulio), $"Falta el manual de julio: {ManualJulio}");
 
+        var bloqueDet = new ExcelDataReaderDetRetriR10Reader().LeerBloqueDetRetri(PeriodoQ2, Insumos.R10Q2);
         for (var aseId = 1; aseId <= 5; aseId++)
         {
             var fila = WorkbookLeafCellMapDetRetri.ObtenerFila(aseId);
 
-            // J = BCE SC POR FACT.!F3 = D3+E3 del MISMO workbook (celdas literales escritas por la app).
+            // Plan 62 (H2/H3, D-59H4 + D-61R10): J/L de DetRetri y I de DetValiRetri viajan PEGADOS
+            // del R10 del período. La derivación "J ← BCE F3" ya no es la fuente de la hoja; se
+            // conserva como diagnóstico (en julio el R10 coincide con ROUND(BCE) en ambos canónicos).
             var bceFila = 2 + aseId; // D3..D7
             var esperadoJ = Redondear(LeerCeldaNumerica(salida.Ruta, "BCE SC POR FACT.", $"D{bceFila}")
                 + LeerCeldaNumerica(salida.Ruta, "BCE SC POR FACT.", $"E{bceFila}"));
@@ -72,39 +76,41 @@ public sealed class DetRetriDesgloseTrazableTests
                 Math.Abs(jEscrito - esperadoJ) <= Tol,
                 $"julio ASE{aseId}: DetRetri J{fila} escrito={jEscrito} esperado ROUND(BCE.F{bceFila})={esperadoJ}.");
 
-            // L = INTERVENTORIA F15 (2ª quincena) y DetValiRetri I = -L, O = 0.
+            // L = INTERVENTORIA F15 (2ª quincena) y DetValiRetri I = -L, O = 0: todos pegados del R10.
             var l = LeerCeldaNumerica(salida.Ruta, HojaDetRetri, $"L{fila}");
             Assert.InRange(l - LeerCeldaNumerica(ManualJulio, HojaDetRetri, $"L{fila}"), -Tol, Tol);
             Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaDetValiRetri, $"I{fila}") - (-l), -Tol, Tol);
             Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaDetValiRetri, $"O{fila}") - 0m, -Tol, Tol);
 
-            // J vs manual ±0.5 salvo julio-ASE5 (T0a DIVERGENCIA-DEL-MANUAL: la app es fuente-fiel).
-            if (aseId <= 4)
-            {
-                Assert.InRange(jEscrito - LeerCeldaNumerica(ManualJulio, HojaDetRetri, $"J{fila}"), -Tol, Tol);
-            }
-            else
-            {
-                Assert.InRange(LeerCeldaNumerica(ManualJulio, HojaDetRetri, $"J{fila}") - (-82959024m), -Tol, Tol);
-                Assert.True(
-                    Math.Abs(jEscrito - LeerCeldaNumerica(ManualJulio, HojaDetRetri, $"J{fila}")) > Tol,
-                    $"julio ASE5: se esperaba divergencia del manual (app fuente-fiel, T0a); escrito={jEscrito}.");
-            }
+            // Reescritura formal Plan 62 (H3): el asiento de la hoja ES el R10 del período (N1). J
+            // coincide con el bloque pegado en los 5 ASE —incluido ASE5— y con el manual del
+            // administrativo; la antigua "divergencia del manual" (app fuente-fiel vs manual, T0a) ya
+            // no aplica: la app no calcula J/L, los copia del R10, que es también la fuente del manual.
+            Assert.InRange(jEscrito - (bloqueDet.Celda(fila, "J")?.Numerico ?? 0m), -Tol, Tol);
+            Assert.InRange(l - (bloqueDet.Celda(fila, "L")?.Numerico ?? 0m), -Tol, Tol);
+            Assert.InRange(
+                LeerCeldaNumerica(ManualJulio, HojaDetRetri, $"J{fila}") - jEscrito,
+                -Tol,
+                Tol);
         }
     }
 
     [Fact]
-    public void JulioQ2_DetValiRetri_J_EsSale_QuedaEnCero()
+    public void JulioQ2_DetValiRetri_J_TraeElDatoDelR10Pegado()
     {
         using var salida = NuevaSalida();
         EjecutarFlujo(CarpetaJulio, new Periodo { CodigoAAAAMM = "202607", NumeroQuincena = 2 }, Insumos.PlantillaQ2, salida.Ruta);
 
-        // SALE T0d: "AJUSTE A LA DECENA" (DetValiRetri J) no tiene origen 10/10; NO se escribe.
-        // El manual trae -19113 (ASE1); la app la deja en su 0 de plantilla y la lista con motivo.
+        // Plan 62 (D-J9 + T0-09 + T2.2, reclassificado): "AJUSTE A LA DECENA" (DetValiRetri J) ya NO
+        // se queda en el 0 de la plantilla — viaja PEGADO del R10 del periodo. La exclusion SALE del
+        // comparador (Plan 29) se retira en H5/T5.1; aqui se fija que el dato existe y es el del R10.
+        var bloqueVali = new ExcelDataReaderDetRetriR10Reader().LeerBloqueDetValiRetri(PeriodoQ2, Insumos.R10Q2);
         for (var aseId = 1; aseId <= 5; aseId++)
         {
             var fila = WorkbookLeafCellMapDetRetri.ObtenerFila(aseId);
-            Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaDetValiRetri, $"J{fila}") - 0m, -Tol, Tol);
+            var esperado = bloqueVali.Celda(fila, "J")?.Numerico
+                ?? throw new InvalidOperationException($"El bloque del R10 no trae J{fila}.");
+            Assert.InRange(LeerCeldaNumerica(salida.Ruta, HojaDetValiRetri, $"J{fila}") - esperado, -Tol, Tol);
         }
 
         Assert.Contains(

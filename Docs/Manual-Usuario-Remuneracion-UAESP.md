@@ -141,7 +141,7 @@ El archivo resultante `Remuneración AAAAMM-# Total.xlsx` se genera en la carpet
 | `CONSOLIDADO_TOTAL RECAUDO!G7` / `!K7` | `Fecha Desde` / `Fecha Hasta` del período (rango) | serial de fecha (se muestra con el formato de fecha de la celda) |
 | `DetRetri{AAAAMMQ}!D6` / `!D7` y `DetValiRetri{AAAAMMQ}!D6` / `!D7` | `Fecha de Proceso` (D6) / `Hora` (D7) del proceso | **texto** (`dd/MM/yyyy` y `hh:mm AM/PM`), como la base/manual/R10 |
 
-Las fechas de proceso se toman del **R10** (`DetRetri{AAAAMMQ}`: encabezados `Fecha de Proceso` y `Hora`); si no son legibles, la ejecución falla al inicio con `ERR-FORMATO-FUENTE` (período + archivo + celda) y **no hay salida parcial**. El `CONSOLIDADO_TOTAL RECAUDO!D6` **no se duplica** (ya viene en la base). La base del período la prepara la app a partir de la plantilla oficial (ver §2.4).
+Las fechas de proceso se toman del **R10** (`DetRetri{AAAAMMQ}`: encabezados `Fecha de Proceso` y `Hora`) y **llegan a las dos hojas con el bloque pegado** (Plan 62: no hay una escritura separada del sello); si no son legibles, la ejecución falla al inicio con `ERR-FORMATO-FUENTE` (período + archivo + celda) y **no hay salida parcial**. El `CONSOLIDADO_TOTAL RECAUDO!D6` **no se duplica** (ya viene en la base). La base del período la prepara la app a partir de la plantilla oficial (ver §2.4).
 
 ---
 
@@ -338,7 +338,14 @@ Esto se descubrió en HU-12 (lección de método: ante un cambio de quincena, el
 
 ### 11.3 Hoja DetRetri/DetValiRetri
 
-Las hojas `DetRetri2026071/2026072` y `DetValiRetri2026071/2026072` existen **por nombre** con sufijo de período (sheets 36/37 en ambos canónicos, no 93/94 como decía un borrador del Plan 12 — fe de erratas en `plans/12` §9). `DetRetri2026072!D9:D14` son **valores** editables (la app escribe enteros ROUND(D104:D108,0)); `DetRetri2026072!D23:D28` y `D32:D36` son **fórmulas** protegidas.
+Las hojas `DetRetri{código}` y `DetValiRetri{código}` existen **por nombre** con sufijo de período (sheets 36/37 en ambos canónicos, no 93/94 como decía un borrador del Plan 12 — fe de erratas en `plans/12` §9).
+
+Desde el Plan 62, **ambas quincenas** transcriben esas dos hojas desde el **R10 del período**: la App copia el bloque `DetRetri` (filas 3–19, columnas A–O) y el bloque `DetValiRetri` (filas 3–14, columnas A–O) — valores y textos, conservando el formato de la plantilla — y luego **verifica por relectura** que lo escrito coincide con el R10 (montos ±0,5, textos exactos). Consecuencias prácticas:
+
+- **No hay paso manual de copiar** el bloque del R10 a estas hojas: lo hace la App en todas las corridas (quincena 1 y quincena 2).
+- El **sello de proceso** (`D6`/`D7`) y los encabezados del período (fecha de proceso, hora, rango `Fecha Desde`/`Fecha Hasta`) **viajan con el bloque** del R10; no se escriben aparte.
+- Las **fórmulas bajo el bloque** (`DetRetri!D23:D28`/`D32:D36`, `DetValiRetri!D16:O20`, auto-chequeos) siguen siendo las de la plantilla y **recalculan** con lo copiado: la App nunca las sobrescribe.
+- Si el R10 no trae el bloque completo, la App **falla antes de escribir** y no deja una salida a medias.
 
 ### 11.4 INTERVENTORIA D2b y L-Especiales D3a/D3b (HU-16)
 

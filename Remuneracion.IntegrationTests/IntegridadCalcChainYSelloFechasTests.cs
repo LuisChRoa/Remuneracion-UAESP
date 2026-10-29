@@ -293,22 +293,32 @@ public sealed class IntegridadCalcChainYSelloFechasTests
         try
         {
             var consolidadoD6Antes = TestHelpers.LeerCeldaNumerica(copia, HojaConsolidado, "D6");
+            var hojaDetRetri = NombresHojaPeriodo.DetRetri(Insumos.PeriodoAgosto());
+            var hojaDetVali = NombresHojaPeriodo.DetValiRetri(Insumos.PeriodoAgosto());
+            var d6DetAntes = LeerCeldaTexto(copia, hojaDetRetri, "D6");
+            var d7DetAntes = LeerCeldaTexto(copia, hojaDetRetri, "D7");
+            var d6ValiAntes = LeerCeldaTexto(copia, hojaDetVali, "D6");
+            var d7ValiAntes = LeerCeldaTexto(copia, hojaDetVali, "D7");
             using (var documento = SpreadsheetDocument.Open(copia, true))
             {
                 var workbookPart = documento.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
                 OpenXmlPlantillaWriter.EscribirFechasPeriodo(workbookPart, resultado);
             }
 
-            var hojaDetRetri = NombresHojaPeriodo.DetRetri(Insumos.PeriodoAgosto());
-            var hojaDetVali = NombresHojaPeriodo.DetValiRetri(Insumos.PeriodoAgosto());
-            Assert.Equal("02/09/2026", LeerCeldaTexto(copia, hojaDetRetri, "D6"));
-            Assert.Equal("07:42 AM", LeerCeldaTexto(copia, hojaDetRetri, "D7"));
-            Assert.Equal("02/09/2026", LeerCeldaTexto(copia, hojaDetVali, "D6"));
-            Assert.Equal("07:42 AM", LeerCeldaTexto(copia, hojaDetVali, "D7"));
+            // Plan 62 (T2.4, D-31SELLO): el sello de proceso D6/D7 SALIO de este metodo; lo trae
+            // pegado el bloque del R10 (lo fija PegadoR10H2Plan62Tests: D6/D7 == R10). Aqui se
+            // conserva la mitad que sigue vigente: CERO doble escritura sobre D6/D7.
+            Assert.Equal(d6DetAntes, LeerCeldaTexto(copia, hojaDetRetri, "D6"));
+            Assert.Equal(d7DetAntes, LeerCeldaTexto(copia, hojaDetRetri, "D7"));
+            Assert.Equal(d6ValiAntes, LeerCeldaTexto(copia, hojaDetVali, "D6"));
+            Assert.Equal(d7ValiAntes, LeerCeldaTexto(copia, hojaDetVali, "D7"));
 
-            // R-S-3: no-duplicación de CONSOLIDADO D6 y guard anti-fórmula intacto (D6 sigue texto).
+            // Lo que SI sella este metodo es el RANGO del periodo (Plan 28): G7/K7 como serial OADate.
+            Assert.InRange(TestHelpers.LeerCeldaNumerica(copia, HojaConsolidado, "G7"), (decimal)new DateTime(2026, 8, 16).ToOADate() - 0.5m, (decimal)new DateTime(2026, 8, 16).ToOADate() + 0.5m);
+            Assert.InRange(TestHelpers.LeerCeldaNumerica(copia, HojaConsolidado, "K7"), (decimal)new DateTime(2026, 8, 31).ToOADate() - 0.5m, (decimal)new DateTime(2026, 8, 31).ToOADate() + 0.5m);
+
+            // R-S-3: no-duplicacion de CONSOLIDADO D6 (ya venia sellado en la base).
             Assert.Equal(consolidadoD6Antes, TestHelpers.LeerCeldaNumerica(copia, HojaConsolidado, "D6"));
-            Assert.False(TestHelpers.CeldaEsFormula(copia, hojaDetRetri, "D6"));
         }
         finally
         {
@@ -321,7 +331,7 @@ public sealed class IntegridadCalcChainYSelloFechasTests
     /// hoja+celda (nunca se sobrescribe una fórmula).
     /// </summary>
     [Fact]
-    public void SelloProceso_CeldaD6Formula_LanzaErrPlantillaSinSobrescribir()
+    public void SelloProceso_D6Formula_NoSeToca_ElSelloDeRangoNoEscribeD6()
     {
         var copia = Path.Combine(Path.GetTempPath(), "remuneracion-plan31-sellof-" + Guid.NewGuid().ToString("N"), "plantilla.xlsx");
         Directory.CreateDirectory(Path.GetDirectoryName(copia)!);
@@ -332,20 +342,27 @@ public sealed class IntegridadCalcChainYSelloFechasTests
         var resultado = new ResultadoRemuneracion
         {
             Periodo = Insumos.PeriodoAgosto(),
+            FechaDesde = new DateTime(2026, 8, 16),
+            FechaHasta = new DateTime(2026, 8, 31),
             FechaProceso = new DateTime(2026, 9, 2),
             HoraProceso = new TimeSpan(7, 42, 0)
         };
 
         try
         {
-            using var documento = SpreadsheetDocument.Open(copia, true);
-            var workbookPart = documento.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
-            var ex = Assert.Throws<CalculoInvalidoException>(() =>
-                OpenXmlPlantillaWriter.EscribirFechasPeriodo(workbookPart, resultado));
+            using (var documento = SpreadsheetDocument.Open(copia, true))
+            {
+                var workbookPart = documento.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart null");
 
-            Assert.Equal(CodigoError.Plantilla, ex.Codigo);
-            Assert.Contains(hojaDetRetri, ex.Message, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("D6", ex.Message, StringComparison.OrdinalIgnoreCase);
+                // Plan 62 (T2.4, D-31SELLO): este metodo ya NO escribe D6/D7 (el sello de proceso
+                // viaja pegado con el bloque del R10), asi que una D6 con formula no se toca: el
+                // guard anti-formula del pegado (ERR-PLANTILLA nombrando hoja+celda) se ejerce en
+                // PegadoR10H2Plan62Tests. Aqui se fija que el sello de rango no invade D6.
+                OpenXmlPlantillaWriter.EscribirFechasPeriodo(workbookPart, resultado);
+                documento.WorkbookPart!.Workbook!.Save();
+            }
+
+            Assert.True(TestHelpers.CeldaEsFormula(copia, hojaDetRetri, "D6"), "D6 conserva su <f>: nunca se sobrescribe una formula.");
         }
         finally
         {

@@ -20,7 +20,10 @@ namespace Remuneracion.IntegrationTests;
 /// (versionada abajo con su cita al plan/T0): cualquier divergencia fuera de ese conjunto falla
 /// nombrando hoja+celda+ambos valores (S6), de modo que una regresión real no puede pasar en
 /// silencio. El comparador ya aplica sus exclusiones versionadas (columnas Q1 en corrida Q2,
-/// metadatos N3/C6/D6, <c>DetValiRetri!J</c> y nombres de hoja con sufijo de período).
+/// metadatos N3/C6/D6 y nombres de hoja con sufijo de período) y el catálogo de divergencias
+/// declaradas (Plan 62, T5.1: pie de interventoría de <c>DetRetri!C16</c> y representación
+/// texto-vs-número del identificador del ASE). La exclusión <c>DetValiRetri!J</c> (AJUSTE A LA
+/// DECENA) se RETIRÓ en el Plan 62 (D-J9): esas celdas viajan pegadas del R10 y se comparan.
 ///
 /// El manual NO es paridad de libro completo: es un workbook mantenido a mano que acumula la 1.ª
 /// quincena, recompone la malla R1/R2/R4 en agosto (remesh T0b/H1) y trae ediciones propias
@@ -89,27 +92,20 @@ public sealed class ComparadorSalidaVsManualTests
         var (columna, fila) = Parsear(d.Celda);
         var esAgosto = periodo.CodigoAAAAMM == "202608";
 
-        // 1) Unidad D (T4 / T0d): la app escribe DetRetri D9:D14 (total HU-12), J/L solo por ASE
-        //    (9..13), y DetValiRetri I/O solo por ASE (9..13). El resto (DetRetri C..O excepto
-        //    D/J/L; DetValiRetri D..N excepto I/O; filas de validación 16+, totales J14/L14/I14)
-        //    es recorte declarado: origen = fórmula-cadena, no reproducible en C#, o total manual.
-        if (hoja == "DETRETRI")
+        // 1) Unidad D (T4 / T0d) — RECLASIFICADA en Plan 62 (H5; D-59H4 + D-J9): el pegado escribe
+        //    TODO el bloque (DetRetri A3:O19, DetValiRetri A3:O14) en AMBAS quincenas, así que la
+        //    superficie del pegado YA NO es "recorte declarado": se compara celda a celda (incluida
+        //    DetValiRetri!J, que dejó de ser exclusión). Lo que sigue declarado es el bloque de
+        //    validación/auto-chequeo BAJO el pegado, cuyas fórmulas son del template y el manual las
+        //    trae con su propia geometría (mesh heredado, R-TRAMPA-ANCLA).
+        if (hoja == "DETRETRI" && fila >= 20)
         {
-            var escrita = (columna == "D" && fila is >= 9 and <= 14)
-                || (columna is "J" or "L" && fila is >= 9 and <= 13);
-            if (!escrita)
-            {
-                return "Unidad D (T4/T0d): columna/fila no escrita por el recorte de desglose";
-            }
+            return "Unidad D (T4/T0d): bloque de validación bajo el pegado (fórmulas del template)";
         }
 
-        if (hoja == "DETVALIRETRI")
+        if (hoja == "DETVALIRETRI" && fila >= 15)
         {
-            var escrita = (columna is "I" or "O") && fila is >= 9 and <= 13;
-            if (!escrita)
-            {
-                return "Unidad D (T4/T0d): columna/fila no escrita por el recorte de desglose";
-            }
+            return "Unidad D (T4/T0d): bloque de validación bajo el pegado (fórmulas del template)";
         }
 
         // 2) Unidad B (T0a): la app es fuente-fiel en julio-ASE5 y el manual diverge (BCE D7/E7 y

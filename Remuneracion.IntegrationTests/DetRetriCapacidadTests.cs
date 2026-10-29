@@ -34,6 +34,14 @@ public sealed class DetRetriCapacidadTests
 
         var resultado = new CalculoRemuneracion().CalcularConsolidado(Insumos.PeriodoQ2(), datos);
 
+        // Plan 62 (T2.2/T2.5, reclassificado): el asiento DetRetri (D9:D14) ya NO lo escribe el
+        // dominio; lo PEGA el bloque del R10 del periodo. La guarda de capacidad que este fixture
+        // ejercita vive ahora en el plan-then-write del pegado: sin el bloque no habría nada que
+        // escribir sobre D10 y el test no probaría nada.
+        var lectorR10 = new ExcelDataReaderDetRetriR10Reader();
+        resultado.BloqueDetRetriR10 = lectorR10.LeerBloqueDetRetri(Insumos.PeriodoQ2(), Insumos.R10Q2);
+        resultado.BloqueValiRetriR10 = lectorR10.LeerBloqueDetValiRetri(Insumos.PeriodoQ2(), Insumos.R10Q2);
+
         var salidaDir = Path.Combine(Path.GetTempPath(), "remuneracion-capacidad-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(salidaDir);
         var plantillaFutura = Path.Combine(salidaDir, "plantilla-sin-D10.xlsx");

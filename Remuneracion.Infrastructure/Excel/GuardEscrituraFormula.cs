@@ -13,7 +13,7 @@ namespace Remuneracion.Infrastructure.Excel;
 /// período: una plantilla futura queda protegida sin agregar código.
 ///
 /// Por qué existe este tipo: los guards anti-fórmula estaban duplicados en cada escritor
-/// (<c>OpenXmlPlantillaWriter.EscribirValorNumerico</c>, <c>EscribirValorTexto</c>,
+/// (<c>OpenXmlPlantillaWriter.EscribirValorNumerico</c>, <c>OpenXmlPlantillaWriter.PegarBloqueR10</c>,
 /// <c>EscritorValoresSlotR1.EscribirValor</c>). Duplicado ⇒ un camino nuevo puede olvidarlo. Acá
 /// hay una sola puerta: todo camino que escriba un valor la cruza. La otra puerta del paquete es
 /// <see cref="ValidadorIntegridadPaquete"/>, que verifica el resultado por bytes.

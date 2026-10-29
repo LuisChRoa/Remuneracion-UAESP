@@ -56,60 +56,35 @@ public sealed class EntregaConNovedadesH3Plan61Tests : IDisposable
     // ════════════════════════════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// 2026091 (5 ASE): el único gate que enrojece es la errata del R10 en el ASE 3 (739,48 → 739
-    /// contra 740). Con la política nueva el período ENTREGA: Excel marcado, novedad tipada y TXT.
+    /// 2026091 (5 ASE): con el R10 del período alineado con la composición del dominio y el pegado
+    /// del Plan 62 (N1), la corrida cierra CERTIFICADA — nombre limpio, sin reporte de novedades y
+    /// sin la ficha R10 <c>-1</c>. Reescritura formal del rojo de Plan 61 H3.5: el R10 vigente
+    /// coincide per-ASE con el cálculo y, por T3.2 (D-61R10), la novedad de TOTAL-R10 dejó de
+    /// emitirse. CA-3: la corrida de septiembre-1 no reporta diferencias del asiento.
     /// </summary>
     [Fact]
-    public void H35_2026091_EntregaConNovedades_ExcelMarcadoMasReporteLegible()
+    public void H35_2026091_SinNovedadR10_CierraCertificada()
     {
         var resultado = EspecialesR4H2Plan61Tests.Generacion2026091.Value.Resultado;
 
-        // Estado inequívoco y ruta marcada (invariante de entrega).
-        Assert.Equal(EstadoEntrega.EntregadaConNovedades, resultado.EstadoEntrega);
-        Assert.NotEmpty(resultado.Novedades);
-        Assert.EndsWith(NombresSalida.SufijoSinValidar + ".xlsx", resultado.RutaSalida, StringComparison.OrdinalIgnoreCase);
-        Assert.True(File.Exists(resultado.RutaSalida), "El Excel marcado debe existir: sin artefacto no hay nada que revisar.");
+        Assert.Equal(EstadoEntrega.Certificada, resultado.EstadoEntrega);
+        Assert.Empty(resultado.Novedades);
+        Assert.Equal(string.Empty, resultado.RutaReporteNovedades);
+        Assert.True(File.Exists(resultado.RutaSalida));
 
-        // NO se promueve: el nombre limpio no existe.
-        var nombreLimpio = resultado.RutaSalida.Replace(NombresSalida.SufijoSinValidar, string.Empty, StringComparison.Ordinal);
-        Assert.False(File.Exists(nombreLimpio), "Una corrida con novedades NUNCA toma el nombre limpio.");
+        // NO queda artefacto marcado: no hay nada que revisar.
+        Assert.DoesNotContain(NombresSalida.SufijoSinValidar, Path.GetFileName(resultado.RutaSalida), StringComparison.OrdinalIgnoreCase);
 
-        // La novedad del ASE 3 es la errata del oráculo: 739 calculado (de 739,48) vs 740 del R10.
-        var novedadAse3 = Assert.Single(resultado.Novedades, n => n.AseId == 3);
-        Assert.Equal(10891338739m, novedadAse3.ValorObservado);
-        Assert.Equal(10891338740m, novedadAse3.ValorEsperado);
-        Assert.Equal(-1m, novedadAse3.Delta);
-        Assert.Contains("DetRetri2026091", novedadAse3.Hoja, StringComparison.Ordinal);
-        Assert.Contains("10891338739", novedadAse3.Explicacion!.Replace(".", string.Empty, StringComparison.Ordinal), StringComparison.Ordinal);
+        // CA-3 explícito: ni la ficha per-ASE ni la de TOTAL del R10 (el "-1" de composición).
+        Assert.DoesNotContain(resultado.Novedades, n => n.Delta == -1m);
+        Assert.DoesNotContain(resultado.Novedades, n => n.ConceptoOCelda == "Total del período");
+        Assert.DoesNotContain(resultado.Novedades, n => n.Hoja.Contains("DetRetri2026091", StringComparison.Ordinal));
 
-        // El TXT existe, es el único reporte de la corrida y está en UTF-8 SIN BOM.
-        Assert.True(File.Exists(resultado.RutaReporteNovedades), "Sin reporte no hay entrega (nunca un cierre silencioso).");
-        var nombreBaseEntregado = Path.GetFileNameWithoutExtension(
-            resultado.RutaSalida.Replace(NombresSalida.SufijoSinValidar, string.Empty, StringComparison.Ordinal));
-        Assert.Equal(nombreBaseEntregado + ReporteNovedadesWriter.SufijoNovedades, Path.GetFileName(resultado.RutaReporteNovedades));
-        var bytes = File.ReadAllBytes(resultado.RutaReporteNovedades);
-        Assert.False(bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF, "El reporte va en UTF-8 SIN BOM (precedente Plan 42).");
-
-        var texto = File.ReadAllText(resultado.RutaReporteNovedades, Encoding.UTF8);
-
-        // Sección 1: veredicto inequívoco.
-        Assert.StartsWith("ENTREGADO CON NOVEDADES — NO CERTIFICADO", texto, StringComparison.Ordinal);
-
-        // Sección 3: la ficha del ASE 3 con la cadena completa (739,48 → 739 vs 740).
-        Assert.Contains("ASE 3", texto, StringComparison.Ordinal);
-        Assert.Contains("10.891.338.739,48", texto, StringComparison.Ordinal);
-        Assert.Contains("10.891.338.740", texto, StringComparison.Ordinal);
-
-        // Sección 4: guía por ETIQUETA (nunca por fila).
-        Assert.Contains("por etiqueta", texto, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("nunca por número de fila", texto, StringComparison.OrdinalIgnoreCase);
-
-        // Lenguaje de NEGOCIO: prohibida la jerga de código (R-REPORTE-JERGA / G-TRAZA).
-        Assert.DoesNotContain("ERR-", texto, StringComparison.Ordinal);
-        Assert.DoesNotContain("<f>", texto, StringComparison.Ordinal);
-        Assert.DoesNotContain("CalculoInvalidoException", texto, StringComparison.Ordinal);
-        Assert.DoesNotContain("WorkbookLeafInputs", texto, StringComparison.Ordinal);
-        Assert.DoesNotContain("VALIDACION_TOTAL", texto, StringComparison.Ordinal); // no aplica: la novedad es del R10
+        var directorio = Path.GetDirectoryName(resultado.RutaSalida)!;
+        var nombreBase = Path.GetFileNameWithoutExtension(resultado.RutaSalida);
+        Assert.False(
+            File.Exists(Path.Combine(directorio, nombreBase + ReporteNovedadesWriter.SufijoNovedades)),
+            "Una corrida certificada NO debe dejar reporte de novedades.");
     }
 
     /// <summary>
@@ -145,11 +120,17 @@ public sealed class EntregaConNovedadesH3Plan61Tests : IDisposable
         Directory.CreateDirectory(salidaDir);
         try
         {
+            // Plan 62 (H3/T3.2): septiembre-1 ya no produce novedades propias (R10 alineado + ficha
+            // de TOTAL retirada); el contrato de la superficie CLI con novedades se ejerce con una
+            // divergencia de coherencia inyectada por la costura de test de <c>EjecutorCli</c>
+            // (misma composición de producción para todo lo demás).
             var codigo = EjecutorCli.Ejecutar(
                 ["--periodo", "2026091", "--carpeta", CarpetaSeptiembre1, "--plantilla", RutaPlantillaV4,
                     "--salida", salidaDir, "--cinco-ase", "--sobrescribir"],
                 _stdout,
-                _stderr);
+                _stderr,
+                validador: new ValidadorConNovedadForzada(),
+                lectorLeaf: null);
 
             Assert.Equal(7, codigo);
             Assert.Equal(CodigosSalida.NovedadesEntrega, codigo);
@@ -186,12 +167,17 @@ public sealed class EntregaConNovedadesH3Plan61Tests : IDisposable
     /// <summary>
     /// Injerto 1 — «novedad SIN TXT ⇒ rojo». Dos formas: (a) composición sin emisor; (b) emisor que
     /// no deja archivo. En ambos casos la corrida NO puede devolver un resultado entregado.
+    ///
+    /// <para><b>Reescritura Plan 62 (H3/T3.2):</b> septiembre-1 ya no produce novedades propias (el
+    /// R10 vigente cuadra per-ASE y la ficha de TOTAL se retiró), así que el contrato anti-falso-verde
+    /// se ejerce con UNA divergencia de coherencia inyectada por la costura pública
+    /// <see cref="IValidador"/>: la novedad existe de verdad y la ausencia de reporte debe doler.</para>
     /// </summary>
     [Fact]
     public void H34_NovedadSinTxt_EsRojo()
     {
         // (a) Sin emisor configurado: fail-closed, nunca un Excel marcado huérfano de explicación.
-        var sinEmisor = CrearProcesadorSinEmisorDeNovedades();
+        var sinEmisor = CrearProcesadorSinEmisorDeNovedades(novedadForzada: true);
         var dirA = Path.Combine(Path.GetTempPath(), "p61-h3-sintxt-a-" + Guid.NewGuid().ToString("N"));
         var salidaA = Path.Combine(dirA, "Remuneración 202609-1 Total.xlsx");
         try
@@ -218,7 +204,7 @@ public sealed class EntregaConNovedadesH3Plan61Tests : IDisposable
         var salidaB = Path.Combine(dirB, "Remuneración 202609-1 Total.xlsx");
         try
         {
-            var ex = Assert.Throws<CalculoInvalidoException>(() => CrearProcesador(new EmisorQueNoEscribe()).Ejecutar(new SolicitudProcesoPeriodo
+            var ex = Assert.Throws<CalculoInvalidoException>(() => CrearProcesador(new EmisorQueNoEscribe(), novedadForzada: true).Ejecutar(new SolicitudProcesoPeriodo
             {
                 Periodo = PeriodoSeptiembre1,
                 CarpetaPeriodo = CarpetaSeptiembre1,
@@ -276,7 +262,7 @@ public sealed class EntregaConNovedadesH3Plan61Tests : IDisposable
     /// <summary>
     /// D10: en fallo duro POSTERIOR a la escritura, el <c>(sin validar)</c> se conserva SOLO en los
     /// fallos de LECTURA-DE-VUELTA de valores (<c>VerificarDetalleR2R4</c>,
-    /// <c>VerificarAsientoDetRetri</c>) y se sigue borrando en <c>ERR-PLANTILLA</c>/
+    /// <c>VerificarIntegridadPegadoR10</c>) y se sigue borrando en <c>ERR-PLANTILLA</c>/
     /// <c>ERR-INTEGRIDAD</c>.
     /// </summary>
     [Fact]
@@ -286,29 +272,28 @@ public sealed class EntregaConNovedadesH3Plan61Tests : IDisposable
         Assert.True(OpenXmlPlantillaWriter.ConservaParcialAlFallar(
             new CalculoInvalidoException(CodigoError.Escritura, "ERR-ESCRITURA: el desglose-detalle no quedó escrito…")));
 
-        // (a2) La firma REAL: el gate de verdad, sobre el workbook de verdad. Se le pasa el dominio
-        // desviado en 1 peso sobre un archivo ya escrito ⇒ el gate lanza su ERR-ESCRITURA y esa
-        // excepción —la que el writer atrapa— es la que decide CONSERVAR el archivo.
+        // (a2) La firma REAL: el gate de verdad, sobre el workbook de verdad. Se le pasa un bloque del
+        // R10 desviado en 1 peso sobre un archivo ya escrito ⇒ el read-back del pegado lanza su
+        // ERR-ESCRITURA y esa excepción —la que el writer atrapa— es la que decide CONSERVAR el
+        // archivo. Reclasificado en el Plan 62 (T2.5, D-59H4): el gate de valores del asiento DetRetri
+        // del Plan 59 se retiró; su sucesor es la verificación de integridad del pegado (T2.3).
         var resultado211 = EspecialesR4H2Plan61Tests.Generacion2026091.Value.Resultado;
         var hojaEscrita = resultado211.RutaSalida;
         Assert.True(File.Exists(hojaEscrita), "El fixture H3 debía dejar el workbook marcado en disco.");
-        var referencia = resultado211.Leafs[0];
-        var dominioDesviado = new WorkbookLeafInputs
-        {
-            Ase = referencia.Ase,
-            Periodo = referencia.Periodo,
-            DetRetriQ2 = new DetRetriQ2Inputs
-            {
-                Ase = referencia.Ase,
-                TotalD104 = referencia.DetRetriQ2!.TotalD104 + 1m
-            }
-        };
+        var periodo211 = resultado211.Resultado.Periodo;
+        var lectorR10 = new ExcelDataReaderDetRetriR10Reader();
+        var rutaR10211 = Path.Combine(
+            Raiz, "Docs", "Prueba Septiembre 1", "Insumos", "R10_Remuneracion_2026091.xlsx");
+        var bloqueDetReal = lectorR10.LeerBloqueDetRetri(periodo211, rutaR10211);
+        var bloqueValiReal = lectorR10.LeerBloqueDetValiRetri(periodo211, rutaR10211);
+        var bloqueDetDesviado = DesviarUnaCelda(bloqueDetReal, fila: 9, columna: "D", delta: 1m);
 
         CalculoInvalidoException exReal;
         using (var documento = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(hojaEscrita, false))
         {
             exReal = Assert.Throws<CalculoInvalidoException>(() =>
-                OpenXmlPlantillaWriter.VerificarAsientoDetRetri(documento.WorkbookPart!, [dominioDesviado]));
+                OpenXmlPlantillaWriter.VerificarIntegridadPegadoR10(
+                    documento.WorkbookPart!, periodo211, bloqueDetDesviado, bloqueValiReal));
         }
 
         Assert.Equal(CodigoError.Escritura, exReal.Codigo);
@@ -457,12 +442,17 @@ public sealed class EntregaConNovedadesH3Plan61Tests : IDisposable
 
     private const string CanalCli = HuellaAceptacion.CanalCli;
 
-    private static ProcesadorPeriodo CrearProcesador(IReporteNovedades? novedades) =>
+    /// <summary>
+    /// Composición de producción. <paramref name="novedadForzada"/> inyecta el validador decorador
+    /// de test (una divergencia de coherencia en el ASE 3) por la costura pública
+    /// <see cref="IValidador"/>; el resto del flujo es el de producción.
+    /// </summary>
+    private static ProcesadorPeriodo CrearProcesador(IReporteNovedades? novedades, bool novedadForzada = false) =>
         new(
             new ExcelDataReaderRecaudoReader(),
             new ExcelDataReaderWorkbookLeafInputReader(),
             new CalculoRemuneracion(),
-            new ValidadorBasico(),
+            novedadForzada ? new ValidadorConNovedadForzada() : new ValidadorBasico(),
             new OpenXmlPlantillaWriter(),
             new ArchivoFuenteLocator(),
             new ExcelDataReaderDetRetriR10Reader(),
@@ -471,7 +461,44 @@ public sealed class EntregaConNovedadesH3Plan61Tests : IDisposable
             novedades);
 
     /// <summary>Composición de regresión: sin emisor del reporte de novedades.</summary>
-    private static ProcesadorPeriodo CrearProcesadorSinEmisorDeNovedades() => CrearProcesador(novedades: null);
+    private static ProcesadorPeriodo CrearProcesadorSinEmisorDeNovedades(bool novedadForzada = false) =>
+        CrearProcesador(novedades: null, novedadForzada);
+
+    /// <summary>
+    /// Plan 62 (H3): validador de producción con UNA divergencia de coherencia inyectada en el ASE 3
+    /// (el resto delega en <see cref="ValidadorBasico"/>). Se inyecta por la costura pública de
+    /// <see cref="IValidador"/> — sin fixture de hoja rota ni rama de producción por ASE — para
+    /// ejercer el contrato «novedad sin TXT ⇒ rojo» ahora que septiembre-1 no produce novedades.
+    /// </summary>
+    private sealed class ValidadorConNovedadForzada : IValidador
+    {
+        private readonly ValidadorBasico _interno = new();
+
+        public List<string> Validar(ResultadoRemuneracion resultado) => _interno.Validar(resultado);
+
+        public List<string> Validar(ResultadoRemuneracion resultado, WorkbookLeafInputs leaf) => _interno.Validar(resultado, leaf);
+
+        public List<string> Validar(ResultadoRemuneracion resultado, IReadOnlyList<WorkbookLeafInputs> leafs)
+        {
+            var errores = _interno.Validar(resultado, leafs);
+            errores.Add("[ERR-VALIDACION] ASE 3: la hoja R2 TotalOportunoEsperado (100) no coincide con R2TotalOportuno del consolidado (200).");
+            return errores;
+        }
+
+        public List<string> Validar(
+            ResultadoRemuneracion resultado,
+            IReadOnlyList<WorkbookLeafInputs> leafs,
+            IReadOnlyList<ValidacionCruzadaSnapshot> snapshots) => _interno.Validar(resultado, leafs, snapshots);
+
+        public ClasificacionDivergenciasDeclaradas ClasificarDivergenciasDeclaradas(
+            ResultadoRemuneracion resultado,
+            IReadOnlyList<WorkbookLeafInputs> leafs,
+            IReadOnlyList<ValidacionCruzadaSnapshot> snapshots) =>
+            _interno.ClasificarDivergenciasDeclaradas(resultado, leafs, snapshots);
+
+        public List<string> ValidarDetRetriContraR10(IReadOnlyList<WorkbookLeafInputs> leafs, DetRetriInputs r10) =>
+            _interno.ValidarDetRetriContraR10(leafs, r10);
+    }
 
     private sealed class EmisorQueNoEscribe : IReporteNovedades
     {
@@ -526,6 +553,20 @@ public sealed class EntregaConNovedadesH3Plan61Tests : IDisposable
         target.CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("123");
         worksheet.Save();
     }
+
+    /// <summary>
+    /// Plan 62 (T2.5): devuelve el bloque del R10 con UNA celda desviada en <paramref name="delta"/>
+    /// (simula un pegado que no coincide con la fuente, sin tocar el archivo).
+    /// </summary>
+    private static BloqueHojaR10 DesviarUnaCelda(BloqueHojaR10 bloque, int fila, string columna, decimal delta) =>
+        new(
+            bloque.Hoja,
+            bloque.Periodo,
+            bloque.Celdas
+                .Select(c => c.Fila == fila && string.Equals(c.Columna, columna, StringComparison.OrdinalIgnoreCase)
+                    ? new CeldaBloqueR10(c.Fila, c.Columna, null, (c.Numerico ?? 0m) + delta)
+                    : c)
+                .ToList());
 
     private static void Borrar(string dir)
     {

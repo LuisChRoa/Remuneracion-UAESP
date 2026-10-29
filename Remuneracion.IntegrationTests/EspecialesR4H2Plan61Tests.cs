@@ -143,6 +143,14 @@ public sealed class EspecialesR4H2Plan61Tests
     /// («SERVICIO ESPECIALES» por encabezado) = −26.500,00 ⇒ visible de la plantilla
     /// <c>D97−P97 = −8.713.102,37</c>. El total D104:D108 del ASE es 14.147.357.755,39 y el
     /// DetRetri (ROUND) 14.147.357.755, que es exactamente el R10 <c>DetRetri2026091</c> del ASE 2.
+    ///
+    /// <para><b>Actualización Plan 62 (H5, T5.2 — data drift R10):</b> el R10 vigente del período
+    /// expresa los montos como TEXTO MONETARIO en <c>sharedStrings</c> (<c>t="s"</c>, p. ej.
+    /// <c>"$14.147.357.755"</c>) y no como resultado de fórmula (<c>t="str"</c>). La narrativa que
+    /// este fixture blinda no es la representación de la celda, sino que el R10 es una COPIA
+    /// FORMATEADA de la composición (no un cálculo independiente): por eso se exige que su valor
+    /// coincida al peso con el <c>Detalle</c> del dominio y con el CONSOLIDADO del administrativo,
+    /// sin fijar el vehículo (texto de fórmula, texto compartido o número).</para>
     /// </summary>
     [Fact]
     public void H21_2026091_Ase2_R4EspecialesYDetRetri_ValoresMedidos()
@@ -174,7 +182,10 @@ public sealed class EspecialesR4H2Plan61Tests
         AfirmarMonto("2026091 ASE2 · administrativo CONSOLIDADO · recaudo total del ASE", 14147357755.39m, ConsolidadoDPorAse(RutaAdminSeptiembre1, 2));
 
         var r10 = R10DetRetriPorAse(RutaR10Septiembre1, "2026091", 2);
-        Assert.True(r10.EsTexto, "El R10 del período es una copia formateada (t=\"str\"): su valor no es un cálculo.");
+        Assert.True(
+            r10.EsTexto,
+            "El R10 del período es una copia formateada de la composición (texto tecleado o texto "
+            + "monetario en sharedStrings), no un cálculo: su valor no es un oráculo independiente.");
         AfirmarMonto("2026091 ASE2 · R10 DetRetri2026091 · recaudo total del ASE", 14147357755m, r10.Valor);
         Assert.Equal(r10.Valor, detRetri.Detalle);
     }
@@ -227,14 +238,18 @@ public sealed class EspecialesR4H2Plan61Tests
     /// 2026091 ASE 3 — el «caso del peso» (§13.2-C). El administrativo calcula
     /// <c>D106 = 10.891.338.739,48</c> como suma exacta de sus cinco bloques y la regla única de
     /// redondeo (<see cref="DetRetriRounder"/>, ROUND de Excel) da <b>10.891.338.739</b> (últimos
-    /// dígitos <b>739</b>). El R10 tecleado a mano trae <b>10.891.338.740</b> (últimos dígitos
-    /// <b>740</b>): la diferencia de 1 peso es <b>errata humana del oráculo</b> (§13.2), no un defecto
-    /// del cálculo. Este test fija AMBOS números para que nadie «corrija» el redondeo ni amplíe la
-    /// tolerancia: la salida correcta es que la administradora ajuste <c>D11</c> (740→739)
-    /// y <c>D14</c> (623→622). En H3 la clase de esta divergencia es <b>novedad</b>, no fallo duro.
+    /// dígitos <b>739</b>).
+    ///
+    /// <para><b>Estado vigente del dato (data drift, actualizado en Plan 62 H5/T5.2):</b> el R10
+    /// REEMITIDO del período ya trae el valor correcto <b>739</b> (la errata humana 740 quedó
+    /// corregida en el dato); el que conserva el <b>740</b> es el DetRetri del manual del
+    /// administrativo. Este test fija AMBOS números para que nadie «corrija» el redondeo ni amplíe
+    /// la tolerancia: el Δ = 1 peso que queda entre la app (739) y el manual (740) es ERRATA DEL
+    /// MANUAL, declarada en el comparador como <c>P62-DETRETRI-D11-ERRATA-PESO-ASE3</c> (y su
+    /// arrastre al TOTAL en <c>P62-DETRETRI-D14-TOTAL-ERRATA-PESO</c>, H5/T5.1).</para>
     /// </summary>
     [Fact]
-    public void H21_2026091_Ase3_ElCasoDelPeso_R10EsErrataHumana()
+    public void H21_2026091_Ase3_ElCasoDelPeso_ErrataHumanaCorregidaEnElR10()
     {
         var (_, leafsSeptiembre1) = Generacion2026091.Value;
         var leaf = leafsSeptiembre1.Single(l => l.Ase.Id == 3);
@@ -248,17 +263,22 @@ public sealed class EspecialesR4H2Plan61Tests
             10891338739.48m,
             ConsolidadoDPorAse(RutaAdminSeptiembre1, 3));
 
-        // El DetRetri del administrativo trae el mismo 740 humano; el R10 lo copia como texto
-        // (el administrativo lo guarda numérico). Ninguno de los dos es un cálculo independiente.
+        // El DetRetri del administrativo conserva el 740 humano; el R10 vigente ya trae el 739 del
+        // ROUND. Ninguno de los dos es un cálculo independiente (los dos copian la composición).
         var admin = R10DetRetriPorAse(RutaAdminSeptiembre1, "2026091", 3);
-        AfirmarMonto("2026091 ASE3 · administrativo DetRetri2026091 · ASE 3", 10891338740m, admin.Valor);
+        AfirmarMonto("2026091 ASE3 · administrativo DetRetri2026091 · ASE 3 (errata: 740)", 10891338740m, admin.Valor);
 
         var r10 = R10DetRetriPorAse(RutaR10Septiembre1, "2026091", 3);
-        Assert.True(r10.EsTexto, "El R10 del período es una copia formateada (t=\"str\"), no un oráculo independiente.");
-        AfirmarMonto("2026091 ASE3 · R10 DetRetri2026091 · ASE 3 (errata: 740)", 10891338740m, r10.Valor);
+        Assert.True(
+            r10.EsTexto,
+            "El R10 del período es una copia formateada de la composición (texto monetario), no un oráculo independiente.");
+        AfirmarMonto("2026091 ASE3 · R10 DetRetri2026091 · ASE 3 (corregido: 739)", 10891338739m, r10.Valor);
+        Assert.Equal(r10.Valor, detRetri.Detalle);
 
-        // Δ = 1 peso exacto: el redondeo de la plantilla (739) NO se toca y la tolerancia NO se amplía.
-        Assert.Equal(1m, r10.Valor - detRetri.Detalle);
+        // Δ = 1 peso exacto, y vive en el MANUAL: el redondeo de la plantilla (739) NO se toca y la
+        // tolerancia NO se amplía.
+        Assert.Equal(1m, admin.Valor - detRetri.Detalle);
+        Assert.Equal(0m, r10.Valor - detRetri.Detalle);
     }
 
     // ════════════════════════════════════════════════════════════════════════════════════════════
@@ -428,8 +448,10 @@ public sealed class EspecialesR4H2Plan61Tests
 
     /// <summary>
     /// Fila del DetRetri del período/R10 correspondiente al ASE, localizada por el identificador de
-    /// la columna <c>B</c>. Devuelve el valor de <c>D</c> y si la celda es texto tecleado
-    /// (<c>t="str"</c>), condición que descalifica al R10 como oráculo independiente (§13.2).
+    /// la columna <c>B</c>. Devuelve el valor de <c>D</c> y si la celda es TEXTO (tecleado
+    /// <c>t="str"</c> o texto monetario en <c>sharedStrings</c> <c>t="s"</c>), condición que
+    /// descalifica al R10 como oráculo independiente (§13.2). Plan 62 (H5, T5.2 — data drift): el R10
+    /// vigente del período usa <c>t="s"</c>; ambas formas son texto formateado, no un cálculo.
     /// </summary>
     private static (decimal Valor, bool EsTexto) R10DetRetriPorAse(string rutaLibro, string periodo, int aseId)
     {
@@ -449,8 +471,11 @@ public sealed class EspecialesR4H2Plan61Tests
             ?? throw new InvalidOperationException($"'{hoja}': sin fila DetRetri para el ASE {aseId}.");
 
         var celda = fila.Celda("D")!;
-        return (Monto(celda), string.Equals(celda.Tipo, "str", StringComparison.Ordinal));
+        return (Monto(celda), EsCeldaDeTexto(celda.Tipo));
     }
+
+    /// <summary>La celda guarda TEXTO (tecleado, compartido o inline), no un número.</summary>
+    private static bool EsCeldaDeTexto(string? tipo) => tipo is "s" or "str" or "inlineStr";
 
     // ════════════════════════════════════════════════════════════════════════════════════════════
     // Medición de la fuente R4 (ExcelDataReader, solo-lectura, sobre copia temporal)
@@ -710,6 +735,15 @@ public sealed class EspecialesR4H2Plan61Tests
 
     private static decimal Monto(CeldaXlsx celda)
     {
+        // Plan 62 (H5, T5.2 — data drift): en una celda de TEXTO el <v> crudo es el índice de la
+        // cadena compartida (o el texto de una fórmula `t="str"`), nunca el importe: se parsea el
+        // texto RESUELTO. Solo las celdas numéricas se leen del <v>.
+        if (EsCeldaDeTexto(celda.Tipo))
+        {
+            return Peso(celda.Texto)
+                ?? throw new InvalidOperationException($"La celda '{celda.Referencia}' no trae un monto legible.");
+        }
+
         if (!string.IsNullOrWhiteSpace(celda.Valor)
             && decimal.TryParse(celda.Valor, NumberStyles.Float, CultureInfo.InvariantCulture, out var numerico))
         {
