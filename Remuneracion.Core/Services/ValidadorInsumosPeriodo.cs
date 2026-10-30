@@ -13,7 +13,18 @@ namespace Remuneracion.Core.Services;
 /// Plan 27 (T2, D-B): además de la EXISTENCIA, valida la FIRMA binaria de cada path resuelto
 /// (<see cref="InspectorFirmaExcel"/>, ≤<see cref="InspectorFirmaExcel.BytesALeer"/> B por archivo).
 /// No abre workbooks ni valida contenido/headers/estructura (siguen fallando en sus readers).
-/// <c>RecaudosReversados</c> queda FUERA: el runtime no lo consume (§V9).
+///
+/// <para>
+/// <b>Superficie verificada = superficie que el runtime resuelve</b> (Plan 26 D-D; Plan 64
+/// H3.2/D-07). Checklist de paridad preflight↔runtime (Plan 26 R-F-6), en el MISMO orden en que
+/// esta clase enumera:
+/// (1) R1, R2 y R4 de cada ASE SIEMPRE; (2) reporte de banco SIEMPRE; (3) balance SIEMPRE;
+/// (4) recaudos reversados SIEMPRE — fuente del bloque ANT EXT-REV, que el runtime lee en ambas
+/// quincenas; (5) saldos por nota y retribución negativa SOLO en quincena 2; (6) de período:
+/// las 5 conciliaciones SIEMPRE y el R10 SIEMPRE. Un finder nuevo en el runtime sin su ítem acá
+/// (o un ítem sin finder en el runtime) es el defecto que este checklist previene: la divergencia
+/// no se tolera como detalle de mensajería.
+/// </para>
 /// </summary>
 public sealed class ValidadorInsumosPeriodo
 {
@@ -113,6 +124,19 @@ public sealed class ValidadorInsumosPeriodo
             else
             {
                 AgregarSiFirmaInvalida(rutaBalance, $"ASE {aseId}", DescripcionCarpetaAse(carpetaAse), faltantes);
+            }
+
+            // Plan 64 (H3.2, REQ-08/D-07): el recaudo reversado alimenta el bloque ANT EXT-REV, que
+            // el runtime escribe en AMBAS quincenas → se exige en AMBAS (sin rama por quincena: la
+            // exigencia sigue a la lectura del runtime, no al período).
+            var rutaRecaudosReversados = _localizador.BuscarRecaudosReversados(carpetaAse);
+            if (rutaRecaudosReversados is null)
+            {
+                faltantes.Add(FormateadorInsumosFaltantes.ReporteAse(aseId, carpetaAse, ReporteInsumoAse.RecaudosReversados));
+            }
+            else
+            {
+                AgregarSiFirmaInvalida(rutaRecaudosReversados, $"ASE {aseId}", DescripcionCarpetaAse(carpetaAse), faltantes);
             }
 
             if (esQuincena2)

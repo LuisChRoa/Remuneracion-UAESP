@@ -299,6 +299,20 @@ internal static class ClasificadorNovedadesEntrega
                 "Compare, empresa por empresa, los conceptos del reporte de banco contra el resumen de su fuente.");
         }
 
+        // Plan 64 (§2.9): el gate de coherencia de ANT EXT-REV es de DATOS (novedad), y su ficha debe
+        // nombrar la hoja REAL que el administrativo tiene que abrir. Sin esta familia la ficha caía en
+        // el texto genérico y mandaba a revisar la hoja del consolidado, donde ese dinero no está
+        // (G-TRAZA: reporte + hoja + ASE + montos comparados).
+        if (texto.Contains("ANT EXT-REV", StringComparison.Ordinal))
+        {
+            return (
+                "Recaudo reversado de anticipos (ANT EXT-REV)",
+                "ANT EXT-REV",
+                "Cierre de los bloques de fuente del ASE en la hoja de anticipos y recaudos reversados",
+                DuenoAdministrativo,
+                "Compare, por la etiqueta de la fuente, los cuatro conceptos del insumo con el total que cierra cada grupo y el total leído con lo escrito en la hoja ANT EXT-REV del Excel entregado; si el insumo está mal, corríjalo allí y vuelva a ejecutar.");
+        }
+
         if (texto.Contains(" R4", StringComparison.Ordinal) || texto.Contains("Reversion", StringComparison.OrdinalIgnoreCase))
         {
             return ("Reversión por componente (R4)", HojaConsolidado, "Cifra del ASE frente a su consolidado", DuenoAplicacion,

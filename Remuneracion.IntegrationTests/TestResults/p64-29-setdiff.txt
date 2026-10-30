@@ -1,0 +1,8 @@
+﻿Plan 64 - SET-DIFF de ROJOS contra el baseline (T0 seccion 7.3 / p64-h5-suite.trx)
+Baseline: Remuneracion.IntegrationTests\TestResults\p64-h5-suite.trx -> Total=1868 Passed=1845 Failed=23 Skipped=0
+Actual:   Remuneracion.IntegrationTests\TestResults\p64-29-suite.trx -> Total=1874 Passed=1851 Failed=23 Skipped=0
+Rojos baseline: 23; rojos actuales: 23
+NUEVOS: 0; DESAPARECIDOS: 0
+
+Nuevos (fuera de la lista cerrada = STOP):
+Desaparecidos (deben ser 0):

@@ -79,4 +79,17 @@ public interface ILocalizadorArchivosAse
     /// <param name="carpetaAse">Carpeta del ASE.</param>
     /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
     string? BuscarRetribucionNegativa(string carpetaAse);
+
+    /// <summary>
+    /// Plan 64 (H3.1, REQ-08/D-07): localiza el <c>RecaudosReversados_*.xlsx</c> dentro de la
+    /// carpeta del ASE. Es la fuente del bloque <c>ANT EXT-REV</c>, que el runtime lee en AMBAS
+    /// quincenas; por eso el preflight del período lo exige en ambas (superficie = lo que el
+    /// runtime resuelve, Plan 26 D-D). El matcher NORMALIZA (lowercase + strip diacríticos +
+    /// prefijo sin fechas, <c>recaudosreversados</c>), igual que
+    /// <see cref="BuscarSaldosNotas"/> y <see cref="BuscarRetribucionNegativa"/>: nunca un nombre
+    /// exacto ni un rango de fechas quemado.
+    /// </summary>
+    /// <param name="carpetaAse">Carpeta del ASE.</param>
+    /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
+    string? BuscarRecaudosReversados(string carpetaAse);
 }

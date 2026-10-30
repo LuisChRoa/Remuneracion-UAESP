@@ -194,12 +194,13 @@ public static class FormateadorInsumosFaltantes
         ReporteInsumoAse.Balance => ("Balance de subsidios y contribuciones", "R4-BalanceSubsidioyContribuciones"),
         ReporteInsumoAse.SaldosNotas => ("Saldos a favor aplicados por notas", "SaldosaFavorAplicadosPorNotas"),
         ReporteInsumoAse.RetribucionNegativa => ("Retribución negativa", "RetribuciónNegativa"),
+        ReporteInsumoAse.RecaudosReversados => ("Recaudos reversados por aplicar (ANT EXT-REV)", "RecaudosReversados_"),
         _ => throw new ArgumentOutOfRangeException(nameof(reporte), reporte, "Reporte de ASE desconocido.")
     };
 
     /// <summary>
     /// Lista de reportes de ASE según la quincena (D-D): saldos-notas y retribución-negativa solo
-    /// en quincena 2.
+    /// en quincena 2. Recaudos reversados se exige en AMBAS quincenas (Plan 64 H3.2/D-07).
     /// </summary>
     private static string ListaReportesAse(bool esQuincena2)
     {
@@ -209,7 +210,8 @@ public static class FormateadorInsumosFaltantes
             "Detalle de saldos a favor (R2)",
             "Reversión por componente (R4)",
             "Reporte de recaudo por banco",
-            "Balance de subsidios y contribuciones"
+            "Balance de subsidios y contribuciones",
+            "Recaudos reversados por aplicar (ANT EXT-REV)"
         };
 
         if (esQuincena2)

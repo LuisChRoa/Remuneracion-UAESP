@@ -25,6 +25,11 @@ namespace Remuneracion.IntegrationTests;
 /// texto-vs-número del identificador del ASE). La exclusión <c>DetValiRetri!J</c> (AJUSTE A LA
 /// DECENA) se RETIRÓ en el Plan 62 (D-J9): esas celdas viajan pegadas del R10 y se comparan.
 ///
+/// Plan 64 (H4.1/H4.2, D-09/REQ-09): la exclusión de hoja <c>ANT EXT-REV</c> se RETIRÓ con cita T0 —
+/// la app la escribe en valores desde H2 (REQ-07) y aquí se compara celda a celda; su golden por
+/// bloque/ASE contra los 4 manuales vive en <see cref="AntExtRevComparadorH4Plan64Tests"/>.
+/// <c>ANTICIPOS USUARIOS</c> PERMANECE declarada: 100 % fórmulas que la app no escribe (M6).
+///
 /// El manual NO es paridad de libro completo: es un workbook mantenido a mano que acumula la 1.ª
 /// quincena, recompone la malla R1/R2/R4 en agosto (remesh T0b/H1) y trae ediciones propias
 /// (casillas cosméticas, notas). Por eso el criterio del plan es «cero divergencias fuera de
@@ -85,8 +90,13 @@ public sealed class ComparadorSalidaVsManualTests
     /// <summary>
     /// Clasifica una divergencia como brecha declarada. Devuelve <c>null</c> si es INESPERADA
     /// (regresión real). Las categorías siguen el Plan 29 y su evidencia T0.
+    /// <para>
+    /// <c>internal</c> (Plan 64, H4.4/R-07): el fixture
+    /// <see cref="AntExtRevComparadorH4Plan64Tests"/> verifica que la hoja <c>ANT EXT-REV</c> NO se
+    /// declara en bloque — si alguien re-introduce la exclusión, la guarda anti-falso-verde enrojece.
+    /// </para>
     /// </summary>
-    private static string? BrechaDeclarada(Periodo periodo, ComparadorSalidaVsManual.Divergencia d)
+    internal static string? BrechaDeclarada(Periodo periodo, ComparadorSalidaVsManual.Divergencia d)
     {
         var hoja = ComparadorSalidaVsManual.NormalizarHoja(d.Hoja);
         var (columna, fila) = Parsear(d.Celda);
@@ -155,10 +165,17 @@ public sealed class ComparadorSalidaVsManualTests
             return "REPORTE RECAUDO x BANCO (T0e): cosmética/aviso del formulario";
         }
 
-        // 8) Hojas que la app no escribe (non-goals del Plan 29).
-        if (hoja is "ANT EXT-REV" or "ANTICIPOS USUARIOS")
+        // 8) ANTICIPOS USUARIOS: hoja 100 %-fórmulas que la app NO escribe (non-goal vigente del
+        //    Plan 29; M6 del Plan 64: CONSOLIDADO_TOTAL RECAUDO!L125:L129 la referencian, L130 está
+        //    vacía y L131 = SUM(L125:L130) es la consumidora; recalculan solas con fullCalcOnLoad).
+        //    Plan 64 (H4.2, D-09/REQ-09): ANT EXT-REV SALIÓ de esta rama — la app la escribe en
+        //    valores (H2/REQ-07) y el comparador la compara celda a celda; su golden por bloque/ASE
+        //    vive en AntExtRevComparadorH4Plan64Tests, medido contra los 4 manuales (cita:
+        //    Docs/T0-Plan64-Ant-Ext-Rev.md §2.1/§2.5 y plans/64 §0.6-M3). Dejar aquí la hoja sería un
+        //    falso verde permanente sobre dinero escrito (R-07).
+        if (hoja == "ANTICIPOS USUARIOS")
         {
-            return "hoja no escrita por la app (non-goal del Plan 29)";
+            return "hoja no escrita por la app (non-goal vigente: Plan 29 + M6 del Plan 64)";
         }
 
         // 9) Agosto (T0b/H1): el manual recomputa la malla de detalle R2/R4. El remesh cubre SOLO

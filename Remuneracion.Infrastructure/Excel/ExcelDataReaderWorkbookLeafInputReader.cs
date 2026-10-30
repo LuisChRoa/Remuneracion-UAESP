@@ -19,7 +19,7 @@ namespace Remuneracion.Infrastructure.Excel;
 /// F25 = primera fila Mes/Total col F, F41 = segunda, L25 = especiales de la primera,
 /// F30/F10 = operandos EXTEMP del bloque.
 /// </summary>
-public sealed class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputReader
+public sealed partial class ExcelDataReaderWorkbookLeafInputReader : IWorkbookLeafInputReader
 {
     public WorkbookLeafInputs LeerLeafInputs(Ase ase, Periodo periodo, string rutaR1, string rutaR2, string rutaR4)
     {

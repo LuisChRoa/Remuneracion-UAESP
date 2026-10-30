@@ -105,4 +105,13 @@ public sealed class WorkbookLeafInputs
     /// lo puebla. La ESCRITURA a celdas-destino es T3.
     /// </summary>
     public DetalleR4AseInputs? DetalleR4 { get; set; }
+
+    /// <summary>
+    /// Plan 64 (H1.2, D-02/D-03/D-04): inputs de la hoja <c>ANT EXT-REV</c> de este ASE leídos del
+    /// insumo <c>RecaudosReversados_*.xlsx</c> (fuentes presentes con sus cuatro conceptos + trazas de
+    /// ausencia/etiqueta no tabulada + control del bloque 3). <c>null</c> = comportamiento anterior
+    /// intacto (compatibilidad por construcción, mismo patrón que <see cref="ReporteBanco"/>; el
+    /// rollback de H2 se apoya en él: sin lectura, el escritor no toca la hoja).
+    /// </summary>
+    public AntExtRevAseInputs? AntExtRev { get; set; }
 }

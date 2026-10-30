@@ -2,8 +2,10 @@ namespace Remuneracion.Core.Models;
 
 /// <summary>
 /// Plan 26 (T1, §2.1 paso 2 / D-D): reportes por ASE que el runtime resuelve y que el preflight
-/// verifica. <c>RecaudosReversados</c> NO forma parte de esta superficie: el runtime no lo
-/// consume (§V9), por lo que exigirlo inventaría un requisito.
+/// verifica. La superficie se gobierna por una sola regla —<b>lo que el runtime resuelve es lo que
+/// el preflight exige, ni un archivo más ni uno menos</b>—: <c>RecaudosReversados</c> entró a la
+/// superficie con el Plan 64 (H3.2, D-07) porque el runtime lo lee en ambas quincenas para el
+/// bloque <c>ANT EXT-REV</c>.
 /// </summary>
 public enum ReporteInsumoAse
 {
@@ -26,5 +28,11 @@ public enum ReporteInsumoAse
     SaldosNotas,
 
     /// <summary>Retribución negativa (solo quincena 2).</summary>
-    RetribucionNegativa
+    RetribucionNegativa,
+
+    /// <summary>
+    /// Recaudos reversados por aplicar (fuente del bloque ANT EXT-REV; se exige en AMBAS quincenas
+    /// porque el runtime lo lee en Q1 y Q2 — Plan 64 H3.2/D-07).
+    /// </summary>
+    RecaudosReversados
 }

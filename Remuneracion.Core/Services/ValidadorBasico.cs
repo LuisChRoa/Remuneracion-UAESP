@@ -194,6 +194,10 @@ public sealed class ValidadorBasico : IValidador
         // no reconocida → fail-fast. Sin ausencia, la etiqueta desconocida es solo evidencia.
         ValidarEtiquetasBancoNoReconocidas(errores, leafs);
 
+        // Plan 64 (§2.9): coherencia de ANT EXT-REV por ASE — juicio ADITIVO sobre el dominio YA leído
+        // (no abre workbooks, G-WORKBOOK) y sin tocar el juicio R1/R2/R4 (SRP).
+        ValidarCoherenciaAntExtRev(errores, leafs);
+
         // HU-12 (2.6 ampliada, §2.5 regla 2) / Plan 59 (§11 — FRENTE 2): DetRetri por ASE — en AMBAS
         // quincenas. El gate se ACTIVA cuando el período declara el asiento (algún leaf trae
         // DetRetriQ2, que es lo que hace siempre el procesador del período completo en las dos
@@ -1011,6 +1015,86 @@ public sealed class ValidadorBasico : IValidador
             AgregarError(
                 errores,
                 $"ASE {leaf.Ase.Id} · BANCO · control de fuentes: etiqueta(s) no reconocida(s) [{string.Join(", ", noReconocidas.Select(EtiquetaDe))}] con fuente(s) ausente(s) [{string.Join(", ", ausentes.Select(EtiquetaDe))}]. (Plan 51 A3: posible fuente presente no reconocida.)");
+        }
+    }
+
+    /// <summary>
+    /// Plan 64 (§2.9 — requisito pendiente tras H0..H5): gates de COHERENCIA de la hoja
+    /// <c>ANT EXT-REV</c> por ASE, ADITIVOS y junto a los juicios vigentes (SRP: el juicio R1/R2/R4 no
+    /// se toca).
+    ///
+    /// <para><b>Gate (i) — Σ por fuente.</b> La suma de los cuatro conceptos de una fuente PRESENTE debe
+    /// coincidir ±0,5 con el total con el que esa fuente cierra su grupo en el insumo. Son dos lecturas
+    /// independientes del MISMO archivo (las cuatro filas de concepto y la fila de total), así que el
+    /// gate no puede cancelarse por construcción.</para>
+    ///
+    /// <para><b>Gate (ii) — Σ por bloque (ASE).</b> El dinero LEÍDO en los bloques de fuente del ASE debe
+    /// llegar completo a las celdas que la plantilla escribe. El bloque del template tiene UN destino por
+    /// ASE (<see cref="CatalogoFuentesAntExtRev"/> identifica la fuente por etiqueta), de modo que dos
+    /// grupos que el catálogo reconoce como la MISMA fuente dejan el segundo sin celda: el gate por
+    /// fuente no lo ve (cada grupo cierra solo), el cierre por bloque sí. Es el gemelo en dominio de la
+    /// atribución que hace el escritor (`FuentePresenteDeLaFila`), sin abrir ningún workbook.</para>
+    ///
+    /// <para><b>Efecto.</b> Son gates de DATOS: el error entra al listado del validador y el proceso lo
+    /// entrega como NOVEDAD (Plan 61 §2-D-H3-ii) sin retener el Excel ya escrito. Como no existe entrada
+    /// declarable para esta hoja, <see cref="ClasificarDivergenciasDeclaradas"/> lo conserva como NO
+    /// declarado (Plan 42 D-F). Cada mensaje nombra hoja + ASE + fuente + observado vs esperado + Δ
+    /// (G-TRAZA) y NO usa el marcador <c>ASE n · VALIDACION_TOTAL · celda</c>, que es la forma con la que
+    /// el catálogo reconoce sus sub-bloques. Sin lectura del insumo
+    /// (<see cref="WorkbookLeafInputs.AntExtRev"/> = <c>null</c>) es NO-OP: comportamiento anterior
+    /// intacto.</para>
+    /// </summary>
+    private static void ValidarCoherenciaAntExtRev(List<string> errores, IReadOnlyList<WorkbookLeafInputs> leafs)
+    {
+        foreach (var leaf in leafs.Where(l => l.AntExtRev is not null).OrderBy(l => l.Ase.Id))
+        {
+            var lectura = leaf.AntExtRev!;
+
+            foreach (var fuente in lectura.Fuentes)
+            {
+                var sumaConceptos = fuente.SumaConceptos;
+                var diferencia = Math.Abs(sumaConceptos - fuente.TotalFuente);
+                if (diferencia > Tolerancia)
+                {
+                    AgregarError(
+                        errores,
+                        $"ASE {leaf.Ase.Id} · ANT EXT-REV · fuente '{fuente.FuenteEtiqueta}': la suma de sus cuatro conceptos ({sumaConceptos}) no coincide con el total con el que la fuente cierra su grupo ({fuente.TotalFuente}). Diferencia={diferencia} > ±{Tolerancia}.");
+                }
+            }
+
+            var loLeido = 0m;
+            var loEscrito = 0m;
+            var bloquesConDestino = 0;
+            var bloquesAtribuidos = new List<CatalogoFuentesAntExtRev.FilaFuente>();
+            foreach (var fuente in lectura.Fuentes)
+            {
+                loLeido += fuente.TotalFuente;
+
+                var filaCatalogo = CatalogoFuentesAntExtRev.BuscarPorEtiquetaFuente(fuente.FuenteEtiqueta);
+                if (filaCatalogo is null)
+                {
+                    // Sin fila citada no hay destino: el escritor lo trata como formato roto (HUE-1),
+                    // nunca como un cero silencioso; aquí el dinero queda como leído y no escrito.
+                    continue;
+                }
+
+                if (bloquesAtribuidos.Any(atribuido => CatalogoFuentesAntExtRev.EsMismaFuente(atribuido, filaCatalogo)))
+                {
+                    continue; // el bloque ya recibió su atribución: el destino es único por ASE.
+                }
+
+                bloquesAtribuidos.Add(filaCatalogo);
+                loEscrito += fuente.SumaConceptos;
+                bloquesConDestino++;
+            }
+
+            var diferenciaBloques = Math.Abs(loLeido - loEscrito);
+            if (diferenciaBloques > Tolerancia)
+            {
+                AgregarError(
+                    errores,
+                    $"ASE {leaf.Ase.Id} · ANT EXT-REV · cierre por bloque: el dinero leído en los bloques de fuente ({loLeido}) no llega completo a lo que se escribe en la hoja ({loEscrito}), con {bloquesConDestino} bloque(s) del catálogo. Diferencia={diferenciaBloques} > ±{Tolerancia}.");
+            }
         }
     }
 

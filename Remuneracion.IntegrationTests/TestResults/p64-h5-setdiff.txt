@@ -1,0 +1,38 @@
+Plan 64 (ANT EXT-REV) - H5/F5 - SET-DIFF FINAL DE ROJOS
+Fecha: 2026-10-30
+Corrida: dotnet test Remuneracion.IntegrationTests/Remuneracion.IntegrationTests.csproj --no-build --logger "trx;LogFileName=p64-h5-suite.trx" --results-directory "Remuneracion.IntegrationTests/TestResults"
+Resultado: 1868 Total / 1845 Passed / 23 Failed / 0 Skipped (21 m 11 s)
+Baseline: Docs/T0-Plan64-Ant-Ext-Rev.md seccion 7.3 (23 rojos de entrada, ajenos a este plan)
+Set-diff de ROJOS: 0 NUEVOS / 0 DESAPARECIDOS (los 23 son el MISMO conjunto)
+Fixtures del plan: 69 casos / 0 fallos (H0=18, H1=20, H2=6, H3=5, H4=6, H5=14)
+
+Desviacion operativa declarada: una corrida previa se ejecuto en PARALELO con otra suite
+sobre el mismo bin; el log compartido (remuneracion_log_YYYYMMDD.txt) genero rollovers _00N y
+añadio 1 rojo artificial (ParidadCliTests.Paridad_5Ase_Q1_CliVsDirecto_ValoresYSnapshotsIguales).
+Con el entorno limpio (una sola corrida, sin locks sobre el log) ese fixture pasa 5/5. Este archivo
+reporta la corrida LIMPIA; el rojo no era del codigo ni del plan.
+
+Rojos (23, baseline T0 seccion 7.3):
+ 1. Remuneracion.IntegrationTests.AdopcionPlantillaV2T0Plan48Tests.T0P48_P3_R1_Manual_492_Formulas_DosPatrones
+ 2. Remuneracion.IntegrationTests.AdopcionPlantillaV2T0Plan48Tests.T0P48_P6_TablaParidad_40Hojas_ConteosReales
+ 3. Remuneracion.IntegrationTests.BalanceScPermutaTests.JulioAse5Bce_ManualDivergeDeLaFuente_ConstanteDocumentada
+ 4. Remuneracion.IntegrationTests.BalanceScPermutaTests.JulioQ2_PermutaBce_SubsidioAD_ContribucionAE_VsFuente_E2E
+ 5. Remuneracion.IntegrationTests.BalanceScTests.J9Consolidado_NoEsOraculoDeValoresBce
+ 6. Remuneracion.IntegrationTests.BaseConsistente2026082Tests.BaseAgosto2026082_EsInternamenteConsistenteConElManual
+ 7. Remuneracion.IntegrationTests.BaseConsistente2026082Tests.BaseAgosto2026082_MetadatosCanonicosEsperados
+ 8. Remuneracion.IntegrationTests.BasePeriodoPreflightTests.S5_OficialDirecto_EndToEnd_L9L13PorQuincena(codigo: "2026071", carpetaRel: "Docs/Prueba Julio-1/Insumos", columna: "N")
+ 9. Remuneracion.IntegrationTests.ComparadorSalidaVsManualTests.Salida5AseQ2_vs_Manual_CeroDivergenciasFueraDeBrechasDeclaradas(etiqueta: "agosto")
+10. Remuneracion.IntegrationTests.ComparadorSalidaVsManualTests.Salida5AseQ2_vs_Manual_CeroDivergenciasFueraDeBrechasDeclaradas(etiqueta: "julio")
+11. Remuneracion.IntegrationTests.GoldenBalanceScTests.ProcesadorPeriodo_CapaA2_4_BceContraGolden
+12. Remuneracion.IntegrationTests.GoldenConciliacionEmpresaTests.ProcesadorPeriodo_CapaA2_2_EmpresasYRecaudosContraGolden
+13. Remuneracion.IntegrationTests.GoldenInterventoriaTests.CapaA_InterventoriaYLEspeciales_AmbosCanonicos
+14. Remuneracion.IntegrationTests.GoldenLeafPathTests.Procesador_CapaA_LeafVisiblesFormulasYHashSinUsarCacheDeSalida
+15. Remuneracion.IntegrationTests.GoldenMultiAseTests.ProcesadorPeriodo_CapaAX5_LeafVisiblesFormulasHashYSumas
+16. Remuneracion.IntegrationTests.GoldenReporteBancoTests.ProcesadorPeriodo_CapaA2_3_BloquesYConsolidadoContraGolden
+17. Remuneracion.IntegrationTests.GoldenResumenMesYR10Tests.GoldenQ1_S3_ResumenMes_DE_EsCopia1a1DeLosRecaudos
+18. Remuneracion.IntegrationTests.InterventoriaTests.D3b_LEspecialesMenores_TodaLNumericaFueraDeMapas_EsCero_EnAmbosCanonicos
+19. Remuneracion.IntegrationTests.Regresion2026082Tests.Ejecutar_Periodo2026082_Modo5Ase_EndToEnd_DetRetri5De5VsR10
+20. Remuneracion.IntegrationTests.SharedFormulaR1GateTests.S1_RegenFrescaJulio_MaestrosSharedPreservados
+21. Remuneracion.IntegrationTests.ValidadorInteriorR1GateTests.S1_Agosto2026082_FormaInteriorVerde
+22. Remuneracion.IntegrationTests.ValidadorInteriorR1GateTests.S1_Julio2026072_FormaInteriorVerde
+23. Remuneracion.IntegrationTests.WorkbookLeafInputsTests.GenerarWorkbook_EscribeSoloLeafYPreservaFormulas

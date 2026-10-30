@@ -1,0 +1,138 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="45547c39-967b-4f04-af93-ebb6b2b0a604" name="lechaparro@FA-HTPA15NG 2026-10-30 16:29:25" runUser="ASEINGES\lechaparro" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-30T16:29:25.5818965-05:00" queuing="2026-10-30T16:29:25.5818970-05:00" start="2026-10-30T16:29:18.6697816-05:00" finish="2026-10-30T16:29:25.7383140-05:00" />
+  <TestSettings name="default" id="18aceac4-d805-4770-94bb-b7e365cc6429">
+    <Deployment runDeploymentRoot="lechaparro_FA-HTPA15NG_2026-10-30_16_29_25" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="1289539a-b14b-457c-bbe6-a4b4332eaae6" testId="7121a328-da20-44b6-6050-81ba5ccbbef9" testName="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Gate_CorpusReal30Insumos_NoReportaDivergenciasAntExtRev" computerName="FA-HTPA15NG" duration="00:00:00.8307271" startTime="2026-10-30T16:29:24.7810607-05:00" endTime="2026-10-30T16:29:25.6005413-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1289539a-b14b-457c-bbe6-a4b4332eaae6" />
+    <UnitTestResult executionId="907e45fd-c863-461b-83af-dc3eac0dc8d7" testId="b6528f7a-2c2d-6972-3e46-096c8df519c5" testName="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Novedad_DesdeCoherencia_NombraHojaAseYMontosComparados" computerName="FA-HTPA15NG" duration="00:00:00.6828201" startTime="2026-10-30T16:29:24.0304546-05:00" endTime="2026-10-30T16:29:24.7320680-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="907e45fd-c863-461b-83af-dc3eac0dc8d7">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.NotEmpty() Failure: Collection was empty</Message>
+          <StackTrace>   at Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Novedad_DesdeCoherencia_NombraHojaAseYMontosComparados() in C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\AntExtRevGatesCoherenciaTests.cs:line 255&#xD;
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+   at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="51d0c9f7-35cf-4a53-a57e-34659fc8f99a" testId="5390875d-1d91-0d9e-5c1c-2f1f0ce8499f" testName="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Gate_SigmaBloquesLeidosVsLoEscrito_DineroLeidoSinDestino_ReportaAseYDelta" computerName="FA-HTPA15NG" duration="00:00:00.0072946" startTime="2026-10-30T16:29:24.7685721-05:00" endTime="2026-10-30T16:29:24.7689026-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="51d0c9f7-35cf-4a53-a57e-34659fc8f99a">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Single() Failure: The collection was empty</Message>
+          <StackTrace>   at Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Gate_SigmaBloquesLeidosVsLoEscrito_DineroLeidoSinDestino_ReportaAseYDelta() in C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\AntExtRevGatesCoherenciaTests.cs:line 207&#xD;
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+   at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="30736ee9-de77-4c57-84e2-1e6c98201aaf" testId="343f9db8-0dec-ed11-efee-c805f594ac99" testName="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Gate_SinLecturaDelInsumo_EsNoOp" computerName="FA-HTPA15NG" duration="00:00:00.0029984" startTime="2026-10-30T16:29:24.7737329-05:00" endTime="2026-10-30T16:29:24.7747723-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="30736ee9-de77-4c57-84e2-1e6c98201aaf" />
+    <UnitTestResult executionId="87bba671-499f-4fb4-bb49-95f0554956ae" testId="46f0fb12-f6e2-91ac-4913-d5103097c33c" testName="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Clasificacion_HeredaLaDivergenciaAntExtRev_ComoNoDeclarada" computerName="FA-HTPA15NG" duration="00:00:00.0250641" startTime="2026-10-30T16:29:24.7793702-05:00" endTime="2026-10-30T16:29:24.7795289-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="87bba671-499f-4fb4-bb49-95f0554956ae">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.True() Failure&#xD;
+Expected: True&#xD;
+Actual:   False</Message>
+          <StackTrace>   at Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Clasificacion_HeredaLaDivergenciaAntExtRev_ComoNoDeclarada() in C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\AntExtRevGatesCoherenciaTests.cs:line 233&#xD;
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+   at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="b23e8bc0-8593-484d-a2fa-058cc926c610" testId="fcc8b7ab-5f0d-9370-a5d7-1fe748f7b892" testName="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Gate_SigmaConceptosVsTotalFuente_Diverge_ReportaAseFuenteYDelta" computerName="FA-HTPA15NG" duration="00:00:00.0006481" startTime="2026-10-30T16:29:24.7773385-05:00" endTime="2026-10-30T16:29:24.7774977-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b23e8bc0-8593-484d-a2fa-058cc926c610">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Single() Failure: The collection was empty</Message>
+          <StackTrace>   at Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Gate_SigmaConceptosVsTotalFuente_Diverge_ReportaAseFuenteYDelta() in C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\AntExtRevGatesCoherenciaTests.cs:line 165&#xD;
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+   at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Gate_SigmaConceptosVsTotalFuente_Diverge_ReportaAseFuenteYDelta" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="fcc8b7ab-5f0d-9370-a5d7-1fe748f7b892">
+      <Execution id="b23e8bc0-8593-484d-a2fa-058cc926c610" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests" name="Gate_SigmaConceptosVsTotalFuente_Diverge_ReportaAseFuenteYDelta" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Clasificacion_HeredaLaDivergenciaAntExtRev_ComoNoDeclarada" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="46f0fb12-f6e2-91ac-4913-d5103097c33c">
+      <Execution id="87bba671-499f-4fb4-bb49-95f0554956ae" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests" name="Clasificacion_HeredaLaDivergenciaAntExtRev_ComoNoDeclarada" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Novedad_DesdeCoherencia_NombraHojaAseYMontosComparados" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="b6528f7a-2c2d-6972-3e46-096c8df519c5">
+      <Execution id="907e45fd-c863-461b-83af-dc3eac0dc8d7" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests" name="Novedad_DesdeCoherencia_NombraHojaAseYMontosComparados" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Gate_SigmaBloquesLeidosVsLoEscrito_DineroLeidoSinDestino_ReportaAseYDelta" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="5390875d-1d91-0d9e-5c1c-2f1f0ce8499f">
+      <Execution id="51d0c9f7-35cf-4a53-a57e-34659fc8f99a" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests" name="Gate_SigmaBloquesLeidosVsLoEscrito_DineroLeidoSinDestino_ReportaAseYDelta" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Gate_SinLecturaDelInsumo_EsNoOp" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="343f9db8-0dec-ed11-efee-c805f594ac99">
+      <Execution id="30736ee9-de77-4c57-84e2-1e6c98201aaf" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests" name="Gate_SinLecturaDelInsumo_EsNoOp" />
+    </UnitTest>
+    <UnitTest name="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Gate_CorpusReal30Insumos_NoReportaDivergenciasAntExtRev" storage="c:\users\lechaparro.aseinges\onedrive - kumo2\proyectos\aaa\2026\08\automatización\remuneracion.integrationtests\bin\debug\net10.0\remuneracion.integrationtests.dll" id="7121a328-da20-44b6-6050-81ba5ccbbef9">
+      <Execution id="1289539a-b14b-457c-bbe6-a4b4332eaae6" />
+      <TestMethod codeBase="C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\bin\Debug\net10.0\Remuneracion.IntegrationTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests" name="Gate_CorpusReal30Insumos_NoReportaDivergenciasAntExtRev" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="7121a328-da20-44b6-6050-81ba5ccbbef9" executionId="1289539a-b14b-457c-bbe6-a4b4332eaae6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b6528f7a-2c2d-6972-3e46-096c8df519c5" executionId="907e45fd-c863-461b-83af-dc3eac0dc8d7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5390875d-1d91-0d9e-5c1c-2f1f0ce8499f" executionId="51d0c9f7-35cf-4a53-a57e-34659fc8f99a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="343f9db8-0dec-ed11-efee-c805f594ac99" executionId="30736ee9-de77-4c57-84e2-1e6c98201aaf" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="46f0fb12-f6e2-91ac-4913-d5103097c33c" executionId="87bba671-499f-4fb4-bb49-95f0554956ae" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fcc8b7ab-5f0d-9370-a5d7-1fe748f7b892" executionId="b23e8bc0-8593-484d-a2fa-058cc926c610" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="6" executed="6" passed="2" failed="4" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.4+50e68bbb8b (64-bit .NET 10.0.12)&#xD;
+[xUnit.net 00:00:01.70]   Discovering: Remuneracion.IntegrationTests&#xD;
+[xUnit.net 00:00:02.45]   Discovered:  Remuneracion.IntegrationTests&#xD;
+[xUnit.net 00:00:02.54]   Starting:    Remuneracion.IntegrationTests&#xD;
+[xUnit.net 00:00:03.33]       Assert.NotEmpty() Failure: Collection was empty&#xD;
+[xUnit.net 00:00:03.34]       Stack Trace:&#xD;
+[xUnit.net 00:00:03.34]         C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\AntExtRevGatesCoherenciaTests.cs(255,0): at Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Novedad_DesdeCoherencia_NombraHojaAseYMontosComparados()&#xD;
+[xUnit.net 00:00:03.34]            at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+[xUnit.net 00:00:03.34]            at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)&#xD;
+[xUnit.net 00:00:03.36]       Assert.Single() Failure: The collection was empty&#xD;
+[xUnit.net 00:00:03.36]       Stack Trace:&#xD;
+[xUnit.net 00:00:03.36]         C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\AntExtRevGatesCoherenciaTests.cs(207,0): at Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Gate_SigmaBloquesLeidosVsLoEscrito_DineroLeidoSinDestino_ReportaAseYDelta()&#xD;
+[xUnit.net 00:00:03.36]            at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+[xUnit.net 00:00:03.36]            at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)&#xD;
+[xUnit.net 00:00:03.37]       Assert.Single() Failure: The collection was empty&#xD;
+[xUnit.net 00:00:03.37]       Stack Trace:&#xD;
+[xUnit.net 00:00:03.37]         C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\AntExtRevGatesCoherenciaTests.cs(165,0): at Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Gate_SigmaConceptosVsTotalFuente_Diverge_ReportaAseFuenteYDelta()&#xD;
+[xUnit.net 00:00:03.37]            at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+[xUnit.net 00:00:03.37]            at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)&#xD;
+[xUnit.net 00:00:03.37]       Assert.True() Failure&#xD;
+[xUnit.net 00:00:03.37]       Expected: True&#xD;
+[xUnit.net 00:00:03.37]       Actual:   False&#xD;
+[xUnit.net 00:00:03.37]       Stack Trace:&#xD;
+[xUnit.net 00:00:03.37]         C:\Users\lechaparro.ASEINGES\OneDrive - kumo2\Proyectos\AAA\2026\08\Automatización\Remuneracion.IntegrationTests\AntExtRevGatesCoherenciaTests.cs(233,0): at Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Clasificacion_HeredaLaDivergenciaAntExtRev_ComoNoDeclarada()&#xD;
+[xUnit.net 00:00:03.37]            at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+[xUnit.net 00:00:03.37]            at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)&#xD;
+[xUnit.net 00:00:04.20]   Finished:    Remuneracion.IntegrationTests&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="FA-HTPA15NG" outcome="Error" timestamp="2026-10-30T16:29:24.7403597-05:00">
+        <Text>[xUnit.net 00:00:03.33]     Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Novedad_DesdeCoherencia_NombraHojaAseYMontosComparados [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="FA-HTPA15NG" outcome="Error" timestamp="2026-10-30T16:29:24.7699063-05:00">
+        <Text>[xUnit.net 00:00:03.36]     Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Gate_SigmaBloquesLeidosVsLoEscrito_DineroLeidoSinDestino_ReportaAseYDelta [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="FA-HTPA15NG" outcome="Error" timestamp="2026-10-30T16:29:24.7781588-05:00">
+        <Text>[xUnit.net 00:00:03.37]     Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Gate_SigmaConceptosVsTotalFuente_Diverge_ReportaAseFuenteYDelta [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="FA-HTPA15NG" outcome="Error" timestamp="2026-10-30T16:29:24.7799184-05:00">
+        <Text>[xUnit.net 00:00:03.37]     Remuneracion.IntegrationTests.AntExtRevGatesCoherenciaTests.Clasificacion_HeredaLaDivergenciaAntExtRev_ComoNoDeclarada [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

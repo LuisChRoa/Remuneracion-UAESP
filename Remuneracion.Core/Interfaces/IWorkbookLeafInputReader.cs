@@ -159,4 +159,29 @@ public interface IWorkbookLeafInputReader
     /// <param name="rutaR4">Ruta del archivo fuente R4 del ASE.</param>
     /// <returns>Matriz de detalle R4 (filas tipadas + componentes por encabezado).</returns>
     DetalleR4AseInputs LeerDetalleR4(Ase ase, string rutaR4);
+
+    /// <summary>
+    /// Plan 64 (H1.2/H1.3, D-02/D-04/D-06): lee el bloque 2 (fuente) del insumo
+    /// <c>RecaudosReversados_*.xlsx</c> —hoja <c>Sheet1</c>, por NOMBRE (Plan 27 D-A)— y devuelve los
+    /// cuatro conceptos de cada fuente presente más las trazas de ausencia/etiqueta no tabulada.
+    ///
+    /// <para><b>Contrato aditivo.</b> La implementación vive en un <c>partial</c> del reader
+    /// (<c>ExcelDataReaderWorkbookLeafInputReader.AntExtRev.cs</c>): las 100+ composiciones existentes
+    /// no se tocan y el resultado viaja en <see cref="WorkbookLeafInputs.AntExtRev"/> (<c>null</c> =
+    /// comportamiento anterior intacto).</para>
+    ///
+    /// <para><b>Reglas duras</b> (§2.4): marcadores localizados por texto normalizado (faltantes o
+    /// invertidos ⇒ fail-fast); conceptos por ETIQUETA contra <see cref="CatalogoConceptosAntExtRev"/>;
+    /// la terna de valores del insumo se identifica por su INVARIANTE (las tres columnas son copias del
+    /// mismo monto: se exige igualdad ±0,5 y se lee la de cierre) y nunca por una letra quemada
+    /// (enmienda M4); agrupación por fuente que cierra en su fila de total; Σ-conceptos ≡ total-fuente
+    /// ±0,5; el bloque 3 se lee SOLO como control. Los fallos lanzan
+    /// <c>CalculoInvalidoException</c> con código <c>ERR-FORMATO-FUENTE</c> y nombran ASE + archivo +
+    /// marcador/etiqueta/concepto + observado vs esperado.</para>
+    /// </summary>
+    /// <param name="ase">ASE asociado al insumo.</param>
+    /// <param name="periodo">Período de la liquidación (el insumo aplica en AMBAS quincenas, D-07).</param>
+    /// <param name="rutaRecaudosReversados">Ruta del <c>RecaudosReversados_*.xlsx</c> del ASE.</param>
+    /// <returns>Inputs de <c>ANT EXT-REV</c> del ASE (fuentes presentes + trazas + control del bloque 3).</returns>
+    AntExtRevAseInputs LeerAntExtRev(Ase ase, Periodo periodo, string rutaRecaudosReversados);
 }

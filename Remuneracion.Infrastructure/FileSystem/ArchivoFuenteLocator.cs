@@ -131,6 +131,18 @@ public class ArchivoFuenteLocator : ILocalizadorArchivosAse
         BuscarArchivoNormalizado(carpetaAse, "retribucionnegativa");
 
     /// <summary>
+    /// Plan 64 (H3.1, REQ-08/D-07): localiza el <c>RecaudosReversados_*.xlsx</c> del ASE, fuente del
+    /// bloque <c>ANT EXT-REV</c>. El nombre en disco es
+    /// <c>RecaudosReversados_to_date{INI}ddMMyyyy_to_date{FIN}ddMMyyyy___{ts}.xlsx</c> y el rango de
+    /// fechas cambia por período → mismo matcher normalizado que los otros insumos sin fecha fija:
+    /// stem sin acento <c>recaudosreversados</c>, <c>TopDirectoryOnly</c>, case-insensitive.
+    /// </summary>
+    /// <param name="carpetaAse">Carpeta del ASE.</param>
+    /// <returns>Ruta completa del archivo, o <c>null</c> si no se encuentra.</returns>
+    public string? BuscarRecaudosReversados(string carpetaAse) =>
+        BuscarArchivoNormalizado(carpetaAse, "recaudosreversados");
+
+    /// <summary>
     /// Busca el primer archivo .xlsx cuyo nombre normalizado (lowercase, sin diacríticos) comienza
     /// con el prefijo normalizado. Agnóstico a rango de fechas y a diacríticos (D4/V3/V9).
     /// </summary>

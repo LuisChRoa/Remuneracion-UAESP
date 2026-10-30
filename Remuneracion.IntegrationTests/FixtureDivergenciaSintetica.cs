@@ -138,5 +138,9 @@ internal static class FixtureDivergenciaSintetica
 
         public DetalleR4AseInputs LeerDetalleR4(Ase ase, string rutaR4) =>
             _inner.LeerDetalleR4(ase, rutaR4);
+
+        /// <summary>Plan 64 (H1.2, D-02): el contrato creció de forma aditiva; el decorador delega.</summary>
+        public AntExtRevAseInputs LeerAntExtRev(Ase ase, Periodo periodo, string rutaRecaudosReversados) =>
+            _inner.LeerAntExtRev(ase, periodo, rutaRecaudosReversados);
     }
 }

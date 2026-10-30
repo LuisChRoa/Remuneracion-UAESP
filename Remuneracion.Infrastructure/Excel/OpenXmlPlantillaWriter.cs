@@ -298,6 +298,14 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                 var workbookPart = workbook.WorkbookPart
                     ?? throw new CalculoInvalidoException(CodigoError.Plantilla, "El workbook abierto no tiene WorkbookPart válido.");
 
+                // Plan 64 (H2.1/H2.2, §2.6/§2.8 — REQ-07/D-04/D-08): plan-then-write de ANT EXT-REV.
+                // Se resuelve la geometría por ETIQUETAS y se valida la estructura de la hoja ANTES de
+                // escribir cualquier celda; `null` (ningún leaf trae la lectura del insumo) deja el
+                // comportamiento anterior intacto, sin abrir siquiera la hoja. El pegado corre con el
+                // resto de escrituras values-only, DENTRO del loop por ASE y ANTES de las
+                // lecturas-oráculo/gates que hay más abajo.
+                var planAntExtRev = PlanificarAntExtRev(workbookPart, leafInputs);
+
                 // Plan 36 (T2, Fase 1): el R1 se pega values-only por slot (mismo orden del espejo
                 // retirado: antes de la escritura de hojas y solo cuando están los 5 bloques). El
                 // writer recibe los bloques ya leídos y resuelve cada fila contra la geometría del
@@ -331,6 +339,12 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                     EscribirCeldasBanco(workbookPart, leaf);
                     EscribirCeldasBalanceSc(workbookPart, leaf);
                     EscribirCeldasAjustesSfT(workbookPart, leaf);
+
+                    // Plan 64 (H2.1, §2.3/§2.6): ANT EXT-REV por fuente PRESENTE (2 filas × 2 reportes
+                    // del bloque de su etiqueta, columna del ASE por etiqueta). Fuente ausente = no se
+                    // toca (cero del template + traza). Concepto ausente en fuente presente llega como
+                    // 0 explícito del lector y se escribe numérico.
+                    EscribirCeldasAntExtRev(workbookPart, leaf, planAntExtRev);
 
                     // Plan 29 (T3, Unidad R): desglose-detalle R2/R4 en la MISMA pasada atómica
                     // (tras los agregados E43/D73 y el espejo R1; el guard anti-fórmula es la red).
@@ -388,6 +402,15 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
                 // gran total coincida con lo que la fuente declara por componente. Un bloque vacío en
                 // Q1 dejaba CONSOLIDADO!D28:D32 en cero y la corrida certificaba OK.
                 VerificarDetalleR2R4(workbookPart, leafInputs);
+
+                // Plan 64 (H2.2, §2.6 — REQ-07/D-08): lectura de VUELTA de ANT EXT-REV sobre los bytes
+                // ya guardados. Las 100 celdas de valor se cotejan contra el dominio ±0,5; una
+                // divergencia nombra hoja + celda + esperado + escrito y corta la corrida AQUÍ (misma
+                // familia que el pegado del R10 y el detalle R2/R4: el workbook queda completo y se
+                // conserva como evidencia). Las fórmulas del bloque superior y del TOTAL por columna
+                // quedan fuera del destino y su preservación la exige el gate de paquete por bytes.
+                VerificarLecturaAntExtRev(workbookPart, leafInputs);
+
             }
 
             // Plan 58 (H1.2): gate de integridad del paquete POST-escritura (por bytes, sin Excel).
@@ -1961,6 +1984,240 @@ public class OpenXmlPlantillaWriter : IPlantillaWriter, IWorkbookLeafWriter, IEs
             EscribirValorNumerico(workbookPart, HojaRetribucionNegativa, celda, valor, $"RetribucionNegativa.ASE{leaf.Ase.Id}.{celda}");
         }
     }
+
+    // ═════════════════════════════════════════════════════════════════════════════════════════════
+    // Plan 64 (H2, §2.6/§2.8 — REQ-07): ANT EXT-REV values-only
+    // ═════════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Celda de valor de <c>ANT EXT-REV</c> con su expectativa completa: la identidad conceptual
+    /// (<c>ASE · bloque · fila · reporte</c>), el valor que debe quedar y si el writer la escribe.
+    /// </summary>
+    /// <param name="AseId">ASE del destino.</param>
+    /// <param name="Celda">Referencia A1 resuelta por la plantilla (nunca una letra del código).</param>
+    /// <param name="Valor">Valor esperado (el del insumo si la fuente está presente; 0 si no).</param>
+    /// <param name="SeEscribe">Verdad si la fuente está PRESENTE y la celda se pega.</param>
+    /// <param name="Identidad">Identidad legible para las trazas y los mensajes de fallo.</param>
+    internal sealed record CeldaAntExtRev(uint AseId, string Celda, decimal Valor, bool SeEscribe, string Identidad);
+
+    /// <summary>
+    /// Plan 64 (H2.1/H2.2, §2.6/§2.8 — REQ-07/D-04/D-05): PLAN del pegado de <c>ANT EXT-REV</c>.
+    ///
+    /// <para><b>Null = no-op por construcción.</b> Si ningún leaf trae la lectura del insumo
+    /// (<see cref="WorkbookLeafInputs.AntExtRev"/>), devuelve <c>null</c> y el writer no abre siquiera
+    /// la hoja: el comportamiento anterior queda intacto (misma compatibilidad que el contrato
+    /// nullable de H1).</para>
+    ///
+    /// <para><b>Plan-then-write.</b> Toda la geometría se resuelve ANTES de escribir con
+    /// <see cref="ResolvedorDestinoAntExtRev"/> (identidad por etiquetas, cero coordenadas) y toda
+    /// fuente PRESENTE que el catálogo no sepa ubicar falla con <c>ERR-FORMATO-FUENTE</c> nombrando
+    /// ASE + fuente: dinero que no se puede colocar jamás se omite en silencio.</para>
+    ///
+    /// <para><b>Ausencia (D-04).</b> Una fuente del catálogo ausente del insumo NO se escribe: sus
+    /// celdas conservan el cero del template (la traza <c>ANTEXTREV:{fuente}</c> la emite el lector).
+    /// Los bloques sin fila de catálogo (HUE-1: EAAB CIUDAD LIMPIA / ENERBIT) tampoco se escriben y su
+    /// cero de template se verifica en la lectura de vuelta. Un CONCEPTO ausente dentro de una fuente
+    /// PRESENTE llega como <c>0</c> explícito del lector y se pega numérico (M1: número, no string).</para>
+    /// </summary>
+    /// <param name="workbookPart">Workbook de trabajo (la copia que se está escribiendo).</param>
+    /// <param name="leafInputs">Leafs del período (uno por ASE).</param>
+    internal static IReadOnlyList<CeldaAntExtRev>? PlanificarAntExtRev(
+        WorkbookPart workbookPart,
+        IReadOnlyList<WorkbookLeafInputs> leafInputs)
+    {
+        ArgumentNullException.ThrowIfNull(workbookPart);
+        ArgumentNullException.ThrowIfNull(leafInputs);
+
+        var conLectura = leafInputs.Where(leaf => leaf.AntExtRev is not null).ToArray();
+        if (conLectura.Length == 0)
+        {
+            return null;
+        }
+
+        var destinos = ResolvedorDestinoAntExtRev.Resolver(workbookPart);
+        var plan = new List<CeldaAntExtRev>();
+
+        foreach (var leaf in conLectura.OrderBy(l => l.Ase.Id))
+        {
+            var lectura = leaf.AntExtRev!;
+
+            foreach (var fuente in lectura.Fuentes)
+            {
+                if (CatalogoFuentesAntExtRev.BuscarPorEtiquetaFuente(fuente.FuenteEtiqueta) is null)
+                {
+                    throw new CalculoInvalidoException(
+                        CodigoError.FormatoFuente,
+                        $"ERR-FORMATO-FUENTE: ASE {leaf.Ase.Id} · ANT EXT-REV: la fuente " +
+                        $"'{fuente.FuenteEtiqueta}' no está tabulada en el catálogo y trae dinero " +
+                        $"({fuente.SumaConceptos}); no se escribe en ninguna celda ni se descarta en " +
+                        "silencio (HUE-1: sin cita no hay mapeo).");
+                }
+            }
+
+            foreach (var destino in destinos.Where(d => d.AseId == leaf.Ase.Id))
+            {
+                var identidad = $"ANT EXT-REV · ASE {leaf.Ase.Id} · '{destino.EtiquetaBloque}' · " +
+                                $"{destino.Fila} · {destino.Reporte} · {destino.Celda}";
+                var fuenteDeLaFila = FuentePresenteDeLaFila(lectura, destino.EtiquetaBloque);
+                if (fuenteDeLaFila is null)
+                {
+                    // Fuente ausente o bloque sin fila de catálogo (HUE-1): la celda conserva el cero
+                    // del template. Se registra como expectativa para que la lectura de vuelta
+                    // compruebe las 100 celdas, no solo las que se pegan.
+                    plan.Add(new CeldaAntExtRev((uint)leaf.Ase.Id, destino.Celda, 0m, false, identidad));
+                    continue;
+                }
+
+                var concepto = CatalogoConceptosAntExtRev.Conceptos.SingleOrDefault(c =>
+                        string.Equals(c.Fila, destino.Fila, StringComparison.Ordinal)
+                        && string.Equals(c.Reporte, destino.Reporte, StringComparison.Ordinal))
+                    ?? throw new CalculoInvalidoException(
+                        CodigoError.Plantilla,
+                        $"ERR-PLANTILLA: {identidad}: la fila de la plantilla no corresponde a ninguno de " +
+                        "los cuatro conceptos del catálogo de ANT EXT-REV; no se puede atribuir el monto.");
+
+                plan.Add(new CeldaAntExtRev(
+                    (uint)leaf.Ase.Id,
+                    destino.Celda,
+                    ValorConcepto(fuenteDeLaFila, concepto.Indice),
+                    true,
+                    identidad));
+            }
+        }
+
+        return plan;
+    }
+
+    /// <summary>
+    /// Plan 64 (H2.1, §2.6): pega los valores de <c>ANT EXT-REV</c> de UN ASE. Solo escribe las celdas
+    /// cuya fuente está PRESENTE (<see cref="CeldaAntExtRev.SeEscribe"/>); el guard anti-fórmula de
+    /// <see cref="EscribirValorNumerico"/> es la red que impide tocar el bloque superior y el TOTAL por
+    /// columna. Sin redondeo adicional: el monto del origen viaja tal cual (signo incluido).
+    /// </summary>
+    private static void EscribirCeldasAntExtRev(
+        WorkbookPart workbookPart,
+        WorkbookLeafInputs leaf,
+        IReadOnlyList<CeldaAntExtRev>? plan)
+    {
+        if (plan is null)
+        {
+            return;
+        }
+
+        foreach (var celda in plan.Where(c => c.AseId == (uint)leaf.Ase.Id && c.SeEscribe))
+        {
+            EscribirValorNumerico(workbookPart, ResolvedorDestinoAntExtRev.Hoja, celda.Celda, celda.Valor, celda.Identidad);
+        }
+    }
+
+    /// <summary>
+    /// Plan 64 (H2.2, §2.6 — REQ-07/D-08): LECTURA DE VUELTA de <c>ANT EXT-REV</c> sobre el workbook
+    /// ya guardado. Exige las 100 celdas de valor del período (<see cref="PlanificarAntExtRev"/> arma la
+    /// expectativa completa: presentes con su monto, ausentes con el cero del template) contra el
+    /// dominio ±0,5. Divergencia ⇒ <c>ERR-ESCRITURA</c> con hoja + celda + esperado + escrito; es una
+    /// lectura-de-vuelta de valores, así que el workbook completo se conserva como evidencia.
+    /// </summary>
+    /// <param name="workbookPart">Workbook generado, abierto en solo lectura.</param>
+    /// <param name="leafInputs">Leafs del período con la lectura del insumo.</param>
+    internal static void VerificarLecturaAntExtRev(WorkbookPart workbookPart, IReadOnlyList<WorkbookLeafInputs> leafInputs)
+    {
+        var plan = PlanificarAntExtRev(workbookPart, leafInputs);
+        if (plan is null)
+        {
+            return;
+        }
+
+        var worksheet = ObtenerHoja(workbookPart, ResolvedorDestinoAntExtRev.Hoja, "lectura de vuelta ANT EXT-REV");
+        foreach (var celda in plan)
+        {
+            var observado = LeerValorAntExtRev(worksheet, celda);
+            if (Math.Abs(observado - celda.Valor) <= 0.5m)
+            {
+                continue;
+            }
+
+            throw new CalculoInvalidoException(
+                CodigoError.Escritura,
+                $"ERR-ESCRITURA: {ResolvedorDestinoAntExtRev.Hoja}!{celda.Celda} ({celda.Identidad}) quedó en " +
+                $"{observado} y el valor del insumo es {celda.Valor} (Δ {observado - celda.Valor}). La " +
+                "lectura de vuelta no coteja: el workbook se conserva para revisión y la corrida no sigue.");
+        }
+    }
+
+    /// <summary>
+    /// Valor numérico de una celda de <c>ANT EXT-REV</c>. Una celda vacía vale 0 (el template mide
+    /// <c>&lt;v&gt;0</c> en las 100 y la ausencia de valor es el cero declarado, §0.6-H1); un contenido
+    /// no numérico en una celda de dinero es fail-fast (nunca 0 silencioso).
+    /// </summary>
+    private static decimal LeerValorAntExtRev(Worksheet worksheet, CeldaAntExtRev celda)
+    {
+        var cell = ObtenerCelda(worksheet, celda.Celda)
+            ?? throw new CalculoInvalidoException(
+                CodigoError.Escritura,
+                $"ERR-ESCRITURA: {ResolvedorDestinoAntExtRev.Hoja}!{celda.Celda} ({celda.Identidad}) no existe " +
+                "en el workbook generado: la rejilla de valores desapareció al escribir.");
+
+        if (cell.CellValue is null || string.IsNullOrWhiteSpace(cell.CellValue.InnerText))
+        {
+            return 0m;
+        }
+
+        if (!decimal.TryParse(
+                cell.CellValue.InnerText,
+                NumberStyles.Any,
+                CultureInfo.InvariantCulture,
+                out var valor))
+        {
+            throw new CalculoInvalidoException(
+                CodigoError.Escritura,
+                $"ERR-ESCRITURA: {ResolvedorDestinoAntExtRev.Hoja}!{celda.Celda} ({celda.Identidad}) quedó con " +
+                $"un valor NO numérico ('{cell.CellValue.InnerText}'); el monto del insumo es {celda.Valor}.");
+        }
+
+        return valor;
+    }
+
+    /// <summary>
+    /// Fuente PRESENTE del leaf cuya etiqueta de bloque es la del destino; <c>null</c> = la fuente está
+    /// ausente (o el bloque no tiene fila de catálogo — HUE-1: CIUDAD LIMPIA / ENERBIT). El cruce usa el
+    /// catálogo citado (misma regla pura que el lector), nunca una comparación de cadenas paralela.
+    /// </summary>
+    private static AntExtRevFuenteInputs? FuentePresenteDeLaFila(AntExtRevAseInputs lectura, string etiquetaBloque)
+    {
+        var filaDestino = CatalogoFuentesAntExtRev.BuscarPorEtiquetaBloque(etiquetaBloque);
+        if (filaDestino is null)
+        {
+            return null;
+        }
+
+        foreach (var fuente in lectura.Fuentes)
+        {
+            var filaFuente = CatalogoFuentesAntExtRev.BuscarPorEtiquetaFuente(fuente.FuenteEtiqueta);
+            if (filaFuente is not null && CatalogoFuentesAntExtRev.EsMismaFuente(filaFuente, filaDestino))
+            {
+                return fuente;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Los cuatro montos de una fuente en el ORDEN CONGELADO por T0 (§1.2/§2.2: aplicado R3, anticipos
+    /// R3, aplicado R4, anticipos R4). El índice es el que declara el catálogo de conceptos; los campos
+    /// son el contrato del modelo, no una coordenada de la plantilla.
+    /// </summary>
+    private static decimal ValorConcepto(AntExtRevFuenteInputs fuente, int indice) => indice switch
+    {
+        0 => fuente.AplicadoR3,
+        1 => fuente.AnticiposR3,
+        2 => fuente.AplicadoR4,
+        3 => fuente.AnticiposR4,
+        _ => throw new CalculoInvalidoException(
+            CodigoError.Plantilla,
+            $"El catálogo de conceptos de ANT EXT-REV declara el índice {indice} y el modelo solo tiene los " +
+            "cuatro conceptos congelados por T0: no se inventa un quinto destino.")
+    };
 
     /// <summary>
     /// Plan 29 (T3, Unidad R — escritura) / Plan 47 (H1, S2.1): escribe el desglose-detalle por

@@ -178,6 +178,18 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
                 ?? _localizador.BuscarArchivo(carpetaAse, "ReversionPorComponente")
                 ?? throw new ArchivoFuenteNoEncontradoException(CodigoError.FuenteNoEncontrada, $"No se encontró R4 del ASE {idAse} en {carpetaAse}.");
 
+            // Plan 64 (H3.1, §2.7/§2.8): el insumo de ANT EXT-REV se localiza con su FINDER DEDICADO
+            // (prefijo normalizado "recaudosreversados", mismo directorio y mismo match
+            // case-insensitive de los demás insumos por ASE) y se exige aquí como DEFENSA EN
+            // PROFUNDIDAD: el preflight del período ya lo enumera antes de leer (misma fuente de
+            // verdad, Plan 26 D-C/D-D), pero el runtime no puede depender de que el preflight haya
+            // corrido (Plan 26 R-F-6).
+            var rutaRecaudosReversados = _localizador.BuscarRecaudosReversados(carpetaAse)
+                ?? throw new ArchivoFuenteNoEncontradoException(
+                    CodigoError.FuenteNoEncontrada,
+                    $"No se encontró RecaudosReversados (insumo de ANT EXT-REV) del ASE {idAse} en {carpetaAse}.");
+
+
             progreso?.Report($"ASE {idAse}: leyendo R1, R2 y R4...");
             Log.Information("ASE {AseId}: leyendo R1, R2 y R4...", idAse);
             var r1 = _recaudoReader.LeerR1(rutaR1);
@@ -187,6 +199,15 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
             progreso?.Report($"ASE {idAse}: leyendo inputs leaf del workbook...");
             Log.Information("ASE {AseId}: leyendo inputs leaf del workbook...", idAse);
             var leaf = _leafReader.LeerLeafInputs(ase, solicitud.Periodo, rutaR1, rutaR2, rutaR4);
+
+            // Plan 64 (H2.1, §2.8): ANT EXT-REV se LEE aquí, antes de cualquier cálculo y antes de
+            // escribir. El lector hace fail-fast ERR-FORMATO-FUENTE (ASE + archivo + marcador/etiqueta
+            // + observado vs esperado) si el insumo no cierra: nunca se calcula ni se escribe con un
+            // insumo roto. Las fuentes AUSENTES del catálogo se omiten con traza (no se inventan).
+            progreso?.Report($"ASE {idAse}: leyendo el recaudo reversado (ANT EXT-REV)...");
+            Log.Information("ASE {AseId}: leyendo el recaudo reversado (ANT EXT-REV)...", idAse);
+            leaf.AntExtRev = _leafReader.LeerAntExtRev(ase, solicitud.Periodo, rutaRecaudosReversados);
+
 
             // Plan 21 (T4, R-E-1/R-E-5): bloque espejo estructural del R1 por ASE — la fuente del
             // período actual define la forma (sin cardinalidades ni ocurrencias congeladas). Se lee
@@ -763,6 +784,11 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
                     .SelectMany(leaf => (leaf.ReporteBanco?.Ases ?? Array.Empty<ReporteBancoAseInputs>())
                         .SelectMany(bloque => bloque.FuentesAusentesBanco)
                         .Select(fuente => $"ASE {leaf.Ase.Id} · {fuente}")))
+                // Plan 64 (H2.1, §2.4 paso 5): la traza ANTEXTREV:{fuente} del lector viaja también al
+                // resultado del período, igual que las ausencias del Plan 50/51 (nunca un 0 silencioso).
+                .Concat(leafs
+                    .SelectMany(leaf => (leaf.AntExtRev?.FuentesAusentes ?? [])
+                        .Select(fuente => $"ASE {leaf.Ase.Id} · {fuente}")))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList(),
             EtiquetasNoReconocidas = leafs
@@ -771,6 +797,11 @@ public sealed class ProcesadorPeriodo : IProcesadorPeriodo
                 .Concat(leafs
                     .SelectMany(leaf => (leaf.ReporteBanco?.Ases ?? Array.Empty<ReporteBancoAseInputs>())
                         .SelectMany(bloque => bloque.EtiquetasBancoNoReconocidas)
+                        .Select(etiqueta => $"ASE {leaf.Ase.Id} · {etiqueta}")))
+                // Plan 64 (H2.1, §2.4 paso 6): la etiqueta de fuente que el catálogo no tabula queda como
+                // EVIDENCIA auditable (si además había una ausencia, el lector ya hizo fail-fast A3).
+                .Concat(leafs
+                    .SelectMany(leaf => (leaf.AntExtRev?.EtiquetasNoReconocidas ?? [])
                         .Select(etiqueta => $"ASE {leaf.Ase.Id} · {etiqueta}")))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList()
